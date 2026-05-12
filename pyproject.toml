@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "routedeck-core"
+version = "0.1.0"
+description = "Manifest-first contracts for graph-driven agentic interfaces."
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.0"]
+readme = "README.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["routedeck_core"]
