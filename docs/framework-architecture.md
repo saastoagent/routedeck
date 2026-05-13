@@ -25,6 +25,22 @@ SaaStoAgent-specific files under `backend/services/route_deck/` are an adapter/c
 
 Stack-specific helpers for LangGraph or FastAPI can live in RouteDeck as adapters, but they must stay product-neutral.
 
+## LangGraph Adapter
+
+`routedeck_langgraph` is the optional bridge for LangGraph apps. It owns the LangGraph dependency and provides:
+
+- Manifest-to-handler parity validation.
+- Edge condition resolver validation.
+- Transition assertions that verify handler output stays on RouteDeck edges.
+- A common `StateGraph` builder for apps that want RouteDeck-style grouped graph wiring.
+
+Use the adapter in two levels:
+
+1. Validation-only: keep an existing LangGraph graph and call `validate_langgraph_contract(...)` plus `assert_route_transition(...)`.
+2. Graph-builder: call `build_route_deck_state_graph(...)` to scaffold the common `turn_start -> route_action -> group -> node -> finalize` wiring.
+
+Do not put product-specific auth, workspace, or persistence logic into the adapter.
+
 ## Frontend Package
 
 `@routedeck/react` is the frontend package. It should stay free of SaaStoAgent store, auth, routes, and domain components.

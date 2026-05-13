@@ -11,3 +11,5 @@ It demonstrates:
 - React debugger rendering through `@routedeck/react`.
 
 The example is intentionally small. It does not use LangGraph directly, but the shape mirrors how a LangGraph/FastAPI backend should expose RouteDeck metadata.
+
+For a backend-only LangGraph integration, see `examples/minimal-langgraph-adapter`.

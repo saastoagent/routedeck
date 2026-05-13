@@ -7,12 +7,30 @@ It defines how agent-centric platforms expose navigable graph state, valid actio
 It is split into:
 
 - `routedeck_core`: Python contracts and validation helpers for backend runtimes that sit above LangGraph/FastAPI.
+- `routedeck_langgraph`: optional LangGraph adapter for handler parity, edge resolver validation, transition assertions, and common graph wiring.
 - `react`: React debugger and type contracts for frontend shells.
 - `docs`: framework-level architecture and packaging notes.
+- `examples/minimal-langgraph-adapter`: minimal backend-only LangGraph adapter example.
 - `examples/minimal-fastapi-react`: minimal working example showing the full contract without SaaStoAgent product code.
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
 
-The framework is a sibling local package during development. SaaStoAgent consumes `routedeck-core` and `@routedeck/react` from this folder instead of copying framework source into the SaaStoAgent project.
+The framework is a sibling local package during development. SaaStoAgent consumes `routedeck-core`, `routedeck-langgraph`, and `@routedeck/react` from this folder instead of copying framework source into the SaaStoAgent project.
+
+## LangGraph Adapter
+
+`routedeck_core` stays runtime-neutral and dependency-light. Install the optional LangGraph extra only for LangGraph apps:
+
+```powershell
+pip install -e ".[langgraph]"
+```
+
+The adapter exposes:
+
+- `validate_langgraph_contract(...)`
+- `assert_route_transition(...)`
+- `build_route_deck_state_graph(...)`
+
+Use it when LangGraph should execute the flow while RouteDeck remains the visible navigation contract.
 
 ## Repo-Local Skills
 

@@ -31,6 +31,12 @@ Wire RouteDeck around the graph so the backend declares current state, valid con
 
 ## LangGraph Adapter Pattern
 
+Prefer the optional `routedeck_langgraph` package when it is available:
+
+- `validate_langgraph_contract(...)` for manifest, handler, resolver, and group parity.
+- `assert_route_transition(...)` for checking handler output against RouteDeck edges.
+- `build_route_deck_state_graph(...)` for common grouped graph wiring.
+
 Keep these pieces separate:
 
 - `manifest/catalog`: RouteDeck node, edge, action definitions.

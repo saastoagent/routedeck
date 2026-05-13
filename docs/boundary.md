@@ -20,4 +20,6 @@ Consuming products own:
 - REST tool execution decisions
 - product shell layout, routing, state, and visual identity
 
-For SaaStoAgent, `backend/services/route_deck/` remains the product adapter/catalog. It imports RouteDeck primitives from `routedeck_core` and passes RouteDeck snapshots to the SaaStoAgent frontend, which renders framework UI through `@routedeck/react`.
+For SaaStoAgent, `backend/services/route_deck/` remains the product adapter/catalog. It imports RouteDeck primitives from `routedeck_core`, uses `routedeck_langgraph` for LangGraph contract checks and transition assertions, and passes RouteDeck snapshots to the SaaStoAgent frontend, which renders framework UI through `@routedeck/react`.
+
+`routedeck_core` must not import LangGraph. LangGraph support lives in the optional `routedeck_langgraph` adapter so non-LangGraph runtimes can still use RouteDeck manifests and snapshots.
