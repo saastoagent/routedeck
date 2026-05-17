@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-RouteDeckLane = Literal["system", "auth", "workspace", "terminal"]
+RouteDeckLane = Literal["system", "auth", "saas_agent", "terminal"]
 RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
 RouteDeckActionEmphasis = Literal["primary", "secondary"]
 RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
