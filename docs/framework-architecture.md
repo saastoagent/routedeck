@@ -1,5 +1,7 @@
 # RouteDeck Framework Architecture
 
+> Canonical direction: read `docs/agentic-ui-state-runtime.md` first. RouteDeck is graph-backed state management for agentic UI. This document describes the older package split and should be interpreted through that runtime/store model.
+
 RouteDeck is a framework layer for agentic navigation UX. It is not a replacement for LangGraph, FastAPI, or React.
 
 RouteDeck owns the contract and reusable UI for graph navigation: manifest shape, runtime snapshot shape, valid and blocked action surfaces, recovery prompts, forms, graph debugging, and future authoring surfaces. Product applications own domain graph behavior, auth, workspace semantics, and business decisions.

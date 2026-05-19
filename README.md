@@ -1,6 +1,8 @@
 # RouteDeck
 
-RouteDeck is an agentic navigation UX framework for LangGraph/FastAPI/React-style applications.
+Start with `docs/agentic-ui-state-runtime.md` for the current architecture direction.
+
+RouteDeck is graph-backed state management for agentic UI in LangGraph/FastAPI/React-style applications.
 
 It defines how agent-centric platforms expose navigable graph state, valid actions, blocked actions, recovery prompts, forms, runtime snapshots, and debugger/authoring UI. RouteDeck can provide direct adapters for LangGraph, FastAPI, and React, but product behavior stays in the consuming application.
 

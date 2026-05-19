@@ -1,24 +1,42 @@
 from .models import (
     RouteDeckActionSpec,
+    RouteDeckDispatchInput,
+    RouteDeckDispatchResult,
     RouteDeckEdgeSpec,
+    RouteDeckEvent,
     RouteDeckFieldSpec,
+    RouteDeckIntrospection,
     RouteDeckManifest,
     RouteDeckNodeSpec,
+    RouteDeckOperation,
+    RouteDeckProjection,
+    RouteDeckRuntimeState,
     RouteDeckRuntimeSnapshot,
     RouteDeckSensitivePolicy,
+    RouteDeckSurface,
 )
-from .runtime import build_runtime_snapshot, reachable_nodes
+from .runtime import RouteDeckRuntime, build_projection, build_runtime_snapshot, reachable_nodes
 from .validation import RouteDeckValidationError, validate_manifest
 
 __all__ = [
     "RouteDeckActionSpec",
+    "RouteDeckDispatchInput",
+    "RouteDeckDispatchResult",
     "RouteDeckEdgeSpec",
+    "RouteDeckEvent",
     "RouteDeckFieldSpec",
+    "RouteDeckIntrospection",
     "RouteDeckManifest",
     "RouteDeckNodeSpec",
+    "RouteDeckOperation",
+    "RouteDeckProjection",
+    "RouteDeckRuntime",
+    "RouteDeckRuntimeState",
     "RouteDeckRuntimeSnapshot",
     "RouteDeckSensitivePolicy",
+    "RouteDeckSurface",
     "RouteDeckValidationError",
+    "build_projection",
     "build_runtime_snapshot",
     "reachable_nodes",
     "validate_manifest",

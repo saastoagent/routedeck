@@ -4,12 +4,34 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-RouteDeckLane = Literal["system", "auth", "saas_agent", "terminal"]
+RouteDeckLane = str
 RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
 RouteDeckActionEmphasis = Literal["primary", "secondary"]
 RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
 RouteDeckActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
 RouteDeckFieldType = Literal["text", "password", "select", "url"]
+RouteDeckSafetyClass = Literal[
+    "navigation",
+    "state_selection",
+    "draft",
+    "read_external",
+    "write_external",
+    "destructive",
+    "credential",
+    "admin",
+]
+RouteDeckExecutionMode = Literal["auto", "review", "blocked"]
+RouteDeckSurfaceRole = Literal["frame", "active", "diagnostic"]
+RouteDeckRuntimeStatus = Literal["idle", "refreshing", "streaming", "dispatching", "recovering", "failed"]
+RouteDeckEventType = Literal[
+    "projection_update",
+    "operation_started",
+    "operation_completed",
+    "graph_transition",
+    "guard_failure",
+    "surface_update",
+    "runtime_status",
+]
 
 
 class RouteDeckFieldSpec(BaseModel):
@@ -52,6 +74,8 @@ class RouteDeckNodeSpec(BaseModel):
     expected_input: str | None = None
     recovery_prompt: str | None = None
     parent: str | None = None
+    allowed_surfaces: dict[str, list[str]] = Field(default_factory=dict)
+    default_surfaces: dict[str, str] = Field(default_factory=dict)
 
 
 class RouteDeckEdgeSpec(BaseModel):
@@ -89,4 +113,81 @@ class RouteDeckRuntimeSnapshot(BaseModel):
     executed_nodes: list[str] = Field(default_factory=list)
     progress: dict[str, Any] = Field(default_factory=dict)
     recovery_prompts: list[str] = Field(default_factory=list)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckOperation(BaseModel):
+    id: str
+    label: str
+    description: str | None = None
+    safety_class: RouteDeckSafetyClass = "navigation"
+    execution_mode: RouteDeckExecutionMode = "review"
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    guard: str | None = None
+    target_node: str | None = None
+
+
+class RouteDeckSurface(BaseModel):
+    name: str
+    component: str
+    variant: str = "default"
+    role: RouteDeckSurfaceRole = "frame"
+    props: dict[str, Any] = Field(default_factory=dict)
+    lifecycle: Literal["ephemeral", "stable"] = "ephemeral"
+
+
+class RouteDeckProjection(BaseModel):
+    current_context: str
+    graph_node: str
+    projection_version: int = 1
+    legal_operations: list[RouteDeckOperation] = Field(default_factory=list)
+    surfaces: dict[str, RouteDeckSurface] = Field(default_factory=dict)
+    presentation_state: dict[str, Any] = Field(default_factory=dict)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckEvent(BaseModel):
+    event_type: RouteDeckEventType
+    turn_id: str | None = None
+    projection_version: int | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckRuntimeState(BaseModel):
+    projection: RouteDeckProjection
+    status: RouteDeckRuntimeStatus = "idle"
+    graph_state: dict[str, Any] = Field(default_factory=dict)
+    location: str | None = None
+    last_event: RouteDeckEvent | None = None
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckDispatchInput(BaseModel):
+    operation_id: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    graph_state: dict[str, Any] = Field(default_factory=dict)
+    projection_version: int | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckDispatchResult(BaseModel):
+    operation_id: str
+    accepted: bool
+    state: RouteDeckRuntimeState
+    active_surface: RouteDeckSurface | None = None
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    events: list[RouteDeckEvent] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckIntrospection(BaseModel):
+    current_node: str | None = None
+    reachable_nodes: list[str] = Field(default_factory=list)
+    legal_operations: list[dict[str, Any]] = Field(default_factory=list)
+    blocked_operations: list[dict[str, Any]] = Field(default_factory=list)
+    guard_explanations: list[str] = Field(default_factory=list)
+    surfaces: dict[str, Any] = Field(default_factory=dict)
+    route_traces: list[dict[str, Any]] = Field(default_factory=list)
     diagnostics: dict[str, Any] = Field(default_factory=dict)

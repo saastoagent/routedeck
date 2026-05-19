@@ -1,8 +1,44 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, AsyncIterator, Protocol, runtime_checkable
 
-from .models import RouteDeckManifest
+from .models import (
+    RouteDeckDispatchInput,
+    RouteDeckDispatchResult,
+    RouteDeckEvent,
+    RouteDeckIntrospection,
+    RouteDeckManifest,
+    RouteDeckOperation,
+    RouteDeckProjection,
+    RouteDeckRuntimeState,
+    RouteDeckSurface,
+)
+
+
+@runtime_checkable
+class RouteDeckRuntime(Protocol):
+    async def snapshot(self, context: dict[str, Any] | None = None) -> RouteDeckRuntimeState:
+        ...
+
+    async def projection(self, context: dict[str, Any] | None = None) -> RouteDeckProjection:
+        ...
+
+    async def dispatch(
+        self,
+        request: RouteDeckDispatchInput,
+        context: dict[str, Any] | None = None,
+    ) -> RouteDeckDispatchResult:
+        ...
+
+    async def inspect(
+        self,
+        query: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> RouteDeckIntrospection:
+        ...
+
+    def stream(self, context: dict[str, Any] | None = None) -> AsyncIterator[RouteDeckEvent]:
+        ...
 
 
 def reachable_nodes(manifest: RouteDeckManifest, node_id: str | None) -> list[str]:
@@ -35,3 +71,38 @@ def build_runtime_snapshot(
         "recovery_prompts": [node.recovery_prompt] if node and node.recovery_prompt else [],
         "diagnostics": diagnostics or {},
     }
+
+
+def build_projection(
+    manifest: RouteDeckManifest,
+    *,
+    current_node: str,
+    operations: list[RouteDeckOperation] | None = None,
+    surfaces: list[RouteDeckSurface] | None = None,
+    presentation_state: dict[str, Any] | None = None,
+    projection_version: int = 1,
+    diagnostics: dict[str, Any] | None = None,
+) -> RouteDeckProjection:
+    node = next((candidate for candidate in manifest.nodes if candidate.id == current_node), None)
+    surface_map: dict[str, RouteDeckSurface] = {}
+    for surface in surfaces or []:
+        surface_map[surface.name] = _coerce_surface_variant(surface, node)
+    return RouteDeckProjection(
+        current_context=current_node,
+        graph_node=current_node,
+        projection_version=projection_version,
+        legal_operations=[operation for operation in operations or [] if operation.execution_mode != "blocked"],
+        surfaces=surface_map,
+        presentation_state=presentation_state or {},
+        diagnostics=diagnostics or {},
+    )
+
+
+def _coerce_surface_variant(surface: RouteDeckSurface, node: Any) -> RouteDeckSurface:
+    if node is None:
+        return surface
+    allowed = node.allowed_surfaces.get(surface.name)
+    if not allowed or surface.variant in allowed:
+        return surface
+    default_variant = node.default_surfaces.get(surface.name) or allowed[0]
+    return surface.model_copy(update={"variant": default_variant})
