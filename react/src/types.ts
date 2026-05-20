@@ -96,6 +96,10 @@ export interface RouteDeckOperation {
   id: string
   label: string
   description?: string | null
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | null
+  kind?: 'button' | 'chip' | 'form' | 'nav' | 'summary' | null
+  placement?: 'next_best' | 'rail' | 'inline' | 'evidence' | null
+  emphasis?: 'primary' | 'secondary'
   safety_class?: RouteDeckSafetyClass
   execution_mode?: RouteDeckExecutionMode
   input_schema?: Record<string, unknown>

@@ -120,6 +120,10 @@ class RouteDeckOperation(BaseModel):
     id: str
     label: str
     description: str | None = None
+    category: RouteDeckActionCategory | None = None
+    kind: RouteDeckActionKind | None = None
+    placement: RouteDeckActionPlacement | None = None
+    emphasis: RouteDeckActionEmphasis = "secondary"
     safety_class: RouteDeckSafetyClass = "navigation"
     execution_mode: RouteDeckExecutionMode = "review"
     input_schema: dict[str, Any] = Field(default_factory=dict)
