@@ -256,11 +256,21 @@ Minimum introspection output:
 
 Navigation graph diagnostics should show navigation nodes and navigation edges only. Do not draw actions as graph edges. Actions belong in selected-node inspection details or operation diagnostics.
 
-The full graph view should behave like a sitemap, atlas, or metro map:
+Focused current-node diagnostics should use compact lane-separated routing:
 
-- central/root nodes are visually central
-- hub pages are emphasized
-- supporting nodes cluster near their nearest hub
+- incoming edges terminate on distinct target lanes
+- outgoing edges start from distinct source lanes
+- opposite-direction node pairs do not reuse the same path geometry
+- routing stays compact and curved rather than switching to large orthogonal
+  elbows
+
+The full graph view should behave like a root-centered hub map:
+
+- the root or home-equivalent node is visually central when present
+- first-hop hubs are emphasized on the primary ring
+- deeper supporting nodes expand outward within their branch sector
+- detached components can sit on outer spokes instead of pretending to fit a
+  false hierarchy
 - all nodes and semantic route edges remain visible
 - labels and action details stay out of the canvas when they create clutter
 
