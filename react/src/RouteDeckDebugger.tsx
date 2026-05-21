@@ -27,6 +27,7 @@ import {
   type DebuggerIndexedEdge,
   type DebuggerSide,
 } from './routeDeckDebuggerRouting'
+import { buildDebuggerRadialTopology } from './routeDeckDebuggerTopology'
 
 export interface RouteDeckDebuggerProps {
   graphManifest?: RouteDeckManifest | null
@@ -305,7 +306,7 @@ function buildFullMapFlow(
   themeMode: 'light' | 'dark',
 ): { nodes: RouteDeckFlowNode[]; edges: RouteDeckFlowEdge[] } {
   const nodesById = new Map(nodes.map((node) => [node.id, node]))
-  const topology = buildSitemapTopology(nodes, edges, currentNodeId)
+  const topology = buildDebuggerRadialTopology(nodes, edges, currentNodeId)
   const reachableNodeIds = new Set(snapshot?.reachable_nodes || [])
   const executedNodeIds = new Set(snapshot?.executed_nodes || [])
   const nextNodeIds = new Set(edges.filter((edge) => edge.from === currentNodeId).map((edge) => edge.to))
@@ -349,101 +350,6 @@ function buildFullMapFlow(
       })
     }),
   }
-}
-
-function buildSitemapTopology(
-  nodes: RouteDeckManifestNode[],
-  edges: RouteDeckManifestEdge[],
-  currentNodeId: string | null,
-): { positions: Map<string, { x: number; y: number }>; laneOrder: string[] } {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]))
-  const laneOrder = Array.from(new Set(nodes.map((node) => node.lane || 'main')))
-  const rootId = nodesById.has('home') ? 'home' : currentNodeId || nodes[0]?.id || null
-  const degree = new Map(nodes.map((node) => [node.id, 0]))
-  const neighbors = new Map<string, Set<string>>()
-  for (const edge of edges) {
-    degree.set(edge.from, (degree.get(edge.from) || 0) + 1)
-    degree.set(edge.to, (degree.get(edge.to) || 0) + 1)
-    const fromNeighbors = neighbors.get(edge.from) || new Set<string>()
-    const toNeighbors = neighbors.get(edge.to) || new Set<string>()
-    fromNeighbors.add(edge.to)
-    toNeighbors.add(edge.from)
-    neighbors.set(edge.from, fromNeighbors)
-    neighbors.set(edge.to, toNeighbors)
-  }
-
-  const hubIds = nodes
-    .filter((node) => node.id !== rootId && (degree.get(node.id) || 0) >= 3)
-    .sort((left, right) => (degree.get(right.id) || 0) - (degree.get(left.id) || 0))
-    .slice(0, 7)
-    .map((node) => node.id)
-  const hubSet = new Set(hubIds)
-  const positions = new Map<string, { x: number; y: number }>()
-  if (rootId) positions.set(rootId, { x: 0, y: 0 })
-
-  const hubRadius = 470
-  hubIds.forEach((nodeId, index) => {
-    const angle = -Math.PI / 2 + (index / Math.max(1, hubIds.length)) * Math.PI * 2
-    positions.set(nodeId, {
-      x: Math.cos(angle) * hubRadius,
-      y: Math.sin(angle) * hubRadius,
-    })
-  })
-
-  const ownedNodes = new Map<string, RouteDeckManifestNode[]>()
-  const leafNodes = nodes.filter((node) => node.id !== rootId && !hubSet.has(node.id))
-  for (const node of leafNodes) {
-    const ownerId = nearestHub(node.id, hubIds, neighbors) || rootId || hubIds[0]
-    if (!ownerId) continue
-    const children = ownedNodes.get(ownerId) || []
-    children.push(node)
-    ownedNodes.set(ownerId, children)
-  }
-
-  for (const [ownerId, children] of ownedNodes) {
-    const ownerPosition = positions.get(ownerId) || { x: 0, y: 0 }
-    const ownerAngle = Math.atan2(ownerPosition.y, ownerPosition.x || 1)
-    const spread = Math.min(Math.PI * 0.9, Math.max(Math.PI / 3, children.length * 0.34))
-    const childRadius = ownerId === rootId ? 310 : 300
-    children
-      .sort((left, right) => left.label.localeCompare(right.label))
-      .forEach((node, index) => {
-        const step = children.length <= 1 ? 0 : index / (children.length - 1)
-        const angle = ownerAngle - spread / 2 + spread * step
-        const stagger = index % 2 === 0 ? 0 : 54
-        positions.set(node.id, {
-          x: ownerPosition.x + Math.cos(angle) * (childRadius + stagger),
-          y: ownerPosition.y + Math.sin(angle) * (childRadius + stagger),
-        })
-      })
-  }
-
-  for (const node of nodes) {
-    if (positions.has(node.id)) continue
-    positions.set(node.id, { x: 0, y: positions.size * 150 })
-  }
-
-  return { positions, laneOrder }
-}
-
-function nearestHub(
-  nodeId: string,
-  hubIds: string[],
-  neighbors: Map<string, Set<string>>,
-): string | null {
-  const hubSet = new Set(hubIds)
-  const queue: Array<{ nodeId: string; distance: number }> = [{ nodeId, distance: 0 }]
-  const seen = new Set<string>()
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current || seen.has(current.nodeId)) continue
-    seen.add(current.nodeId)
-    if (hubSet.has(current.nodeId)) return current.nodeId
-    for (const neighbor of neighbors.get(current.nodeId) || []) {
-      queue.push({ nodeId: neighbor, distance: current.distance + 1 })
-    }
-  }
-  return null
 }
 
 function buildFocusFlow(
@@ -605,7 +511,7 @@ export function RouteDeckDebugger({
           </div>
           <div className={cx('mt-1', isDark ? 'text-slate-400' : 'text-[#736b60]')}>
             {graphMode === 'map'
-              ? 'Showing the full RouteDeck atlas with all nodes and all routes.'
+              ? 'Showing the full RouteDeck hub map with the root centered and branches expanding outward.'
               : 'Showing where you are and the immediate graph transitions.'}
           </div>
         </div>
@@ -660,7 +566,7 @@ export function RouteDeckDebugger({
               : 'border-[#ddd4c7] bg-[#f5f0e7] text-[#625b51]',
           )}
         >
-          Showing all {nodes.length} nodes and {edges.length} routes. Edge labels are kept out of the map to reduce clutter; select a node for details.
+          Showing all {nodes.length} nodes and {edges.length} routes in radial branch order. Edge labels are kept out of the map to reduce clutter; select a node for details.
         </div>
       )}
 
@@ -680,7 +586,7 @@ export function RouteDeckDebugger({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
-          fitViewOptions={{ padding: graphMode === 'map' ? 0.26 : 0.34 }}
+          fitViewOptions={{ padding: graphMode === 'map' ? 0.16 : 0.34 }}
           minZoom={0.16}
           maxZoom={1.5}
           panOnDrag

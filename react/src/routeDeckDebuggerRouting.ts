@@ -27,10 +27,15 @@ export interface DebuggerEdgeRoute {
   pairOffset: number
 }
 
+interface ResolvedLayoutNode extends DebuggerLayoutNode {
+  width: number
+  height: number
+}
+
 interface EdgeMeta {
   edge: DebuggerIndexedEdge
-  source: Required<DebuggerLayoutNode>
-  target: Required<DebuggerLayoutNode>
+  source: ResolvedLayoutNode
+  target: ResolvedLayoutNode
   sourceSide: DebuggerSide
   targetSide: DebuggerSide
 }
