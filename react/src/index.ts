@@ -8,7 +8,9 @@ export {
   useRouteDeckInspect,
   useRouteDeckOperation,
   useRouteDeckOperations,
+  useRouteDeckPendingOperation,
   useRouteDeckProjection,
+  useRouteDeckSurfaceOpening,
   useRouteDeckStatus,
   useRouteDeckState,
   useRouteDeckStore,
@@ -19,6 +21,10 @@ export {
   createRouteDeckStore,
   createStaticRouteDeckStore,
 } from './RouteDeckStore'
+export {
+  isRouteDeckOperationDispatchable,
+  routeDeckOperationInteraction,
+} from './operationReadiness'
 export type { EventSourceLike, RouteDeckStoreConfig } from './RouteDeckStore'
 export type {
   RouteDeckActionCard,
@@ -28,6 +34,7 @@ export type {
   RouteDeckDispatchResult,
   RouteDeckEvent,
   RouteDeckExecutionMode,
+  RouteDeckInvocationKind,
   RouteDeckInspectInput,
   RouteDeckIntrospection,
   RouteDeckManifest,
@@ -35,6 +42,7 @@ export type {
   RouteDeckManifestEdge,
   RouteDeckManifestNode,
   RouteDeckOperation,
+  RouteDeckPendingOperation,
   RouteDeckProjection,
   RouteDeckRuntimeSnapshot,
   RouteDeckRuntimeStatus,

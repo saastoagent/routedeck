@@ -9,7 +9,7 @@ RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
 RouteDeckActionEmphasis = Literal["primary", "secondary"]
 RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
 RouteDeckActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
-RouteDeckFieldType = Literal["text", "password", "select", "url"]
+RouteDeckFieldType = Literal["text", "password", "select", "url", "textarea"]
 RouteDeckSafetyClass = Literal[
     "navigation",
     "state_selection",
@@ -21,6 +21,7 @@ RouteDeckSafetyClass = Literal[
     "admin",
 ]
 RouteDeckExecutionMode = Literal["auto", "review", "blocked"]
+RouteDeckInvocationKind = Literal["direct", "form", "entity_selector", "surface", "hidden"]
 RouteDeckSurfaceRole = Literal["frame", "active", "diagnostic"]
 RouteDeckRuntimeStatus = Literal["idle", "refreshing", "streaming", "dispatching", "recovering", "failed"]
 RouteDeckEventType = Literal[
@@ -58,6 +59,7 @@ class RouteDeckActionSpec(BaseModel):
     placement: RouteDeckActionPlacement | None = None
     fields: list[RouteDeckFieldSpec] = Field(default_factory=list)
     payload: dict[str, Any] = Field(default_factory=dict)
+    invocation_kind: RouteDeckInvocationKind | None = None
     allowed_nodes: list[str] = Field(default_factory=list)
     visibility: Literal["contextual", "persistent", "dynamic"] = "contextual"
     recovery_prompt: str | None = None
@@ -128,6 +130,10 @@ class RouteDeckOperation(BaseModel):
     execution_mode: RouteDeckExecutionMode = "review"
     input_schema: dict[str, Any] = Field(default_factory=dict)
     payload: dict[str, Any] = Field(default_factory=dict)
+    invocation_kind: RouteDeckInvocationKind = "direct"
+    can_dispatch_now: bool = True
+    required_args: list[str] = Field(default_factory=list)
+    missing_args: list[str] = Field(default_factory=list)
     guard: str | None = None
     target_node: str | None = None
 

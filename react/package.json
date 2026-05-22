@@ -8,7 +8,7 @@
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/edge-routing.test.mjs tests/topology.test.mjs"
+    "test": "node --experimental-strip-types --test tests/edge-routing.test.mjs tests/topology.test.mjs tests/operation-readiness.test.mjs tests/dispatch-pending.test.mjs"
   },
   "exports": {
     ".": {

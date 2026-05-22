@@ -16,6 +16,7 @@ import type {
   RouteDeckInspectInput,
   RouteDeckIntrospection,
   RouteDeckOperation,
+  RouteDeckPendingOperation,
   RouteDeckProjection,
   RouteDeckStore,
   RouteDeckSurface,
@@ -94,6 +95,15 @@ export function useRouteDeckEventStream(): RouteDeckEvent | null {
 
 export function useRouteDeckStatus() {
   return useRouteDeckContext().state.status
+}
+
+export function useRouteDeckPendingOperation(): RouteDeckPendingOperation | null {
+  return useRouteDeckContext().state.pending_operation || null
+}
+
+export function useRouteDeckSurfaceOpening(): RouteDeckPendingOperation | null {
+  const pendingOperation = useRouteDeckPendingOperation()
+  return pendingOperation?.status === 'opening_surface' ? pendingOperation : null
 }
 
 export function useRouteDeckDispatch(): (input: RouteDeckDispatchInput) => Promise<RouteDeckDispatchResult> {

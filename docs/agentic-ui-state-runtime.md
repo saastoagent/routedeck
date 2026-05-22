@@ -198,12 +198,16 @@ Operation metadata should include:
 - operation id
 - label and description
 - input schema
+- invocation kind: `direct`, `form`, `entity_selector`, `surface`, or `hidden`
+- dispatch readiness: `can_dispatch_now`, `required_args`, and `missing_args`
 - safety class
 - execution mode: `auto`, `review`, or `blocked`
 - guard explanation
 - required context
 
-Safe navigation and state-selection operations may be committed during an agent turn. Side-effectful operations produce proposals or review surfaces and require an acceptance/action path.
+`legal_operations` means the graph policy allows the operation from the current state. It does not mean a generic UI chip may dispatch the operation immediately. Shells must check `can_dispatch_now` before one-click dispatch and use `invocation_kind` to choose the interaction: direct execution, form/proposal, entity selection, surface opening, or hidden runtime-only handling.
+
+Safe navigation and state-selection operations may be committed during an agent turn when `can_dispatch_now=true`. Side-effectful operations produce proposals or review surfaces and require an acceptance/action path.
 
 ## Surfaces
 
@@ -264,7 +268,8 @@ Focused current-node diagnostics should use compact lane-separated routing:
 - routing stays compact and curved rather than switching to large orthogonal
   elbows
 
-The full graph view should behave like a root-centered hub map:
+The full graph view should be the navgraph: a root-centered map of graph state
+and semantic route edges.
 
 - the root or home-equivalent node is visually central when present
 - first-hop hubs are emphasized on the primary ring

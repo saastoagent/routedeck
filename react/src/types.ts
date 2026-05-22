@@ -1,7 +1,7 @@
 export interface RouteDeckActionField {
   key: string
   label: string
-  field_type?: 'text' | 'password' | 'select' | 'url'
+  field_type?: 'text' | 'password' | 'select' | 'url' | 'textarea'
   required?: boolean
   placeholder?: string | null
   default?: unknown
@@ -90,6 +90,7 @@ export type RouteDeckSafetyClass =
   | 'admin'
 
 export type RouteDeckExecutionMode = 'auto' | 'review' | 'blocked'
+export type RouteDeckInvocationKind = 'direct' | 'form' | 'entity_selector' | 'surface' | 'hidden'
 export type RouteDeckRuntimeStatus = 'idle' | 'refreshing' | 'streaming' | 'dispatching' | 'recovering' | 'failed'
 
 export interface RouteDeckOperation {
@@ -104,6 +105,10 @@ export interface RouteDeckOperation {
   execution_mode?: RouteDeckExecutionMode
   input_schema?: Record<string, unknown>
   payload?: Record<string, unknown>
+  invocation_kind?: RouteDeckInvocationKind
+  can_dispatch_now?: boolean
+  required_args?: string[]
+  missing_args?: string[]
   guard?: string | null
   target_node?: string | null
 }
@@ -147,8 +152,18 @@ export interface RouteDeckClientState {
   graph_state?: Record<string, unknown>
   location?: string | null
   last_event?: RouteDeckEvent | null
+  pending_operation?: RouteDeckPendingOperation | null
   diagnostics?: Record<string, unknown>
   metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckPendingOperation {
+  operation_id: string
+  label: string
+  invocation_kind?: RouteDeckInvocationKind
+  target_node?: string | null
+  status: 'dispatching' | 'opening_surface'
+  started_at: number
 }
 
 export interface RouteDeckDispatchInput {

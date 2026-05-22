@@ -2,15 +2,31 @@
 
 Start with `docs/agentic-ui-state-runtime.md` for the current architecture direction.
 
-RouteDeck is graph-backed state management for agentic UI in LangGraph/FastAPI/React-style applications.
+RouteDeck is graph-backed state management for agentic applications.
 
-It defines how agent-centric platforms expose navigable graph state, valid actions, blocked actions, recovery prompts, forms, runtime snapshots, and debugger/authoring UI. RouteDeck can provide direct adapters for LangGraph, FastAPI, and React, but product behavior stays in the consuming application.
+Applications should import RouteDeck and use it the way frontend apps use Redux,
+MobX, or React Query: as a reusable state layer, not as product code. On the
+backend, RouteDeck binds LangGraph/FastAPI runtime state into a stable agentic
+state contract. On the frontend, `@routedeck/react` exposes that contract through
+stores, hooks, surfaces, events, and debugger components.
+
+RouteDeck defines how agent-centric platforms expose graph state, valid actions,
+blocked actions, recovery prompts, forms, runtime snapshots, surface state,
+streaming events, and debugger/authoring UI. RouteDeck can provide direct
+adapters for LangGraph, FastAPI, and React, but product behavior stays in the
+consuming application.
+
+For example, Corpus should import and use RouteDeck as SaaStoAgent's agentic app
+state layer. Corpus owns SaaStoAgent-specific conversation, setup behavior,
+surface copy, recovery wording, and public chat behavior. RouteDeck owns the
+generic state management contract that lets those product decisions travel from
+LangGraph/backend execution into React.
 
 It is split into:
 
-- `routedeck_core`: Python contracts and validation helpers for backend runtimes that sit above LangGraph/FastAPI.
+- `routedeck_core`: Python contracts, projections, operations, events, surfaces, runtime state, and validation helpers for backend agentic state.
 - `routedeck_langgraph`: optional LangGraph adapter for handler parity, edge resolver validation, transition assertions, and common graph wiring.
-- `react`: React debugger and type contracts for frontend shells.
+- `react`: React store, hooks, debugger, and type contracts for frontend agentic state consumers.
 - `docs`: framework-level architecture and packaging notes.
 - `examples/minimal-langgraph-adapter`: minimal backend-only LangGraph adapter example.
 - `examples/minimal-fastapi-react`: minimal working example showing the full contract without SaaStoAgent product code.
@@ -32,7 +48,8 @@ The adapter exposes:
 - `assert_route_transition(...)`
 - `build_route_deck_state_graph(...)`
 
-Use it when LangGraph should execute the flow while RouteDeck remains the visible navigation contract.
+Use it when LangGraph should execute the flow while RouteDeck remains the
+application state contract exposed to backend services and React.
 
 ## Repo-Local Skills
 

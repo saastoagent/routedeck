@@ -5,6 +5,7 @@ import type {
   RouteDeckEvent,
   RouteDeckInspectInput,
   RouteDeckIntrospection,
+  RouteDeckPendingOperation,
   RouteDeckProjection,
   RouteDeckRuntimeStatus,
   RouteDeckStore,
@@ -60,6 +61,11 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
     notify()
   }
 
+  const setPendingOperation = (next: RouteDeckPendingOperation) => {
+    state = { ...state, status: 'dispatching', pending_operation: next }
+    notify()
+  }
+
   const applyEvent = (event: RouteDeckEvent) => {
     const payload = event.payload || {}
     const projection = payload.projection
@@ -109,16 +115,16 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       }
     },
     dispatch: async (input) => {
-      setStatus('dispatching')
+      setPendingOperation(pendingOperationForInput(input, state))
       try {
         const payload = config.dispatch
           ? await config.dispatch(input, state)
           : await postJson(config, 'dispatchUrl', config.buildDispatchRequest?.(input, state) ?? input)
         const result = mapDispatchResult(config, payload, input)
-        setState(result.state)
+        setState({ ...result.state, pending_operation: null })
         return result
       } catch (error) {
-        state = { ...state, status: 'failed', metadata: { ...(state.metadata || {}), error } }
+        state = { ...state, status: 'failed', pending_operation: null, metadata: { ...(state.metadata || {}), error } }
         notify()
         throw error
       }
@@ -191,8 +197,25 @@ function normalizeState(next: RouteDeckClientState): RouteDeckClientState {
     status: next.status || 'idle',
     graph_state: next.graph_state || {},
     location: next.location ?? null,
+    pending_operation: next.pending_operation ?? null,
     diagnostics: next.diagnostics || {},
     metadata: next.metadata || {},
+  }
+}
+
+function pendingOperationForInput(
+  input: RouteDeckDispatchInput,
+  currentState: RouteDeckClientState,
+): RouteDeckPendingOperation {
+  const operation = currentState.projection.legal_operations.find((candidate) => candidate.id === input.operation_id)
+  const invocationKind = operation?.invocation_kind
+  return {
+    operation_id: input.operation_id,
+    label: operation?.label || input.operation_id,
+    invocation_kind: invocationKind,
+    target_node: operation?.target_node || null,
+    status: invocationKind === 'surface' ? 'opening_surface' : 'dispatching',
+    started_at: Date.now(),
   }
 }
 
