@@ -1,5 +1,7 @@
 # RouteDeck Boundary
 
+For the fuller human, agent, and developer usage guide, read `docs/using-routedeck.md`.
+
 RouteDeck owns agentic navigation UX contracts.
 
 It owns:

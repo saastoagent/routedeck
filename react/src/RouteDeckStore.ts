@@ -5,6 +5,7 @@ import type {
   RouteDeckEvent,
   RouteDeckInspectInput,
   RouteDeckIntrospection,
+  RouteDeckLocation,
   RouteDeckPendingOperation,
   RouteDeckProjection,
   RouteDeckRuntimeStatus,
@@ -115,6 +116,11 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       }
     },
     dispatch: async (input) => {
+      if (isRouteDeckNavigationOperation(input.operation_id)) {
+        const result = applyLocalNavigation(input.operation_id, input.args || {})
+        setState(result.state)
+        return result
+      }
       setPendingOperation(pendingOperationForInput(input, state))
       try {
         const payload = config.dispatch
@@ -151,6 +157,76 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       return mapIntrospection(config, payload)
     },
     receiveEvent: applyEvent,
+    back: () => store.dispatch({ operation_id: 'route.back' }),
+    forward: () => store.dispatch({ operation_id: 'route.forward' }),
+    cancel: () => store.dispatch({ operation_id: 'route.cancel' }),
+    openNode: (location) => store.dispatch({ operation_id: 'route.open_node', args: location as unknown as Record<string, unknown> }),
+    switchSurface: (surfaceId) => store.dispatch({ operation_id: 'route.switch_surface', args: { surface_id: surfaceId } }),
+  }
+
+  const applyLocalNavigation = (operationId: string, args: Record<string, unknown>): RouteDeckDispatchResult => {
+    const current = currentLocation(state)
+    let navigation = state.projection.navigation
+    let projection = state.projection
+    let graphState = state.graph_state || {}
+
+    if (operationId === 'route.switch_surface') {
+      const surfaceId = String(args.surface_id || current.surface_id || '')
+      const nextCurrent = { ...current, surface_id: surfaceId }
+      navigation = navigationWithFlags({ ...navigation, current: nextCurrent })
+      projection = withNavigation(withActiveSurfaceId(projection, surfaceId), navigation)
+    } else if (operationId === 'route.open_node') {
+      const next = locationFromArgs(args)
+      navigation = navigationWithFlags({
+        current: next,
+        back_stack: [...navigation.back_stack, current],
+        forward_stack: [],
+      })
+      projection = withNavigation(withProjectionNode(withActiveSurfaceId(projection, next.surface_id || ''), next.node_id), navigation)
+      graphState = { ...graphState, node: next.node_id, route_params: next.params || {} }
+    } else if (operationId === 'route.back') {
+      const previous = navigation.back_stack.at(-1)
+      if (previous) {
+        navigation = navigationWithFlags({
+          current: previous,
+          back_stack: navigation.back_stack.slice(0, -1),
+          forward_stack: [current, ...navigation.forward_stack],
+        })
+        projection = withNavigation(withProjectionNode(withActiveSurfaceId(projection, previous.surface_id || ''), previous.node_id), navigation)
+        graphState = { ...graphState, node: previous.node_id, route_params: previous.params || {} }
+      }
+    } else if (operationId === 'route.forward') {
+      const next = navigation.forward_stack[0]
+      if (next) {
+        navigation = navigationWithFlags({
+          current: next,
+          back_stack: [...navigation.back_stack, current],
+          forward_stack: navigation.forward_stack.slice(1),
+        })
+        projection = withNavigation(withProjectionNode(withActiveSurfaceId(projection, next.surface_id || ''), next.node_id), navigation)
+        graphState = { ...graphState, node: next.node_id, route_params: next.params || {} }
+      }
+    } else if (operationId === 'route.cancel') {
+      const target = cancelTargetLocation(state) || navigation.back_stack.at(-1)
+      if (target) {
+        navigation = navigationWithFlags({
+          current: target,
+          back_stack: navigation.back_stack.filter((item) => item.node_id !== target.node_id),
+          forward_stack: [current, ...navigation.forward_stack],
+        })
+        projection = withNavigation(withProjectionNode(withActiveSurfaceId(projection, target.surface_id || ''), target.node_id), navigation)
+        graphState = { ...graphState, node: target.node_id, route_params: target.params || {} }
+      }
+    }
+
+    return {
+      operation_id: operationId,
+      accepted: true,
+      state: { ...state, projection, status: 'idle', graph_state: graphState, pending_operation: null },
+      messages: [],
+      events: [],
+      metadata: { local_navigation: true },
+    }
   }
 
   return store
@@ -192,8 +268,10 @@ export function createStaticRouteDeckStore(projection: RouteDeckProjection): Rou
 }
 
 function normalizeState(next: RouteDeckClientState): RouteDeckClientState {
+  const projection = normalizeProjection(next.projection)
   return {
     ...next,
+    projection,
     status: next.status || 'idle',
     graph_state: next.graph_state || {},
     location: next.location ?? null,
@@ -201,6 +279,15 @@ function normalizeState(next: RouteDeckClientState): RouteDeckClientState {
     diagnostics: next.diagnostics || {},
     metadata: next.metadata || {},
   }
+}
+
+function normalizeProjection(projection: RouteDeckProjection): RouteDeckProjection {
+  const navigation = navigationWithFlags(projection.navigation || {
+    current: { node_id: projection.graph_node },
+    back_stack: [],
+    forward_stack: [],
+  })
+  return { ...projection, navigation }
 }
 
 function pendingOperationForInput(
@@ -316,6 +403,78 @@ function parseRouteDeckEvent(raw: string): RouteDeckEvent | null {
 function isProjection(value: unknown): value is RouteDeckProjection {
   if (!isRecord(value)) return false
   return typeof value.current_context === 'string' && typeof value.graph_node === 'string'
+}
+
+function isRouteDeckNavigationOperation(operationId: string) {
+  return ['route.back', 'route.forward', 'route.cancel', 'route.open_node', 'route.switch_surface'].includes(operationId)
+}
+
+function currentLocation(state: RouteDeckClientState): RouteDeckLocation {
+  const current = state.projection.navigation?.current
+  return current?.node_id ? { ...current, params: current.params || {} } : { node_id: state.projection.graph_node }
+}
+
+function locationFromArgs(args: Record<string, unknown>): RouteDeckLocation {
+  return {
+    node_id: String(args.node_id || ''),
+    surface_id: typeof args.surface_id === 'string' ? args.surface_id : null,
+    params: isRecord(args.params) ? args.params : {},
+  }
+}
+
+function navigationWithFlags(navigation: Partial<RouteDeckProjection['navigation']>): RouteDeckProjection['navigation'] {
+  const current = navigation.current?.node_id ? navigation.current : { node_id: 'home' }
+  const backStack = navigation.back_stack || []
+  const forwardStack = navigation.forward_stack || []
+  return {
+    current,
+    back_stack: backStack,
+    forward_stack: forwardStack,
+    can_back: backStack.length > 0,
+    can_forward: forwardStack.length > 0,
+    can_cancel: backStack.length > 0,
+  }
+}
+
+function withNavigation(projection: RouteDeckProjection, navigation: RouteDeckProjection['navigation']): RouteDeckProjection {
+  return { ...projection, navigation }
+}
+
+function withProjectionNode(projection: RouteDeckProjection, nodeId: string): RouteDeckProjection {
+  if (!nodeId) return projection
+  return { ...projection, graph_node: nodeId, current_context: nodeId }
+}
+
+function withActiveSurfaceId(projection: RouteDeckProjection, surfaceId: string): RouteDeckProjection {
+  if (!surfaceId || !projection.surfaces.active) return projection
+  const variant = surfaceId.split('.').at(-1) || projection.surfaces.active.variant
+  return {
+    ...projection,
+    surfaces: {
+      ...projection.surfaces,
+      active: {
+        ...projection.surfaces.active,
+        surface_id: surfaceId,
+        variant,
+      },
+    },
+  }
+}
+
+function cancelTargetLocation(state: RouteDeckClientState): RouteDeckLocation | null {
+  const hierarchy = state.projection.diagnostics?.node_hierarchy
+  if (!isRecord(hierarchy)) return null
+  const nodeMeta = hierarchy[state.projection.graph_node]
+  if (!isRecord(nodeMeta) || typeof nodeMeta.cancel_target_node !== 'string') return null
+  const targetMeta = hierarchy[nodeMeta.cancel_target_node]
+  const targetSurfaceId = isRecord(targetMeta) && typeof targetMeta.default_surface_id === 'string'
+    ? targetMeta.default_surface_id
+    : null
+  return {
+    node_id: nodeMeta.cancel_target_node,
+    surface_id: targetSurfaceId,
+    params: {},
+  }
 }
 
 function isClientState(value: unknown): value is RouteDeckClientState {

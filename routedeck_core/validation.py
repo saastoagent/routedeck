@@ -30,6 +30,10 @@ def validate_manifest(
             errors.append(f"Edge references unknown action: {edge.action_id}")
 
     for node in manifest.nodes:
+        if node.parent and node.parent not in node_ids:
+            errors.append(f"Node {node.id} references unknown parent: {node.parent}")
+        if node.cancel_target_node and node.cancel_target_node not in node_ids:
+            errors.append(f"Node {node.id} references unknown cancel target: {node.cancel_target_node}")
         if node.lane != "terminal" and not node.allowed_actions and not node.expected_input:
             errors.append(f"Node has no visible action or expected input: {node.id}")
         for action_id in node.allowed_actions:

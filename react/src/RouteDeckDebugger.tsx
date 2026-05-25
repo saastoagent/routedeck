@@ -69,7 +69,7 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 function edgeLabel(edge: RouteDeckManifestEdge) {
-  return edge.action_id || edge.condition || edge.type
+  return edge.condition || edge.type
 }
 
 function shortText(value?: string | null, max = 22) {
@@ -192,7 +192,7 @@ function positionForSide(side: DebuggerSide) {
 }
 
 function makeRouteEdgeId(edge: RouteDeckManifestEdge, index: number) {
-  return `${edge.from}->${edge.to}:${edge.action_id || edge.condition || edge.type || 'edge'}:${index}`
+  return `${edge.from}->${edge.to}:${edge.condition || edge.type || 'edge'}:${index}`
 }
 
 function RouteDeckEdge({

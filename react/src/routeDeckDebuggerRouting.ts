@@ -279,7 +279,7 @@ function directionKey(edge: RouteDeckManifestEdge) {
 }
 
 function edgeDescriptor(edge: RouteDeckManifestEdge) {
-  return edge.action_id || edge.condition || edge.type || 'edge'
+  return edge.condition || edge.type || 'edge'
 }
 
 function centerPoint(node: DebuggerLayoutNode) {

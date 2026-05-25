@@ -5,6 +5,8 @@ Date: 2026-05-19
 
 RouteDeck is graph-backed state management for agentic UI.
 
+For a practical operator, agent, and developer guide, read `docs/using-routedeck.md`.
+
 It sits in the same broad mental category as Redux, MobX, Zustand, or other React state-management systems, but it is not a direct clone of any of them. Those tools manage UI/application state through stores, reducers, observables, or selectors. RouteDeck manages application state where the source of truth is a graph runtime, commonly LangGraph, and where an agent or UI component dispatches typed operations that the graph validates before committing.
 
 The core idea:

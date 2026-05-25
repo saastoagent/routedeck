@@ -23,6 +23,9 @@ RouteDeckSafetyClass = Literal[
 RouteDeckExecutionMode = Literal["auto", "review", "blocked"]
 RouteDeckInvocationKind = Literal["direct", "form", "entity_selector", "surface", "hidden"]
 RouteDeckSurfaceRole = Literal["frame", "active", "diagnostic"]
+RouteDeckSurfaceKind = Literal["peer", "detail", "embedded"]
+RouteDeckNodeKind = Literal["workflow", "section", "detail", "transient"]
+RouteDeckDirtyPolicy = Literal["none", "confirm", "block"]
 RouteDeckRuntimeStatus = Literal["idle", "refreshing", "streaming", "dispatching", "recovering", "failed"]
 RouteDeckEventType = Literal[
     "projection_update",
@@ -76,6 +79,12 @@ class RouteDeckNodeSpec(BaseModel):
     expected_input: str | None = None
     recovery_prompt: str | None = None
     parent: str | None = None
+    node_kind: RouteDeckNodeKind = "workflow"
+    capability_id: str | None = None
+    show_in_navgraph: bool = True
+    show_in_capability_rail: bool = True
+    cancel_target_node: str | None = None
+    dirty_policy: RouteDeckDirtyPolicy = "none"
     allowed_surfaces: dict[str, list[str]] = Field(default_factory=dict)
     default_surfaces: dict[str, str] = Field(default_factory=dict)
 
@@ -138,11 +147,31 @@ class RouteDeckOperation(BaseModel):
     target_node: str | None = None
 
 
+class RouteDeckLocation(BaseModel):
+    node_id: str
+    surface_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckNavigationState(BaseModel):
+    current: RouteDeckLocation
+    back_stack: list[RouteDeckLocation] = Field(default_factory=list)
+    forward_stack: list[RouteDeckLocation] = Field(default_factory=list)
+    can_back: bool = False
+    can_forward: bool = False
+    can_cancel: bool = False
+
+
 class RouteDeckSurface(BaseModel):
     name: str
+    surface_id: str | None = None
     component: str
     variant: str = "default"
     role: RouteDeckSurfaceRole = "frame"
+    slot: str | None = None
+    surface_kind: RouteDeckSurfaceKind = "embedded"
+    label: str | None = None
+    default: bool = False
     props: dict[str, Any] = Field(default_factory=dict)
     lifecycle: Literal["ephemeral", "stable"] = "ephemeral"
 
@@ -154,6 +183,7 @@ class RouteDeckProjection(BaseModel):
     legal_operations: list[RouteDeckOperation] = Field(default_factory=list)
     surfaces: dict[str, RouteDeckSurface] = Field(default_factory=dict)
     presentation_state: dict[str, Any] = Field(default_factory=dict)
+    navigation: RouteDeckNavigationState
     diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 

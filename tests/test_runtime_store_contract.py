@@ -24,6 +24,11 @@ def test_runtime_state_wraps_projection_without_product_fields():
         surfaces={
             "main": RouteDeckSurface(name="main", component="DashboardPanel", variant="default"),
         },
+        navigation={
+            "current": {"node_id": "dashboard", "surface_id": "dashboard.main"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
     )
 
     state = RouteDeckRuntimeState(
@@ -52,6 +57,11 @@ def test_dispatch_result_carries_new_runtime_state_and_active_surface():
                 variant="register",
                 role="active",
             )
+        },
+        navigation={
+            "current": {"node_id": "auth_register", "surface_id": "auth_register.active"},
+            "back_stack": [],
+            "forward_stack": [],
         },
     )
     runtime_state = RouteDeckRuntimeState(projection=projection, status="idle")

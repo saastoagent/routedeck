@@ -15,6 +15,7 @@ import type {
   RouteDeckEvent,
   RouteDeckInspectInput,
   RouteDeckIntrospection,
+  RouteDeckNavigationState,
   RouteDeckOperation,
   RouteDeckPendingOperation,
   RouteDeckProjection,
@@ -99,6 +100,10 @@ export function useRouteDeckStatus() {
 
 export function useRouteDeckPendingOperation(): RouteDeckPendingOperation | null {
   return useRouteDeckContext().state.pending_operation || null
+}
+
+export function useRouteDeckNavigation(): RouteDeckNavigationState {
+  return useRouteDeckContext().state.projection.navigation
 }
 
 export function useRouteDeckSurfaceOpening(): RouteDeckPendingOperation | null {

@@ -31,6 +31,12 @@ export interface RouteDeckManifestNode {
   label: string
   lane: string
   parent?: string | null
+  node_kind?: 'workflow' | 'section' | 'detail' | 'transient'
+  capability_id?: string | null
+  show_in_navgraph?: boolean
+  show_in_capability_rail?: boolean
+  cancel_target_node?: string | null
+  dirty_policy?: 'none' | 'confirm' | 'block'
   description?: string | null
   prompt_placeholder?: string | null
   allowed_actions?: string[]
@@ -115,11 +121,31 @@ export interface RouteDeckOperation {
 
 export interface RouteDeckSurface {
   name: string
+  surface_id?: string | null
   component: string
   variant?: string
   role?: 'frame' | 'active' | 'diagnostic'
+  slot?: string | null
+  surface_kind?: 'peer' | 'detail' | 'embedded'
+  label?: string | null
+  default?: boolean
   props?: Record<string, unknown>
   lifecycle?: 'ephemeral' | 'stable'
+}
+
+export interface RouteDeckLocation {
+  node_id: string
+  surface_id?: string | null
+  params?: Record<string, unknown>
+}
+
+export interface RouteDeckNavigationState {
+  current: RouteDeckLocation
+  back_stack: RouteDeckLocation[]
+  forward_stack: RouteDeckLocation[]
+  can_back: boolean
+  can_forward: boolean
+  can_cancel: boolean
 }
 
 export interface RouteDeckProjection {
@@ -129,6 +155,7 @@ export interface RouteDeckProjection {
   legal_operations: RouteDeckOperation[]
   surfaces: Record<string, RouteDeckSurface>
   presentation_state: Record<string, unknown>
+  navigation: RouteDeckNavigationState
   diagnostics: Record<string, unknown>
 }
 
@@ -210,4 +237,9 @@ export interface RouteDeckStore {
   receiveEvent: (event: RouteDeckEvent) => void
   connectStream: () => () => void
   inspect: (input?: RouteDeckInspectInput) => Promise<RouteDeckIntrospection>
+  back: () => Promise<RouteDeckDispatchResult>
+  forward: () => Promise<RouteDeckDispatchResult>
+  cancel: () => Promise<RouteDeckDispatchResult>
+  openNode: (location: RouteDeckLocation) => Promise<RouteDeckDispatchResult>
+  switchSurface: (surfaceId: string) => Promise<RouteDeckDispatchResult>
 }
