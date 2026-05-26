@@ -211,6 +211,26 @@ Operation metadata should include:
 
 Safe navigation and state-selection operations may be committed during an agent turn when `can_dispatch_now=true`. Side-effectful operations produce proposals or review surfaces and require an acceptance/action path.
 
+## Internal Navigation Operations
+
+RouteDeck may define generic route operations such as:
+
+- `route.open_node`
+- `route.switch_surface`
+- `route.back`
+- `route.forward`
+- `route.cancel`
+
+These are framework/runtime primitives for browser replay, history, diagnostics,
+and validated internal navigation. Product integrations should normally mark
+them as `invocation_kind=hidden` and keep them out of ordinary product quick
+actions and normal product-agent planning context.
+
+A product agent should choose product operations or product surface intents. The
+product runtime can map a validated surface intent to an internal route
+operation. This keeps product chat natural while preserving graph-owned
+navigation validation.
+
 ## Surfaces
 
 Surfaces are graph-declared and RouteDeck-projected. They are not arbitrary React children invented by product code after the fact.
