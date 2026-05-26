@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 
+import { resolveRouteDeckActiveSurface } from './RouteDeckSurface'
 import { createStaticRouteDeckStore } from './RouteDeckStore'
 import type {
   RouteDeckClientState,
@@ -74,6 +75,20 @@ export function useRouteDeckProjection(): RouteDeckProjection {
 
 export function useRouteDeckSurface(name: string): RouteDeckSurface | null {
   return useRouteDeckProjection().surfaces[name] || null
+}
+
+export function useRouteDeckActiveSurface(): RouteDeckSurface | null {
+  return resolveRouteDeckActiveSurface(useRouteDeckProjection())
+}
+
+export interface RouteDeckSurfaceHostProps {
+  children: (surface: RouteDeckSurface | null) => ReactNode
+  surface?: RouteDeckSurface | null
+}
+
+export function RouteDeckSurfaceHost({ children, surface }: RouteDeckSurfaceHostProps) {
+  const activeSurface = useRouteDeckActiveSurface()
+  return <>{children(surface ?? activeSurface)}</>
 }
 
 export function useRouteDeckOperations(): RouteDeckOperation[] {

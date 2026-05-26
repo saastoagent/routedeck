@@ -3,8 +3,11 @@ import type {
   RouteDeckDispatchInput,
   RouteDeckDispatchResult,
   RouteDeckEvent,
+  RouteDeckHistoryAdapter,
   RouteDeckInspectInput,
   RouteDeckIntrospection,
+  RouteDeckLocationCodec,
+  RouteDeckNavigationMode,
   RouteDeckLocation,
   RouteDeckPendingOperation,
   RouteDeckProjection,
@@ -22,6 +25,9 @@ export interface RouteDeckStoreConfig {
   snapshot?: () => Promise<RouteDeckClientState | unknown>
   dispatch?: (input: RouteDeckDispatchInput, state: RouteDeckClientState) => Promise<RouteDeckDispatchResult | unknown>
   inspect?: (input?: RouteDeckInspectInput, state?: RouteDeckClientState) => Promise<RouteDeckIntrospection | unknown>
+  navigationMode?: RouteDeckNavigationMode
+  locationCodec?: RouteDeckLocationCodec
+  historyAdapter?: RouteDeckHistoryAdapter
   snapshotUrl?: string | (() => string)
   dispatchUrl?: string | (() => string)
   inspectUrl?: string | (() => string)
@@ -116,7 +122,7 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       }
     },
     dispatch: async (input) => {
-      if (isRouteDeckNavigationOperation(input.operation_id)) {
+      if (isRouteDeckNavigationOperation(input.operation_id) && config.navigationMode !== 'remote') {
         const result = applyLocalNavigation(input.operation_id, input.args || {})
         setState(result.state)
         return result

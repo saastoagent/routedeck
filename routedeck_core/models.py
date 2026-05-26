@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 RouteDeckLane = str
 RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
 RouteDeckActionEmphasis = Literal["primary", "secondary"]
-RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning"]
+RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning", "deployment"]
 RouteDeckActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
 RouteDeckFieldType = Literal["text", "password", "select", "url", "textarea"]
 RouteDeckSafetyClass = Literal[

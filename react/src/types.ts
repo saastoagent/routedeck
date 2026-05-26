@@ -18,7 +18,7 @@ export interface RouteDeckActionCard {
   description?: string | null
   emphasis?: 'primary' | 'secondary'
   kind?: 'button' | 'chip' | 'form' | 'nav' | 'summary'
-  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning'
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | 'deployment'
   placement?: 'next_best' | 'rail' | 'inline' | 'evidence'
   fields?: RouteDeckActionField[]
   payload?: Record<string, unknown>
@@ -98,12 +98,13 @@ export type RouteDeckSafetyClass =
 export type RouteDeckExecutionMode = 'auto' | 'review' | 'blocked'
 export type RouteDeckInvocationKind = 'direct' | 'form' | 'entity_selector' | 'surface' | 'hidden'
 export type RouteDeckRuntimeStatus = 'idle' | 'refreshing' | 'streaming' | 'dispatching' | 'recovering' | 'failed'
+export type RouteDeckNavigationMode = 'local' | 'remote'
 
 export interface RouteDeckOperation {
   id: string
   label: string
   description?: string | null
-  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | null
+  category?: 'auth' | 'setup' | 'navigation' | 'execution' | 'feedback' | 'learning' | 'deployment' | null
   kind?: 'button' | 'chip' | 'form' | 'nav' | 'summary' | null
   placement?: 'next_best' | 'rail' | 'inline' | 'evidence' | null
   emphasis?: 'primary' | 'secondary'
@@ -137,6 +138,24 @@ export interface RouteDeckLocation {
   node_id: string
   surface_id?: string | null
   params?: Record<string, unknown>
+}
+
+export interface RouteDeckUrl {
+  pathname: string
+  search?: string
+  hash?: string
+}
+
+export interface RouteDeckLocationCodec {
+  encode: (location: RouteDeckLocation) => RouteDeckUrl
+  decode: (url: RouteDeckUrl) => RouteDeckLocation | null
+}
+
+export interface RouteDeckHistoryAdapter {
+  read: () => RouteDeckUrl
+  push: (url: RouteDeckUrl) => void
+  replace: (url: RouteDeckUrl) => void
+  subscribe: (listener: () => void) => () => void
 }
 
 export interface RouteDeckNavigationState {
