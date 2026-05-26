@@ -27,10 +27,12 @@ It is split into:
 - `routedeck_core`: Python contracts, projections, operations, events, surfaces, runtime state, and validation helpers for backend agentic state.
 - `routedeck_langgraph`: optional LangGraph adapter for handler parity, edge resolver validation, transition assertions, and common graph wiring.
 - `react`: React store, hooks, debugger, and type contracts for frontend agentic state consumers.
+- `architecture`: code-referenced subsystem ownership, component contracts, and maintenance coverage.
 - `docs`: framework-level architecture and packaging notes.
 - `examples/minimal-langgraph-adapter`: minimal backend-only LangGraph adapter example.
 - `examples/minimal-fastapi-react`: minimal working example showing the full contract without SaaStoAgent product code.
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
+- `context_architecture_bundle`: generic starter kit for context, architecture, handoff, validation, and project-local skills in new or existing projects.
 
 The framework is a sibling local package during development. SaaStoAgent consumes `routedeck-core`, `routedeck-langgraph`, and `@routedeck/react` from this folder instead of copying framework source into the SaaStoAgent project.
 
@@ -59,6 +61,11 @@ RouteDeck includes repo-local skills for repeatable integration work:
 - `skills/routedeck-manifest-scaffolder`: generate a starter Python manifest module from a JSON flow spec.
 - `skills/routedeck-langgraph-integration`: wire RouteDeck snapshots and action submission around a LangGraph-style backend.
 
+The context architecture starter kit includes its own copyable skills:
+
+- `context_architecture_bundle/skills/create-context-architecture-bundle`: create a complete context architecture bundle from a project idea or spec.
+- `context_architecture_bundle/skills/populate-context-architecture`: populate or repair context architecture for an existing codebase.
+
 To scaffold a starter manifest module:
 
 ```powershell
@@ -66,3 +73,15 @@ python skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py skills/
 ```
 
 The generated module exposes `MANIFEST`, `MANIFEST_VALIDATION_ERRORS`, `manifest()`, and `manifest_json()`. Treat it as a starting contract, then add app-level parity tests that every visible node/action maps to executable runtime behavior.
+
+## Architecture Coverage
+
+Use `architecture/code-map.md` before changing RouteDeck source, examples,
+packaging, or repo-local skills. It maps subsystems to source globs,
+architecture anchors, test anchors, and update triggers.
+
+Run the advisory checker before closeout:
+
+```powershell
+python scripts/check_doc_coverage.py
+```

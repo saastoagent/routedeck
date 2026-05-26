@@ -84,22 +84,22 @@ RouteDeck should be understood as a boundary, not a brain.
 
 ```mermaid
 flowchart LR
-  graph["Product graph and runtime"]
-  adapter["Product RouteDeck adapter"]
-  projection["RouteDeck runtime state and projection"]
-  agent["Product agent planning context"]
-  ui["Product UI and React store"]
-  diagnostics["Diagnostics"]
-  dispatch["Typed operation dispatch"]
+  productGraph["Product graph and runtime"]
+  productAdapter["Product RouteDeck adapter"]
+  routeDeckProjection["RouteDeck runtime state and projection"]
+  planningContext["Product agent planning context"]
+  productUi["Product UI and React store"]
+  diagnosticsView["Diagnostics"]
+  operationDispatch["Typed operation dispatch"]
 
-  graph --> adapter
-  adapter --> projection
-  projection --> agent
-  projection --> ui
-  projection --> diagnostics
-  agent --> dispatch
-  ui --> dispatch
-  dispatch --> graph
+  productGraph --> productAdapter
+  productAdapter --> routeDeckProjection
+  routeDeckProjection --> planningContext
+  routeDeckProjection --> productUi
+  routeDeckProjection --> diagnosticsView
+  planningContext --> operationDispatch
+  productUi --> operationDispatch
+  operationDispatch --> productGraph
 ```
 
 The product graph owns the truth: persistent state, current workflow, guards,
