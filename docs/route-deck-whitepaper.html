@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RouteDeck Whitepaper · SaaStoAgent Research Lab</title>
+  <style>
+    :root {
+      --ink: #14211d;
+      --muted: #66736e;
+      --soft: #f6f3ea;
+      --paper: transparent;
+      --line: #d9ded6;
+      --blue: #315f7b;
+      --blue-soft: #e4eef2;
+      --gold: #b88746;
+      --charcoal: #17211f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: none;
+      color: var(--ink);
+      font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+    }
+
+    body {
+      margin: 0;
+      background: none;
+    }
+
+    .print-footer {
+      display: none;
+    }
+
+    .page {
+      position: relative;
+      width: min(100%, 980px);
+      min-height: 1120px;
+      margin: 28px auto;
+      padding: 64px 72px 72px;
+      overflow: hidden;
+      background: none;
+      border: 1px solid rgba(20, 33, 29, 0.08);
+      box-shadow: none;
+    }
+
+    .page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: none;
+    }
+
+    .page > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .page-footer {
+      position: absolute;
+      z-index: 2;
+      right: 72px;
+      bottom: 28px;
+      left: 72px;
+      color: #8b948f;
+      font-size: 8.5pt;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      color: var(--ink);
+      line-height: 1.05;
+    }
+
+    h1 {
+      font-size: clamp(68px, 9vw, 92px);
+      letter-spacing: -0.075em;
+    }
+
+    h2 {
+      margin-bottom: 18px;
+      font-size: 36px;
+      letter-spacing: -0.04em;
+    }
+
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul {
+      margin: 0 0 18px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: #f1f1ef;
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 18px 0;
+      padding: 18px;
+      overflow: auto;
+      border: 1px solid #d8ded8;
+      border-radius: 16px;
+      background: #f4f4f2;
+      color: #20312b;
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    th,
+    td {
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f0ee;
+      color: #24372f;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .cover {
+      display: flex;
+      flex-direction: column;
+      background: none;
+    }
+
+    .cover-nav,
+    .cover-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #33463e;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cover-main {
+      display: grid;
+      flex: 1;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      gap: 42px;
+      align-items: center;
+      padding: 72px 0 44px;
+    }
+
+    .subtitle {
+      margin-top: 12px;
+      color: var(--ink);
+      font-size: 31px;
+      font-weight: 720;
+      letter-spacing: -0.045em;
+      line-height: 1.15;
+    }
+
+    .supporting {
+      max-width: 590px;
+      margin-top: 30px;
+      color: #44524d;
+      font-size: 20px;
+      line-height: 1.42;
+    }
+
+    .promise-pill {
+      display: inline-flex;
+      margin-top: 34px;
+      padding: 11px 16px;
+      border: 1px solid rgba(20, 33, 29, 0.22);
+      border-radius: 999px;
+      background: rgba(223, 238, 230, 0.72);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .cover-bottom {
+      align-items: flex-end;
+      padding-bottom: 22px;
+      border-top: 1px solid rgba(20, 33, 29, 0.1);
+      color: #4c5b55;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .cover-url {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .runtime-visual {
+      min-height: 430px;
+      padding: 16px;
+      border: 1px solid rgba(20, 33, 29, 0.11);
+      border-radius: 34px;
+      background:
+        repeating-linear-gradient(0deg, rgba(47, 107, 87, 0.04) 0 1px, transparent 1px 42px),
+        repeating-linear-gradient(90deg, rgba(47, 107, 87, 0.04) 0 1px, transparent 1px 42px);
+    }
+
+    .runtime-svg,
+    .map-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .svg-label {
+      fill: #17211f;
+      font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 780;
+    }
+
+    .svg-small {
+      fill: #687873;
+      font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 10px;
+      font-weight: 620;
+    }
+
+    .svg-core {
+      fill: #21483c;
+      font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 17px;
+      font-weight: 820;
+    }
+
+    .intro-block {
+      margin: 0 0 34px;
+      padding: 46px 48px 44px;
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, #101b18, #21332d 58%, #16201d);
+      color: #f7fbf5;
+      box-shadow: none;
+    }
+
+    .section-label {
+      color: #c7d0cb;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .intro-kicker {
+      max-width: 780px;
+      margin-top: 22px;
+      color: #cddbd4;
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .intro-headline {
+      max-width: 820px;
+      margin: 24px 0 26px;
+      color: #fffdf8;
+      font-size: 47px;
+      letter-spacing: -0.055em;
+      line-height: 1.03;
+    }
+
+    .intro-copy {
+      max-width: 790px;
+      color: #e4ece7;
+      font-size: 17px;
+      line-height: 1.58;
+    }
+
+    .intro-close {
+      margin-top: 24px;
+      padding: 14px 18px;
+      border-left: 3px solid #c7d0cb;
+      background: none;
+      color: #f5fbf7;
+      font-weight: 680;
+    }
+
+    .map-copy {
+      max-width: 760px;
+      color: #4e5f59;
+      font-size: 16px;
+    }
+
+    .map-diagram {
+      margin-top: 24px;
+      padding: 24px;
+      border: 1px solid rgba(20, 33, 29, 0.08);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at center, rgba(47, 107, 87, 0.13), transparent 15rem);
+    }
+
+    .deliver {
+      background: none;
+    }
+
+    .deliver .lead {
+      max-width: 770px;
+      margin-bottom: 24px;
+      color: #4f5e59;
+      font-size: 17px;
+    }
+
+    .deliver-table {
+      margin-bottom: 24px;
+    }
+
+    .deliver-table td:first-child {
+      width: 22%;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .cards-title {
+      margin: 28px 0 16px;
+    }
+
+    .differentiators {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .diff-card {
+      min-height: 135px;
+      padding: 18px;
+      border: 1px solid rgba(20, 33, 29, 0.11);
+      border-radius: 20px;
+      background: none;
+      box-shadow: none;
+    }
+
+    .diff-card strong {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--ink);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .diff-card p {
+      color: #465650;
+      font-size: 14px;
+      line-height: 1.46;
+    }
+
+    .technical {
+      padding-top: 70px;
+    }
+
+    .technical h2 {
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(20, 33, 29, 0.1);
+    }
+
+    .technical h2:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .technical p,
+    .technical li {
+      color: #33433d;
+      font-size: 15.5px;
+    }
+
+    .rule-box {
+      margin: 18px 0 24px;
+      padding: 18px 20px;
+      border-left: 4px solid #9aa49f;
+      border-radius: 16px;
+      background: none;
+      color: #20352d;
+      font-weight: 660;
+    }
+
+    .mini-diagram,
+    .path-grid {
+      margin: 20px 0;
+      padding: 18px;
+      border: 1px solid rgba(20, 33, 29, 0.1);
+      border-radius: 22px;
+      background: none;
+    }
+
+    .chain {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .chain span,
+    .path-step {
+      display: grid;
+      min-height: 76px;
+      place-items: center;
+      padding: 11px;
+      border: 1px solid rgba(20, 33, 29, 0.16);
+      border-radius: 14px;
+      background: none;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 760;
+      text-align: center;
+    }
+
+    .path-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .path {
+      display: grid;
+      gap: 9px;
+    }
+
+    .path h3 {
+      margin: 0 0 4px;
+      color: var(--ink);
+      font-size: 17px;
+    }
+
+    @media (max-width: 820px) {
+      .page {
+        margin: 0;
+        padding: 42px 24px 68px;
+        border: 0;
+      }
+
+      .page-footer {
+        right: 24px;
+        left: 24px;
+      }
+
+      .cover-main,
+      .path-grid,
+      .differentiators {
+        grid-template-columns: 1fr;
+      }
+
+      .runtime-visual,
+      .map-diagram {
+        min-height: auto;
+        padding: 16px;
+      }
+
+      .chain {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      html,
+      body {
+        background: none;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .page {
+        width: auto;
+        min-height: 100vh;
+        margin: 0;
+        box-shadow: none;
+        border: 0;
+        break-after: page;
+        page-break-after: always;
+      }
+
+      .page:last-of-type {
+        break-after: auto;
+        page-break-after: auto;
+      }
+
+      .print-footer {
+        position: fixed;
+        right: 0;
+        bottom: 10mm;
+        left: 0;
+        display: block;
+        color: #8b948f;
+        font-size: 8.5pt;
+        letter-spacing: 0.02em;
+        text-align: center;
+      }
+
+      .page-footer {
+        display: none;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+
+  <section class="page cover">
+    <div class="cover-nav">
+      <div>SaaStoAgent</div>
+      <div>Technical Whitepaper · 2026</div>
+    </div>
+
+    <div class="cover-main">
+      <div>
+        <h1>RouteDeck</h1>
+        <div class="subtitle">The Missing Runtime Layer for Agentic Products</div>
+        <p class="supporting">A graph-backed state runtime for products where humans, agents, UI, browser navigation, and workflow enforcement must stay aligned.</p>
+        <div class="promise-pill">From AI agent idea → governed product execution</div>
+      </div>
+
+      <div class="runtime-visual" aria-label="Human request to product agent to RouteDeck runtime to graph validation to UI output">
+        <svg class="runtime-svg" viewBox="0 0 430 500" role="img" aria-label="Controlled execution flow through RouteDeck">
+          <defs>
+            <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#4f8a75"></path>
+            </marker>
+          </defs>
+          <rect x="32" y="30" width="366" height="440" rx="36" fill="none" stroke="#d5ddd5"></rect>
+          <path d="M215 118 V182" stroke="#7fac9b" stroke-width="2.4" marker-end="url(#arrow-green)"></path>
+          <path d="M215 318 V374" stroke="#7fac9b" stroke-width="2.4" marker-end="url(#arrow-green)"></path>
+          <path d="M126 250 H160" stroke="#7fac9b" stroke-width="2.4" marker-end="url(#arrow-green)"></path>
+          <path d="M270 250 H304" stroke="#7fac9b" stroke-width="2.4" marker-end="url(#arrow-green)"></path>
+
+          <rect x="116" y="56" width="198" height="62" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <text x="215" y="84" text-anchor="middle" class="svg-label">Human request</text>
+          <text x="215" y="103" text-anchor="middle" class="svg-small">intent</text>
+
+          <rect x="24" y="219" width="118" height="62" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <text x="83" y="247" text-anchor="middle" class="svg-label">Product</text>
+          <text x="83" y="265" text-anchor="middle" class="svg-label">agent</text>
+
+          <circle cx="215" cy="250" r="72" fill="#e7f4ec" stroke="#91b9a8" stroke-width="1.4"></circle>
+          <text x="215" y="236" text-anchor="middle" class="svg-core">RouteDeck</text>
+          <text x="215" y="259" text-anchor="middle" class="svg-core">runtime</text>
+          <text x="215" y="282" text-anchor="middle" class="svg-core">boundary</text>
+
+          <rect x="288" y="219" width="118" height="62" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <text x="347" y="247" text-anchor="middle" class="svg-label">Graph</text>
+          <text x="347" y="265" text-anchor="middle" class="svg-label">validation</text>
+
+          <rect x="116" y="374" width="198" height="62" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <text x="215" y="402" text-anchor="middle" class="svg-label">UI / output</text>
+          <text x="215" y="421" text-anchor="middle" class="svg-small">shared state</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="cover-bottom">
+      <div>By SaaStoAgent Research Lab</div>
+      <div class="cover-url">https://saastoagent.com</div>
+    </div>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page intro">
+    <div class="intro-block">
+      <div class="section-label">Section 1 · Introduction</div>
+      <p class="intro-kicker">Most agentic product failures are not model failures. They are state, permission, and workflow-boundary failures.</p>
+      <h2 class="intro-headline">The Agent Understands the Request. But What Is It Allowed To Do Next?</h2>
+      <div class="intro-copy">
+        <p>Most AI agent projects start with a simple promise: let users ask in natural language and let the agent take action.</p>
+        <p>But real software products need more than tool calling.</p>
+        <p>They need to know what is true right now, what the user is allowed to do next, what the agent is allowed to do next, when a workflow should be blocked, and when a human review is required before anything changes.</p>
+        <p>That is the state problem behind agentic products.</p>
+        <p>RouteDeck is SaaStoAgent's graph-backed runtime approach for keeping humans, agents, product UI, browser state, diagnostics, and workflow validation aligned through one controlled operating layer.</p>
+      </div>
+      <div class="intro-close">RouteDeck is not another chatbot layer. It is the runtime boundary between user intent, agent planning, UI state, and governed execution.</div>
+    </div>
+
+    <h2>A map of the whitepaper</h2>
+    <p class="map-copy">This whitepaper explains how RouteDeck separates product intent from runtime enforcement so agentic software can become more usable, safer to operate, and easier to inspect.</p>
+
+    <div class="map-diagram" aria-label="Map of the RouteDeck whitepaper">
+      <svg class="map-svg" viewBox="0 0 820 500" role="img" aria-label="Whitepaper map centered on RouteDeck runtime boundary">
+        <defs>
+          <marker id="map-dot" markerWidth="8" markerHeight="8" refX="4" refY="4">
+            <circle cx="4" cy="4" r="3" fill="#6fa08c"></circle>
+          </marker>
+        </defs>
+        <circle cx="410" cy="250" r="88" fill="#e7f4ec" stroke="#91b9a8" stroke-width="1.4"></circle>
+        <text x="410" y="232" text-anchor="middle" class="svg-core">RouteDeck</text>
+        <text x="410" y="257" text-anchor="middle" class="svg-core">Runtime</text>
+        <text x="410" y="282" text-anchor="middle" class="svg-core">Boundary</text>
+
+        <g stroke="#9dbdae" stroke-width="1.5" opacity="0.72" marker-end="url(#map-dot)">
+          <path d="M342 194 L260 128"></path>
+          <path d="M478 194 L560 128"></path>
+          <path d="M320 250 L238 250"></path>
+          <path d="M500 250 L582 250"></path>
+          <path d="M348 314 L260 380"></path>
+          <path d="M472 314 L560 380"></path>
+          <path d="M410 338 L410 404"></path>
+        </g>
+
+        <g>
+          <rect x="24" y="38" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="546" y="38" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="24" y="197" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="546" y="197" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="24" y="356" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="546" y="356" width="250" height="106" rx="18" fill="none" stroke="#d9ded6"></rect>
+          <rect x="286" y="382" width="248" height="86" rx="18" fill="none" stroke="#d9ded6"></rect>
+        </g>
+
+        <g class="svg-label">
+          <text x="44" y="70">1. The Problem RouteDeck Solves</text>
+          <text x="566" y="70">2. Mental Model</text>
+          <text x="44" y="229">3. Core Primitives</text>
+          <text x="566" y="229">4. Two Navigation Lanes</text>
+          <text x="44" y="388">5. Clicks and Chat</text>
+          <text x="566" y="388">6. Diagnostics and Testing</text>
+          <text x="306" y="414">7. SaaStoAgent Case Study</text>
+        </g>
+        <g class="svg-small">
+          <text x="44" y="94">Different actors cannot operate from</text>
+          <text x="44" y="111">different state models.</text>
+          <text x="566" y="94">Boundary, not brain. Product graph</text>
+          <text x="566" y="111">owns truth.</text>
+          <text x="44" y="253">Manifest, runtime state, projection,</text>
+          <text x="44" y="270">operations, and surfaces.</text>
+          <text x="566" y="253">Keep internal route operations away</text>
+          <text x="566" y="270">from product planning context.</text>
+          <text x="44" y="412">Clicks and chat converge on one</text>
+          <text x="44" y="429">typed validation path.</text>
+          <text x="566" y="412">Diagnostics expose internals only</text>
+          <text x="566" y="429">where appropriate.</text>
+          <text x="306" y="438">Corpus, graph runtime, React surfaces,</text>
+          <text x="306" y="455">browser state, and diagnostics.</text>
+        </g>
+      </svg>
+    </div>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page deliver">
+    <h2>What each section delivers</h2>
+    <p class="lead">The first three pages orient product and technical readers before the paper continues into the full RouteDeck runtime model.</p>
+
+    <table class="deliver-table">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>What it delivers</th>
+          <th>Who it is for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>The Problem RouteDeck Solves</td>
+          <td>Explains why agentic products cannot rely on normal UI state once humans, agents, browser replay, diagnostics, and runtime validation all become actors.</td>
+          <td>Founders, CTOs, product leaders, and engineering teams evaluating agentic product architecture.</td>
+        </tr>
+        <tr>
+          <td>Mental Model</td>
+          <td>Defines RouteDeck as a boundary between product graph truth, runtime projection, agent planning context, UI presentation, and enforcement.</td>
+          <td>Technical leaders and architects designing agentic workflows.</td>
+        </tr>
+        <tr>
+          <td>Core Primitives</td>
+          <td>Explains manifest, runtime state, projection, operations, and surfaces as the building blocks of governed agentic UI.</td>
+          <td>Engineering teams implementing product agents and runtime contracts.</td>
+        </tr>
+        <tr>
+          <td>Navigation Lanes</td>
+          <td>Shows why internal route operations must stay separate from product-facing agent planning and UI actions.</td>
+          <td>Product and engineering teams preventing framework leakage into user experience.</td>
+        </tr>
+        <tr>
+          <td>Clicks and Chat</td>
+          <td>Explains how clickable controls and chat-driven actions can share one typed validation path.</td>
+          <td>Teams building conversational interfaces inside real SaaS products.</td>
+        </tr>
+        <tr>
+          <td>Operation Visibility</td>
+          <td>Clarifies why legal operations are not automatically buttons and how review, forms, selectors, blocked states, and hidden operations should behave.</td>
+          <td>Product managers, UX teams, and engineers designing safe agentic workflows.</td>
+        </tr>
+        <tr>
+          <td>SaaStoAgent Case Study</td>
+          <td>Shows how RouteDeck coordinates Corpus, the product graph, React surfaces, diagnostics, and runtime validation inside SaaStoAgent.</td>
+          <td>Teams looking for a reference model for agentic SaaS architecture.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="cards-title">What makes RouteDeck different?</h2>
+    <div class="differentiators">
+      <div class="diff-card"><strong>Shared Product Truth</strong><p>RouteDeck keeps UI, agents, browser navigation, diagnostics, and runtime validation aligned around graph-backed state instead of separate local state models.</p></div>
+      <div class="diff-card"><strong>Governed Execution</strong><p>Every click, chat-driven action, browser replay, and diagnostic dispatch goes through runtime validation before graph state changes.</p></div>
+      <div class="diff-card"><strong>Product-Safe Agents</strong><p>Agents receive product-facing planning context instead of raw framework internals, endpoint paths, trace IDs, or hidden route operations.</p></div>
+      <div class="diff-card"><strong>Testable Boundaries</strong><p>Product teams can test the boundary between graph truth, UI rendering, agent planning, operation visibility, review gates, and diagnostics.</p></div>
+    </div>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>The Problem RouteDeck Solves</h2>
+    <p>Most product UI state assumes one primary actor: the human using the screen. The screen owns local state, calls APIs, and updates itself after responses return.</p>
+    <p>Agentic products add more actors:</p>
+    <ul>
+      <li>a human clicks product controls</li>
+      <li>a human asks an agent to do the same thing in natural language</li>
+      <li>the browser can reload or replay a deep link</li>
+      <li>the graph can block an action because a prerequisite is missing</li>
+      <li>the runtime can require review before a side effect</li>
+      <li>diagnostics need to show why an action is allowed or blocked</li>
+    </ul>
+    <p>If every actor gets its own state model, the product drifts. The UI shows one set of actions, the agent reasons over another, browser replay bypasses guard logic, and diagnostics become a private alternate truth.</p>
+    <p>RouteDeck keeps those paths aligned by making graph state projectable. The graph remains the authority, while RouteDeck gives every client a common way to ask:</p>
+    <ul>
+      <li>Where am I?</li>
+      <li>What surface is active?</li>
+      <li>What can be shown?</li>
+      <li>What can be done?</li>
+      <li>What is blocked, and why?</li>
+      <li>What needs a form, selection, confirmation, or review?</li>
+      <li>What can be replayed from the browser location?</li>
+    </ul>
+
+    <h2>Mental Model</h2>
+    <p>RouteDeck should be understood as a boundary, not a brain.</p>
+    <div class="mini-diagram">
+      <div class="chain">
+        <span>Product graph and runtime</span>
+        <span>Product RouteDeck adapter</span>
+        <span>RouteDeck runtime state and projection</span>
+        <span>Product agent planning context / UI / diagnostics</span>
+        <span>Typed operation dispatch</span>
+      </div>
+    </div>
+    <p>The product graph owns the truth: persistent state, current workflow, guards, permissions, tenancy, required arguments, review gates, and commits.</p>
+    <p>RouteDeck owns the reusable runtime contract: manifest shape, runtime state shape, operation metadata, readiness metadata, surfaces, projection helpers, navigation primitives, and diagnostics contracts.</p>
+    <p>The product agent owns interpretation: turning normal chat into one typed product operation, one product surface intent, or a clarification.</p>
+    <p>The product UI owns presentation: visual design, product language, forms, selectors, review screens, and product-specific components.</p>
+    <p>The runtime owns enforcement: every click, chat action, browser replay, and diagnostic dispatch is validated before it changes graph state.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>Core Primitives</h2>
+
+    <h3>Manifest</h3>
+    <p>The manifest is the static contract for a RouteDeck-backed product. It describes the shape of the graph-facing application: possible nodes, edges, operations, fields, policies, and surface metadata.</p>
+    <p>The manifest is not live state. It is the set of things the product may be able to do.</p>
+
+    <h3>Runtime State</h3>
+    <p>Runtime state is the current graph-backed state exposed through RouteDeck. It answers what is true now.</p>
+    <p>Typical runtime state includes:</p>
+    <ul>
+      <li>graph state snapshot</li>
+      <li>current node and active surface</li>
+      <li>active surfaces and surface options</li>
+      <li>legal operations</li>
+      <li>blocked operations</li>
+      <li>navigation state</li>
+      <li>diagnostics</li>
+      <li>projection version</li>
+      <li>runtime status</li>
+    </ul>
+    <p>React may mirror runtime state in a store. React local state must not become the source of graph truth.</p>
+
+    <h3>Projection</h3>
+    <p>Projection is the UI-facing and agent-facing view of runtime state. It is the shape clients consume.</p>
+    <p>Projection tells clients:</p>
+    <ul>
+      <li>which operation ids are legal</li>
+      <li>which operations can dispatch now</li>
+      <li>which operations need fields, selection, confirmation, review, or recovery</li>
+      <li>which surfaces are active or available</li>
+      <li>which entities are visible and can be bound to operations</li>
+      <li>which diagnostics are available</li>
+    </ul>
+    <p>Projection is output. It does not own graph behavior.</p>
+
+    <h3>Operations</h3>
+    <p>Operations are typed actions dispatched by a human, product component, product agent, or runtime client.</p>
+    <p>Important operation metadata includes: <code>id</code>, <code>label</code>, <code>description</code>, <code>category</code>, <code>input_schema</code>, <code>invocation_kind</code>, <code>can_dispatch_now</code>, <code>required_args</code>, <code>missing_args</code>, <code>accepted_arg_keys</code>, <code>safety_class</code>, <code>execution_mode</code>, and <code>target_node</code>.</p>
+    <p>The metadata is as important as the operation id. It tells clients whether the operation can be clicked, whether a form is needed, whether an entity must be selected, whether review is required, or whether the operation is internal only.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h3>Surfaces</h3>
+    <p>Surfaces are graph-projected UI regions. They let the runtime declare what can be shown without letting local UI state become workflow truth.</p>
+    <p>Common roles:</p>
+    <ul>
+      <li><code>frame</code>: stable context around the active work</li>
+      <li><code>active</code>: current working surface</li>
+      <li><code>diagnostic</code>: read-only inspection</li>
+    </ul>
+    <p>Common kinds:</p>
+    <ul>
+      <li><code>peer</code>: alternate same-node view</li>
+      <li><code>detail</code>: nested or review view</li>
+      <li><code>embedded</code>: supporting inline view</li>
+    </ul>
+    <p>Surfaces let a product stay flexible without turning every tab or panel into a new graph node. A same-node peer surface can represent "policy gaps" versus "failed executions"; a detail surface can represent one execution trace review.</p>
+
+    <h2>Two Navigation Lanes</h2>
+    <p>RouteDeck has two navigation lanes. Keeping them separate is the difference between a usable product agent and a framework leak.</p>
+
+    <h3>Internal Navigation Lane</h3>
+    <p>RouteDeck supports generic route operations:</p>
+    <ul>
+      <li><code>route.open_node</code></li>
+      <li><code>route.switch_surface</code></li>
+      <li><code>route.back</code></li>
+      <li><code>route.forward</code></li>
+      <li><code>route.cancel</code></li>
+    </ul>
+    <p>These exist for runtime plumbing, browser replay, history, recovery, and diagnostics. They are useful infrastructure.</p>
+    <p>They should normally be hidden from normal product UI and normal product-agent planning. A user should not see "Open node" as a product action. An agent should not need to say it will call <code>route.switch_surface</code>.</p>
+
+    <h3>Product Planning Lane</h3>
+    <p>Product agents should see product-facing context:</p>
+    <ul>
+      <li>current node and surface summary</li>
+      <li>active product record summary</li>
+      <li>valid product surface options</li>
+      <li>visible entities with bound operation arguments</li>
+      <li>product legal operations</li>
+      <li>labels, descriptions, accepted args, and readiness metadata</li>
+    </ul>
+    <p>The agent's job is to interpret normal chat against that context. It can choose a typed product operation, choose a valid product surface intent, or ask a product-safe clarification. The runtime can then map a valid surface intent to an internal route dispatch.</p>
+    <p>The model does not need backend phrase tables. It needs complete context and a validated operation boundary.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>One Path For Clicks And Chat</h2>
+    <p>Clickable actions and chat-driven actions should converge on the same typed operation path.</p>
+    <div class="path-grid">
+      <div class="path">
+        <h3>Click path</h3>
+        <div class="path-step">Human clicks product action</div>
+        <div class="path-step">UI reads operation metadata</div>
+        <div class="path-step">Runtime dispatches typed operation and args</div>
+        <div class="path-step">Graph validates guards and required args</div>
+        <div class="path-step">Runtime returns new RouteDeck state</div>
+      </div>
+      <div class="path">
+        <h3>Chat path</h3>
+        <div class="path-step">Human asks in normal language</div>
+        <div class="path-step">Agent reads operations, surfaces, entities</div>
+        <div class="path-step">Runtime dispatches typed product operation or surface intent</div>
+        <div class="path-step">Graph validates guards and required args</div>
+        <div class="path-step">Agent responds from new state</div>
+      </div>
+    </div>
+    <p>The two flows differ in interpretation, not authority. A click already has a selected control. A chat turn needs the agent to infer intent from conversation and context. Both must end at runtime validation.</p>
+
+    <h2>Operation Visibility</h2>
+    <p>RouteDeck intentionally separates legality from presentation.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Operation state</th>
+          <th>UI behavior</th>
+          <th>Agent behavior</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>can_dispatch_now=true</code>, <code>invocation_kind=direct</code></td><td>Render as a one-click product action when useful</td><td>Dispatch when intent matches</td></tr>
+        <tr><td><code>invocation_kind=form</code></td><td>Open a form or review surface</td><td>Collect missing fields before dispatch</td></tr>
+        <tr><td><code>invocation_kind=entity_selector</code></td><td>Open a selector or bind selected entity</td><td>Bind visible entity args or ask/select</td></tr>
+        <tr><td><code>invocation_kind=surface</code></td><td>Show product surface navigation</td><td>Choose surface intent from valid options</td></tr>
+        <tr><td><code>invocation_kind=hidden</code></td><td>Do not render as product action</td><td>Do not expose in normal planning</td></tr>
+        <tr><td><code>execution_mode=review</code></td><td>Stage review before side effect</td><td>Explain review and wait for approval</td></tr>
+        <tr><td><code>execution_mode=blocked</code></td><td>Show recovery or prerequisite</td><td>Ask for allowed prerequisite</td></tr>
+      </tbody>
+    </table>
+    <p>This table is one of RouteDeck's most important design constraints. Without it, products tend to render every legal operation as a button and expose internal route operations as if they were product actions.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>Human Experience</h2>
+    <p>Humans should experience RouteDeck through product language:</p>
+    <ul>
+      <li>workflows</li>
+      <li>current work</li>
+      <li>review</li>
+      <li>details</li>
+      <li>back and forward</li>
+      <li>cancel</li>
+      <li>policy candidates</li>
+      <li>execution traces</li>
+    </ul>
+    <p>Humans should not need to see framework language in normal product UI:</p>
+    <ul>
+      <li>RouteDeck node</li>
+      <li>graph edge</li>
+      <li>operation id</li>
+      <li>trace id</li>
+      <li>endpoint path</li>
+      <li>internal slot name</li>
+    </ul>
+    <p>Those details can appear in diagnostics when the user is explicitly in a developer or inspection surface.</p>
+
+    <h2>Agent Experience</h2>
+    <p>A product agent using RouteDeck should follow this loop:</p>
+    <pre>Read product-facing RouteDeck planning context.
+Interpret user intent against legal operations, visible entities, and surfaces.
+Choose one typed product operation, choose one product surface intent, or clarify.
+Dispatch through the product runtime.
+Read the returned state.
+Respond using product-safe language.</pre>
+    <p>The agent should not infer hidden permission from conversation. It should not patch graph state directly. It should not call product side-effect APIs directly when a graph operation exists. It should not expose operation ids, endpoint paths, trace ids, approval ids, or auth details in public chat.</p>
+    <p>RouteDeck gives the agent enough state to act normally without a backend phrase router. If the user says "open Live Commerce" and the current context exposes a visible entity with a bound <code>saas_agent.open</code> operation, the agent can choose that operation because the context makes it legal and specific.</p>
+
+    <h2>Developer Experience</h2>
+    <p>A product integration usually has this shape:</p>
+    <pre>Product graph
+  -> product RouteDeck adapter
+    -> RouteDeck runtime state
+      -> product state/action/stream APIs
+        -> RouteDeck React store
+          -> product shell, product agent, diagnostics</pre>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <p>The product adapter is where domain state becomes RouteDeck state. It should translate product graph facts into nodes, surfaces, legal operations, blocked operations, and diagnostics. It should not move domain behavior into RouteDeck framework source.</p>
+    <p>A reusable backend runtime normally exposes:</p>
+    <pre>class ProductRouteDeckRuntime:
+    async def snapshot(self, context) -> RouteDeckRuntimeState: ...
+    async def projection(self, context) -> RouteDeckProjection: ...
+    async def dispatch(self, request, context) -> RouteDeckDispatchResult: ...
+    async def inspect(self, query, context) -> RouteDeckIntrospection: ...
+    async def stream(self, context) -> AsyncIterator[RouteDeckEvent]: ...</pre>
+    <p>A product API normally exposes product-scoped routes:</p>
+    <pre>GET  /api/&lt;product&gt;/state
+GET  /api/&lt;product&gt;/stream
+POST /api/&lt;product&gt;/action
+GET  /api/diagnostics/stream</pre>
+    <p>Raw public <code>/api/routedeck/*</code> routes are usually the wrong boundary. The product should own auth, tenancy, workspace semantics, domain graph behavior, and public copy.</p>
+
+    <h2>Browser Replay Is Not Product Intent</h2>
+    <p>Browser URLs are location replay. They are not product intent.</p>
+    <p>If a user loads a deep link, presses Back, presses Forward, or refreshes the page, the runtime should validate the requested location against current graph state. Unknown node/surface combinations, injected review surfaces, and invalid record combinations should be rejected or recovered according to runtime policy.</p>
+    <p>That validation may internally dispatch route operations. It should not expose those route operations as normal product actions.</p>
+
+    <h2>Diagnostics Without Product Leakage</h2>
+    <p>Diagnostics are necessary. They make graph behavior inspectable and testable.</p>
+    <p>Diagnostics should be allowed to show:</p>
+    <ul>
+      <li>current graph node and surface</li>
+      <li>legal operations</li>
+      <li>blocked operations and reasons</li>
+      <li>route trace</li>
+      <li>active surfaces</li>
+      <li>selected-node details</li>
+      <li>runtime snapshot and projection version</li>
+      <li>reachability and guard explanations</li>
+    </ul>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <p>Public product chat is different. It must not expose:</p>
+    <ul>
+      <li>operation ids</li>
+      <li>endpoint paths</li>
+      <li>trace ids</li>
+      <li>approval ids</li>
+      <li>cart ids</li>
+      <li>raw API auth headers</li>
+      <li>internal slot names</li>
+      <li>raw graph state</li>
+      <li>hidden route operation names</li>
+    </ul>
+    <p>Diagnostics can be technical. Public product chat must be product-safe.</p>
+
+    <h2>SaaStoAgent Case Study</h2>
+    <p>SaaStoAgent uses RouteDeck to coordinate its owner workbench, Corpus product agent, graph runtime, browser navigation, and diagnostics.</p>
+    <p>In the current integration:</p>
+    <ul>
+      <li>the product graph/runtime owns SaaS Agent workflow truth</li>
+      <li>RouteDeck exposes runtime state, projection, legal operations, surfaces, and diagnostics</li>
+      <li>Corpus interprets normal owner chat against product-facing planning context</li>
+      <li>React renders product surfaces and dispatches typed operations</li>
+      <li>backend runtime validates node/surface combinations, required args, and review gates</li>
+    </ul>
+    <p>The important boundary is that RouteDeck does not decide product intent. Corpus does not bypass graph validation. React does not become graph truth.</p>
+    <p>SaaStoAgent also illustrates the two navigation lanes:</p>
+    <ul>
+      <li>internal route operations remain available for browser replay, history, and diagnostics</li>
+      <li>normal Corpus planning sees product operations, product surface options, and visible entities</li>
+    </ul>
+    <p>This is why "Open node" and "Switch surface" should not be normal product action chips. They are framework infrastructure. The product-level actions are things like opening a SaaS Agent, listing agents, saving instructions, reviewing a policy candidate, or opening a valid product surface.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>Anti-Patterns</h2>
+    <p>Avoid these patterns:</p>
+    <ul>
+      <li>rendering every <code>legal_operation</code> as a generic quick action</li>
+      <li>exposing <code>route.open_node</code> or <code>route.switch_surface</code> as ordinary product UI</li>
+      <li>adding backend phrase tables or alias routers for normal chat</li>
+      <li>letting React local state own graph truth</li>
+      <li>letting a product agent patch graph state directly</li>
+      <li>calling product side-effect APIs directly when a graph operation exists</li>
+      <li>treating browser URL replay as normal product intent</li>
+      <li>placing product ids, SaaS provider behavior, or auth semantics in RouteDeck framework source</li>
+      <li>making diagnostics language visible in public deployed chat</li>
+      <li>drawing action ids as graph topology</li>
+    </ul>
+
+    <h2>Testing The Boundary</h2>
+    <p>RouteDeck-backed products should test the contract, not just the components.</p>
+    <p>Important tests include:</p>
+    <ul>
+      <li>planning context excludes hidden/internal route operations</li>
+      <li>blocked operations are absent from normal product planning context</li>
+      <li>product legal operations remain available when guards allow them</li>
+      <li>valid product surface options map to validated internal route dispatch</li>
+      <li>direct URL load preserves valid node and surface state</li>
+      <li>invalid surface injection is rejected or recovered</li>
+      <li>browser back/forward works without exposing route operations to product chat</li>
+      <li>clickable actions dispatch typed operations through the same runtime path as chat-driven actions</li>
+      <li>diagnostics expose internals only in diagnostic surfaces</li>
+      <li>public chat does not leak operation ids, endpoint paths, trace ids, approval ids, auth headers, or hidden route names</li>
+    </ul>
+    <p>These tests are not incidental. They encode the architecture.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+
+  <section class="page technical">
+    <h2>Open Framework Direction</h2>
+    <p>RouteDeck can become an open framework when its reusable pieces are separated from product-specific adapters:</p>
+    <ul>
+      <li>product-neutral manifest and runtime schemas</li>
+      <li>product-neutral projection helpers</li>
+      <li>product-neutral React store and hooks</li>
+      <li>optional adapters for graph runtimes such as LangGraph</li>
+      <li>reusable diagnostics components</li>
+      <li>minimal examples that do not depend on SaaStoAgent data or services</li>
+      <li>clear boundary docs that explain what RouteDeck does not own</li>
+    </ul>
+    <p>SaaStoAgent should remain a reference integration, not the framework itself.</p>
+
+    <h2>Glossary</h2>
+    <p><strong>RouteDeck:</strong> The graph-backed runtime and projection contract for agentic UI.</p>
+    <p><strong>Product graph:</strong> The product-owned workflow authority that validates and commits state transitions.</p>
+    <p><strong>Manifest:</strong> The static declaration of possible nodes, operations, fields, policies, and surfaces.</p>
+    <p><strong>Runtime state:</strong> The current graph-backed state exposed through RouteDeck.</p>
+    <p><strong>Projection:</strong> The client-facing view of runtime state used by UI, agents, and diagnostics.</p>
+    <p><strong>Operation:</strong> A typed action that can be dispatched through the runtime.</p>
+    <p><strong>Surface:</strong> A graph-projected UI region or view option.</p>
+    <p><strong>Hidden operation:</strong> A runtime or diagnostic operation that should not appear in normal product UI or normal product-agent planning.</p>
+    <p><strong>Product action:</strong> A user-facing or agent-facing operation expressed in product language.</p>
+    <p><strong>Browser replay:</strong> Validation and restoration of location state from URLs/history, not normal product intent.</p>
+    <div class="page-footer">SaaStoAgent Research Lab · saastoagent.com</div>
+  </section>
+</body>
+</html>

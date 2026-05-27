@@ -13,6 +13,8 @@ operation contract between a graph-owned application and agentic UI.
 
 For the narrative architecture article, read
 [`route-deck-whitepaper.md`](./route-deck-whitepaper.md).
+For the printable preview version, open
+[`route-deck-whitepaper.html`](./route-deck-whitepaper.html).
 
 ## Short Version
 
