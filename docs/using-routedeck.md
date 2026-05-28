@@ -213,7 +213,18 @@ class ProductRouteDeckRuntime:
     async def stream(self, context) -> AsyncIterator[RouteDeckEvent]: ...
 ```
 
-Recommended product route shape:
+RouteDeck can be exposed as a distinct generic API plane:
+
+```text
+GET  /api/routedeck/manifest
+GET  /api/routedeck/snapshot
+GET  /api/routedeck/projection
+POST /api/routedeck/dispatch
+POST /api/routedeck/inspect
+GET  /api/routedeck/stream
+```
+
+Product APIs can sit beside that RouteDeck API plane:
 
 ```text
 GET  /api/<product>/state
@@ -222,7 +233,11 @@ POST /api/<product>/action
 GET  /api/diagnostics/stream
 ```
 
-Avoid raw public `/api/routedeck/*` routes unless they are internal diagnostics.
+Use separate RouteDeck APIs when operators, agents, or debugger surfaces need a
+clear framework boundary. The wrong boundary is not `/api/routedeck/*` itself;
+the wrong boundary is putting product-specific semantics under that namespace,
+for example `/api/routedeck/<product>/checkout` or a RouteDeck endpoint that
+owns product auth, tenancy, payment, or business policy.
 
 React integration:
 
@@ -401,7 +416,7 @@ Avoid:
 - calling product REST mutations directly when a graph operation exists
 - exposing RouteDeck terms in public product UI
 - treating public chat as diagnostics
-- making `/api/routedeck/*` public product routes
+- putting product-specific behavior inside `/api/routedeck/*`
 - drawing action ids as navgraph edges
 - adding backend phrase tables or alias routers for normal chat
 

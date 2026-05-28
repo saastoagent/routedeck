@@ -24,6 +24,8 @@ Before publishing:
 - Add isolated package tests under `tests`.
 - Add semantic versioning and changelog.
 - Add examples to the package README.
+- Verify MIT license metadata, `LICENSE`, `THIRD_PARTY_NOTICES.md`, and wheel
+  license-file inclusion.
 
 ## npm
 
@@ -40,6 +42,7 @@ Before publishing:
 - Keep React and `@xyflow/react` as peer dependencies.
 - Add visual tests or story examples.
 - Remove SaaStoAgent styling assumptions or document required CSS classes.
+- Verify the `license` field and third-party notice coverage before publishing.
 
 ## Contract Compatibility
 

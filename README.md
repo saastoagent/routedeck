@@ -34,6 +34,12 @@ It is split into:
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
 - `context_architecture_bundle`: generic starter kit for context, architecture, handoff, validation, and project-local skills in new or existing projects.
 
+`docs/medusa-agent-reference-app.md` is the active source-of-truth spec for a
+future product-specific Medusa reference app. It documents the intended
+product-owned contract only; `examples/medusa-agent` is not implemented yet.
+`docs/propertydesk-reference-app.md` is retained only as superseded planning
+context.
+
 The framework is a sibling local package during development. SaaStoAgent consumes `routedeck-core`, `routedeck-langgraph`, and `@routedeck/react` from this folder instead of copying framework source into the SaaStoAgent project.
 
 ## LangGraph Adapter

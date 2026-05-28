@@ -2,8 +2,12 @@
 
 ## Purpose
 
-This component owns RouteDeck's product-neutral adoption examples. Examples
-must teach integration without importing SaaStoAgent product behavior.
+This component owns RouteDeck's product-neutral adoption examples. Minimal
+examples must teach integration without importing SaaStoAgent product behavior.
+Future product-specific examples, such as `examples/medusa-agent`, may expose a
+separate generic RouteDeck API plane next to their product APIs. They must not
+move Medusa behavior into RouteDeck core, React, LangGraph adapter packages, or
+product-specific `/api/routedeck/<domain>/*` routes.
 
 ## Owner Files
 
@@ -16,6 +20,8 @@ must teach integration without importing SaaStoAgent product behavior.
 
 - Minimal backend-only LangGraph adapter example.
 - Minimal FastAPI/React full-contract example.
+- Future product-specific Medusa example contract, currently documented only in
+  `docs/medusa-agent-reference-app.md`.
 - Example README files and adoption commands.
 
 ## Dependent Flows
@@ -41,5 +47,8 @@ Update this doc and `architecture/code-map.md` when changing:
 - adoption instructions
 - public docs that describe examples
 
-Examples must remain product-neutral and must not depend on private local
-credentials, SaaStoAgent database models, or Medusa-specific behavior.
+Minimal examples must remain product-neutral and must not depend on private
+local credentials, SaaStoAgent database models, or Medusa-specific behavior.
+Product-specific examples may demonstrate a domain only inside their own example
+folder, with product routes for domain behavior and generic RouteDeck routes for
+framework state/projection/dispatch/inspect.

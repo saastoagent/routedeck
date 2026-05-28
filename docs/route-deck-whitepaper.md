@@ -397,9 +397,10 @@ POST /api/<product>/action
 GET  /api/diagnostics/stream
 ```
 
-Raw public `/api/routedeck/*` routes are usually the wrong boundary. The product
-should own auth, tenancy, workspace semantics, domain graph behavior, and public
-copy.
+Public `/api/routedeck/*` routes are valid when they expose generic RouteDeck
+manifest, snapshot, projection, dispatch, inspect, and stream contracts. The
+wrong boundary is placing product-specific auth, tenancy, checkout, workspace,
+or domain graph behavior under the RouteDeck namespace.
 
 ## Browser Replay Is Not Product Intent
 

@@ -2,6 +2,7 @@
   "name": "@routedeck/react",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "React components and types for RouteDeck manifest debugging.",
   "main": "./src/index.ts",
