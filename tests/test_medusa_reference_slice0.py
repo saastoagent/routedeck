@@ -112,9 +112,13 @@ def test_route_deck_does_not_claim_to_host_expose_or_own_medusa_agent():
 def test_reference_surface_encourages_separate_routedeck_api_without_product_routes():
     medusa_spec = _read(ROOT / "docs" / "medusa-agent-reference-app.md")
     using_doc = _read(ROOT / "docs" / "using-routedeck.md")
+    whitepaper = _read(ROOT / "docs" / "route-deck-whitepaper.md")
 
     assert "RouteDeck API is allowed, expected, and encouraged" in medusa_spec
     assert "RouteDeck can be exposed as a distinct generic API plane" in using_doc
+    assert "Two API planes are valid, and they should stay distinct." in whitepaper
+    assert "GET  /api/routedeck/manifest" in whitepaper
+    assert "POST /api/<product>/agent/stream" in whitepaper
 
     failures = []
 
@@ -129,6 +133,33 @@ def test_reference_surface_encourages_separate_routedeck_api_without_product_rou
             failures.append(f"{path.relative_to(ROOT).as_posix()}:{line_number}: {line.strip()}")
 
     assert not failures, "RouteDeck routes must stay generic, not product-specific:\n" + "\n".join(failures)
+
+
+def test_whitepaper_names_product_owned_agent_and_public_reference_boundaries():
+    text = _read(ROOT / "docs" / "route-deck-whitepaper.md")
+
+    assert "agent execution, and agent streaming endpoints are product-owned" in text
+    assert "are not RouteDeck operations" in text
+    assert "Agent authority should be explicit" in text
+    assert "Medusa is the future product-specific reference example" in text
+    assert "SaaStoAgent should remain a case study and integration" in text
+    assert "PropertyDesk should not be described as the active reference-app" in text
+    assert "license metadata, third-party notices, package" in text
+
+
+def test_print_friendly_whitepaper_matches_boundary_and_layout_direction():
+    html = _read(ROOT / "docs" / "route-deck-whitepaper.html")
+
+    assert "<table" not in html
+    assert "<ul" not in html
+    assert "Two API planes are valid, and they should stay distinct." in html
+    assert "Product agents, agent execution, and agent streaming endpoints are product-owned" in html
+    assert "GET  /api/routedeck/manifest" in html
+    assert "POST /api/&lt;product&gt;/agent/stream" in html
+    assert "Medusa becomes the future product-specific reference app" in html
+    assert "SaaStoAgent should remain a case study and integration" in html
+    assert "Raw public <code>/api/routedeck/*</code> routes are usually the wrong boundary" not in html
+    assert "product state/action/stream APIs" not in html
 
 
 def test_medusa_reference_defines_reset_fixture_rule():

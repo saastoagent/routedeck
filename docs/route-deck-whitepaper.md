@@ -110,13 +110,27 @@ shape, operation metadata, readiness metadata, surfaces, projection helpers,
 navigation primitives, and diagnostics contracts.
 
 The product agent owns interpretation: turning normal chat into one typed
-product operation, one product surface intent, or a clarification.
+product operation, one product surface intent, or a clarification. Product
+agents, agent execution, and agent streaming endpoints are product-owned. They
+are not RouteDeck operations.
 
 The product UI owns presentation: visual design, product language, forms,
 selectors, review screens, and product-specific components.
 
 The runtime owns enforcement: every click, chat action, browser replay, and
 diagnostic dispatch is validated before it changes graph state.
+
+There are several kinds of truth in this boundary:
+
+- the product graph/runtime owns workflow truth and commit authority
+- the product domain owns business data, permissions, policy, and side effects
+- RouteDeck owns the reusable projection contract for what is visible, legal,
+  blocked, inspectable, and dispatchable
+- the product agent owns conversational execution and normal-language
+  interpretation
+
+Keeping those truths separate lets RouteDeck stay visible without absorbing the
+product.
 
 ## Core Primitives
 
@@ -359,6 +373,19 @@ router. If the user says "open Live Commerce" and the current context exposes a
 visible entity with a bound `saas_agent.open` operation, the agent can choose
 that operation because the context makes it legal and specific.
 
+Agent authority should be explicit:
+
+| User intent | Agent behavior | Runtime boundary |
+| --- | --- | --- |
+| Greeting, explanation, or low-risk read | Respond directly in product language | No dispatch needed |
+| Missing required inputs | Ask focused product-language questions | Do not guess hidden args |
+| Legal direct product action | Dispatch the typed operation | Runtime validates guards and args |
+| Review-required or destructive action | Propose and wait for confirmation | Commit only after the review boundary |
+| Blocked, unauthorized, or hidden behavior | Explain, recover, or defer | Do not bypass RouteDeck projection |
+
+This authority model keeps chat useful without turning the agent into a parallel
+backend.
+
 ## Developer Experience
 
 A product integration usually has this shape:
@@ -367,9 +394,8 @@ A product integration usually has this shape:
 Product graph
   -> product RouteDeck adapter
     -> RouteDeck runtime state
-      -> product state/action/stream APIs
-        -> RouteDeck React store
-          -> product shell, product agent, diagnostics
+      -> product API plane and optional RouteDeck API plane
+        -> product shell, product agent, RouteDeck React store, diagnostics
 ```
 
 The product adapter is where domain state becomes RouteDeck state. It should
@@ -388,19 +414,34 @@ class ProductRouteDeckRuntime:
     async def stream(self, context) -> AsyncIterator[RouteDeckEvent]: ...
 ```
 
-A product API normally exposes product-scoped routes:
+Two API planes are valid, and they should stay distinct.
+
+The product API plane exposes domain behavior in product language:
 
 ```text
 GET  /api/<product>/state
-GET  /api/<product>/stream
 POST /api/<product>/action
-GET  /api/diagnostics/stream
+POST /api/<product>/agent/stream
+POST /api/<product>/inspect
 ```
 
-Public `/api/routedeck/*` routes are valid when they expose generic RouteDeck
-manifest, snapshot, projection, dispatch, inspect, and stream contracts. The
-wrong boundary is placing product-specific auth, tenancy, checkout, workspace,
-or domain graph behavior under the RouteDeck namespace.
+The RouteDeck API plane exposes framework concepts in generic RouteDeck
+language:
+
+```text
+GET  /api/routedeck/manifest
+GET  /api/routedeck/snapshot
+GET  /api/routedeck/projection
+POST /api/routedeck/dispatch
+POST /api/routedeck/inspect
+GET  /api/routedeck/stream
+```
+
+Public `/api/routedeck/*` routes are valid and encouraged when they expose
+generic RouteDeck manifest, snapshot, projection, dispatch, inspect, and stream
+contracts. The wrong boundary is placing product-specific auth, tenancy,
+checkout, workspace, agent execution, or domain graph behavior under the
+RouteDeck namespace.
 
 ## Browser Replay Is Not Product Intent
 
@@ -521,9 +562,16 @@ from product-specific adapters:
 - optional adapters for graph runtimes such as LangGraph
 - reusable diagnostics components
 - minimal examples that do not depend on SaaStoAgent data or services
+- a future Medusa agent reference app that demonstrates product-specific
+  adoption without moving Medusa behavior into RouteDeck packages
 - clear boundary docs that explain what RouteDeck does not own
+- public-readiness gates for license metadata, third-party notices, package
+  metadata, and public-surface scrub before publication
 
-SaaStoAgent should remain a reference integration, not the framework itself.
+SaaStoAgent should remain a case study and integration, not the framework
+itself. Medusa is the future product-specific reference example. Superseded
+plans such as PropertyDesk should not be described as the active reference-app
+plan.
 
 ## Glossary
 
