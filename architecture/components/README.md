@@ -13,7 +13,7 @@ often or define public framework boundaries. The canonical subsystem table is
 | `react-runtime-debugger.md` | React store, provider, hooks, surfaces, location state, debugger topology, and types. | `react/src/*` | `cd react && npm test` |
 | `examples-and-adoption.md` | Minimal examples and product-neutral adoption path. | `examples/**/*` | Example README review, Python/React tests |
 | `packaging-public-readiness.md` | Package metadata, public docs, release posture, and scrub readiness. | `pyproject.toml`, `react/package.json`, `README.md`, `docs/*` | `python -m pytest tests -q`, `cd react && npm test` |
-| `skills-and-context-architecture.md` | Repo-local skills plus the generic context architecture starter kit. | `skills/**/*`, `context_architecture_bundle/**/*` | Skill self-review, bundle script help checks |
+| `skills-and-context-architecture.md` | Repo-local skills plus RouteDeck-local context architecture and handoff workflow. | `skills/**/*`, root context files, lifecycle folders | Skill self-review, `python scripts/check_doc_coverage.py` |
 
 ## Update Rule
 

@@ -32,7 +32,7 @@ It is split into:
 - `examples/minimal-langgraph-adapter`: minimal backend-only LangGraph adapter example.
 - `examples/minimal-fastapi-react`: minimal working example showing the full contract without SaaStoAgent product code.
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
-- `context_architecture_bundle`: generic starter kit for context, architecture, handoff, validation, and project-local skills in new or existing projects.
+- root context files: RouteDeck-local context, handoff, validation index, and lifecycle anchors populated from the sibling `context_architecture_bundle` starter.
 
 `docs/medusa-agent-reference-app.md` is the active source-of-truth spec for a
 future product-specific Medusa reference app. It documents the intended

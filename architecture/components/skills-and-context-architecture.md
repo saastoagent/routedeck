@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This component owns RouteDeck repo-local skills and the generic
-`context_architecture_bundle` starter kit.
+This component owns RouteDeck repo-local skills and RouteDeck-local context
+architecture handoff files.
 
 Skills capture stable repeatable procedures with clear invocation criteria,
 inputs, outputs, checks, and stop conditions. They should not encode one-off
@@ -15,20 +15,33 @@ session history.
 - `skills/routedeck-manifest-scaffolder/SKILL.md`
 - `skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py`
 - `skills/routedeck-langgraph-integration/SKILL.md`
-- `context_architecture_bundle/**/*`
+- `critical_prompt.md`
+- `context.md`
+- `context_pipeline.md`
+- `instructions.md`
+- `work_prompt.md`
+- `structure.md`
+- `SYSTEM_FLOW_INDEX.md`
+- `test_index/**/*`
+- `logs/**/*`
+- `context_checkpoints/**/*`
+- `context_history/**/*`
+- `plans/**/*`
+- `decisions/**/*`
+- `knowledgebase/**/*`
+- `audits/**/*`
+- `errors/**/*`
 
 ## Public Interfaces
 
 - Repo-local RouteDeck skills.
-- Context architecture starter kit templates.
-- Starter-kit skills:
-  - create a complete context architecture bundle from a project idea/spec
-  - populate context architecture for an existing codebase
+- RouteDeck context restart files.
+- Session start, closeout, checkpoint, and validation-index workflow.
 
 ## Dependent Flows
 
-- New project bootstrapping.
-- Existing project context/architecture retrofit.
+- RouteDeck session start and closeout.
+- RouteDeck context/architecture retrofit.
 - RouteDeck manifest authoring.
 - LangGraph integration.
 - Closeout and code-reference maintenance.
@@ -36,7 +49,8 @@ session history.
 ## Tests And Evidence
 
 - Skill self-review against trigger, input, output, check, and stop-condition rules.
-- `python context_architecture_bundle/scripts/check_doc_coverage.py --help`
+- `python scripts/check_doc_coverage.py`
+- `python scripts/check_doc_coverage.py --files critical_prompt.md`
 - `python skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py skills/routedeck-manifest-scaffolder/examples/basic-flow.json generated_manifest.py --force`
 
 ## Update Triggers
@@ -45,7 +59,7 @@ Update this doc and `architecture/code-map.md` when changing:
 
 - skill trigger rules
 - skill folder names
-- bundle template inventory
-- starter-kit workflow assumptions
+- context file inventory
+- handoff workflow assumptions
 - advisory checker behavior
 - scaffolder inputs or outputs
