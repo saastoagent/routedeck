@@ -3,6 +3,9 @@
 Status: Whitepaper
 Date: 2026-05-26
 
+Canonical terms live in `docs/route-deck-reference.md`. This whitepaper explains
+the architecture in narrative form.
+
 RouteDeck is a state runtime for products where humans, agents, and browser
 navigation all need to act against the same graph-owned truth.
 
@@ -574,6 +577,9 @@ plans such as PropertyDesk should not be described as the active reference-app
 plan.
 
 ## Glossary
+
+The canonical framework reference is `docs/route-deck-reference.md`. This
+glossary is a compact reading aid for the whitepaper.
 
 RouteDeck: The graph-backed runtime and projection contract for agentic UI.
 

@@ -30,7 +30,8 @@ PRODUCT_SPECIFIC_ROUTEDECK_ROUTE = re.compile(
 )
 
 ALLOWED_PRODUCT_ROUTEDECK_PROHIBITION_CONTEXT = re.compile(
-    r"\b(must not|should not|do not|don't|wrong boundary|drift|appears|for example|not become|no product-specific)\b",
+    r"\b(must not|should not|do not|don't|wrong boundary|drift|appears|for example|not become|"
+    r"no(?:\s+`?/api/routedeck/|\s+product-specific)|not in|product-specific RouteDeck route|404)\b",
     re.I,
 )
 
@@ -135,6 +136,97 @@ def test_reference_surface_encourages_separate_routedeck_api_without_product_rou
     assert not failures, "RouteDeck routes must stay generic, not product-specific:\n" + "\n".join(failures)
 
 
+def test_routedeck_reference_is_the_unified_framework_authority():
+    reference_path = ROOT / "docs" / "route-deck-reference.md"
+    assert reference_path.exists()
+    assert not (ROOT / "docs" / "route-deck-terms.md").exists()
+
+    terms = _read(reference_path)
+    assert "Status: canonical framework reference" in terms
+    assert "Schema authority: `routedeck_core/models.py`" in terms
+
+    for heading in [
+        "## Execution Owners",
+        "### Graph",
+        "### Product Runtime",
+        "### Product Agent",
+        "### Planning Context",
+        "## Static Contract And Topology",
+        "### Manifest",
+        "### Navgraph",
+        "### Node",
+        "### Edge",
+        "### Action Spec",
+        "## Runtime State And Dispatch",
+        "### Runtime State",
+        "### Projection",
+        "### Operation",
+        "### Legal Operation",
+        "### Product Operation",
+        "### Dispatch",
+        "## Surfaces And Entity Binding",
+        "### Surface",
+        "### Surface Intent",
+        "### Visible Entity",
+        "### Selectable Entity",
+        "## Navigation And Client State",
+        "### Navigation State",
+        "### Internal Route Operation",
+        "### RouteDeckStore",
+        "## Diagnostics, Streams, And Boundaries",
+        "### Diagnostics And Introspection",
+        "### Events And Streams",
+        "### Product Boundary",
+    ]:
+        assert heading in terms
+
+    for schema_name in [
+        "RouteDeckManifest",
+        "RouteDeckNodeSpec",
+        "RouteDeckEdgeSpec",
+        "RouteDeckActionSpec",
+        "RouteDeckRuntimeState",
+        "RouteDeckProjection",
+        "RouteDeckOperation",
+        "RouteDeckDispatchInput",
+        "RouteDeckDispatchResult",
+        "RouteDeckSurface",
+        "RouteDeckNavigationState",
+        "RouteDeckIntrospection",
+        "RouteDeckEvent",
+    ]:
+        assert schema_name in terms
+
+    normalized_terms = " ".join(terms.split())
+    for required_boundary in [
+        "Actions are not graph nodes.",
+        "When a product action triggers a graph transition, the edge records that action in `action_id`",
+        "RouteDeck-readable topology formed by manifest nodes and edges",
+        "product-owned view derived from RouteDeck projection",
+        "RouteDeck defines projection terms; the product owns prompt-ready summaries",
+        "RouteDeck does not own product prompts, model calls, LLM behavior",
+        "Product integrations keep them hidden from ordinary",
+        "domain vocabulary, prompts, planning-context construction, product agents",
+        '"visible_entities"',
+        '"surface_intent"',
+        '"operation_id": "cart.add_item"',
+        '"event_type": "guard_failure"',
+    ]:
+        assert required_boundary in normalized_terms
+
+    assert re.search(r"\bmay\b|\bmaybe\b", terms, re.I) is None
+
+    for doc in [
+        "docs/agentic-ui-state-runtime.md",
+        "docs/using-routedeck.md",
+        "docs/route-deck-whitepaper.md",
+        "docs/medusa-agent-reference-app.md",
+    ]:
+        text = _read(ROOT / doc)
+        assert "docs/route-deck-reference.md" in text or "./route-deck-reference.md" in text
+        assert "route-deck-terms.md" not in text
+
+
 def test_whitepaper_names_product_owned_agent_and_public_reference_boundaries():
     text = _read(ROOT / "docs" / "route-deck-whitepaper.md")
 
@@ -221,8 +313,58 @@ def test_slice1_plan_document_is_linked_and_decision_complete():
     assert "npm test" in plan
 
 
-def test_no_medusa_source_is_vendored_or_scaffolded_before_slice1():
-    assert not (ROOT / "examples" / "medusa-agent").exists()
+def test_medusa_slice3_allows_browse_and_cart_but_not_future_scope_or_product_routes():
+    example = ROOT / "examples" / "medusa-agent"
+    assert example.exists()
+
+    implementation_failures = []
+    disallowed_product_patterns = [
+        PRODUCT_SPECIFIC_ROUTEDECK_ROUTE,
+        re.compile(r"@routedeck/react", re.I),
+        re.compile(r"@medusajs/", re.I),
+        re.compile(r"\bcheckout\b", re.I),
+        re.compile(r"\bpayment\b", re.I),
+        re.compile(r"\bshipping\b", re.I),
+        re.compile(r"\badmin(?:\s+mutation)?\b", re.I),
+        re.compile(r"\bfulfillment\b", re.I),
+    ]
+
+    production_chunks = []
+    for path in _project_files("examples/medusa-agent/backend", "examples/medusa-agent/frontend/src"):
+        relative_parts = path.relative_to(ROOT).parts
+        if "tests" in relative_parts or ".test." in path.name:
+            continue
+        text = _read(path)
+        production_chunks.append(text)
+        for pattern in disallowed_product_patterns:
+            if pattern.search(text):
+                implementation_failures.append(
+                    f"{path.relative_to(ROOT).as_posix()}: {pattern.pattern}"
+                )
+
+    assert not implementation_failures, (
+        "Slice 2 implementation files must keep RouteDeck generic and avoid later-slice commerce behavior:\n"
+        + "\n".join(implementation_failures)
+    )
+
+    implementation_text = "\n".join(production_chunks)
+    assert "/api/routedeck/projection" in implementation_text
+    assert "/api/routedeck/dispatch" in implementation_text
+    assert "catalog.list" in implementation_text
+    assert "cart.add_item" in implementation_text
+    assert "/api/routedeck/medusa" not in implementation_text.lower()
+
+    public_text = _combined_text(
+        "examples/medusa-agent/frontend/src/App.tsx",
+        "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
+        "examples/medusa-agent/frontend/src/styles.css",
+        "examples/medusa-agent/backend/services/routedeck_prompt.py",
+    ).lower()
+    for banned in ["checkout", "payment", "shipping", "fulfillment", "admin"]:
+        assert banned not in public_text
+
+    for private_prefix in ["prod_", "variant_private", "cart_private", "line_private"]:
+        assert private_prefix not in public_text
 
     package_text = _combined_text("routedeck_core", "routedeck_langgraph", "react/src")
     assert "medusa" not in package_text.lower()

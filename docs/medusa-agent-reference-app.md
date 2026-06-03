@@ -19,6 +19,8 @@ RouteDeck provides reusable contracts, runtime/projection models, React state
 helpers, optional LangGraph integration helpers, and diagnostics primitives
 consumed by the Medusa app.
 
+RouteDeck framework terms in this spec follow `docs/route-deck-reference.md`.
+
 This file supersedes `docs/propertydesk-reference-app.md` as the active
 product-specific reference-app source of truth.
 
@@ -68,7 +70,8 @@ admin, reset, chat, and product diagnostics in Medusa language.
 ### RouteDeck API
 
 The RouteDeck API is allowed, expected, and encouraged to be separate from the
-product API when that makes the integration easier to inspect:
+product API when it stays a framework/projection contract rather than the
+product experience:
 
 - `GET /api/routedeck/manifest`
 - `GET /api/routedeck/snapshot`
@@ -78,9 +81,10 @@ product API when that makes the integration easier to inspect:
 - `GET /api/routedeck/stream`
 
 Those routes must stay generic. They expose RouteDeck concepts such as manifest,
-runtime state, projection, operation readiness, dispatch result, events, and
-introspection. They must not become Medusa-specific routes such as
-`/api/routedeck/medusa/*`, and they must not contain Medusa business policy.
+runtime state, projection, dispatch validation, events, and introspection. They
+must not become Medusa-specific routes such as `/api/routedeck/medusa/*`, and
+they must not contain Medusa business policy. Early slices may expose dispatch
+as a guarded contract endpoint without executing product operations.
 
 ## Architecture Boundary
 
@@ -128,8 +132,9 @@ Allowed implementation:
 - Medusa app-owned chat UI.
 - Medusa app-owned `POST /api/medusa-agent/agent/stream`.
 - A stripped-down `foundation-agent` style SSE/LangGraph architecture.
-- OpenAI-backed agent execution with default model `gpt-5-mini`, plus fallback
-  behavior for local tests when no API key is configured.
+- OpenAI-backed agent execution with default model `gpt-5-mini`; missing
+  `OPENAI_API_KEY` must emit an error and must not produce fallback assistant
+  text.
 - In-memory demo conversation state.
 
 Not allowed:
@@ -154,7 +159,7 @@ File layout:
   chat stream endpoint and any local health endpoint needed by tests.
 - `examples/medusa-agent/backend/app.py`: compatibility export for tests that
   imports `app` from `main.py`.
-- `examples/medusa-agent/backend/core/config.py`: OpenAI/model/fallback config
+- `examples/medusa-agent/backend/core/config.py`: OpenAI/model config
   with default model `gpt-5-mini`.
 - `examples/medusa-agent/backend/core/protocol.py`: true SSE helpers based on
   the stripped `foundation-agent` event pattern.
@@ -163,14 +168,14 @@ File layout:
 - `examples/medusa-agent/backend/services/graph_builder.py`: minimal no-tool
   LangGraph commerce agent builder.
 - `examples/medusa-agent/backend/services/chat_service.py`: app-owned stream
-  orchestration with OpenAI execution and deterministic fallback for tests.
+  orchestration with OpenAI execution and explicit missing-key errors.
 - `examples/medusa-agent/backend/requirements.txt`: exact latest-stable
   backend pins checked on 2026-05-28: `fastapi==0.136.3`,
   `httpx==0.28.1`, `langchain-openai==1.2.2`, `langgraph==1.2.2`,
   `pytest==9.0.3`, and `uvicorn==0.48.0`.
 - `examples/medusa-agent/backend/tests/test_slice1_chat.py`: backend tests for
   greeting, capability explanation, product-browse clarification, t-shirt
-  intent, uncertain input, SSE shape, default model, fallback behavior, and
+  intent, uncertain input, SSE shape, default model, missing-key error, and
   RouteDeck absence.
 - `examples/medusa-agent/frontend/src/App.tsx`: first-screen chat UI, not a
   landing page and not a RouteDeck/debugger shell.
@@ -203,7 +208,7 @@ text/event-stream`, not NDJSON. The primary stream event is
 
 ```text
 event: stream_start
-data: {"conversation_id":"...","model":"gpt-5-mini","fallback":false}
+data: {"conversation_id":"...","model":"gpt-5-mini"}
 
 event: agent_start
 data: {"agent_name":"medusa-commerce-agent"}
@@ -230,12 +235,14 @@ LLM and LangGraph:
 - The default OpenAI model is `gpt-5-mini`.
 - `MEDUSA_AGENT_MODEL` may override the model locally.
 - `OPENAI_API_KEY` enables the live OpenAI path.
-- Tests must pass through fallback or mocked execution without network access.
+- Tests must pass through mocked execution without network access; Slice 1 must
+  not include fallback assistant responses.
 - Use `langgraph==1.2.2` and `langchain-openai==1.2.2`.
 - Use `InMemorySaver` and map `conversation_id` to LangGraph
   `configurable.thread_id`.
-- Use LangGraph `stream_events(..., version="v3")` or
-  `astream_events(..., version="v3")` as the graph-to-SSE source.
+- Use LangGraph `stream_events(..., version="v2")` or
+  `astream_events(..., version="v2")` as the graph-to-SSE source for
+  compatibility with the installed LangGraph runtime.
 - Stream `message_delta` from graph message text/token output, not by splitting
   a completed `invoke()` response after the graph finishes.
 
@@ -259,18 +266,21 @@ Acceptance commands:
 Purpose: connect local/demo Medusa and introduce RouteDeck as an explicit
 separate API plane.
 
+Implementation plan:
+`docs/superpowers/plans/2026-06-02-medusa-agent-slice2.md`.
+
 Expected API split:
 
 - Medusa setup and chat stay under `/api/medusa-agent/*`.
 - RouteDeck manifest/projection/snapshot/inspect/stream may be served under
   `/api/routedeck/*`.
-- RouteDeck dispatch may execute only typed operations that are legal in the
-  current projection.
+- RouteDeck dispatch may exist only as a guarded contract endpoint in this
+  slice. It must reject operation execution and must not drive product behavior.
 
 Done when:
 
-- Product setup status, blocked operations, available operations, and diagnostics
-  are visible.
+- Passive product setup readiness is visible without operation lists, blocked
+  future actions, dispatch traces, or diagnostics in the default product UI.
 - RouteDeck APIs expose generic RouteDeck payloads.
 - Medusa-specific policy remains in the Medusa adapter/handlers.
 
@@ -279,12 +289,20 @@ Done when:
 Purpose: make browse/select/cart behavior share one dispatch path across UI and
 agent tools.
 
+Implementation plan:
+`docs/superpowers/plans/2026-06-03-medusa-agent-slice3.md`.
+
 Required behavior:
 
-- Product list/detail/cart surfaces derive from RouteDeck projection.
-- UI clicks and agent tools dispatch the same typed RouteDeck operations.
+- Product list/detail/cart surfaces derive from RouteDeck projection backed by
+  the local/demo Medusa Store API.
+- UI clicks and agent tools dispatch the same typed RouteDeck operations; no
+  phrase router, hardcoded products, or fake catalog is allowed.
+- RouteDeck context plugs into the agent system prompt so the model understands
+  current capabilities before choosing tools.
 - Private Medusa IDs stay out of public transcript text.
 - Missing variant/cart prerequisites are blocked or requested before dispatch.
+- Cart writes require explicit user intent from chat or direct UI action.
 
 ### Slice 4: Checkout, Payment, Shipping, And Order Completion
 

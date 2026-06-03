@@ -4,7 +4,7 @@
 
 **Goal:** Build the first runnable `examples/medusa-agent` app as a normal commerce chat experience with a real streaming agent shell. Slice 1 uses a stripped-down copy of the `agent-lab-powered-projects/foundation-agent` architecture, but it does not introduce RouteDeck runtime APIs or real Medusa API integration.
 
-**Architecture:** Slice 1 is an app-owned FastAPI backend plus a small React chat UI. The backend owns the Medusa commerce-chat agent, exposes `POST /api/medusa-agent/agent/stream`, streams true Server-Sent Events with `text/event-stream`, and runs a minimal LangGraph agent using OpenAI through LangChain. The default model is `gpt-5-mini`. Tests must not require a live OpenAI key; fallback/mocked execution is required for local validation.
+**Architecture:** Slice 1 is an app-owned FastAPI backend plus a small React chat UI. The backend owns the Medusa commerce-chat agent, exposes `POST /api/medusa-agent/agent/stream`, streams true Server-Sent Events with `text/event-stream`, and runs a minimal LangGraph agent using OpenAI through LangChain. The default model is `gpt-5-mini`. Tests must not require a live OpenAI key; mocked execution is required for local validation. No fallback assistant behavior is allowed.
 
 **Foundation-Agent Basis:** Reuse the proven shape, not the full app:
 
@@ -63,9 +63,13 @@ Build only Slice 1:
 - Optional backend endpoint: `GET /api/medusa-agent/health`.
 - True SSE response format, not NDJSON.
 - Minimal LangGraph agent path with OpenAI model default `gpt-5-mini`.
-- LangGraph `stream_events(..., version="v3")` or `astream_events(..., version="v3")` is the preferred graph-to-SSE source.
+- LangGraph `stream_events(..., version="v2")` or `astream_events(..., version="v2")` is the graph-to-SSE source for compatibility with the installed LangGraph runtime.
 - Process-local LangGraph checkpointing with `InMemorySaver`, using request `conversation_id` as `configurable.thread_id`.
-- Deterministic fallback or test double when `OPENAI_API_KEY` is not configured.
+- Explicit SSE error when `OPENAI_API_KEY` is not configured.
+- No deterministic fallback assistant responses.
+- Local `examples/medusa-agent/backend/.env` may be created from SaaStoAgent's
+  `STA_OPENAI_API_KEY` by writing it as `OPENAI_API_KEY`; the file must remain
+  gitignored.
 - In-memory/process-local conversation state only.
 - No RouteDeck runtime, manifest, projection, dispatch, inspect, or RouteDeck stream API is introduced in Slice 1.
 - No `/api/routedeck/*`, Medusa API calls, cart, checkout, payment, shipping, admin mutation, Docker, seeded product catalog, or RouteDeck debugger UI.
@@ -75,11 +79,11 @@ Build only Slice 1:
 - Create `examples/medusa-agent/README.md`: Slice 1 run commands, smoke prompts, env vars, and non-goals.
 - Create `examples/medusa-agent/backend/main.py`: FastAPI app, CORS for local dev if needed, and route registration.
 - Create `examples/medusa-agent/backend/app.py`: compatibility export for tests, importing `app` from `main.py`.
-- Create `examples/medusa-agent/backend/core/config.py`: env-driven settings, including `OPENAI_API_KEY`, `MEDUSA_AGENT_MODEL`, and fallback mode.
+- Create `examples/medusa-agent/backend/core/config.py`: env-driven settings, including `OPENAI_API_KEY` and `MEDUSA_AGENT_MODEL`.
 - Create `examples/medusa-agent/backend/core/protocol.py`: stripped SSE helpers.
 - Create `examples/medusa-agent/backend/routes/chat.py`: `POST /api/medusa-agent/agent/stream` route.
 - Create `examples/medusa-agent/backend/services/graph_builder.py`: minimal LangGraph commerce agent builder.
-- Create `examples/medusa-agent/backend/services/chat_service.py`: stream orchestration, fallback handling, keepalive/error events.
+- Create `examples/medusa-agent/backend/services/chat_service.py`: stream orchestration, OpenAI execution, keepalive/error events.
 - Create `examples/medusa-agent/backend/tests/test_slice1_chat.py`: backend contract tests.
 - Create `examples/medusa-agent/backend/requirements.txt`: exact latest-stable backend pins listed above.
 - Create `examples/medusa-agent/frontend/package.json`: Vite/Vitest scripts and dependencies.
@@ -118,7 +122,7 @@ Required event sequence:
 
 ```text
 event: stream_start
-data: {"conversation_id":"...","model":"gpt-5-mini","fallback":false}
+data: {"conversation_id":"...","model":"gpt-5-mini"}
 
 event: agent_start
 data: {"agent_name":"medusa-commerce-agent"}
@@ -156,8 +160,8 @@ Use a minimal LangGraph state graph with one `agent` node.
 - The default model is `gpt-5-mini`.
 - `MEDUSA_AGENT_MODEL` may override the model for local experimentation.
 - `OPENAI_API_KEY` enables the live OpenAI/LangChain path.
-- Without `OPENAI_API_KEY`, the service must use deterministic fallback text for the smoke prompts.
-- Backend tests must exercise the fallback or a mocked LLM path, not the network.
+- Without `OPENAI_API_KEY`, the service must emit an `error` event with code `openai_api_key_missing` and must not emit `message_delta`.
+- Backend tests must exercise missing-key errors or a mocked LLM path, not the network.
 - Live/mocked graph tests must prove assistant output is emitted as multiple `message_delta` SSE frames from the graph stream path, not as one post-hoc full-text response.
 - The graph must not bind tools in Slice 1.
 - The graph must not import RouteDeck packages or Medusa SDK/API clients.
@@ -195,10 +199,10 @@ def build_agent_graph(settings):
 
 ```python
 config = {"configurable": {"thread_id": conversation_id}}
-stream = graph.stream_events({"messages": messages}, config=config, version="v3")
+stream = graph.stream_events({"messages": messages}, config=config, version="v2")
 ```
 
-In async code, use `await graph.astream_events(..., version="v3")` if required by the installed API. Convert only message text/token projection output to product SSE `message_delta` frames. Do not call the graph once with `invoke()` and then split the completed response afterward.
+In async code, use `await graph.astream_events(..., version="v2")` if required by the installed API. Convert only message text/token projection output to product SSE `message_delta` frames. Do not call the graph once with `invoke()` and then split the completed response afterward.
 
 ## Task 1: Backend Contract Tests
 
@@ -212,7 +216,7 @@ In async code, use `await graph.astream_events(..., version="v3")` if required b
   - The stream includes `stream_start`, `agent_start`, `message_delta`, `agent_end`, and `stream_end`.
   - `stream_start` reports model `gpt-5-mini` by default.
   - `conversation_id` maps to LangGraph `thread_id` when the graph path is used.
-  - Fallback mode works without `OPENAI_API_KEY`.
+  - Missing `OPENAI_API_KEY` emits an error event and no simulated assistant text.
   - Mocked graph streaming emits more than one `message_delta` frame.
   - The smoke prompts produce natural shopping-assistant responses.
   - `/api/routedeck/manifest` returns 404.
@@ -242,7 +246,7 @@ Expected: fail because backend files do not exist yet.
 - [ ] Add settings:
   - `OPENAI_API_KEY`
   - `MEDUSA_AGENT_MODEL`, default `gpt-5-mini`
-  - `MEDUSA_AGENT_FORCE_FALLBACK`, default false
+  - local `.env` loading for `OPENAI_API_KEY` and `MEDUSA_AGENT_MODEL`
 
 - [ ] Implement `core/protocol.py` with true SSE:
 
@@ -252,7 +256,7 @@ def encode_sse(event: str, data: dict[str, object]) -> str:
 ```
 
 - [ ] Implement helper events:
-  - `stream_start(conversation_id, model, fallback)`
+  - `stream_start(conversation_id, model)`
   - `agent_start("medusa-commerce-agent")`
   - `message_delta(content)`
   - `agent_end()`
@@ -268,8 +272,8 @@ def encode_sse(event: str, data: dict[str, object]) -> str:
   - pass `conversation_id` to LangGraph as `configurable.thread_id`
   - emit `stream_start`
   - emit `agent_start`
-  - if live LLM is available, consume `graph.stream_events(..., version="v3")` or `graph.astream_events(..., version="v3")` and convert message token/text projection output to `message_delta`
-  - if live LLM is unavailable, produce deterministic fallback text for the smoke prompts
+  - if `OPENAI_API_KEY` is configured, consume `graph.stream_events(..., version="v2")` or `graph.astream_events(..., version="v2")` and convert message token/text projection output to `message_delta`
+  - if `OPENAI_API_KEY` is missing, emit an `error` event and do not produce assistant text
   - emit `agent_end`
   - emit `stream_end`
   - emit `error` if validation or execution fails
@@ -397,6 +401,6 @@ Manual smoke:
 
 - Slice 1 may install example-local backend and frontend dependencies.
 - Slice 1 may use the live OpenAI path only when `OPENAI_API_KEY` is configured.
-- Slice 1 tests must pass without network access and without an OpenAI key.
+- Slice 1 tests must pass without network access by using mocked graph execution and missing-key error assertions.
 - Slice 1 is not responsible for connecting to a real Medusa instance. That starts in Slice 2.
 - Slice 1 reset is process-local: restart the backend or clear in-memory conversation state.

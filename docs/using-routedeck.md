@@ -11,6 +11,8 @@ RouteDeck is not a chatbot, product shell, workflow database, auth layer, prompt
 manager, SaaS integration runtime, or LLM router. It is the reusable state and
 operation contract between a graph-owned application and agentic UI.
 
+For the canonical framework reference, read
+[`route-deck-reference.md`](./route-deck-reference.md).
 For the narrative architecture article, read
 [`route-deck-whitepaper.md`](./route-deck-whitepaper.md).
 For the printable preview version, open

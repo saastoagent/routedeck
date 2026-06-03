@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+ROUTEDECK_ROOT = Path(__file__).resolve().parents[3]
+if str(ROUTEDECK_ROOT) not in sys.path:
+    sys.path.insert(0, str(ROUTEDECK_ROOT))
+
+from routes.chat import router as chat_router
+from routes.routedeck import router as routedeck_router
+from routes.state import router as state_router
+
+
+app = FastAPI(title="Medusa Agent Slice 3")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5198", "http://127.0.0.1:5198"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(chat_router)
+app.include_router(state_router)
+app.include_router(routedeck_router)
+
+
+@app.get("/api/medusa-agent/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
