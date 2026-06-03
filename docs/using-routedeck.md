@@ -108,6 +108,8 @@ review-required, blocked, or hidden/internal.
 
 Surfaces are graph-declared UI regions. They tell the product shell what should
 be visible without putting workflow truth in local React state.
+Surfaces present product/runtime capabilities. They do not own capabilities and
+they do not bypass dispatch.
 
 Common roles:
 
@@ -123,6 +125,21 @@ Common kinds:
 
 Product code renders React components for surfaces. RouteDeck projects which
 surfaces are valid and active.
+
+Surface affordances declare what a rendered component can emit:
+
+```json
+{
+  "surface_id": "detail.product_detail",
+  "affordance_id": "add_to_cart",
+  "operation_id": "cart.add_item",
+  "entity_key": "variant:s-black"
+}
+```
+
+The same capability must be available to chat through planning context. A user
+clicking `Add to cart` and a user saying "add the small black shirt" resolve to
+the same operation and entity key before dispatch.
 
 ## Internal Navigation vs Product Planning
 
@@ -148,7 +165,7 @@ Decision table:
 | --- | --- | --- |
 | `can_dispatch_now=true`, `invocation_kind=direct` | one-click action allowed | dispatch if intent matches |
 | `invocation_kind=form` | open form/review surface | collect fields, then dispatch |
-| `invocation_kind=entity_selector` | open selector or bind selected entity | bind visible entity args or open selector |
+| `invocation_kind=entity_selector` | open selector or bind selected entity | bind available/selectable entity args or open selector |
 | `invocation_kind=surface` | open product surface | choose surface when user asks for that workflow |
 | `invocation_kind=hidden` | do not render as product action | use only through runtime/diagnostic controls |
 | `execution_mode=review` | show proposal/review | do not execute side effect directly |
@@ -185,7 +202,7 @@ Product-agent loop:
 
 ```text
 Read product-facing RouteDeck projection/planning context.
-Interpret user intent against legal operations, visible entities, and surfaces.
+Interpret user intent against legal operations, available entities, surface affordances, and surfaces.
 Choose one typed product operation, choose a product surface intent, or clarify.
 Dispatch through RouteDeck/runtime.
 Read the returned state.
@@ -195,7 +212,8 @@ Respond from product policy and the new state.
 Agent rules:
 
 - Use only operations or surface options present in current product-facing context.
-- Bind required product entities when the current surface exposes them.
+- Bind required product entities from available/selectable entities in planning context.
+- Treat rendered entities as a UI subset of available entities, not the full chat context.
 - Dispatch directly only when readiness metadata allows it.
 - Never mutate graph state directly from a prompt.
 - Never infer hidden permissions from conversation alone.

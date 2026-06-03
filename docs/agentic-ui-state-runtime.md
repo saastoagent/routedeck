@@ -196,6 +196,13 @@ UI or product agent chooses a typed operation
 
 LLMs do not patch graph state. They choose typed legal operations. Hard graph guards always win.
 
+Surfaces and chat share the same semantic capability layer. A surface button,
+form, or selector and a chat request must resolve to the same product operation,
+entity key, and runtime dispatch path. Component-local behavior such as hover,
+scroll, focus, and visual expansion stays local to the component; semantic
+actions such as selecting a variant, opening a product, approving a proposal, or
+adding an item to cart go through RouteDeck dispatch.
+
 Operation metadata should include:
 
 - operation id
@@ -235,6 +242,7 @@ navigation validation.
 ## Surfaces
 
 Surfaces are graph-declared and RouteDeck-projected. They are not arbitrary React children invented by product code after the fact.
+Surfaces present runtime capabilities; they do not own the capabilities.
 
 Surface roles:
 
@@ -245,6 +253,25 @@ Surface roles:
 Corpus or another product agent may choose an allowed surface variant, but RouteDeck validates that choice against the current graph node. Surface choices are sticky presentation state until a graph transition, user request, or component event changes them.
 
 Presentation state is ephemeral and browser/session scoped. It is not product graph truth.
+
+Surface affordances declare semantic interactions emitted by a surface. An
+affordance carries an `affordance_id`, optional `entity_key`, event payload, and
+target product operation or surface intent. The product runtime resolves the
+binding from current planning context, dispatches through RouteDeck, and then
+publishes a new projection.
+
+Entity binding is product-owned and shared by surfaces and chat:
+
+```text
+label: user/agent text, for example "Medusa T-Shirt"
+entity_key: context-local binding key, for example "product:medusa-shirt"
+opaque ref: runtime dispatch arg, for example "product_opaque_1"
+```
+
+The agent should select from available entities in planning context. A rendered
+surface should emit the same entity key when the user clicks the corresponding
+UI. The runtime remains the authority and revalidates operation legality,
+permissions, setup, and arguments before committing.
 
 ## Streams
 
