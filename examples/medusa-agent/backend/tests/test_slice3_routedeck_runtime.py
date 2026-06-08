@@ -36,12 +36,14 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
 
 
 def test_slice3_manifest_defines_browse_detail_and_cart_without_future_scope(client: TestClient):
-    response = client.get("/api/routedeck/manifest")
+    response = client.get("/api/medusa-agent/route-manifest")
 
     assert response.status_code == 200
     manifest = response.json()
     assert manifest["version"] == "medusa-agent-slice3"
-    assert [node["id"] for node in manifest["nodes"]] == ["browse", "detail", "cart"]
+    assert [node["id"] for node in manifest["nodes"]] == ["home", "browse", "detail", "cart"]
+    assert manifest["nodes"][0]["default_surfaces"]["active"] == "agent_home"
+    assert any(edge["from"] == "home" and edge["to"] == "browse" for edge in manifest["edges"])
     assert [action["id"] for action in manifest["actions"]] == [
         "catalog.list",
         "catalog.open",
@@ -50,7 +52,7 @@ def test_slice3_manifest_defines_browse_detail_and_cart_without_future_scope(cli
         "cart.add_item",
         "cart.view",
     ]
-    assert "/api/routedeck/medusa" not in response.text
+    assert "/api/routedeck" not in response.text
     assert "checkout" not in response.text.lower()
     assert "payment" not in response.text.lower()
     assert "shipping" not in response.text.lower()
@@ -58,13 +60,51 @@ def test_slice3_manifest_defines_browse_detail_and_cart_without_future_scope(cli
 
 
 def test_projection_has_no_product_operations_when_setup_is_not_ready(client: TestClient):
-    response = client.get("/api/routedeck/projection?session_id=offline-session")
+    response = client.get("/api/medusa-agent/projection?session_id=offline-session")
 
     assert response.status_code == 200
     projection = response.json()
+    assert projection["graph_node"] == "home"
     assert projection["legal_operations"] == []
     assert projection["surfaces"]["active"]["variant"] == "setup_status"
     assert "products" not in projection["surfaces"]["active"]["props"]
+
+
+@pytest.mark.asyncio
+async def test_ready_projection_defaults_to_home_with_copyable_deeplink(monkeypatch: pytest.MonkeyPatch):
+    from core.config import Settings
+    from services.medusa_store import StoreProduct, StoreVariant
+    from services.routedeck_runtime import MedusaRouteDeckRuntime
+
+    async def fake_setup(_settings, timeout=2.0):
+        return {"setup": {"ready": True, "mode": "local-demo"}, "connections": []}
+
+    class FakeStoreClient:
+        async def list_products(self, limit=12):
+            return [
+                StoreProduct(
+                    id="prod_private",
+                    title="Medusa T-Shirt",
+                    handle="medusa-t-shirt",
+                    variants=[StoreVariant(id="variant_private", title="M")],
+                )
+            ]
+
+    monkeypatch.setattr("services.routedeck_runtime.probe_medusa_setup", fake_setup)
+    runtime = MedusaRouteDeckRuntime(
+        settings=Settings(medusa_publishable_api_key="pk_test"),
+        store_client=FakeStoreClient(),
+    )
+
+    projection = await runtime.projection(context={"session_id": "s1"})
+    payload = projection.model_dump(mode="json")
+
+    assert payload["graph_node"] == "home"
+    assert payload["surfaces"]["active"]["variant"] == "agent_home"
+    assert [operation["id"] for operation in payload["legal_operations"]] == ["catalog.list", "cart.view"]
+    assert payload["navigation"]["current"]["deeplink"]["url"] == "/"
+    assert [node["id"] for node in payload["navgraph"]["nodes"]] == ["home", "browse", "detail", "cart"]
+    assert payload["navgraph"]["nodes"][0]["metadata"]["allowed_actions"] == ["catalog.list", "cart.view"]
 
 
 @pytest.mark.asyncio
@@ -82,6 +122,7 @@ async def test_ready_projection_exposes_sanitized_products(monkeypatch: pytest.M
                 StoreProduct(
                     id="prod_private",
                     title="Medusa T-Shirt",
+                    handle="medusa-t-shirt",
                     variants=[StoreVariant(id="variant_private", title="M")],
                 )
             ]
@@ -92,20 +133,168 @@ async def test_ready_projection_exposes_sanitized_products(monkeypatch: pytest.M
         store_client=FakeStoreClient(),
     )
 
-    projection = await runtime.projection(context={"session_id": "s1"})
+    projection = await runtime.projection(context={"session_id": "s1", "rd_node": "browse"})
     payload = projection.model_dump(mode="json")
 
     assert [operation.id for operation in projection.legal_operations] == ["catalog.list", "catalog.open", "cart.view"]
+    assert projection.legal_operations[1].can_dispatch_now is False
+    assert projection.legal_operations[1].missing_args == ["entity_key"]
     assert payload["surfaces"]["active"]["variant"] == "product_list"
     assert payload["surfaces"]["active"]["props"]["products"][0]["title"] == "Medusa T-Shirt"
-    assert payload["surfaces"]["active"]["props"]["products"][0]["product_ref"].startswith("product_")
+    assert payload["surfaces"]["active"]["props"]["products"][0]["entity_key"].startswith("product:entity_")
+    assert payload["surfaces"]["active"]["props"]["products"][0]["variants"][0]["entity_key"].startswith("variant:entity_")
+    assert payload["available_entities"][0]["operations"][0]["operation_id"] == "catalog.open"
+    assert payload["surface_affordances"][0]["surface_id"] == "browse.product_list"
+    assert payload["surface_affordances"][0]["affordance_id"] == "view_product"
+    assert [capability["capability_id"] for capability in payload["capabilities"]] == [
+        "catalog.browse",
+        "product.configure",
+        "cart.manage",
+    ]
+    assert [edge["action_id"] for edge in payload["navgraph"]["edges"]]
+    assert payload["navigation"]["current"]["deeplink"]["url"] == "/browse"
+    assert payload["navgraph"]["nodes"][0]["deeplink"]["url"] == "/"
+    assert payload["navgraph"]["nodes"][1]["deeplink"]["url"] == "/browse"
+    assert payload["navgraph"]["nodes"][3]["deeplink"]["url"] == "/cart"
+    assert "prod_private" not in str(payload)
+    assert "variant_private" not in str(payload)
+    assert "product_ref" not in str(payload["surfaces"]["active"]["props"])
+    assert "variant_ref" not in str(payload["surfaces"]["active"]["props"])
+
+
+@pytest.mark.asyncio
+async def test_accepted_dispatch_events_carry_client_applicable_state(monkeypatch: pytest.MonkeyPatch):
+    from routedeck_core import RouteDeckDispatchInput
+
+    from core.config import Settings
+    from services.medusa_store import StoreProduct, StoreVariant
+    from services.routedeck_runtime import MedusaRouteDeckRuntime
+
+    async def fake_setup(_settings, timeout=2.0):
+        return {"setup": {"ready": True, "mode": "local-demo"}, "connections": []}
+
+    class FakeStoreClient:
+        async def list_products(self, limit=12):
+            return [
+                StoreProduct(
+                    id="prod_private",
+                    title="Medusa T-Shirt",
+                    handle="medusa-t-shirt",
+                    variants=[StoreVariant(id="variant_private", title="M")],
+                )
+            ]
+
+    monkeypatch.setattr("services.routedeck_runtime.probe_medusa_setup", fake_setup)
+    runtime = MedusaRouteDeckRuntime(
+        settings=Settings(medusa_publishable_api_key="pk_test"),
+        store_client=FakeStoreClient(),
+    )
+
+    result = await runtime.dispatch(
+        RouteDeckDispatchInput(operation_id="catalog.list", args={}),
+        context={"session_id": "s1"},
+    )
+
+    event = result.events[0]
+    assert event.event_type == "operation_completed"
+    assert event.payload["operation_id"] == "catalog.list"
+    assert event.payload["state"]["projection"]["graph_node"] == "browse"
+    assert event.payload["state"]["projection"]["navgraph"]["current"]["node_id"] == "browse"
+    assert event.payload["state"]["projection"]["navigation"]["current"]["deeplink"]["url"] == "/browse"
+
+
+@pytest.mark.asyncio
+async def test_agent_dispatch_updates_followup_planning_projection(monkeypatch: pytest.MonkeyPatch):
+    from routedeck_core import RouteDeckDispatchInput
+
+    from core.config import Settings
+    from services.medusa_store import StoreProduct, StoreVariant
+    from services.routedeck_prompt import build_routedeck_system_prompt
+    from services.routedeck_runtime import MedusaRouteDeckRuntime
+
+    async def fake_setup(_settings, timeout=2.0):
+        return {"setup": {"ready": True, "mode": "local-demo"}, "connections": []}
+
+    class FakeStoreClient:
+        async def list_products(self, limit=12):
+            return [
+                StoreProduct(
+                    id="prod_private",
+                    title="Medusa T-Shirt",
+                    handle="medusa-t-shirt",
+                    variants=[StoreVariant(id="variant_private", title="M")],
+                )
+            ]
+
+    monkeypatch.setattr("services.routedeck_runtime.probe_medusa_setup", fake_setup)
+    runtime = MedusaRouteDeckRuntime(
+        settings=Settings(medusa_publishable_api_key="pk_test"),
+        store_client=FakeStoreClient(),
+    )
+
+    await runtime.dispatch(
+        RouteDeckDispatchInput(operation_id="catalog.list", args={}),
+        context={"session_id": "s1", "source": "agent_tool"},
+    )
+    prompt = await build_routedeck_system_prompt(Settings(openai_api_key="test-key"), session_id="s1", runtime=runtime)
+
+    assert "- active surface: product_list" in prompt
+    assert "Medusa T-Shirt" in prompt
+    assert "entity_key: product:" in prompt
+
+
+@pytest.mark.asyncio
+async def test_projection_resumes_product_detail_from_copyable_deeplink(monkeypatch: pytest.MonkeyPatch):
+    from core.config import Settings
+    from services.medusa_store import StoreProduct, StoreVariant
+    from services.routedeck_runtime import MedusaRouteDeckRuntime
+
+    async def fake_setup(_settings, timeout=2.0):
+        return {"setup": {"ready": True, "mode": "local-demo"}, "connections": []}
+
+    class FakeStoreClient:
+        async def list_products(self, limit=12):
+            return [
+                StoreProduct(
+                    id="prod_private",
+                    title="Medusa T-Shirt",
+                    handle="medusa-t-shirt",
+                    variants=[StoreVariant(id="variant_private", title="M")],
+                )
+            ]
+
+        async def get_product(self, product_id: str):
+            assert product_id == "prod_private"
+            return StoreProduct(
+                id="prod_private",
+                title="Medusa T-Shirt",
+                handle="medusa-t-shirt",
+                variants=[StoreVariant(id="variant_private", title="M")],
+            )
+
+    monkeypatch.setattr("services.routedeck_runtime.probe_medusa_setup", fake_setup)
+    runtime = MedusaRouteDeckRuntime(
+        settings=Settings(medusa_publishable_api_key="pk_test"),
+        store_client=FakeStoreClient(),
+    )
+
+    projection = await runtime.projection(
+        context={"session_id": "s1", "rd_node": "detail", "rd_product": "medusa-t-shirt"}
+    )
+    payload = projection.model_dump(mode="json")
+
+    assert payload["graph_node"] == "detail"
+    assert payload["surfaces"]["active"]["variant"] == "product_detail"
+    assert payload["surfaces"]["active"]["props"]["product"]["title"] == "Medusa T-Shirt"
+    assert payload["navigation"]["current"]["deeplink"]["url"] == "/detail/medusa-t-shirt"
+    assert payload["navgraph"]["current"]["deeplink"]["url"] == "/detail/medusa-t-shirt"
     assert "prod_private" not in str(payload)
     assert "variant_private" not in str(payload)
 
 
 @pytest.mark.asyncio
 async def test_dispatch_open_select_and_add_item_use_opaque_refs(monkeypatch: pytest.MonkeyPatch):
-    from routedeck_core import RouteDeckDispatchInput
+    from routedeck_core import RouteDeckDispatchInput, RouteDeckSurfaceInteractionEvent
 
     from core.config import Settings
     from services.medusa_store import StoreCart, StoreCartItem, StoreProduct, StoreRegion, StoreVariant
@@ -140,20 +329,39 @@ async def test_dispatch_open_select_and_add_item_use_opaque_refs(monkeypatch: py
         settings=Settings(medusa_publishable_api_key="pk_test"),
         store_client=FakeStoreClient(),
     )
-    projection = await runtime.projection({"session_id": "s1"})
-    product_ref = projection.surfaces["active"].props["products"][0]["product_ref"]
-    variant_ref = projection.surfaces["active"].props["products"][0]["variants"][0]["variant_ref"]
+    projection = await runtime.projection({"session_id": "s1", "rd_node": "browse"})
+    product_entity_key = projection.surfaces["active"].props["products"][0]["entity_key"]
 
     opened = await runtime.dispatch(
-        RouteDeckDispatchInput(operation_id="catalog.open", args={"product_ref": product_ref}),
+        RouteDeckDispatchInput(
+            surface_event=RouteDeckSurfaceInteractionEvent(
+                surface_id="browse.product_list",
+                affordance_id="view_product",
+                entity_key=product_entity_key,
+            )
+        ),
         context={"session_id": "s1", "source": "test"},
     )
+    variant_entity_key = opened.state.projection.surfaces["active"].props["product"]["variants"][0]["entity_key"]
     selected = await runtime.dispatch(
-        RouteDeckDispatchInput(operation_id="variant.select", args={"variant_ref": variant_ref}),
+        RouteDeckDispatchInput(
+            surface_event=RouteDeckSurfaceInteractionEvent(
+                surface_id="detail.product_detail",
+                affordance_id="select_variant",
+                entity_key=variant_entity_key,
+            )
+        ),
         context={"session_id": "s1", "source": "test"},
     )
     added = await runtime.dispatch(
-        RouteDeckDispatchInput(operation_id="cart.add_item", args={"variant_ref": variant_ref, "quantity": 2}),
+        RouteDeckDispatchInput(
+            surface_event=RouteDeckSurfaceInteractionEvent(
+                surface_id="detail.product_detail",
+                affordance_id="add_variant_to_cart",
+                entity_key=variant_entity_key,
+                payload={"quantity": 2},
+            )
+        ),
         context={"session_id": "s1", "source": "test"},
     )
 
@@ -168,6 +376,7 @@ async def test_dispatch_open_select_and_add_item_use_opaque_refs(monkeypatch: py
     assert "variant_private" not in str(payload)
     assert "cart_private" not in str(payload)
     assert "line_private" not in str(payload)
+    assert "cart_ref" not in str(payload["active_surface"]["props"])
 
 
 @pytest.mark.asyncio
@@ -202,10 +411,10 @@ async def test_cart_add_item_requires_variant_and_quantity(monkeypatch: pytest.M
 
 
 def test_snapshot_inspect_and_stream_accept_session_id_without_public_echo(client: TestClient):
-    snapshot = client.get("/api/routedeck/snapshot?session_id=session-abc")
-    inspect = client.post("/api/routedeck/inspect?session_id=session-abc", json={"surface": "active"})
+    snapshot = client.get("/api/medusa-agent/route-snapshot?session_id=session-abc")
+    inspect = client.post("/api/medusa-agent/inspect?session_id=session-abc", json={"surface": "active"})
 
-    with client.stream("GET", "/api/routedeck/stream?session_id=session-abc") as response:
+    with client.stream("GET", "/api/medusa-agent/route-stream?session_id=session-abc") as response:
         stream_text = next(response.iter_text())
 
     assert snapshot.status_code == 200
@@ -217,7 +426,7 @@ def test_snapshot_inspect_and_stream_accept_session_id_without_public_echo(clien
 
 def test_dispatch_merges_context_and_preserves_session_id_without_public_echo(client: TestClient):
     response = client.post(
-        "/api/routedeck/dispatch",
+        "/api/medusa-agent/action",
         json={
             "operation_id": "catalog.list",
             "args": {},

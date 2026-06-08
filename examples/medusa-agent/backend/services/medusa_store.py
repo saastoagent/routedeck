@@ -19,6 +19,7 @@ class StoreVariant:
 class StoreProduct:
     id: str
     title: str
+    handle: str | None = None
     description: str | None = None
     thumbnail: str | None = None
     variants: list[StoreVariant] = field(default_factory=list)
@@ -105,6 +106,7 @@ def _parse_product(raw: dict[str, Any]) -> StoreProduct:
     return StoreProduct(
         id=raw["id"],
         title=raw.get("title") or "Untitled product",
+        handle=raw.get("handle"),
         description=raw.get("description"),
         thumbnail=raw.get("thumbnail"),
         variants=[

@@ -253,7 +253,7 @@ export function createStaticRouteDeckStore(projection: RouteDeckProjection): Rou
       location: null,
     }),
     dispatch: async (input, currentState) => ({
-      operation_id: input.operation_id,
+      operation_id: operationIdForInput(input),
       accepted: false,
       state: currentState,
       messages: [],
@@ -293,18 +293,30 @@ function normalizeProjection(projection: RouteDeckProjection): RouteDeckProjecti
     back_stack: [],
     forward_stack: [],
   })
-  return { ...projection, navigation }
+  return {
+    ...projection,
+    legal_operations: projection.legal_operations || [],
+    surfaces: projection.surfaces || {},
+    presentation_state: projection.presentation_state || {},
+    navigation,
+    capabilities: projection.capabilities || [],
+    navgraph: normalizeNavGraph(projection.navgraph, navigation),
+    available_entities: projection.available_entities || [],
+    surface_affordances: projection.surface_affordances || [],
+    diagnostics: projection.diagnostics || {},
+  }
 }
 
 function pendingOperationForInput(
   input: RouteDeckDispatchInput,
   currentState: RouteDeckClientState,
 ): RouteDeckPendingOperation {
+  const operationId = operationIdForInput(input)
   const operation = currentState.projection.legal_operations.find((candidate) => candidate.id === input.operation_id)
   const invocationKind = operation?.invocation_kind
   return {
-    operation_id: input.operation_id,
-    label: operation?.label || input.operation_id,
+    operation_id: operationId,
+    label: operation?.label || operationId,
     invocation_kind: invocationKind,
     target_node: operation?.target_node || null,
     status: invocationKind === 'surface' ? 'opening_surface' : 'dispatching',
@@ -363,7 +375,7 @@ function mapDispatchResult(
     const candidate = payload as { projection?: unknown; state?: unknown; replace_path?: unknown; active_surface?: unknown; messages?: unknown }
     if (isProjection(candidate.projection)) {
       return {
-        operation_id: input.operation_id,
+        operation_id: operationIdForInput(input),
         accepted: true,
         state: {
           projection: candidate.projection,
@@ -411,8 +423,15 @@ function isProjection(value: unknown): value is RouteDeckProjection {
   return typeof value.current_context === 'string' && typeof value.graph_node === 'string'
 }
 
-function isRouteDeckNavigationOperation(operationId: string) {
-  return ['route.back', 'route.forward', 'route.cancel', 'route.open_node', 'route.switch_surface'].includes(operationId)
+function isRouteDeckNavigationOperation(operationId?: string | null): operationId is string {
+  return typeof operationId === 'string' && ['route.back', 'route.forward', 'route.cancel', 'route.open_node', 'route.switch_surface'].includes(operationId)
+}
+
+function operationIdForInput(input: RouteDeckDispatchInput): string {
+  if (input.operation_id) return input.operation_id
+  const surfaceEvent = input.surface_event
+  if (surfaceEvent?.affordance_id) return `surface.${surfaceEvent.affordance_id}`
+  return 'surface.interaction'
 }
 
 function currentLocation(state: RouteDeckClientState): RouteDeckLocation {
@@ -439,6 +458,20 @@ function navigationWithFlags(navigation: Partial<RouteDeckProjection['navigation
     can_back: backStack.length > 0,
     can_forward: forwardStack.length > 0,
     can_cancel: backStack.length > 0,
+  }
+}
+
+function normalizeNavGraph(
+  navgraph: RouteDeckProjection['navgraph'] | undefined,
+  navigation: RouteDeckProjection['navigation'],
+): NonNullable<RouteDeckProjection['navgraph']> {
+  const current = navgraph?.current || navigation.current
+  return {
+    current: { ...current, params: current.params || {} },
+    nodes: navgraph?.nodes || [],
+    edges: navgraph?.edges || [],
+    traversed: navgraph?.traversed || [],
+    reachable: navgraph?.reachable || [],
   }
 }
 

@@ -47,7 +47,9 @@ The framework is a sibling local package during development. SaaStoAgent consume
 `routedeck_core` stays runtime-neutral and dependency-light. Install the optional LangGraph extra only for LangGraph apps:
 
 ```powershell
-pip install -e ".[langgraph]"
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[langgraph]"
 ```
 
 The adapter exposes:

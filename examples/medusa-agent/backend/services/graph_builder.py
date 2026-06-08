@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from langchain_core.messages import SystemMessage
@@ -7,9 +8,12 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from routedeck_core import RouteDeckEvent
 
 from core.config import Settings
 from services.agent_tools import build_agent_tools
+from services.routedeck_provider import get_routedeck_runtime
+from services.routedeck_runtime import MedusaRouteDeckRuntime
 
 
 COMMERCE_SYSTEM_PROMPT = """\
@@ -22,14 +26,20 @@ ids, credentials, or developer terminology.
 """
 
 
-def build_agent_graph(settings: Settings, session_id: str = "default"):
+def build_agent_graph(
+    settings: Settings,
+    session_id: str = "default",
+    runtime: MedusaRouteDeckRuntime | None = None,
+    route_event_sink: Callable[[RouteDeckEvent], None] | None = None,
+):
     llm = ChatOpenAI(
         model=settings.medusa_agent_model,
         api_key=settings.openai_api_key,
         streaming=True,
         temperature=0.3,
     )
-    tools = build_agent_tools(session_id=session_id)
+    route_runtime = runtime or get_routedeck_runtime(settings=settings)
+    tools = build_agent_tools(runtime=route_runtime, session_id=session_id, event_sink=route_event_sink)
     llm_with_tools = llm.bind_tools(tools)
 
     def agent_node(state: MessagesState) -> dict[str, Any]:

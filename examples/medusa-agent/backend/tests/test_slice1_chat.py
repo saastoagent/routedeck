@@ -88,7 +88,7 @@ def test_missing_api_key_does_not_emit_simulated_assistant_text(client: TestClie
 
 
 def test_chat_stream_remains_app_owned_after_routedeck_is_added(client: TestClient):
-    response = client.get("/api/routedeck/manifest")
+    response = client.get("/api/medusa-agent/route-manifest")
 
     assert response.status_code == 200
     assert client.post(
@@ -108,8 +108,9 @@ async def test_graph_path_maps_conversation_id_to_thread_id_and_injects_routedec
     from services.chat_service import ChatService
     from services import routedeck_prompt
 
-    async def fake_routedeck_prompt(_settings, session_id: str = "default"):
+    async def fake_routedeck_prompt(_settings, session_id: str = "default", runtime=None):
         assert session_id == "thread-123"
+        assert runtime is not None
         return "RouteDeck runtime context:\n- legal RouteDeck operations: none"
 
     monkeypatch.setattr(routedeck_prompt, "build_routedeck_system_prompt", fake_routedeck_prompt)
@@ -141,6 +142,78 @@ async def test_graph_path_maps_conversation_id_to_thread_id_and_injects_routedec
     assert [event for event, _data in parsed].count("message_delta") == 2
     assert _assistant_text(parsed) == "Hello there."
     assert "fallback" not in parsed[0][1]
+
+
+@pytest.mark.asyncio
+async def test_graph_path_forwards_routedeck_events_without_turning_them_into_text(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from langchain_core.messages import AIMessageChunk
+    from routedeck_core import RouteDeckEvent
+
+    from core.config import Settings
+    from services.chat_service import ChatService
+    from services import routedeck_prompt
+    from services import graph_builder
+
+    async def fake_routedeck_prompt(_settings, session_id: str = "default", runtime=None):
+        assert session_id == "thread-route"
+        assert runtime is not None
+        return "Medusa planning context:\n- current node: home"
+
+    monkeypatch.setattr(routedeck_prompt, "build_routedeck_system_prompt", fake_routedeck_prompt)
+
+    class FakeGraph:
+        async def astream_events(self, _graph_input, config, version):
+            assert config == {"configurable": {"thread_id": "thread-route"}}
+            assert version == "v2"
+            yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Products ready.")}}
+
+    def fake_build_agent_graph(settings, session_id="default", runtime=None, route_event_sink=None):
+        assert session_id == "thread-route"
+        assert runtime is not None
+        assert route_event_sink is not None
+        route_event_sink(
+            RouteDeckEvent(
+                event_type="operation_completed",
+                projection_version=2,
+                payload={
+                    "operation_id": "catalog.list",
+                    "state": {
+                        "projection": {
+                            "current_context": "browse",
+                            "graph_node": "browse",
+                            "projection_version": 2,
+                            "legal_operations": [],
+                            "surfaces": {},
+                            "presentation_state": {},
+                            "diagnostics": {},
+                        },
+                        "status": "idle",
+                    },
+                },
+            )
+        )
+        return FakeGraph()
+
+    monkeypatch.setattr(graph_builder, "build_agent_graph", fake_build_agent_graph)
+
+    service = ChatService(settings=Settings(openai_api_key="test-key"))
+
+    parsed = _parse_sse("".join([event async for event in service.stream("show products", conversation_id="thread-route")]))
+
+    assert [event for event, _data in parsed] == [
+        "stream_start",
+        "agent_start",
+        "routedeck_event",
+        "message_delta",
+        "agent_end",
+        "stream_end",
+    ]
+    route_event = parsed[2][1]
+    assert route_event["event_type"] == "operation_completed"
+    assert route_event["payload"]["state"]["projection"]["graph_node"] == "browse"
+    assert _assistant_text(parsed) == "Products ready."
 
 
 def test_default_model_can_be_overridden(monkeypatch: pytest.MonkeyPatch):

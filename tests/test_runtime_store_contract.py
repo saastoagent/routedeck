@@ -11,6 +11,7 @@ from routedeck_core import (
     RouteDeckProjection,
     RouteDeckRuntime,
     RouteDeckRuntimeState,
+    RouteDeckSurfaceInteractionEvent,
     RouteDeckSurface,
 )
 
@@ -94,6 +95,23 @@ def test_introspection_contract_is_read_only_graph_context():
     assert introspection.current_node == "dashboard"
     assert introspection.blocked_operations[0]["reason"] == "Authentication required"
     assert "dispatch" not in introspection.model_dump()
+
+
+def test_dispatch_input_can_carry_surface_interaction_event_without_private_refs():
+    request = RouteDeckDispatchInput(
+        surface_event=RouteDeckSurfaceInteractionEvent(
+            surface_id="detail.product_detail",
+            affordance_id="add_to_cart",
+            entity_key="variant:s-black",
+            payload={"quantity": 1},
+        ),
+        projection_version=7,
+    )
+
+    payload = request.model_dump(mode="json")
+    assert payload["operation_id"] is None
+    assert payload["surface_event"]["entity_key"] == "variant:s-black"
+    assert "variant_" not in str(payload["surface_event"])
 
 
 def test_runtime_protocol_describes_agentic_state_manager_shape():

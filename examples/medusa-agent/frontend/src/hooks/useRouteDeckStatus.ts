@@ -19,7 +19,7 @@ export function useRouteDeckStatus() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/routedeck/projection")
+    fetch("/api/medusa-agent/projection")
       .then((response) => {
         if (!response.ok) {
           throw new Error(`RouteDeck status failed: ${response.status}`);

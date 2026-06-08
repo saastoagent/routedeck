@@ -253,6 +253,12 @@ POST /api/<product>/action
 GET  /api/diagnostics/stream
 ```
 
+Product reference apps can also expose RouteDeck-derived projection, action,
+inspect, and stream behavior through product-owned URLs such as
+`/api/medusa-agent/projection` and `/api/medusa-agent/action`. Use that shape
+when the endpoint is part of the product app rather than a standalone framework
+surface.
+
 Use separate RouteDeck APIs when operators, agents, or debugger surfaces need a
 clear framework boundary. The wrong boundary is not `/api/routedeck/*` itself;
 the wrong boundary is putting product-specific semantics under that namespace,
@@ -429,6 +435,20 @@ In this model:
 Avoid:
 
 - rendering every `legal_operation` as a generic quick action
+- making navgraph nodes clickable dispatch or navigation controls
+- changing the browser URL from a navgraph click instead of from projected
+  navigation/deeplink state
+- making query-only `?rd_node=...` URLs the canonical public browser deeplinks
+  for a new product instead of a product-owned path codec like the Corpus
+  integration
+- rendering product action chips in the navgraph or inspector instead of the
+  product chat/assistant experience
+- merging product surfaces with navgraph/inspector UI so product clicks appear
+  to be graph navigation
+- showing same-node legal operations as ordinary next-action chips unless the
+  product deliberately labels them as refresh/reload controls
+- hiding action, entity, or affordance detail inside the graph canvas instead of
+  a read-only inspector or diagnostics surface
 - showing `Open node` or `Switch surface` as ordinary product actions
 - dispatching operations with missing required args
 - letting React local state own graph truth

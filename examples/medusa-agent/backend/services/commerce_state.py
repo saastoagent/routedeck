@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class CommerceSessionState:
+    current_node: str = "home"
     selected_product_ref: str | None = None
     selected_variant_ref: str | None = None
     cart_ref: str | None = None
@@ -12,6 +13,7 @@ class CommerceSessionState:
 
     def public_snapshot(self) -> dict[str, object]:
         return {
+            "current_node": self.current_node,
             "selected_product_ref": self.selected_product_ref,
             "selected_variant_ref": self.selected_variant_ref,
             "cart_ref": self.cart_ref,

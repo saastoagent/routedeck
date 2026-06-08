@@ -15,7 +15,7 @@ for path in (BACKEND_ROOT, ROUTEDECK_ROOT):
 
 @pytest.mark.asyncio
 async def test_routedeck_prompt_names_capabilities_without_operation_ids(monkeypatch: pytest.MonkeyPatch):
-    from routedeck_core import RouteDeckLocation, RouteDeckNavigationState, RouteDeckOperation, RouteDeckProjection
+    from routedeck_core import RouteDeckCapabilitySpec, RouteDeckLocation, RouteDeckNavigationState, RouteDeckOperation, RouteDeckProjection
 
     from core.config import Settings
     from services import routedeck_prompt
@@ -27,24 +27,26 @@ async def test_routedeck_prompt_names_capabilities_without_operation_ids(monkeyp
             RouteDeckOperation(id="catalog.list", label="Browse products", safety_class="read_external"),
             RouteDeckOperation(id="cart.add_item", label="Add selected item to cart", safety_class="write_external"),
         ],
+        capabilities=[
+            RouteDeckCapabilitySpec(capability_id="catalog.browse", label="Browse catalog", operation_ids=["catalog.list"]),
+            RouteDeckCapabilitySpec(capability_id="cart.manage", label="Manage demo cart", operation_ids=["cart.add_item"]),
+        ],
         surfaces={},
         navigation=RouteDeckNavigationState(current=RouteDeckLocation(node_id="browse")),
     )
 
     class FakeRuntime:
-        def __init__(self, settings):
-            self.settings = settings
-
         async def projection(self, context=None):
             assert context == {"probe_timeout": 0.5, "session_id": "s1"}
             return projection
 
-    monkeypatch.setattr(routedeck_prompt, "MedusaRouteDeckRuntime", FakeRuntime)
+    monkeypatch.setattr(routedeck_prompt, "get_routedeck_runtime", lambda settings=None: FakeRuntime())
 
     prompt = await routedeck_prompt.build_routedeck_system_prompt(Settings(openai_api_key="test-key"), session_id="s1")
 
-    assert "Browse products" in prompt
-    assert "Add selected item to cart" in prompt
+    assert prompt.startswith("Medusa planning context:")
+    assert "Browse catalog" in prompt
+    assert "Manage demo cart" in prompt
     assert "catalog.list" not in prompt
     assert "cart.add_item" not in prompt
 
@@ -53,6 +55,7 @@ async def test_routedeck_prompt_names_capabilities_without_operation_ids(monkeyp
 async def test_agent_tool_calls_routedeck_dispatch():
     from routedeck_core import (
         RouteDeckDispatchResult,
+        RouteDeckEvent,
         RouteDeckLocation,
         RouteDeckNavigationState,
         RouteDeckProjection,
@@ -81,15 +84,24 @@ async def test_agent_tool_calls_routedeck_dispatch():
     class FakeRuntime:
         async def dispatch(self, request, context=None):
             calls.append((request.operation_id, request.args, context))
+            state = RouteDeckRuntimeState(projection=projection, status="idle")
             return RouteDeckDispatchResult(
                 operation_id=request.operation_id,
                 accepted=True,
-                state=RouteDeckRuntimeState(projection=projection, status="idle"),
+                state=state,
                 active_surface=projection.surfaces["active"],
                 messages=[{"content": "Products are ready to browse."}],
+                events=[
+                    RouteDeckEvent(
+                        event_type="operation_completed",
+                        projection_version=projection.projection_version,
+                        payload={"state": state.model_dump(mode="json")},
+                    )
+                ],
             )
 
-    tools = build_agent_tools(runtime=FakeRuntime(), session_id="s1")
+    captured_events = []
+    tools = build_agent_tools(runtime=FakeRuntime(), session_id="s1", event_sink=captured_events.append)
     browse_tool = next(tool for tool in tools if tool.name == "browse_products")
 
     result = await browse_tool.ainvoke({})
@@ -98,6 +110,13 @@ async def test_agent_tool_calls_routedeck_dispatch():
     assert "Products are ready" in result
     assert "Medusa T-Shirt" not in result
     assert "catalog.list" not in result
+    assert captured_events == [
+        RouteDeckEvent(
+            event_type="operation_completed",
+            projection_version=projection.projection_version,
+            payload={"state": RouteDeckRuntimeState(projection=projection, status="idle").model_dump(mode="json")},
+        )
+    ]
 
 
 @pytest.mark.asyncio
@@ -125,11 +144,11 @@ async def test_browse_tool_summarizes_product_surface_without_private_ids():
                 props={
                     "products": [
                         {
-                            "product_ref": "product_public",
+                            "entity_key": "product:entity_public",
                             "title": "Medusa T-Shirt",
-                            "variants": [{"variant_ref": "variant_public", "title": "S / Black"}],
+                            "variants": [{"entity_key": "variant:entity_public", "title": "S / Black"}],
                         },
-                        {"product_ref": "product_other", "title": "Medusa Sweatshirt", "variants": []},
+                        {"entity_key": "product:entity_other", "title": "Medusa Sweatshirt", "variants": []},
                     ]
                 },
             )
@@ -154,8 +173,7 @@ async def test_browse_tool_summarizes_product_surface_without_private_ids():
 
     assert "Medusa T-Shirt" in result
     assert "Medusa Sweatshirt" in result
-    assert "product_public" not in result
-    assert "variant_public" not in result
+    assert "entity_public" not in result
     assert "catalog.list" not in result
 
 
@@ -192,12 +210,12 @@ async def test_add_item_tool_passes_variant_and_quantity_to_dispatch():
     tools = build_agent_tools(runtime=FakeRuntime(), session_id="s1")
     add_tool = next(tool for tool in tools if tool.name == "add_selected_variant_to_cart")
 
-    result = await add_tool.ainvoke({"variant_ref": "variant_public", "quantity": 2})
+    result = await add_tool.ainvoke({"entity_key": "variant:entity_public", "quantity": 2})
 
     assert calls == [
         (
             "cart.add_item",
-            {"variant_ref": "variant_public", "quantity": 2},
+            {"entity_key": "variant:entity_public", "quantity": 2},
             {"session_id": "s1", "source": "agent_tool"},
         )
     ]

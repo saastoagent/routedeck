@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from "react";
 
 type Role = "user" | "assistant";
 
+export const THINKING_PLACEHOLDER = "Checking current shopping context...";
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -12,6 +14,11 @@ export interface ChatMessage {
 export interface ParsedSSEEvent {
   event: string;
   data: Record<string, unknown>;
+}
+
+export interface UseSSEChatOptions {
+  onRouteDeckEvent?: (event: Record<string, unknown>) => void;
+  sessionId?: string;
 }
 
 export function parseSSEFrames(
@@ -45,7 +52,7 @@ export function parseSSEFrames(
   return { events, buffer };
 }
 
-export function useSSEChat() {
+export function useSSEChat(options: UseSSEChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -70,7 +77,7 @@ export function useSSEChat() {
   }, []);
 
   const finishStream = useCallback(() => {
-    updateAssistant(assistantContentRef.current, false);
+    updateAssistant(assistantContentRef.current || "The shopping assistant did not return a response.", false);
     setIsStreaming(false);
     xhrRef.current = null;
   }, [updateAssistant]);
@@ -94,6 +101,11 @@ export function useSSEChat() {
         return;
       }
 
+      if (event === "routedeck_event") {
+        options.onRouteDeckEvent?.(data);
+        return;
+      }
+
       if (event === "error") {
         const message =
           typeof data.message === "string"
@@ -109,7 +121,7 @@ export function useSSEChat() {
         finishStream();
       }
     },
-    [finishStream, updateAssistant],
+    [finishStream, options, updateAssistant],
   );
 
   const parseProgress = useCallback(
@@ -136,7 +148,7 @@ export function useSSEChat() {
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "",
+        content: THINKING_PLACEHOLDER,
         isStreaming: true,
       };
 
@@ -161,9 +173,9 @@ export function useSSEChat() {
         assistantContentRef.current = "Connection failed. Please try again.";
         finishStream();
       };
-      xhr.send(JSON.stringify({ message: trimmed, conversation_id: conversationId }));
+      xhr.send(JSON.stringify({ message: trimmed, conversation_id: conversationId, session_id: options.sessionId }));
     },
-    [conversationId, finishStream, isStreaming, parseProgress],
+    [conversationId, finishStream, isStreaming, options.sessionId, parseProgress],
   );
 
   return {

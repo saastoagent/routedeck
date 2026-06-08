@@ -3,6 +3,9 @@ export type { RouteDeckDebuggerProps } from './RouteDeckDebugger'
 export {
   RouteDeckProvider,
   RouteDeckSurfaceHost,
+  useRouteDeckAvailableEntities,
+  useRouteDeckCapabilities,
+  useRouteDeckCapability,
   useRouteDeckDispatch,
   useRouteDeckActiveSurface,
   useRouteDeckDiagnostics,
@@ -13,6 +16,7 @@ export {
   useRouteDeckNavigation,
   useRouteDeckPendingOperation,
   useRouteDeckProjection,
+  useRouteDeckSurfaceAffordances,
   useRouteDeckSurfaceOpening,
   useRouteDeckStatus,
   useRouteDeckState,
@@ -33,15 +37,22 @@ export {
 } from './RouteDeckLocation'
 export {
   isRouteDeckOperationDispatchable,
+  routeDeckAssistantActions,
   routeDeckOperationInteraction,
 } from './operationReadiness'
+export type { RouteDeckAssistantActionOptions } from './operationReadiness'
 export type { EventSourceLike, RouteDeckStoreConfig } from './RouteDeckStore'
 export type {
   RouteDeckActionCard,
   RouteDeckActionField,
+  RouteDeckAvailableEntity,
+  RouteDeckBindingExpression,
+  RouteDeckCapabilitySpec,
   RouteDeckClientState,
+  RouteDeckDeepLink,
   RouteDeckDispatchInput,
   RouteDeckDispatchResult,
+  RouteDeckEntityOperationBinding,
   RouteDeckEvent,
   RouteDeckExecutionMode,
   RouteDeckInvocationKind,
@@ -54,6 +65,9 @@ export type {
   RouteDeckManifestEdge,
   RouteDeckManifestNode,
   RouteDeckLocation,
+  RouteDeckNavGraph,
+  RouteDeckNavGraphEdge,
+  RouteDeckNavGraphNode,
   RouteDeckNavigationMode,
   RouteDeckNavigationState,
   RouteDeckOperation,
@@ -62,7 +76,10 @@ export type {
   RouteDeckRuntimeSnapshot,
   RouteDeckRuntimeStatus,
   RouteDeckSafetyClass,
+  RouteDeckSemanticObservation,
   RouteDeckStore,
   RouteDeckSurface,
+  RouteDeckSurfaceAffordance,
+  RouteDeckSurfaceInteractionEvent,
   RouteDeckUrl,
 } from './types'

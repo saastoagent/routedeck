@@ -1,35 +1,42 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from langchain_core.tools import StructuredTool
-from routedeck_core import RouteDeckDispatchInput, RouteDeckDispatchResult, RouteDeckSurface
+from routedeck_core import RouteDeckDispatchInput, RouteDeckDispatchResult, RouteDeckEvent, RouteDeckSurface
 
+from services.routedeck_provider import get_routedeck_runtime
 from services.routedeck_runtime import MedusaRouteDeckRuntime
 
 
-def build_agent_tools(runtime: Any | None = None, session_id: str = "default") -> list[StructuredTool]:
-    route_runtime = runtime or MedusaRouteDeckRuntime()
+def build_agent_tools(
+    runtime: Any | None = None,
+    session_id: str = "default",
+    event_sink: Callable[[RouteDeckEvent], None] | None = None,
+) -> list[StructuredTool]:
+    route_runtime = runtime or get_routedeck_runtime()
 
     async def browse_products() -> str:
-        return await _dispatch_summary(route_runtime, session_id, "catalog.list", {})
+        return await _dispatch_summary(route_runtime, session_id, "catalog.list", {}, event_sink)
 
-    async def open_product(product_ref: str) -> str:
-        return await _dispatch_summary(route_runtime, session_id, "catalog.open", {"product_ref": product_ref})
+    async def open_product(entity_key: str) -> str:
+        return await _dispatch_summary(route_runtime, session_id, "catalog.open", {"entity_key": entity_key}, event_sink)
 
-    async def select_variant(variant_ref: str) -> str:
-        return await _dispatch_summary(route_runtime, session_id, "variant.select", {"variant_ref": variant_ref})
+    async def select_variant(entity_key: str) -> str:
+        return await _dispatch_summary(route_runtime, session_id, "variant.select", {"entity_key": entity_key}, event_sink)
 
-    async def add_selected_variant_to_cart(variant_ref: str, quantity: int) -> str:
+    async def add_selected_variant_to_cart(entity_key: str, quantity: int) -> str:
         return await _dispatch_summary(
             route_runtime,
             session_id,
             "cart.add_item",
-            {"variant_ref": variant_ref, "quantity": quantity},
+            {"entity_key": entity_key, "quantity": quantity},
+            event_sink,
         )
 
     async def view_cart() -> str:
-        return await _dispatch_summary(route_runtime, session_id, "cart.view", {})
+        return await _dispatch_summary(route_runtime, session_id, "cart.view", {}, event_sink)
 
     return [
         StructuredTool.from_function(
@@ -40,17 +47,17 @@ def build_agent_tools(runtime: Any | None = None, session_id: str = "default") -
         StructuredTool.from_function(
             coroutine=open_product,
             name="open_product",
-            description="Open product details using a product reference.",
+            description="Open product details using a product entity key from the planning context.",
         ),
         StructuredTool.from_function(
             coroutine=select_variant,
             name="select_variant",
-            description="Select a product variant using a variant reference.",
+            description="Select a product variant using a variant entity key from the planning context.",
         ),
         StructuredTool.from_function(
             coroutine=add_selected_variant_to_cart,
             name="add_selected_variant_to_cart",
-            description="Add an explicitly selected variant and quantity to the demo cart.",
+            description="Add a rendered variant entity key and quantity to the demo cart.",
         ),
         StructuredTool.from_function(
             coroutine=view_cart,
@@ -65,6 +72,7 @@ async def _dispatch_summary(
     session_id: str,
     operation_id: str,
     args: dict[str, Any],
+    event_sink: Callable[[RouteDeckEvent], None] | None = None,
 ) -> str:
     try:
         result = await runtime.dispatch(
@@ -73,6 +81,10 @@ async def _dispatch_summary(
         )
     except ValueError as exc:
         return str(exc)
+
+    if event_sink is not None:
+        for event in result.events:
+            event_sink(event)
 
     for message in result.messages:
         content = message.get("content")

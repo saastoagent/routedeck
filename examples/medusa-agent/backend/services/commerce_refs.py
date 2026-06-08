@@ -19,3 +19,6 @@ class OpaqueRefStore:
 
     def resolve(self, public_ref: str) -> str:
         return self._forward[public_ref]
+
+    def public_items(self):
+        return self._forward.items()

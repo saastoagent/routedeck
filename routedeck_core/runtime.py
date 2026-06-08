@@ -3,17 +3,24 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Protocol, runtime_checkable
 
 from .models import (
+    RouteDeckAvailableEntity,
+    RouteDeckCapabilitySpec,
     RouteDeckDispatchInput,
     RouteDeckDispatchResult,
     RouteDeckEvent,
+    RouteDeckEventType,
     RouteDeckLocation,
     RouteDeckIntrospection,
     RouteDeckManifest,
+    RouteDeckNavGraph,
+    RouteDeckNavGraphEdge,
+    RouteDeckNavGraphNode,
     RouteDeckNavigationState,
     RouteDeckOperation,
     RouteDeckProjection,
     RouteDeckRuntimeState,
     RouteDeckSurface,
+    RouteDeckSurfaceAffordance,
 )
 
 
@@ -83,6 +90,10 @@ def build_projection(
     surfaces: list[RouteDeckSurface] | None = None,
     presentation_state: dict[str, Any] | None = None,
     navigation: dict[str, Any] | RouteDeckNavigationState | None = None,
+    capabilities: list[RouteDeckCapabilitySpec] | None = None,
+    navgraph: RouteDeckNavGraph | dict[str, Any] | None = None,
+    available_entities: list[RouteDeckAvailableEntity] | None = None,
+    surface_affordances: list[RouteDeckSurfaceAffordance] | None = None,
     projection_version: int = 1,
     diagnostics: dict[str, Any] | None = None,
 ) -> RouteDeckProjection:
@@ -92,6 +103,7 @@ def build_projection(
         coerced = _coerce_surface_variant(surface, node)
         key = coerced.name if coerced.name not in surface_map else (coerced.surface_id or coerced.name)
         surface_map[key] = coerced
+    navigation_state = _coerce_navigation(current_node=current_node, navigation=navigation)
     return RouteDeckProjection(
         current_context=current_node,
         graph_node=current_node,
@@ -99,8 +111,32 @@ def build_projection(
         legal_operations=[operation for operation in operations or [] if operation.execution_mode != "blocked"],
         surfaces=surface_map,
         presentation_state=presentation_state or {},
-        navigation=_coerce_navigation(current_node=current_node, navigation=navigation),
+        navigation=navigation_state,
+        capabilities=capabilities if capabilities is not None else list(manifest.capabilities),
+        navgraph=_coerce_navgraph(manifest=manifest, current_node=current_node, navigation=navigation_state, navgraph=navgraph),
+        available_entities=available_entities or [],
+        surface_affordances=surface_affordances or [],
         diagnostics=diagnostics or {},
+    )
+
+
+def build_dispatch_state_event(
+    *,
+    operation_id: str,
+    state: RouteDeckRuntimeState,
+    event_type: RouteDeckEventType = "operation_completed",
+    projection_version: int | None = None,
+    payload: dict[str, Any] | None = None,
+) -> RouteDeckEvent:
+    event_payload = {
+        "operation_id": operation_id,
+        "state": state.model_dump(mode="json"),
+        **(payload or {}),
+    }
+    return RouteDeckEvent(
+        event_type=event_type,
+        projection_version=projection_version if projection_version is not None else state.projection.projection_version,
+        payload=event_payload,
     )
 
 
@@ -133,4 +169,42 @@ def _coerce_navigation(
             "can_forward": bool(state.forward_stack),
             "can_cancel": bool(state.back_stack or state.current.node_id != current_node),
         }
+    )
+
+
+def _coerce_navgraph(
+    *,
+    manifest: RouteDeckManifest,
+    current_node: str,
+    navigation: RouteDeckNavigationState,
+    navgraph: RouteDeckNavGraph | dict[str, Any] | None,
+) -> RouteDeckNavGraph:
+    if isinstance(navgraph, RouteDeckNavGraph):
+        return navgraph
+    if isinstance(navgraph, dict):
+        payload = dict(navgraph)
+        payload.setdefault("current", navigation.current.model_dump(mode="json"))
+        return RouteDeckNavGraph.model_validate(payload)
+
+    return RouteDeckNavGraph(
+        current=navigation.current,
+        nodes=[
+            RouteDeckNavGraphNode(
+                id=node.id,
+                label=node.label,
+                capability_ids=[node.capability_id] if node.capability_id else [],
+            )
+            for node in manifest.nodes
+            if node.show_in_navgraph
+        ],
+        edges=[
+            RouteDeckNavGraphEdge(
+                from_stage=edge.from_stage,
+                to=edge.to_stage,
+                action_id=edge.action_id,
+                capability_id=edge.capability_id,
+            )
+            for edge in manifest.edges
+        ],
+        reachable=reachable_nodes(manifest, current_node),
     )

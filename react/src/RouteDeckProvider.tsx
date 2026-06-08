@@ -10,6 +10,8 @@ import {
 import { resolveRouteDeckActiveSurface } from './RouteDeckSurface'
 import { createStaticRouteDeckStore } from './RouteDeckStore'
 import type {
+  RouteDeckAvailableEntity,
+  RouteDeckCapabilitySpec,
   RouteDeckClientState,
   RouteDeckDispatchInput,
   RouteDeckDispatchResult,
@@ -22,6 +24,7 @@ import type {
   RouteDeckProjection,
   RouteDeckStore,
   RouteDeckSurface,
+  RouteDeckSurfaceAffordance,
 } from './types'
 
 interface RouteDeckContextValue {
@@ -98,6 +101,30 @@ export function useRouteDeckOperations(): RouteDeckOperation[] {
 export function useRouteDeckOperation(id: string): RouteDeckOperation | null {
   const operations = useRouteDeckOperations()
   return useMemo(() => operations.find((operation) => operation.id === id) || null, [id, operations])
+}
+
+export function useRouteDeckCapabilities(): RouteDeckCapabilitySpec[] {
+  return useRouteDeckProjection().capabilities || []
+}
+
+export function useRouteDeckCapability(capabilityId: string): RouteDeckCapabilitySpec | null {
+  const capabilities = useRouteDeckCapabilities()
+  return useMemo(
+    () => capabilities.find((capability) => capability.capability_id === capabilityId) || null,
+    [capabilities, capabilityId],
+  )
+}
+
+export function useRouteDeckAvailableEntities(): RouteDeckAvailableEntity[] {
+  return useRouteDeckProjection().available_entities || []
+}
+
+export function useRouteDeckSurfaceAffordances(surfaceId?: string | null): RouteDeckSurfaceAffordance[] {
+  const affordances = useRouteDeckProjection().surface_affordances || []
+  return useMemo(
+    () => surfaceId ? affordances.filter((affordance) => affordance.surface_id === surfaceId) : affordances,
+    [affordances, surfaceId],
+  )
 }
 
 export function useRouteDeckDiagnostics(): Record<string, unknown> {

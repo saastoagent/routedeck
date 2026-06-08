@@ -10,19 +10,37 @@ example. Slice 0 is documentation and public-readiness groundwork only: it names
 the product boundary, records the RouteDeck/API split, and prevents RouteDeck
 from absorbing Medusa behavior before the example is authorized.
 
-RouteDeck remains product-neutral, but it should not hide behind the product
-API. The reference app should make the RouteDeck API plane visible as its own
-generic state/projection/dispatch/inspect surface while keeping Medusa commerce
-behavior in Medusa-owned handlers. Medusa owns the agent, commerce routes,
-domain state, prompts, seeded data, UI copy, and product workflow behavior.
-RouteDeck provides reusable contracts, runtime/projection models, React state
-helpers, optional LangGraph integration helpers, and diagnostics primitives
-consumed by the Medusa app.
+RouteDeck remains product-neutral, but the Medusa example must expose public
+HTTP routes in Medusa-owned language. The reference app should make RouteDeck
+contracts visible through product-owned state/projection/action/inspect
+endpoints while keeping Medusa commerce behavior in Medusa-owned handlers.
+Medusa owns the agent, public API routes, commerce routes, domain state,
+prompts, seeded data, UI copy, and product workflow behavior. RouteDeck provides
+reusable contracts, runtime/projection models, React state helpers, optional
+LangGraph integration helpers, and diagnostics primitives consumed by the
+Medusa app.
 
 RouteDeck framework terms in this spec follow `docs/route-deck-reference.md`.
 
 This file supersedes `docs/propertydesk-reference-app.md` as the active
 product-specific reference-app source of truth.
+
+## Current Reset Directive
+
+The runnable Medusa example must be reduced back to the Slice 1 proof before it
+is used as a RouteDeck reference again. The proof is normal app-owned commerce
+chat only: first-screen chat, `POST /api/medusa-agent/agent/stream`, true SSE
+assistant deltas, process-local conversation state, live model execution when
+configured, and explicit missing-key errors.
+
+The reset target excludes RouteDeck runtime, manifest, projection, dispatch,
+inspect, route-stream, navgraph, inspector, action chips derived from
+RouteDeck, commerce surfaces, Medusa Store API reads, cart writes, checkout,
+payment, shipping, admin, diagnostics panels, and RouteDeck-prefixed public
+routes.
+
+Slices 2 through 6 remain design contracts for future reintroduction. They do
+not authorize the current runnable example to stay ahead of the chat-only proof.
 
 ## Slice 0 Boundary
 
@@ -53,53 +71,47 @@ Slice-specific implications:
 
 ## Public Contracts
 
-The future Medusa app has two public API planes.
+The future Medusa app has one public, product-owned API surface that consumes
+RouteDeck contracts internally.
 
 ### Medusa Product API
 
-The product API is for commerce behavior and chat:
+The product API is for commerce behavior, chat, and RouteDeck-derived state:
 
 - `GET /api/medusa-agent/state`
+- `GET /api/medusa-agent/route-manifest`
+- `GET /api/medusa-agent/route-snapshot`
+- `GET /api/medusa-agent/projection`
 - `POST /api/medusa-agent/action`
 - `POST /api/medusa-agent/agent/stream`
 - `POST /api/medusa-agent/inspect`
+- `GET /api/medusa-agent/route-stream`
 
 These routes belong to the Medusa example app. They expose shopping, checkout,
-admin, reset, chat, and product diagnostics in Medusa language.
+admin, reset, chat, projection, runtime inspection, and product diagnostics in
+Medusa language.
 
-### RouteDeck API
-
-The RouteDeck API is allowed, expected, and encouraged to be separate from the
-product API when it stays a framework/projection contract rather than the
-product experience:
-
-- `GET /api/routedeck/manifest`
-- `GET /api/routedeck/snapshot`
-- `GET /api/routedeck/projection`
-- `POST /api/routedeck/dispatch`
-- `POST /api/routedeck/inspect`
-- `GET /api/routedeck/stream`
-
-Those routes must stay generic. They expose RouteDeck concepts such as manifest,
-runtime state, projection, dispatch validation, events, and introspection. They
-must not become Medusa-specific routes such as `/api/routedeck/medusa/*`, and
-they must not contain Medusa business policy. Early slices may expose dispatch
-as a guarded contract endpoint without executing product operations.
+No public Medusa example endpoint is served under `/api/routedeck/*`. Generic
+RouteDeck APIs can exist in other framework deployments, but this product
+example must not turn RouteDeck-prefixed routes into a Medusa product surface.
+Early slices may expose dispatch as a guarded product-owned contract endpoint
+without executing product operations.
 
 ## Architecture Boundary
 
 - Medusa owns the LangGraph agent and its streaming endpoint.
 - Medusa owns product operations, authorization, seeded demo data, UI language,
   and domain-specific workflow choices.
-- RouteDeck owns generic APIs and package contracts for manifest, snapshot,
-  projection, dispatch, inspect, stream, React state, and diagnostics.
+- RouteDeck owns generic package contracts for manifest, snapshot, projection,
+  dispatch, inspect, stream, React state, and diagnostics.
 - RouteDeck packages must not vendor Medusa source or special-case Medusa domain
   behavior.
 - Agent execution is not a RouteDeck operation.
 
 ## Slice Contracts
 
-Each implementation slice must keep the two API planes clear.
+Each implementation slice must keep public product routes and reusable RouteDeck
+contracts clear.
 
 ### Slice 0: Spec, Licensing, And Reset
 
@@ -263,8 +275,8 @@ Acceptance commands:
 
 ### Slice 2: Medusa Connection And RouteDeck Projection
 
-Purpose: connect local/demo Medusa and introduce RouteDeck as an explicit
-separate API plane.
+Purpose: connect local/demo Medusa and introduce RouteDeck through explicit
+product-owned projection/state/action endpoints.
 
 Implementation plan:
 `docs/superpowers/plans/2026-06-02-medusa-agent-slice2.md`.
@@ -272,16 +284,19 @@ Implementation plan:
 Expected API split:
 
 - Medusa setup and chat stay under `/api/medusa-agent/*`.
-- RouteDeck manifest/projection/snapshot/inspect/stream may be served under
-  `/api/routedeck/*`.
-- RouteDeck dispatch may exist only as a guarded contract endpoint in this
-  slice. It must reject operation execution and must not drive product behavior.
+- RouteDeck-derived manifest/projection/snapshot/inspect/stream are served under
+  `/api/medusa-agent/*`.
+- `/api/routedeck/*` must not exist in the Medusa example app.
+- RouteDeck dispatch may exist only as guarded `POST /api/medusa-agent/action`
+  contract behavior in this slice. It must reject operation execution and must
+  not drive product behavior.
 
 Done when:
 
 - Passive product setup readiness is visible without operation lists, blocked
   future actions, dispatch traces, or diagnostics in the default product UI.
-- RouteDeck APIs expose generic RouteDeck payloads.
+- Product-owned endpoints expose RouteDeck-derived payloads without exposing a
+  RouteDeck-prefixed public API.
 - Medusa-specific policy remains in the Medusa adapter/handlers.
 
 ### Slice 3: Product Browse, Variant Selection, And Cart
@@ -296,10 +311,51 @@ Required behavior:
 
 - Product list/detail/cart surfaces derive from RouteDeck projection backed by
   the local/demo Medusa Store API.
-- UI clicks and agent tools dispatch the same typed RouteDeck operations; no
+- The projected navgraph renders as an actual graph of RouteDeck nodes and
+  edges. It is orientation context for the agent/user, not a list of operation
+  IDs or dispatch traces.
+- The projected navgraph includes a stable `home` node that centers the Medusa
+  buyer-agent experience before browse/detail/cart work begins.
+- The visible navgraph is read-only. Selecting graph nodes can update a local
+  inspector, but graph clicks must not dispatch operations, navigate, mutate
+  graph state, or change the browser URL.
+- Product action chips render in the Medusa chat/assistant experience,
+  following the Corpus quick-action pattern, from product-safe projected
+  operations, capabilities, affordances, or agent proposals. Hidden `route.*`
+  operations and graph nodes must not become product chips.
+- The first visible Medusa agent state is an assistant chat turn with starter
+  action chips when `home` projects legal actions. It is not an empty-state
+  panel, landing page, debugger, or graph-first placeholder.
+- The Medusa product surface is embedded in the chat stream, following the
+  Corpus workspace pattern. It remains separate from the navgraph and
+  inspector, but it is not a detached product side panel. Product cards, home
+  CTAs, variant buttons, and cart buttons emit `surface_event` payloads. They
+  must not be implemented as navgraph clicks.
+- Same-node operations are not ordinary next-action chips. For example,
+  `catalog.list` may be a legal operation while the current node is `browse`,
+  but the browse surface should not show a "Browse products" chat chip unless
+  Medusa intentionally labels it as a refresh/reload action.
+- The Medusa side rail includes a read-only inspector that summarizes current
+  node, reachable locations, action labels, entity labels, affordance labels,
+  deeplink, and edge/capability metadata without exposing private IDs or
+  RouteDeck operation IDs to shoppers.
+- Product-owned deeplinks are visible in the browser address bar. A URL such as
+  `/detail/t-shirt` may be copied and pasted to resume the same projected
+  product-detail state when the local demo runtime can authorize and resolve the
+  public product handle. `/` is the home node, `/browse` is product browsing,
+  and `/cart` is the cart node. Legacy query links such as
+  `/?rd_node=detail&rd_product=t-shirt` may be accepted for compatibility, but
+  the canonical visible deeplinks follow the Corpus path-owned codec pattern.
+- Deeplink URLs must use public product handles or public entity keys only. They
+  must not expose private Medusa product IDs, variant IDs, cart IDs, RouteDeck
+  operation IDs, or hidden dispatch payloads.
+- UI clicks and agent tools share the same RouteDeck dispatch boundary: UI
+  clicks emit `surface_event` payloads resolved through surface affordances,
+  while agent tools dispatch typed operations with rendered entity keys; no
   phrase router, hardcoded products, or fake catalog is allowed.
-- RouteDeck context plugs into the agent system prompt so the model understands
-  current capabilities before choosing tools.
+- A Medusa-owned planning context built from RouteDeck projection plugs into the
+  agent system prompt so the model understands current capabilities and
+  rendered entities before choosing tools.
 - Private Medusa IDs stay out of public transcript text.
 - Missing variant/cart prerequisites are blocked or requested before dispatch.
 - Cart writes require explicit user intent from chat or direct UI action.
@@ -375,8 +431,7 @@ Until then, that directory must not exist.
 - Medusa domain source appears in `routedeck_core`, `routedeck_langgraph`, or
   `react/src`.
 - `examples/medusa-agent` is implemented before Slice 1 or later approval.
-- `/api/routedeck/*` is banned outright instead of kept as a generic RouteDeck
-  API plane.
+- The Medusa example serves public endpoints under `/api/routedeck/*`.
 - `/api/routedeck/medusa/*` or another product-specific RouteDeck route appears.
 
 ## Public Readiness Gates

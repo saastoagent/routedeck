@@ -328,6 +328,10 @@ and semantic route edges.
   false hierarchy
 - all nodes and semantic route edges remain visible
 - labels and action details stay out of the canvas when they create clutter
+- graph-node selection is read-only inspection; it does not dispatch, navigate,
+  mutate graph state, or update the browser URL
+- operation labels, entity labels, affordances, deeplinks, and edge metadata
+  belong in a read-only inspector or diagnostics surface next to the graph
 
 ## SaaStoAgent Consumption Pattern
 
@@ -342,6 +346,10 @@ CorpusGraphRuntime
 ```
 
 Corpus is the SaaStoAgent product agent. Corpus reads RouteDeck state and dispatches RouteDeck operations. It does not own RouteDeck state management.
+Corpus also demonstrates the preferred browser deeplink split: graph location is
+encoded in product-owned path segments such as `/app/home` or
+`/app/agents/:agent_id/:node_id`, while query params are reserved for optional
+surface state such as `surface_id`.
 
 Corpus owns:
 
@@ -363,6 +371,16 @@ RouteDeck owns:
 - introspection
 
 The product UI must not render `legal_operations` directly as default action chips. Visible choices should be Corpus-authored proposals, initiated surfaces, or diagnostics.
+When a product renders action chips, those chips are a product-curated
+chat/assistant control surface outside the navgraph. In the Corpus pattern,
+chips attach to the latest assistant turn or active composer context. They
+filter hidden/internal `route.*` operations, respect dispatch readiness, and
+share the same operation/entity paths available to chat planning context.
+They also filter normal current-node no-op operations unless the product
+explicitly presents them as refresh/reload controls. Product surfaces are
+separate from the navgraph and inspector: product UI emits declared surface
+affordance events, and the navgraph updates only after dispatch/projection
+state changes.
 
 ## Implementation Plan Incorporated
 

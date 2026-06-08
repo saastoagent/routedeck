@@ -23,6 +23,10 @@ def message_delta(content: str) -> str:
     return encode_sse("message_delta", {"content": content})
 
 
+def routedeck_event(event: dict[str, Any]) -> str:
+    return encode_sse("routedeck_event", event)
+
+
 def agent_end() -> str:
     return encode_sse("agent_end", {})
 

@@ -36,6 +36,31 @@ copy, LLM calls, semantic observations, and side effects.
 - RouteDeck projection is output, not the source of graph behavior.
 - Surfaces present capabilities through affordances; they do not mutate graph
   state directly.
+- Visual navgraph surfaces are read-only orientation/inspection UI. Selecting a
+  graph node may only change local inspection focus; it must not dispatch,
+  navigate, mutate graph state, or change the browser URL.
+- Product action chips come from product-curated projected capabilities,
+  operations, affordances, or agent proposals. They do not come from clickable
+  navgraph nodes.
+- Product action chips belong to the product chat/assistant experience, such as
+  Corpus-style quick actions attached to assistant turns or the active composer
+  context. Do not render them as navgraph artifacts.
+- Agent-first reference apps should open with an assistant chat turn that carries
+  starter action chips when legal actions exist. Do not replace the chat with an
+  empty-state panel, landing page, debugger, or graph-first placeholder.
+- Do not render `legal_operations` wholesale as chips. Hide blocked,
+  hidden/internal, unbound selector/form, and normal current-node no-op
+  operations unless the product intentionally presents a refresh/reload action.
+- Product surfaces and navgraph/inspector surfaces must stay separate. In
+  agent-centric apps, the active product surface belongs inside the chat or
+  workbench stream, Corpus-style, not as a detached product side panel. Product
+  cards, home CTAs, cart buttons, and variant controls emit declared surface
+  affordance events; navgraph selection only changes local inspection focus.
+- Address-bar deeplinks are product-owned URL codecs. Follow the Corpus pattern:
+  graph location belongs in product path segments, and query params are reserved
+  for optional surface/presentation state or legacy compatibility. Do not make
+  `?rd_node=...` the canonical public URL for new product examples.
+- Internal `route.*` operations are never ordinary product chips.
 - Anything semantic that can be done from a surface must also be available to
   chat through product-agent planning context.
 - Product agents consume product-owned planning context derived from RouteDeck
@@ -70,7 +95,19 @@ downstream alignment targets, not final authority, when they conflict with
 Stop and re-plan if:
 
 - a change contradicts `docs/route-deck-reference.md`
+- navgraph UI mutates graph state, dispatches, navigates, or changes route state
 - framework code starts owning product prompts, product agents, or domain APIs
 - a surface-only capability cannot also be represented in chat planning context
+- product chips expose internal `route.*` operations or hidden runtime plumbing
+- product chips drift out of the chat/assistant experience into navgraph UI
+- an agent reference app starts from an empty-state panel instead of an assistant
+  chat turn with starter chips
+- product surfaces and navgraph/inspector UI are merged so product clicks look
+  like graph navigation
+- an agent-centric product surface is rendered as a detached side panel instead
+  of being embedded in the chat/workbench stream
+- a new product example exposes query-only `?rd_node=...` links as the canonical
+  copyable browser deeplink instead of a product-owned path codec
+- product chips render current-node no-op operations as ordinary next actions
 - source ownership is unclear in `architecture/code-map.md`
 - implementation would overwrite unrelated user work

@@ -51,6 +51,7 @@ export interface RouteDeckManifestEdge {
   condition?: string | null
   explanation?: string | null
   action_id?: string | null
+  capability_id?: string | null
 }
 
 export interface RouteDeckManifestAction {
@@ -70,6 +71,7 @@ export interface RouteDeckManifest {
   nodes: RouteDeckManifestNode[]
   edges: RouteDeckManifestEdge[]
   actions?: RouteDeckManifestAction[]
+  capabilities?: RouteDeckCapabilitySpec[]
   policies?: Record<string, unknown>
   test_paths?: Record<string, unknown>[]
 }
@@ -118,6 +120,8 @@ export interface RouteDeckOperation {
   missing_args?: string[]
   guard?: string | null
   target_node?: string | null
+  capability_id?: string | null
+  surface_id?: string | null
 }
 
 export interface RouteDeckSurface {
@@ -138,12 +142,20 @@ export interface RouteDeckLocation {
   node_id: string
   surface_id?: string | null
   params?: Record<string, unknown>
+  deeplink?: RouteDeckDeepLink | null
 }
 
 export interface RouteDeckUrl {
   pathname: string
   search?: string
   hash?: string
+}
+
+export interface RouteDeckDeepLink {
+  url: string
+  resumable?: boolean
+  requires_auth?: boolean
+  label?: string | null
 }
 
 export interface RouteDeckLocationCodec {
@@ -167,6 +179,91 @@ export interface RouteDeckNavigationState {
   can_cancel: boolean
 }
 
+export interface RouteDeckCapabilitySpec {
+  capability_id: string
+  label: string
+  operation_ids?: string[]
+  entity_kinds?: string[]
+  surface_ids?: string[]
+  chat_enabled?: boolean
+  surface_enabled?: boolean
+  description?: string | null
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckEntityOperationBinding {
+  operation_id: string
+  args?: Record<string, unknown>
+}
+
+export interface RouteDeckAvailableEntity {
+  kind: string
+  entity_key: string
+  label: string
+  parent_label?: string | null
+  rendered_on?: string[]
+  operations?: RouteDeckEntityOperationBinding[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckBindingExpression {
+  from: 'entity' | 'event'
+  path: string
+}
+
+export interface RouteDeckSurfaceAffordance {
+  surface_id: string
+  affordance_id: string
+  event: string
+  capability_id?: string | null
+  operation_id?: string | null
+  entity_key?: string | null
+  entity_keys?: string[]
+  arg_bindings?: Record<string, RouteDeckBindingExpression>
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckSurfaceInteractionEvent {
+  surface_id: string
+  affordance_id: string
+  entity_key?: string | null
+  payload?: Record<string, unknown>
+}
+
+export interface RouteDeckSemanticObservation {
+  type: string
+  summary: string
+  entity_key?: string | null
+  operation_id?: string | null
+  accepted?: boolean | null
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckNavGraphNode {
+  id: string
+  label: string
+  surface_id?: string | null
+  deeplink?: RouteDeckDeepLink | null
+  capability_ids?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckNavGraphEdge {
+  from: string
+  to: string
+  action_id?: string | null
+  capability_id?: string | null
+  metadata?: Record<string, unknown>
+}
+
+export interface RouteDeckNavGraph {
+  current: RouteDeckLocation
+  nodes?: RouteDeckNavGraphNode[]
+  edges?: RouteDeckNavGraphEdge[]
+  traversed?: string[]
+  reachable?: string[]
+}
+
 export interface RouteDeckProjection {
   current_context: string
   graph_node: string
@@ -175,6 +272,10 @@ export interface RouteDeckProjection {
   surfaces: Record<string, RouteDeckSurface>
   presentation_state: Record<string, unknown>
   navigation: RouteDeckNavigationState
+  capabilities?: RouteDeckCapabilitySpec[]
+  navgraph?: RouteDeckNavGraph | null
+  available_entities?: RouteDeckAvailableEntity[]
+  surface_affordances?: RouteDeckSurfaceAffordance[]
   diagnostics: Record<string, unknown>
 }
 
@@ -213,7 +314,8 @@ export interface RouteDeckPendingOperation {
 }
 
 export interface RouteDeckDispatchInput {
-  operation_id: string
+  operation_id?: string | null
+  surface_event?: RouteDeckSurfaceInteractionEvent | null
   args?: Record<string, unknown>
   graph_state?: Record<string, unknown>
   projection_version?: number | null

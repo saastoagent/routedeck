@@ -6,7 +6,6 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/medusa-agent": "http://127.0.0.1:8098",
-      "/api/routedeck": "http://127.0.0.1:8098",
     },
   },
 });

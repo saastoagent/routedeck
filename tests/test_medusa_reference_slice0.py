@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".md", ".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".toml"}
-SKIP_DIRS = {".git", ".pytest_cache", "__pycache__", "node_modules", "dist", "build"}
+SKIP_DIRS = {".git", ".pytest_cache", "__pycache__", ".venv", "node_modules", "dist", "build"}
 REFERENCE_SURFACE_ROOTS = ("README.md", "docs", "architecture")
 
 MEDUSA_AGENT_ROUTEDECK_OWNERSHIP_PATTERNS = [
@@ -79,12 +79,16 @@ def test_medusa_reference_spec_is_active_source_of_truth():
     text = _read(spec)
     assert "Status: active source of truth" in text
     assert "GET /api/medusa-agent/state" in text
+    assert "GET /api/medusa-agent/route-manifest" in text
+    assert "GET /api/medusa-agent/projection" in text
     assert "POST /api/medusa-agent/action" in text
     assert "POST /api/medusa-agent/agent/stream" in text
     assert "POST /api/medusa-agent/inspect" in text
-    assert "GET /api/routedeck/manifest" in text
-    assert "POST /api/routedeck/dispatch" in text
-    assert re.search(r"separate from\s+the\s+product API", text)
+    assert "No public Medusa example endpoint is served under `/api/routedeck/*`" in text
+    assert "may be served under\n  `/api/routedeck/*`" not in text
+    assert "RouteDeck contracts visible through product-owned" in " ".join(text.split())
+    assert "Product action chips render in the Medusa chat/assistant experience" in text
+    assert "Corpus quick-action pattern" in text
 
 
 def test_propertydesk_is_not_described_as_flagship_reference_app():
@@ -115,7 +119,8 @@ def test_reference_surface_encourages_separate_routedeck_api_without_product_rou
     using_doc = _read(ROOT / "docs" / "using-routedeck.md")
     whitepaper = _read(ROOT / "docs" / "route-deck-whitepaper.md")
 
-    assert "RouteDeck API is allowed, expected, and encouraged" in medusa_spec
+    assert "RouteDeck contracts visible through product-owned" in " ".join(medusa_spec.split())
+    assert "No public Medusa example endpoint is served under `/api/routedeck/*`" in medusa_spec
     assert "RouteDeck can be exposed as a distinct generic API plane" in using_doc
     assert "Two API planes are valid, and they should stay distinct." in whitepaper
     assert "GET  /api/routedeck/manifest" in whitepaper
@@ -207,6 +212,7 @@ def test_routedeck_reference_is_the_unified_framework_authority():
         "RouteDeckIntrospection",
         "RouteDeckEvent",
         "RouteDeckLocation",
+        "RouteDeckDeepLink",
     ]:
         assert schema_name in terms
 
@@ -215,8 +221,31 @@ def test_routedeck_reference_is_the_unified_framework_authority():
         "RouteDeck lets products and agents present dynamic UI without letting UI own application truth.",
         "Product graph truth -> RouteDeck navgraph -> capability contract -> RouteDeck projection",
         "RouteDeck exposes a navgraph that orients agents and users inside the product.",
-        "navgraph is an agentic sitemap",
+        "navgraph is a graph: nodes are product-facing locations and edges are reachable routes between those locations.",
+        "A visual surface that presents a navgraph must show that topology as a graph, not only as a flat list of labels.",
         "It is not necessarily the product graph.",
+        "Visual navgraph surfaces are read-only orientation and inspection surfaces.",
+        "must not dispatch, navigate, mutate graph state, or change the browser URL.",
+        "navgraph node's deeplink is data for inspection and resume, not an `href` for the graph canvas.",
+        "Action chips are separate product controls derived from product-curated capabilities, operations, affordances, or agent proposals.",
+        "Action chips belong to the product chat or assistant experience.",
+        "presented as product-agent suggestions, next-best actions, or composer-adjacent controls",
+        "not as navgraph controls, graph-node actions, edge labels, or inspector controls.",
+        "SaaStoAgent Corpus pattern",
+        "The same action must be representable through chat planning context.",
+        "must not be the source or rendering location for product action chips.",
+        "not with the navgraph canvas or inspector.",
+        "Internal `route.*` operations remain framework plumbing and must not appear as ordinary product action chips.",
+        "State details such as reachable nodes, legal operations, capabilities, available entities, rendered entities, surface affordances, and edge action metadata belong in a read-only inspector or diagnostics layer.",
+        "the product should expose a stable home or root navgraph node.",
+        "Deeplinks are visible in the address bar",
+        "RouteDeck defines the deeplink fields on `RouteDeckLocation` and `RouteDeckNavGraphNode`.",
+        "Products own the URL format, route parsing, auth checks, tenancy checks, and state restoration.",
+        "The Corpus pattern is the reference consumption model",
+        "New product examples should not make framework-looking query keys",
+        "A deeplink URL must be safe to show in the browser address bar.",
+        "When the current RouteDeck location changes, the browser URL should track the current location's deeplink",
+        "A visual navgraph must not use node deeplinks as clickable graph navigation.",
         "Navgraph answers the location question. Capability answers the action question.",
         "`graph_node` names the current RouteDeck/navgraph node",
         "Component local state does not enter planning context and does not update agent context.",
@@ -240,7 +269,7 @@ def test_routedeck_reference_is_the_unified_framework_authority():
         "Text matching is a fallback for natural-language chat.",
         "RouteDeck does not own product prompts, model calls, LLM behavior",
         "Product integrations keep them hidden from ordinary",
-        "semantic observation policy, and domain side effects",
+        "semantic observation policy, URL/deeplink codecs, deeplink auth/resume policy, and domain side effects",
         '"available_entities"',
         '"surface_affordances"',
         '"capability_id": "cart.add_item"',
@@ -385,11 +414,11 @@ def test_medusa_slice3_allows_browse_and_cart_but_not_future_scope_or_product_ro
     )
 
     implementation_text = "\n".join(production_chunks)
-    assert "/api/routedeck/projection" in implementation_text
-    assert "/api/routedeck/dispatch" in implementation_text
+    assert "/api/medusa-agent/projection" in implementation_text
+    assert "/api/medusa-agent/action" in implementation_text
     assert "catalog.list" in implementation_text
     assert "cart.add_item" in implementation_text
-    assert "/api/routedeck/medusa" not in implementation_text.lower()
+    assert "/api/routedeck" not in implementation_text.lower()
 
     public_text = _combined_text(
         "examples/medusa-agent/frontend/src/App.tsx",

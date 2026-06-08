@@ -1,5 +1,6 @@
 from routedeck_core import (
     RouteDeckActionSpec,
+    RouteDeckCapabilitySpec,
     RouteDeckEdgeSpec,
     RouteDeckManifest,
     RouteDeckNodeSpec,
@@ -66,6 +67,41 @@ def test_manifest_validation_reports_missing_targets():
     )
 
     assert validate_manifest(manifest)
+
+
+def test_manifest_validation_reports_unknown_capabilities_and_edge_actions():
+    manifest = RouteDeckManifest(
+        version="capability-validation",
+        capabilities=[RouteDeckCapabilitySpec(capability_id="catalog.browse", label="Browse")],
+        nodes=[
+            RouteDeckNodeSpec(
+                id="browse",
+                label="Browse",
+                lane="shopping",
+                description="Browse.",
+                allowed_actions=["catalog.open"],
+                capability_id="catalog.detail",
+            ),
+            RouteDeckNodeSpec(id="detail", label="Detail", lane="shopping", description="Detail."),
+        ],
+        edges=[
+            RouteDeckEdgeSpec(
+                from_stage="browse",
+                to_stage="detail",
+                type="action",
+                action_id="catalog.open",
+                capability_id="catalog.detail",
+            )
+        ],
+        actions=[
+            RouteDeckActionSpec(id="catalog.open", label="Open", capability_id="catalog.detail"),
+        ],
+    )
+
+    errors = validate_manifest(manifest)
+    assert "Action catalog.open references unknown capability: catalog.detail" in errors
+    assert "Node browse references unknown capability: catalog.detail" in errors
+    assert "Edge browse->detail references unknown capability: catalog.detail" in errors
 
 
 def test_manifest_validation_accepts_hierarchical_nodes_and_contains_edges():

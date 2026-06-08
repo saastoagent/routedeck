@@ -36,13 +36,14 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
 
 
 def test_routedeck_manifest_is_generic_and_slice3_scoped(client: TestClient):
-    response = client.get("/api/routedeck/manifest")
+    response = client.get("/api/medusa-agent/route-manifest")
 
     assert response.status_code == 200
     manifest = response.json()
     assert manifest["version"] == "medusa-agent-slice3"
-    assert [node["id"] for node in manifest["nodes"]] == ["browse", "detail", "cart"]
-    assert "/api/routedeck/medusa" not in response.text
+    assert [node["id"] for node in manifest["nodes"]] == ["home", "browse", "detail", "cart"]
+    assert any(edge["from"] == "home" and edge["to"] == "browse" for edge in manifest["edges"])
+    assert "/api/routedeck" not in response.text
     assert "checkout" not in response.text.lower()
     assert "payment" not in response.text.lower()
     assert "shipping" not in response.text.lower()
@@ -50,11 +51,11 @@ def test_routedeck_manifest_is_generic_and_slice3_scoped(client: TestClient):
 
 
 def test_projection_exposes_setup_status_and_blocks_unavailable_connection(client: TestClient):
-    response = client.get("/api/routedeck/projection")
+    response = client.get("/api/medusa-agent/projection")
 
     assert response.status_code == 200
     projection = response.json()
-    assert projection["graph_node"] == "browse"
+    assert projection["graph_node"] == "home"
     assert "active" in projection["surfaces"]
     assert projection["surfaces"]["active"]["variant"] == "setup_status"
     assert projection["legal_operations"] == []
@@ -72,14 +73,14 @@ def test_medusa_agent_state_reports_setup_not_commerce_state(client: TestClient)
 
 
 def test_dispatch_rejects_all_operation_execution_in_slice2(client: TestClient):
-    response = client.post("/api/routedeck/dispatch", json={"operation_id": "medusa.setup.refresh", "args": {}})
+    response = client.post("/api/medusa-agent/action", json={"operation_id": "medusa.setup.refresh", "args": {}})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Unknown RouteDeck operation: medusa.setup.refresh"
 
 
 def test_inspect_returns_framework_guard_without_future_command_catalog(client: TestClient):
-    response = client.post("/api/routedeck/inspect", json={})
+    response = client.post("/api/medusa-agent/inspect", json={})
 
     assert response.status_code == 200
     body = response.json()
@@ -91,7 +92,7 @@ def test_inspect_returns_framework_guard_without_future_command_catalog(client: 
 
 
 def test_routedeck_stream_is_sse_projection_update(client: TestClient):
-    with client.stream("GET", "/api/routedeck/stream") as response:
+    with client.stream("GET", "/api/medusa-agent/route-stream") as response:
         assert response.status_code == 200
         first = next(response.iter_text())
 
@@ -132,9 +133,9 @@ async def test_routedeck_prompt_reflects_projection_without_future_catalog(monke
 
     prompt = await routedeck_prompt.build_routedeck_system_prompt(Settings(openai_api_key="test-key"))
 
-    assert "RouteDeck runtime context:" in prompt
+    assert "Medusa planning context:" in prompt
     assert "setup ready: false" in prompt
-    assert "legal RouteDeck operations: none" in prompt
+    assert "available capabilities: none" in prompt
     assert "Do not invent catalog items" in prompt
     assert "cart.create" not in prompt
     assert "checkout.start" not in prompt

@@ -1,6 +1,6 @@
 # RouteDeck Context
 
-Last updated: 2026-06-03
+Last updated: 2026-06-06
 
 ## Current State
 
@@ -8,6 +8,14 @@ RouteDeck has a locked framework reference at `docs/route-deck-reference.md`.
 That reference is the authority for framework language, ownership boundaries,
 navgraph semantics, capabilities, surfaces, entity binding, planning context,
 dispatch, diagnostics, events, and product boundaries.
+
+The reference was expanded into a software-on-paper contract on 2026-06-06. It
+now explicitly covers product/API plane ownership, path-shaped deeplink codecs
+with query-owned surface/presentation state, product-agent SSE versus RouteDeck
+state streams, diagnostics streams, planning-context normalization, action-chip
+filtering, surface event resolution, dispatch semantics, schema field
+responsibilities, Corpus lessons adopted into RouteDeck, and the Medusa
+barebones reset.
 
 The context architecture is now bootstrapped at the RouteDeck root so future
 sessions can restart from local artifacts instead of chat history. This is a
@@ -17,6 +25,8 @@ thin bootstrap, not a full population of all downstream contracts.
 
 - Keep `docs/route-deck-reference.md` stable unless the framework vision itself
   changes.
+- Treat the Medusa runnable example as needing reset to Slice 1 app-owned chat
+  only before it is used as the RouteDeck proof again.
 - Align downstream code and docs to the reference in a later session.
 - Treat current core models, React store/types, and `examples/medusa-agent` as
   implementation targets that can be changed to match the reference.

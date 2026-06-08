@@ -2,8 +2,8 @@
 
 This example is the first runnable Medusa reference-app line. Slice 1 proves a
 normal app-owned commerce chat agent. Slice 2 adds passive setup readiness from
-the separate generic RouteDeck API plane without turning the product UI into a
-debugger or commerce workbench. Slice 3 adds Store API-backed product browse,
+the app-owned RouteDeck-backed projection endpoint without turning the product
+UI into a debugger or commerce workbench. Slice 3 adds Store API-backed product browse,
 variant selection, and demo cart add behavior through shared RouteDeck dispatch.
 
 ## Scope
@@ -17,12 +17,15 @@ Implemented scope includes:
 - Explicit error event when `OPENAI_API_KEY` is not configured.
 - Process-local conversation state with `conversation_id` mapped to
   `configurable.thread_id`.
-- Passive setup readiness in the chat UI using the generic
-  `GET /api/routedeck/projection` contract.
-- Product browse/detail/cart surfaces derived from the generic RouteDeck
-  projection.
-- LangGraph tools and UI clicks dispatch through the same generic
-  `POST /api/routedeck/dispatch` contract.
+- Passive setup readiness in the chat UI using the product-owned
+  `GET /api/medusa-agent/projection` contract.
+- Product browse/detail/cart surfaces derived from the RouteDeck
+  projection, using public `entity_key` values for rendered products and
+  variants.
+- LangGraph tools and UI clicks share the same product-owned
+  `POST /api/medusa-agent/action` contract: tools pass product-owned entity
+  keys to typed operations, while UI clicks emit `surface_event` payloads that
+  the Medusa runtime resolves through RouteDeck surface affordances.
 - Store API calls use the app-owned backend adapter and
   `MEDUSA_PUBLISHABLE_API_KEY`.
 - Private Medusa IDs stay server-side behind opaque refs.
@@ -41,21 +44,43 @@ cart item names. It must not render operation IDs, graph node IDs, endpoint
 paths, dispatch traces, route switching, diagnostics, blocked future actions, or
 private Medusa IDs.
 
-The generic RouteDeck plane is framework evidence only:
+The Medusa example exposes RouteDeck-derived state through product-owned
+endpoints:
 
-- `GET /api/routedeck/manifest` returns the Slice 3 RouteDeck manifest.
-- `GET /api/routedeck/snapshot` returns generic runtime state.
-- `GET /api/routedeck/projection` returns setup, product, detail, or cart
+- `GET /api/medusa-agent/route-manifest` returns the Slice 3 RouteDeck manifest.
+- `GET /api/medusa-agent/route-snapshot` returns generic runtime state.
+- `GET /api/medusa-agent/projection` returns setup, home, product, detail, or cart
   projection payloads.
-- `POST /api/routedeck/dispatch` accepts only the typed Slice 3 operations:
+- `POST /api/medusa-agent/action` accepts typed Slice 3 operations from product
+  tools and `surface_event` payloads from UI affordances. Slice 3 operations are
   `catalog.list`, `catalog.open`, `variant.select`, `cart.create`,
-  `cart.add_item`, and `cart.view`.
-- `POST /api/routedeck/inspect` returns framework introspection for development
+  `cart.add_item`, and `cart.view`; UI payloads do not expose operation IDs or
+  private refs.
+- `POST /api/medusa-agent/inspect` returns framework introspection for development
   checks, not the default product UI.
-- `GET /api/routedeck/stream` emits generic projection updates.
+- `GET /api/medusa-agent/route-stream` emits generic projection updates.
 
-No product-specific RouteDeck route such as `/api/routedeck/medusa/*` is part of
-this slice.
+No public Medusa example endpoint is served under `/api/routedeck/*`.
+
+The frontend also mirrors projected RouteDeck deeplinks into the browser address
+bar. Example URLs:
+
+- `/`
+- `/browse`
+- `/detail/t-shirt`
+- `/cart`
+
+Pasting one of these URLs asks the Medusa runtime to resume the matching
+projection through the product-owned projection path. Detail links use public
+product handles when Medusa exposes them; private product, variant, cart, and
+dispatch identifiers must not appear in the URL. Legacy `?rd_node=...` links are
+decoded for compatibility and normalized back to the canonical path-shaped
+deeplink.
+
+The visible route map is read-only. It has a stable home node and shows
+browse/detail/cart as graph locations, but selecting graph nodes only changes
+the adjacent inspector. Product action chips render outside the graph from
+safe projected actions and never expose hidden `route.*` operations.
 
 ## Foundation-Agent Subset
 
@@ -91,9 +116,10 @@ If setup or the publishable key is unavailable, the app reports that local demo
 Medusa is not connected for that capability. It must not invent product names,
 prices, variants, inventory, availability, or cart state.
 
-The agent learns available capability labels from RouteDeck prompt context and
-uses RouteDeck tools. There is no phrase router, alias table, hardcoded product
-catalog, or deterministic chat command path.
+The agent learns available capability labels and rendered entity keys from the
+Medusa-owned planning context built from RouteDeck projection, then uses
+RouteDeck-backed product tools. There is no phrase router, alias table,
+hardcoded product catalog, or deterministic chat command path.
 
 ## Dependencies
 
@@ -152,6 +178,8 @@ Backend:
 
 ```powershell
 cd examples/medusa-agent/backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8098
 ```
@@ -172,6 +200,7 @@ Backend:
 
 ```powershell
 cd examples/medusa-agent/backend
+.\.venv\Scripts\Activate.ps1
 python -m pytest tests -q
 ```
 

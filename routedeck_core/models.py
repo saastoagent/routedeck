@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 RouteDeckLane = str
 RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
@@ -96,8 +96,73 @@ class RouteDeckEdgeSpec(BaseModel):
     condition: str | None = None
     explanation: str | None = None
     action_id: str | None = None
+    capability_id: str | None = None
 
     model_config = {"populate_by_name": True}
+
+
+class RouteDeckCapabilitySpec(BaseModel):
+    capability_id: str
+    label: str
+    operation_ids: list[str] = Field(default_factory=list)
+    entity_kinds: list[str] = Field(default_factory=list)
+    surface_ids: list[str] = Field(default_factory=list)
+    chat_enabled: bool = True
+    surface_enabled: bool = True
+    description: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckEntityOperationBinding(BaseModel):
+    operation_id: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckAvailableEntity(BaseModel):
+    kind: str
+    entity_key: str
+    label: str
+    parent_label: str | None = None
+    rendered_on: list[str] = Field(default_factory=list)
+    operations: list[RouteDeckEntityOperationBinding] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckBindingExpression(BaseModel):
+    source: Literal["entity", "event"] = Field(alias="from")
+    path: str
+
+    model_config = {"populate_by_name": True, "serialize_by_alias": True}
+
+
+class RouteDeckSurfaceAffordance(BaseModel):
+    surface_id: str
+    affordance_id: str
+    event: str
+    capability_id: str | None = None
+    operation_id: str | None = None
+    entity_key: str | None = None
+    entity_keys: list[str] = Field(default_factory=list)
+    arg_bindings: dict[str, RouteDeckBindingExpression] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckSurfaceInteractionEvent(BaseModel):
+    surface_id: str
+    affordance_id: str
+    entity_key: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckSemanticObservation(BaseModel):
+    observation_type: str = Field(alias="type")
+    summary: str
+    entity_key: str | None = None
+    operation_id: str | None = None
+    accepted: bool | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True, "serialize_by_alias": True}
 
 
 class RouteDeckSensitivePolicy(BaseModel):
@@ -112,6 +177,7 @@ class RouteDeckManifest(BaseModel):
     nodes: list[RouteDeckNodeSpec]
     edges: list[RouteDeckEdgeSpec]
     actions: list[RouteDeckActionSpec]
+    capabilities: list[RouteDeckCapabilitySpec] = Field(default_factory=list)
     policies: dict[str, Any] = Field(default_factory=dict)
     test_paths: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -145,12 +211,22 @@ class RouteDeckOperation(BaseModel):
     missing_args: list[str] = Field(default_factory=list)
     guard: str | None = None
     target_node: str | None = None
+    capability_id: str | None = None
+    surface_id: str | None = None
+
+
+class RouteDeckDeepLink(BaseModel):
+    url: str
+    resumable: bool = True
+    requires_auth: bool = False
+    label: str | None = None
 
 
 class RouteDeckLocation(BaseModel):
     node_id: str
     surface_id: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    deeplink: RouteDeckDeepLink | None = None
 
 
 class RouteDeckNavigationState(BaseModel):
@@ -176,6 +252,33 @@ class RouteDeckSurface(BaseModel):
     lifecycle: Literal["ephemeral", "stable"] = "ephemeral"
 
 
+class RouteDeckNavGraphNode(BaseModel):
+    id: str
+    label: str
+    surface_id: str | None = None
+    deeplink: RouteDeckDeepLink | None = None
+    capability_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckNavGraphEdge(BaseModel):
+    source: str = Field(validation_alias=AliasChoices("from", "source", "from_stage"), serialization_alias="from")
+    target: str = Field(validation_alias=AliasChoices("to", "target", "to_stage"), serialization_alias="to")
+    action_id: str | None = None
+    capability_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True, "serialize_by_alias": True}
+
+
+class RouteDeckNavGraph(BaseModel):
+    current: RouteDeckLocation
+    nodes: list[RouteDeckNavGraphNode] = Field(default_factory=list)
+    edges: list[RouteDeckNavGraphEdge] = Field(default_factory=list)
+    traversed: list[str] = Field(default_factory=list)
+    reachable: list[str] = Field(default_factory=list)
+
+
 class RouteDeckProjection(BaseModel):
     current_context: str
     graph_node: str
@@ -184,6 +287,10 @@ class RouteDeckProjection(BaseModel):
     surfaces: dict[str, RouteDeckSurface] = Field(default_factory=dict)
     presentation_state: dict[str, Any] = Field(default_factory=dict)
     navigation: RouteDeckNavigationState
+    capabilities: list[RouteDeckCapabilitySpec] = Field(default_factory=list)
+    navgraph: RouteDeckNavGraph | None = None
+    available_entities: list[RouteDeckAvailableEntity] = Field(default_factory=list)
+    surface_affordances: list[RouteDeckSurfaceAffordance] = Field(default_factory=list)
     diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -205,7 +312,8 @@ class RouteDeckRuntimeState(BaseModel):
 
 
 class RouteDeckDispatchInput(BaseModel):
-    operation_id: str
+    operation_id: str | None = None
+    surface_event: RouteDeckSurfaceInteractionEvent | None = None
     args: dict[str, Any] = Field(default_factory=dict)
     graph_state: dict[str, Any] = Field(default_factory=dict)
     projection_version: int | None = None
