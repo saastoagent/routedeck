@@ -33,9 +33,6 @@ def _env_value(name: str, env_file: dict[str, str], default: str | None = None) 
 class Settings:
     openai_api_key: str | None = None
     medusa_agent_model: str = "gpt-5-mini"
-    medusa_backend_url: str = "http://127.0.0.1:9000"
-    medusa_storefront_url: str = "http://127.0.0.1:3007"
-    medusa_publishable_api_key: str | None = None
     keepalive_interval: float = 15.0
     model_timeout_seconds: float = 30.0
 
@@ -45,11 +42,6 @@ class Settings:
         return cls(
             openai_api_key=_env_value("OPENAI_API_KEY", env_file),
             medusa_agent_model=_env_value("MEDUSA_AGENT_MODEL", env_file, "gpt-5-mini") or "gpt-5-mini",
-            medusa_backend_url=_env_value("MEDUSA_BACKEND_URL", env_file, "http://127.0.0.1:9000")
-            or "http://127.0.0.1:9000",
-            medusa_storefront_url=_env_value("MEDUSA_STOREFRONT_URL", env_file, "http://127.0.0.1:3007")
-            or "http://127.0.0.1:3007",
-            medusa_publishable_api_key=_env_value("MEDUSA_PUBLISHABLE_API_KEY", env_file),
         )
 
 

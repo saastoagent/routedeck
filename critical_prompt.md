@@ -67,6 +67,15 @@ copy, LLM calls, semantic observations, and side effects.
   projection; RouteDeck does not own prompts, model calls, or phrase routing.
 - Internal `route.*` operations are framework/runtime plumbing and stay hidden
   from ordinary product UI and product-agent planning context.
+- Product-agent SSE, RouteDeck state SSE, and diagnostics streams are separate
+  channels. Do not mix assistant text, projection updates, and diagnostic traces
+  into one public semantic stream.
+- Diagnostics are read-only explanation surfaces. They must not become public
+  chat, ordinary product UI, product action chip sources, dispatch controls, or
+  substitutes for the product runtime.
+- `RouteDeckStore` mirrors runtime state for React clients. It must not become
+  graph truth, invent capabilities, bypass dispatch validation, or store product
+  side effects.
 - Product-specific APIs stay product-owned. Do not turn `/api/routedeck/*` into
   a Medusa, SaaStoAgent, cart, checkout, admin, or product-domain API.
 - Do not add deterministic command routers as a substitute for agent planning
@@ -100,6 +109,12 @@ Stop and re-plan if:
 - a surface-only capability cannot also be represented in chat planning context
 - product chips expose internal `route.*` operations or hidden runtime plumbing
 - product chips drift out of the chat/assistant experience into navgraph UI
+- product-agent text streams, RouteDeck state streams, or diagnostics streams
+  are collapsed into one public stream
+- diagnostics become public chat, default product UI, a chip source, or a
+  mutation control
+- `RouteDeckStore` starts inventing graph truth, capabilities, product side
+  effects, or dispatch outcomes outside the runtime
 - an agent reference app starts from an empty-state panel instead of an assistant
   chat turn with starter chips
 - product surfaces and navgraph/inspector UI are merged so product clicks look

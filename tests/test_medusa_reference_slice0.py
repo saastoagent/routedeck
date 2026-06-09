@@ -379,7 +379,7 @@ def test_slice1_plan_document_is_linked_and_decision_complete():
     assert "npm test" in plan
 
 
-def test_medusa_slice3_allows_browse_and_cart_but_not_future_scope_or_product_routes():
+def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold():
     example = ROOT / "examples" / "medusa-agent"
     assert example.exists()
 
@@ -388,6 +388,12 @@ def test_medusa_slice3_allows_browse_and_cart_but_not_future_scope_or_product_ro
         PRODUCT_SPECIFIC_ROUTEDECK_ROUTE,
         re.compile(r"@routedeck/react", re.I),
         re.compile(r"@medusajs/", re.I),
+        re.compile(r"routedeck_core", re.I),
+        re.compile(r"RouteDeck", re.I),
+        re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|projection|action|inspect|route-stream)", re.I),
+        re.compile(r"\bcatalog\.(?:list|open)\b", re.I),
+        re.compile(r"\bvariant\.select\b", re.I),
+        re.compile(r"\bcart\.(?:create|add_item|view)\b", re.I),
         re.compile(r"\bcheckout\b", re.I),
         re.compile(r"\bpayment\b", re.I),
         re.compile(r"\bshipping\b", re.I),
@@ -409,24 +415,45 @@ def test_medusa_slice3_allows_browse_and_cart_but_not_future_scope_or_product_ro
                 )
 
     assert not implementation_failures, (
-        "Slice 2 implementation files must keep RouteDeck generic and avoid later-slice commerce behavior:\n"
+        "The runnable Medusa example must stay Slice 1 chat-only until RouteDeck is reintroduced by micro-slice:\n"
         + "\n".join(implementation_failures)
     )
 
     implementation_text = "\n".join(production_chunks)
-    assert "/api/medusa-agent/projection" in implementation_text
-    assert "/api/medusa-agent/action" in implementation_text
-    assert "catalog.list" in implementation_text
-    assert "cart.add_item" in implementation_text
+    assert "/api/medusa-agent/agent/stream" in implementation_text
+    assert "text/event-stream" in implementation_text
+    assert "configurable" in implementation_text
+    assert "thread_id" in implementation_text
     assert "/api/routedeck" not in implementation_text.lower()
 
     public_text = _combined_text(
         "examples/medusa-agent/frontend/src/App.tsx",
-        "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
+        "examples/medusa-agent/frontend/src/hooks/useSSEChat.ts",
         "examples/medusa-agent/frontend/src/styles.css",
-        "examples/medusa-agent/backend/services/routedeck_prompt.py",
     ).lower()
-    for banned in ["checkout", "payment", "shipping", "fulfillment", "admin"]:
+    for required in ["route map", "inspector", "read-only orientation", "surface_id", "start with normal shopping chat"]:
+        assert required in public_text
+
+    for banned in [
+        "routedeck",
+        "projection",
+        "dispatch",
+        "surface_event",
+        "operation_id",
+        "store api",
+        "/api/medusa-agent/action",
+        "/api/routedeck",
+        "checkout",
+        "payment",
+        "shipping",
+        "fulfillment",
+        "admin",
+        "add to cart",
+        "catalog.",
+        "cart.add_item",
+        "cart.create",
+        "cart.view",
+    ]:
         assert banned not in public_text
 
     for private_prefix in ["prod_", "variant_private", "cart_private", "line_private"]:

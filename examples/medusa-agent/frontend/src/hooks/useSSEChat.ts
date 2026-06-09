@@ -8,17 +8,13 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  timestampLabel: string;
   isStreaming?: boolean;
 }
 
 export interface ParsedSSEEvent {
   event: string;
   data: Record<string, unknown>;
-}
-
-export interface UseSSEChatOptions {
-  onRouteDeckEvent?: (event: Record<string, unknown>) => void;
-  sessionId?: string;
 }
 
 export function parseSSEFrames(
@@ -52,7 +48,7 @@ export function parseSSEFrames(
   return { events, buffer };
 }
 
-export function useSSEChat(options: UseSSEChatOptions = {}) {
+export function useSSEChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -101,11 +97,6 @@ export function useSSEChat(options: UseSSEChatOptions = {}) {
         return;
       }
 
-      if (event === "routedeck_event") {
-        options.onRouteDeckEvent?.(data);
-        return;
-      }
-
       if (event === "error") {
         const message =
           typeof data.message === "string"
@@ -121,7 +112,7 @@ export function useSSEChat(options: UseSSEChatOptions = {}) {
         finishStream();
       }
     },
-    [finishStream, options, updateAssistant],
+    [finishStream, updateAssistant],
   );
 
   const parseProgress = useCallback(
@@ -144,11 +135,13 @@ export function useSSEChat(options: UseSSEChatOptions = {}) {
         id: crypto.randomUUID(),
         role: "user",
         content: trimmed,
+        timestampLabel: formatTimestamp(),
       };
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: THINKING_PLACEHOLDER,
+        timestampLabel: formatTimestamp(),
         isStreaming: true,
       };
 
@@ -173,9 +166,9 @@ export function useSSEChat(options: UseSSEChatOptions = {}) {
         assistantContentRef.current = "Connection failed. Please try again.";
         finishStream();
       };
-      xhr.send(JSON.stringify({ message: trimmed, conversation_id: conversationId, session_id: options.sessionId }));
+      xhr.send(JSON.stringify({ message: trimmed, conversation_id: conversationId }));
     },
-    [conversationId, finishStream, isStreaming, options.sessionId, parseProgress],
+    [conversationId, finishStream, isStreaming, parseProgress],
   );
 
   return {
@@ -183,5 +176,22 @@ export function useSSEChat(options: UseSSEChatOptions = {}) {
     isStreaming,
     conversationId,
     sendMessage,
+    clearMessages: () => {
+      xhrRef.current?.abort();
+      xhrRef.current = null;
+      bufferRef.current = "";
+      cursorRef.current = 0;
+      assistantContentRef.current = "";
+      setConversationId(null);
+      setIsStreaming(false);
+      setMessages([]);
+    },
   };
+}
+
+function formatTimestamp(): string {
+  return new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -87,33 +88,38 @@ def test_missing_api_key_does_not_emit_simulated_assistant_text(client: TestClie
     assert events[2][1]["message"] == "OPENAI_API_KEY is required for the Medusa agent."
 
 
-def test_chat_stream_remains_app_owned_after_routedeck_is_added(client: TestClient):
-    response = client.get("/api/medusa-agent/route-manifest")
-
-    assert response.status_code == 200
+def test_backend_route_surface_is_chat_only(client: TestClient):
+    assert client.get("/api/medusa-agent/health").status_code == 200
     assert client.post(
         "/api/medusa-agent/agent/stream",
         json={"message": "hi", "conversation_id": "chat-boundary"},
     ).status_code == 200
 
+    forbidden_routes = [
+        ("GET", "/api/medusa-agent/state"),
+        ("GET", "/api/medusa-agent/route-manifest"),
+        ("GET", "/api/medusa-agent/route-snapshot"),
+        ("GET", "/api/medusa-agent/projection"),
+        ("POST", "/api/medusa-agent/action"),
+        ("POST", "/api/medusa-agent/inspect"),
+        ("GET", "/api/medusa-agent/route-stream"),
+        ("GET", "/api/routedeck/anything"),
+        ("POST", "/api/routedeck/anything"),
+    ]
+
+    for method, path in forbidden_routes:
+        response = client.request(method, path, json={} if method == "POST" else None)
+        assert response.status_code == 404, f"{method} {path} must not exist in Slice 1"
+
 
 @pytest.mark.asyncio
-async def test_graph_path_maps_conversation_id_to_thread_id_and_injects_routedeck_prompt(monkeypatch):
+async def test_graph_path_maps_conversation_id_to_thread_id_and_streams_model_deltas(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    from langchain_core.messages import AIMessageChunk
-    from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_core.messages import AIMessageChunk, HumanMessage
 
     from core.config import Settings
     from services.chat_service import ChatService
-    from services import routedeck_prompt
-
-    async def fake_routedeck_prompt(_settings, session_id: str = "default", runtime=None):
-        assert session_id == "thread-123"
-        assert runtime is not None
-        return "RouteDeck runtime context:\n- legal RouteDeck operations: none"
-
-    monkeypatch.setattr(routedeck_prompt, "build_routedeck_system_prompt", fake_routedeck_prompt)
 
     class FakeGraph:
         def __init__(self) -> None:
@@ -134,85 +140,43 @@ async def test_graph_path_maps_conversation_id_to_thread_id_and_injects_routedec
     events = [event async for event in service.stream("hi", conversation_id="thread-123")]
 
     assert fake_graph.config == {"configurable": {"thread_id": "thread-123"}}
-    assert isinstance(fake_graph.input["messages"][0], SystemMessage)
-    assert fake_graph.input["messages"][0].content.startswith("RouteDeck runtime context:")
-    assert isinstance(fake_graph.input["messages"][1], HumanMessage)
-    assert fake_graph.input["messages"][1].content == "hi"
+    assert len(fake_graph.input["messages"]) == 1
+    assert isinstance(fake_graph.input["messages"][0], HumanMessage)
+    assert fake_graph.input["messages"][0].content == "hi"
     parsed = _parse_sse("".join(events))
     assert [event for event, _data in parsed].count("message_delta") == 2
+    assert "routedeck_event" not in [event for event, _data in parsed]
     assert _assistant_text(parsed) == "Hello there."
     assert "fallback" not in parsed[0][1]
 
 
 @pytest.mark.asyncio
-async def test_graph_path_forwards_routedeck_events_without_turning_them_into_text(monkeypatch):
+async def test_graph_path_ignores_non_model_events_without_route_deck_frames(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     from langchain_core.messages import AIMessageChunk
-    from routedeck_core import RouteDeckEvent
 
     from core.config import Settings
     from services.chat_service import ChatService
-    from services import routedeck_prompt
-    from services import graph_builder
-
-    async def fake_routedeck_prompt(_settings, session_id: str = "default", runtime=None):
-        assert session_id == "thread-route"
-        assert runtime is not None
-        return "Medusa planning context:\n- current node: home"
-
-    monkeypatch.setattr(routedeck_prompt, "build_routedeck_system_prompt", fake_routedeck_prompt)
 
     class FakeGraph:
         async def astream_events(self, _graph_input, config, version):
             assert config == {"configurable": {"thread_id": "thread-route"}}
             assert version == "v2"
+            yield {"event": "on_tool_start", "data": {"name": "ignored"}}
             yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Products ready.")}}
 
-    def fake_build_agent_graph(settings, session_id="default", runtime=None, route_event_sink=None):
-        assert session_id == "thread-route"
-        assert runtime is not None
-        assert route_event_sink is not None
-        route_event_sink(
-            RouteDeckEvent(
-                event_type="operation_completed",
-                projection_version=2,
-                payload={
-                    "operation_id": "catalog.list",
-                    "state": {
-                        "projection": {
-                            "current_context": "browse",
-                            "graph_node": "browse",
-                            "projection_version": 2,
-                            "legal_operations": [],
-                            "surfaces": {},
-                            "presentation_state": {},
-                            "diagnostics": {},
-                        },
-                        "status": "idle",
-                    },
-                },
-            )
-        )
-        return FakeGraph()
-
-    monkeypatch.setattr(graph_builder, "build_agent_graph", fake_build_agent_graph)
-
-    service = ChatService(settings=Settings(openai_api_key="test-key"))
+    service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
 
     parsed = _parse_sse("".join([event async for event in service.stream("show products", conversation_id="thread-route")]))
 
     assert [event for event, _data in parsed] == [
         "stream_start",
         "agent_start",
-        "routedeck_event",
         "message_delta",
         "agent_end",
         "stream_end",
     ]
-    route_event = parsed[2][1]
-    assert route_event["event_type"] == "operation_completed"
-    assert route_event["payload"]["state"]["projection"]["graph_node"] == "browse"
     assert _assistant_text(parsed) == "Products ready."
 
 
@@ -249,6 +213,16 @@ def test_settings_load_openai_key_from_local_env_file(
     assert settings.medusa_agent_model == "env-file-model"
 
 
+def test_graph_builder_uses_async_concise_streaming_model_call():
+    source = (BACKEND_ROOT / "services" / "graph_builder.py").read_text(encoding="utf-8")
+
+    assert "async def agent_node" in source
+    assert "await llm.ainvoke" in source
+    assert "llm.invoke(" not in source
+    assert "timeout=settings.model_timeout_seconds" in source
+    assert "Keep replies to" in source
+
+
 @pytest.mark.asyncio
 async def test_graph_errors_are_logged_with_conversation_context(caplog):
     from core.config import Settings
@@ -281,3 +255,30 @@ async def test_graph_errors_are_logged_with_conversation_context(caplog):
         and getattr(record, "error_type") == "RuntimeError"
         for record in caplog.records
     )
+
+
+def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
+    runtime_paths = [
+        BACKEND_ROOT / "main.py",
+        BACKEND_ROOT / "app.py",
+        *sorted((BACKEND_ROOT / "core").glob("*.py")),
+        *sorted((BACKEND_ROOT / "routes").glob("*.py")),
+        *sorted((BACKEND_ROOT / "services").glob("*.py")),
+    ]
+    forbidden = re.compile(
+        r"routedeck_core|routedeck_langgraph|RouteDeck|MedusaRouteDeckRuntime|"
+        r"routedeck_provider|routedeck_prompt|agent_tools|medusa_store|commerce_state|"
+        r"/api/medusa-agent/(state|route-manifest|route-snapshot|projection|action|inspect|route-stream)|"
+        r"/api/routedeck"
+    )
+
+    hits: list[str] = []
+    for path in runtime_paths:
+        if forbidden.search(path.name):
+            hits.append(str(path.relative_to(BACKEND_ROOT)))
+            continue
+        text = path.read_text(encoding="utf-8")
+        if forbidden.search(text):
+            hits.append(str(path.relative_to(BACKEND_ROOT)))
+
+    assert hits == []

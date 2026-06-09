@@ -13,7 +13,6 @@ router = APIRouter(tags=["medusa-agent-chat"])
 class ChatStreamRequest(BaseModel):
     message: str
     conversation_id: str | None = None
-    session_id: str | None = None
 
 
 @router.post("/api/medusa-agent/agent/stream")
@@ -22,7 +21,6 @@ async def stream_agent(body: ChatStreamRequest) -> StreamingResponse:
         async for event in chat_service.stream(
             message=body.message,
             conversation_id=body.conversation_id,
-            session_id=body.session_id,
         ):
             yield event
 
