@@ -63,8 +63,20 @@ copy, LLM calls, semantic observations, and side effects.
 - Internal `route.*` operations are never ordinary product chips.
 - Anything semantic that can be done from a surface must also be available to
   chat through product-agent planning context.
+- Once a product projection or product surface is visible, a chat turn that
+  claims to browse, open, select, compare, or otherwise change the product
+  surface must cross the same product-owned RouteDeck runtime boundary as the
+  equivalent surface affordance. Assistant prose alone is not a state update.
+- Read-only means no product side effects such as cart, checkout, payment,
+  shipping, admin, or irreversible writes. It does not prohibit guarded read
+  transitions, surface changes, projection refreshes, or canonical path updates
+  that are accepted by the product runtime.
 - Product agents consume product-owned planning context derived from RouteDeck
   projection; RouteDeck does not own prompts, model calls, or phrase routing.
+- Public chat must not invent product facts. Product names, prices, variants,
+  colors, sizes, availability, cart contents, and current surface state must be
+  grounded in projection/planning context or a product tool result; otherwise the
+  agent asks for setup or says the fact is unavailable.
 - Internal `route.*` operations are framework/runtime plumbing and stay hidden
   from ordinary product UI and product-agent planning context.
 - Product-agent SSE, RouteDeck state SSE, and diagnostics streams are separate
@@ -80,6 +92,13 @@ copy, LLM calls, semantic observations, and side effects.
   a Medusa, SaaStoAgent, cart, checkout, admin, or product-domain API.
 - Do not add deterministic command routers as a substitute for agent planning
   context, entity binding, and runtime validation.
+- When implementing a visible Medusa Agent slice, do not satisfy it by creating
+  a separate product-neutral RouteDeck demo, dashboard, or graph-first app.
+  Medusa visible work stays in `examples/medusa-agent/` and must preserve the
+  chat-first product-agent experience while RouteDeck operates underneath it.
+- Use subagents for RouteDeck/Medusa implementation slices: one reference or
+  vision reviewer and one drift/code reviewer at minimum before readiness is
+  claimed.
 
 ## Current Architecture Posture
 
@@ -107,6 +126,12 @@ Stop and re-plan if:
 - navgraph UI mutates graph state, dispatches, navigates, or changes route state
 - framework code starts owning product prompts, product agents, or domain APIs
 - a surface-only capability cannot also be represented in chat planning context
+- a visible product surface is called usable before an equivalent chat request
+  can drive the same projection/runtime boundary
+- assistant chat answers product facts that are absent from projection,
+  planning context, or a product tool result
+- read-only is interpreted as "no guarded read transition" instead of "no
+  product side effect"
 - product chips expose internal `route.*` operations or hidden runtime plumbing
 - product chips drift out of the chat/assistant experience into navgraph UI
 - product-agent text streams, RouteDeck state streams, or diagnostics streams
@@ -126,3 +151,7 @@ Stop and re-plan if:
 - product chips render current-node no-op operations as ordinary next actions
 - source ownership is unclear in `architecture/code-map.md`
 - implementation would overwrite unrelated user work
+- a Medusa Agent slice is being reinterpreted as a standalone product-neutral
+  RouteDeck example or debugger
+- a slice is called ready before browser behavior and code are compared against
+  the Medusa vision and anti-drift tests

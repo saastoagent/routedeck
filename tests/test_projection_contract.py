@@ -28,13 +28,13 @@ def test_projection_exposes_legal_operations_and_hides_blocked_operations():
                 label="Dashboard",
                 lane="workspace",
                 description="Personalized dashboard.",
-                allowed_actions=["agent.create", "admin.delete"],
+                allowed_actions=["draft.create", "draft.archive"],
             )
         ],
         edges=[],
         actions=[
-            RouteDeckActionSpec(id="agent.create", label="Create SaaS Agent"),
-            RouteDeckActionSpec(id="admin.delete", label="Delete account"),
+            RouteDeckActionSpec(id="draft.create", label="Create draft"),
+            RouteDeckActionSpec(id="draft.archive", label="Archive draft"),
         ],
     )
 
@@ -43,17 +43,17 @@ def test_projection_exposes_legal_operations_and_hides_blocked_operations():
         current_node="dashboard",
         operations=[
             RouteDeckOperation(
-                id="agent.create",
-                label="Create SaaS Agent",
+                id="draft.create",
+                label="Create draft",
                 safety_class="navigation",
                 execution_mode="auto",
             ),
             RouteDeckOperation(
-                id="admin.delete",
-                label="Delete account",
+                id="draft.archive",
+                label="Archive draft",
                 safety_class="destructive",
                 execution_mode="blocked",
-                guard="admin permission required",
+                guard="reviewer permission required",
             ),
         ],
         surfaces=[
@@ -65,7 +65,7 @@ def test_projection_exposes_legal_operations_and_hides_blocked_operations():
     assert projection.current_context == "dashboard"
     assert projection.graph_node == "dashboard"
     assert projection.projection_version == 3
-    assert [operation.id for operation in projection.legal_operations] == ["agent.create"]
+    assert [operation.id for operation in projection.legal_operations] == ["draft.create"]
     assert projection.surfaces["main"].component == "DashboardPanel"
     assert projection.surfaces["main"].role == "frame"
 
@@ -105,75 +105,75 @@ def test_projection_contract_exposes_capabilities_entities_and_affordances():
                 RouteDeckNodeSpec(
                     id="detail",
                     label="Detail",
-                    lane="shopping",
-                    description="Product detail.",
-                    allowed_actions=["cart.add_item"],
-                    capability_id="cart.add_item",
+                    lane="review",
+                    description="Review detail.",
+                    allowed_actions=["draft.approve"],
+                    capability_id="draft.approve",
                 )
             ],
             edges=[],
             actions=[
-                RouteDeckActionSpec(id="cart.add_item", label="Add item", capability_id="cart.add_item"),
+                RouteDeckActionSpec(id="draft.approve", label="Approve draft", capability_id="draft.approve"),
             ],
             capabilities=[
                 RouteDeckCapabilitySpec(
-                    capability_id="cart.add_item",
-                    label="Add item to cart",
-                    operation_ids=["cart.add_item"],
-                    entity_kinds=["variant"],
-                    surface_ids=["detail.product_detail"],
+                    capability_id="draft.approve",
+                    label="Approve draft",
+                    operation_ids=["draft.approve"],
+                    entity_kinds=["draft"],
+                    surface_ids=["review.detail"],
                 )
             ],
         ),
         current_node="detail",
         operations=[
             RouteDeckOperation(
-                id="cart.add_item",
-                label="Add item",
-                capability_id="cart.add_item",
-                surface_id="detail.product_detail",
-                required_args=["variant_ref", "quantity"],
+                id="draft.approve",
+                label="Approve draft",
+                capability_id="draft.approve",
+                surface_id="review.detail",
+                required_args=["draft_ref", "decision"],
             )
         ],
         available_entities=[
             RouteDeckAvailableEntity(
-                kind="variant",
-                entity_key="variant:s-black",
-                label="S / Black",
-                parent_label="Medusa T-Shirt",
-                rendered_on=["detail.product_detail"],
+                kind="draft",
+                entity_key="draft:alpha",
+                label="Draft Alpha",
+                parent_label="Review Queue",
+                rendered_on=["review.detail"],
                 operations=[
                     RouteDeckEntityOperationBinding(
-                        operation_id="cart.add_item",
-                        args={"variant_ref": "variant_opaque_1", "quantity": 1},
+                        operation_id="draft.approve",
+                        args={"draft_ref": "draft_opaque_1", "decision": "approve"},
                     )
                 ],
             )
         ],
         surface_affordances=[
             RouteDeckSurfaceAffordance(
-                surface_id="detail.product_detail",
-                affordance_id="add_to_cart",
-                event="add_clicked",
-                capability_id="cart.add_item",
-                operation_id="cart.add_item",
-                entity_key="variant:s-black",
+                surface_id="review.detail",
+                affordance_id="approve_primary",
+                event="approve_clicked",
+                capability_id="draft.approve",
+                operation_id="draft.approve",
+                entity_key="draft:alpha",
                 arg_bindings={
-                    "variant_ref": RouteDeckBindingExpression(
+                    "draft_ref": RouteDeckBindingExpression(
                         source="entity",
-                        path="operations.cart.add_item.args.variant_ref",
+                        path="operations.draft.approve.args.draft_ref",
                     ),
-                    "quantity": RouteDeckBindingExpression(source="event", path="quantity"),
+                    "decision": RouteDeckBindingExpression(source="event", path="decision"),
                 },
             )
         ],
     )
 
     payload = projection.model_dump(mode="json")
-    assert payload["capabilities"][0]["capability_id"] == "cart.add_item"
-    assert payload["legal_operations"][0]["capability_id"] == "cart.add_item"
-    assert payload["available_entities"][0]["entity_key"] == "variant:s-black"
-    assert payload["surface_affordances"][0]["arg_bindings"]["quantity"] == {"from": "event", "path": "quantity"}
+    assert payload["capabilities"][0]["capability_id"] == "draft.approve"
+    assert payload["legal_operations"][0]["capability_id"] == "draft.approve"
+    assert payload["available_entities"][0]["entity_key"] == "draft:alpha"
+    assert payload["surface_affordances"][0]["arg_bindings"]["decision"] == {"from": "event", "path": "decision"}
 
 
 def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes():
@@ -181,41 +181,41 @@ def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes(
         RouteDeckManifest(
             version="navgraph-contract",
             nodes=[
-                RouteDeckNodeSpec(id="browse", label="Browse", lane="shopping", description="Browse products."),
-                RouteDeckNodeSpec(id="detail", label="Detail", lane="shopping", description="Product detail."),
+                RouteDeckNodeSpec(id="queue", label="Queue", lane="review", description="Review draft queue."),
+                RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
             ],
             edges=[],
-            actions=[RouteDeckActionSpec(id="catalog.open", label="View product")],
+            actions=[RouteDeckActionSpec(id="review.open", label="Open review")],
         ),
-        current_node="browse",
+        current_node="queue",
         navgraph=RouteDeckNavGraph(
-            current={"node_id": "browse", "deeplink": {"url": "/shop/browse", "resumable": True}},
+            current={"node_id": "queue", "deeplink": {"url": "/work/review", "resumable": True}},
             nodes=[
                 RouteDeckNavGraphNode(
-                    id="browse",
-                    label="Browse",
-                    capability_ids=["catalog.browse"],
-                    deeplink=RouteDeckDeepLink(url="/shop/browse", resumable=True),
+                    id="queue",
+                    label="Queue",
+                    capability_ids=["review.queue"],
+                    deeplink=RouteDeckDeepLink(url="/work/review", resumable=True),
                 ),
                 RouteDeckNavGraphNode(
                     id="detail",
                     label="Detail",
-                    capability_ids=["catalog.detail"],
-                    deeplink=RouteDeckDeepLink(url="/shop/detail/t-shirt", resumable=True),
+                    capability_ids=["review.detail"],
+                    deeplink=RouteDeckDeepLink(url="/work/review/draft-alpha", resumable=True),
                 ),
             ],
-            edges=[RouteDeckNavGraphEdge(from_stage="browse", to="detail", action_id="catalog.open")],
+            edges=[RouteDeckNavGraphEdge(from_stage="queue", to="detail", action_id="review.open")],
             reachable=["detail"],
         ),
     )
 
     payload = projection.model_dump(mode="json", by_alias=True)
     node_ids = {node["id"] for node in payload["navgraph"]["nodes"]}
-    assert "catalog.open" not in node_ids
-    assert payload["navgraph"]["edges"][0]["action_id"] == "catalog.open"
-    assert payload["navgraph"]["edges"][0]["from"] == "browse"
-    assert payload["navgraph"]["current"]["deeplink"]["url"] == "/shop/browse"
-    assert payload["navgraph"]["nodes"][1]["deeplink"]["url"] == "/shop/detail/t-shirt"
+    assert "review.open" not in node_ids
+    assert payload["navgraph"]["edges"][0]["action_id"] == "review.open"
+    assert payload["navgraph"]["edges"][0]["from"] == "queue"
+    assert payload["navgraph"]["current"]["deeplink"]["url"] == "/work/review"
+    assert payload["navgraph"]["nodes"][1]["deeplink"]["url"] == "/work/review/draft-alpha"
 
 
 def test_framework_runtime_sources_have_no_product_literals():

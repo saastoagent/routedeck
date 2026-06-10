@@ -10,10 +10,10 @@ function projection() {
     projection_version: 1,
     legal_operations: [
       {
-        id: 'saas_agent.list',
-        label: 'List SaaS Agents',
+        id: 'review.open_detail',
+        label: 'Open review detail',
         invocation_kind: 'surface',
-        target_node: 'saas_agent_select',
+        target_node: 'review.detail',
         can_dispatch_now: true,
       },
       {
@@ -43,13 +43,13 @@ test('surface dispatch exposes pending opening state before the request resolves
       new Promise((resolve) => {
         resolveDispatch = () =>
           resolve({
-            operation_id: 'saas_agent.list',
+            operation_id: 'review.open_detail',
             accepted: true,
             state: {
-              projection: { ...projection(), graph_node: 'saas_agent_select', projection_version: 2 },
+              projection: { ...projection(), graph_node: 'review.detail', projection_version: 2 },
               status: 'idle',
-              graph_state: { node: 'saas_agent_select' },
-              location: '/app/agents',
+              graph_state: { node: 'review.detail' },
+              location: '/work/review/draft-alpha',
             },
             messages: [],
             events: [],
@@ -58,14 +58,14 @@ test('surface dispatch exposes pending opening state before the request resolves
       }),
   })
 
-  const dispatchPromise = store.dispatch({ operation_id: 'saas_agent.list', args: {} })
+  const dispatchPromise = store.dispatch({ operation_id: 'review.open_detail', args: {} })
   const pending = store.getState().pending_operation
 
   assert.equal(store.getState().status, 'dispatching')
-  assert.equal(pending?.operation_id, 'saas_agent.list')
-  assert.equal(pending?.label, 'List SaaS Agents')
+  assert.equal(pending?.operation_id, 'review.open_detail')
+  assert.equal(pending?.label, 'Open review detail')
   assert.equal(pending?.status, 'opening_surface')
-  assert.equal(pending?.target_node, 'saas_agent_select')
+  assert.equal(pending?.target_node, 'review.detail')
 
   resolveDispatch()
   await dispatchPromise

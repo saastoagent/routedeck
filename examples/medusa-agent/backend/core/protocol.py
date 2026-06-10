@@ -23,6 +23,10 @@ def message_delta(content: str) -> str:
     return encode_sse("message_delta", {"content": content})
 
 
+def projection_update(data: dict[str, object]) -> str:
+    return encode_sse("projection_update", data)
+
+
 def agent_end() -> str:
     return encode_sse("agent_end", {})
 

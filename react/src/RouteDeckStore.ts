@@ -153,7 +153,6 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       for (const eventType of ROUTEDECK_EVENT_TYPES) {
         source.addEventListener(eventType, handleEvent)
       }
-      source.addEventListener('message', handleEvent)
       return () => source.close()
     },
     inspect: async (input) => {

@@ -25,22 +25,79 @@ RouteDeck framework terms in this spec follow `docs/route-deck-reference.md`.
 This file supersedes `docs/propertydesk-reference-app.md` as the active
 product-specific reference-app source of truth.
 
-## Current Reset Directive
+## Current Recalibration Directive
 
-The runnable Medusa example must be reduced back to the Slice 1 proof before it
-is used as a RouteDeck reference again. The proof is normal app-owned commerce
-chat only: first-screen chat, `POST /api/medusa-agent/agent/stream`, true SSE
-assistant deltas, process-local conversation state, live model execution when
-configured, and explicit missing-key errors.
+The runnable Medusa example is the active RouteDeck adoption proof. It must
+remain Medusa-owned and chat-first while RouteDeck is introduced in very small,
+auditable steps.
 
-The reset target excludes RouteDeck runtime, manifest, projection, dispatch,
-inspect, route-stream, navgraph, inspector, action chips derived from
-RouteDeck, commerce surfaces, Medusa Store API reads, cart writes, checkout,
-payment, shipping, admin, diagnostics panels, and RouteDeck-prefixed public
-routes.
+The current implemented checkpoint is a transitional state: normal app-owned
+commerce chat plus a read-only RouteDeck projection grounding layer. It is not
+pure Slice 1, because pure Slice 1 has no RouteDeck projection, Route Map,
+Inspector, or `surface_id`. It is not a usable product-surface slice until the
+Visible Surface Usability Gate below is green:
 
-Slices 2 through 6 remain design contracts for future reintroduction. They do
-not authorize the current runnable example to stay ahead of the chat-only proof.
+- First-screen assistant chat turn, `POST /api/medusa-agent/agent/stream`, true
+  SSE assistant deltas, process-local conversation state, live model execution
+  when configured, and explicit missing-key errors.
+- Product-owned `GET /api/medusa-agent/projection` that returns RouteDeck
+  projection/navgraph data for orientation only.
+- Projection-backed Route Map and Inspector that can update local inspector
+  focus without dispatching, navigating, mutating graph state, or changing the
+  browser URL.
+- Product-owned canonical paths: `/`, `/browse`, `/detail/t-shirt`, and
+  `/cart`. Optional `surface_id` query state may restore the active surface, but
+  the path remains the canonical public location.
+
+The current target still excludes action dispatch, inspect routes, route-stream,
+action chips derived from RouteDeck legal operations, commerce product
+surfaces, Medusa Store API reads, cart writes, checkout, payment, shipping,
+admin, diagnostics panels, private Medusa IDs, `rd_node` canonical links, and
+RouteDeck-prefixed public routes.
+
+Future slices remain design contracts until explicitly implemented by a bounded
+slice. They do not authorize the runnable example to jump ahead of the current
+chat-first, read-only-projection/orientation proof.
+
+## Visible Surface Usability Gate
+
+The Medusa example must not call a projected product surface "usable" until the
+chat path and surface path converge on the same product-owned RouteDeck runtime
+boundary.
+
+Required before any visible surface slice is described as usable:
+
+- From `/`, a normal chat request such as "show products" resolves through
+  product-agent planning context, dispatches a typed read operation or surface
+  intent through the Medusa-owned runtime, and updates the visible projection to
+  the browse surface.
+- From `/browse`, a normal chat request such as "show me the Medusa T-Shirt"
+  binds a public entity key or handle from projection/planning context and
+  updates the visible projection to the detail surface.
+- Assistant product facts are grounded in projection, planning context, or a
+  product tool result. The model must not invent product names, colors, sizes,
+  prices, availability, or cart contents from general language-model priors.
+- The address bar uses the product path for graph location, such as `/browse` or
+  `/detail/t-shirt`. Query params are only optional surface or presentation
+  state, such as `surface_id=detail.product_detail`.
+- Projection updates caused by chat do not travel as assistant prose. The product
+  chat SSE stream carries assistant text, while RouteDeck state events or an
+  explicit projection refresh carries the next projection.
+- `conversation_id`, LangGraph `thread_id`, projection/session state,
+  surface-event dispatch, route-stream, debug/inspect context, and projection
+  version all refer to the same product session.
+- Dynamic chips, once introduced, derive from current projection/planning context
+  or an agent proposal, refresh after projection changes, avoid ordinary
+  current-node no-ops, and remain chat-doable.
+- The debug/context view shows the current route context, planning context,
+  accepted `surface_intent` or operation, public entity binding, and latest
+  projection version. It may temporarily show the full system prompt during
+  development, but must be removable before public release.
+
+Before that gate is green, the visible UI is only a static projection or
+orientation proof. It may show read-only context, but it must not claim that the
+agent has browsed, opened, selected, compared, or changed product state unless
+the projection actually changed.
 
 ## Slice 0 Boundary
 
@@ -275,8 +332,15 @@ Acceptance commands:
 
 ### Slice 2: Medusa Connection And RouteDeck Projection
 
-Purpose: connect local/demo Medusa and introduce RouteDeck through explicit
-product-owned projection/state/action endpoints.
+Purpose: connect local/demo Medusa readiness and introduce RouteDeck through
+explicit product-owned projection, navgraph, and path-state endpoints. Slice 2
+does not execute action dispatch.
+
+Current implemented subset: M3.1/M3.2 introduces only product-owned
+`GET /api/medusa-agent/projection` and projection-backed read-only Route
+Map/Inspector behavior. It does not introduce local/demo Medusa data access,
+state/action/inspect/route-stream endpoints, action chips, dispatch, product
+surfaces, Store API calls, cart writes, or setup readiness UI.
 
 Implementation plan:
 `docs/superpowers/plans/2026-06-02-medusa-agent-slice2.md`.
@@ -284,19 +348,19 @@ Implementation plan:
 Expected API split:
 
 - Medusa setup and chat stay under `/api/medusa-agent/*`.
-- RouteDeck-derived manifest/projection/snapshot/inspect/stream are served under
-  `/api/medusa-agent/*`.
+- RouteDeck-derived manifest/projection/snapshot payloads are served under
+  `/api/medusa-agent/*` only when the micro-slice explicitly introduces them.
 - `/api/routedeck/*` must not exist in the Medusa example app.
-- RouteDeck dispatch may exist only as guarded `POST /api/medusa-agent/action`
-  contract behavior in this slice. It must reject operation execution and must
-  not drive product behavior.
+- `POST /api/medusa-agent/action`, inspect routes, route-stream routes, and
+  operation execution belong to later explicit micro-slices. They are not part
+  of the projection/navgraph/URL checkpoint.
 
 Done when:
 
 - Passive product setup readiness is visible without operation lists, blocked
   future actions, dispatch traces, or diagnostics in the default product UI.
-- Product-owned endpoints expose RouteDeck-derived payloads without exposing a
-  RouteDeck-prefixed public API.
+- Product-owned endpoints expose RouteDeck-derived projection/navigation payloads
+  without exposing a RouteDeck-prefixed public API.
 - Medusa-specific policy remains in the Medusa adapter/handlers.
 
 ### Slice 3: Product Browse, Variant Selection, And Cart
@@ -356,6 +420,14 @@ Required behavior:
 - A Medusa-owned planning context built from RouteDeck projection plugs into the
   agent system prompt so the model understands current capabilities and
   rendered entities before choosing tools.
+- Chat requests that imply a visible product surface change, such as "show
+  products", "open the t-shirt", or "compare both", must either update the
+  browser-visible projection through that shared runtime boundary or explicitly
+  say the current slice cannot do it yet. Assistant prose without a projection
+  update is not accepted as completion.
+- Product facts in chat must match the product state available in projection or
+  product tool output. If projection says the T-Shirt has `Natural`, `Black`, and
+  `Navy` colors, public chat must not answer `White` or `Heather Grey`.
 - Private Medusa IDs stay out of public transcript text.
 - Missing variant/cart prerequisites are blocked or requested before dispatch.
 - Cart writes require explicit user intent from chat or direct UI action.

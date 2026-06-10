@@ -1,8 +1,33 @@
 # RouteDeck Context
 
-Last updated: 2026-06-09
+Last updated: 2026-06-10
 
 ## Current State
+
+2026-06-09 recalibration: the next visible slice is Medusa Agent powered by
+RouteDeck, not a new product-neutral RouteDeck dashboard/demo. A prior
+product-neutral minimal FastAPI/React example was created in error and must be
+deleted before the Medusa slice is reported ready. Future RouteDeck/Medusa work
+must use subagents for reference extraction and drift review, then compare the
+browser behavior and code against `critical_prompt.md`,
+`docs/route-deck-reference.md`, the Medusa micro-slice plan, and
+`tests/test_anti_drift_boundaries.py` before claiming readiness.
+
+2026-06-10 gap audit: the visible Medusa shell exposed projection/surface
+scaffolding, but chat could still answer product requests without moving the
+projection or grounding product facts. Future slices must not call that state
+usable. Once a product projection or product surface is visible, chat requests
+such as "show products" or "show the t-shirt" must either drive the same
+product-owned RouteDeck runtime boundary and next projection as the matching
+surface affordance, or explicitly say that the action/fact is not available in
+the current slice.
+
+The visible product example must stay inside `examples/medusa-agent/` unless
+the user explicitly asks for a separate product-neutral example. Medusa Agent
+is chat-first: Foundation Agent-style shell, real product-owned SSE assistant
+stream, assistant starter turn with action chips, RouteDeck underneath as
+projection/state/navgraph/capability/dispatch plumbing, and no separate
+RouteDeck dashboard replacing the product agent experience.
 
 RouteDeck has a locked framework reference at `docs/route-deck-reference.md`.
 That reference is the authority for framework language, ownership boundaries,
@@ -36,10 +61,14 @@ Implementation must execute from the micro-slice overlay at
 strategic plan explains the destination; the micro-slice overlay controls the
 order of edits, test gates, stop points, and anti-drift checks.
 
-The Medusa runnable example has now reached the corrected Slice 1 checkpoint:
-chat-first, Foundation Agent-inspired shell, true app-owned SSE, static starter
-prompt chips, read-only Route Map, read-only Inspector, URL-derived
-`surface_id`, and no RouteDeck runtime/API, Store API, product write, checkout,
+The Medusa runnable example has now reached a transitional checkpoint: Slice 1
+chat-first shell plus read-only projection/orientation scaffolding. This is not
+pure Slice 1, because pure Slice 1 has no RouteDeck projection, Route Map,
+Inspector, or `surface_id`. It is also not a usable product-surface slice,
+because chat-to-projection convergence and product-fact grounding are not yet
+proven. The current checkpoint includes a Foundation Agent-inspired shell, true
+app-owned SSE, static starter prompt chips, read-only Route Map, read-only
+Inspector, URL-derived `surface_id`, and no Store API, product write, checkout,
 admin, or fake deterministic command-router behavior. See
 `context_checkpoints/context_checkpoint_09-06-2026-2-38PM.md`.
 
@@ -55,10 +84,18 @@ thin bootstrap, not a full population of all downstream contracts.
   when coding. Use
   `docs/superpowers/plans/2026-06-08-routedeck-open-source-medusa-agent.md` as
   the strategic map, not as a big-slice implementation checklist.
-- Preserve the current Medusa Slice 1 as chat-first with read-only context
-  scaffolding. Do not regress it to an empty chat page, and do not jump ahead to
-  dynamic chips, Store API reads/writes, cart flows, or RouteDeck dispatch before
-  the source-of-truth plumbing exists.
+- Preserve the current Medusa transitional checkpoint as chat-first with
+  read-only projection/orientation scaffolding. Do not regress it to an empty
+  chat page, and do not jump ahead to dynamic chips, Store API reads/writes, cart
+  flows, or RouteDeck dispatch before the source-of-truth plumbing exists.
+- Do not call a projection/surface slice usable until chat-to-projection
+  convergence is proven in the browser: a normal chat request must update the
+  visible projected surface through an accepted runtime read operation, not just
+  return assistant prose.
+- Public chat must answer product names, prices, colors, sizes, availability,
+  and cart state only from projection/planning context or a product tool result.
+  If that context is missing, the assistant must ask for setup or say it cannot
+  verify the fact yet.
 - Align downstream code and docs to the reference in a later session.
 - Treat current core models, React store/types, and `examples/medusa-agent` as
   implementation targets that can be changed to match the reference.
@@ -72,7 +109,8 @@ Expected follow-up areas:
 - `react/src/`: RouteDeckStore, types, hooks, and UI affordance handling aligned
   to projection/navgraph/capability semantics.
 - `examples/medusa-agent/`: product-owned planning context, agent tools,
-  surface affordances, navgraph visibility, and hidden route operation handling.
+  surface affordances, navgraph visibility, hidden route operation handling, and
+  chat-to-projection convergence for read-only product browse/detail requests.
 - Medusa dynamic chips: currently static starter prompts only; future chips must
   come from product planning context or projected capabilities, not frontend-only
   command lists.

@@ -91,6 +91,39 @@ def test_medusa_reference_spec_is_active_source_of_truth():
     assert "Corpus quick-action pattern" in text
 
 
+def test_medusa_slice_plans_require_chat_projection_convergence_and_grounding():
+    critical_prompt = _read(ROOT / "critical_prompt.md")
+    context = _read(ROOT / "context.md")
+    code_map = _read(ROOT / "architecture" / "code-map.md")
+    route_deck_reference = _read(ROOT / "docs" / "route-deck-reference.md")
+    medusa_spec = _read(ROOT / "docs" / "medusa-agent-reference-app.md")
+    micro_slices = _read(
+        ROOT / "docs" / "superpowers" / "plans" / "2026-06-08-routedeck-medusa-micro-slices.md"
+    )
+    strategic_plan = _read(
+        ROOT / "docs" / "superpowers" / "plans" / "2026-06-08-routedeck-open-source-medusa-agent.md"
+    )
+    normalized_route_deck_reference = " ".join(route_deck_reference.split())
+    normalized_medusa_spec = " ".join(medusa_spec.split())
+    normalized_micro_slices = " ".join(micro_slices.split())
+
+    assert "Assistant prose alone is not a state update." in critical_prompt
+    assert "Public chat must not invent product facts." in critical_prompt
+    assert "2026-06-10 gap audit" in context
+    assert "chat-to-projection convergence" in context
+    assert "Medusa reference example" in code_map
+    assert "chat-to-projection convergence" in code_map
+    assert "Assistant prose without a matching projection/runtime update is drift." in normalized_route_deck_reference
+    assert "Planning context is also the grounding boundary for public chat." in normalized_route_deck_reference
+    assert "## Visible Surface Usability Gate" in medusa_spec
+    assert "Assistant prose without a projection update is not accepted as completion." in normalized_medusa_spec
+    assert "## Global Convergence And Grounding Gate" in micro_slices
+    assert "Do not call it a usable agentic surface." in normalized_micro_slices
+    assert "### Micro-Slice M3.7: Chat Can Invoke One Read Operation And Update Projection" in micro_slices
+    assert "this is static orientation/projection proof, not a usable product-surface slice" in strategic_plan
+    assert "Model-only catalog facts are drift." in strategic_plan
+
+
 def test_propertydesk_is_not_described_as_flagship_reference_app():
     text = _combined_text("README.md", "docs", "architecture")
 
@@ -379,7 +412,7 @@ def test_slice1_plan_document_is_linked_and_decision_complete():
     assert "npm test" in plan
 
 
-def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold():
+def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
     example = ROOT / "examples" / "medusa-agent"
     assert example.exists()
 
@@ -388,9 +421,9 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold()
         PRODUCT_SPECIFIC_ROUTEDECK_ROUTE,
         re.compile(r"@routedeck/react", re.I),
         re.compile(r"@medusajs/", re.I),
-        re.compile(r"routedeck_core", re.I),
-        re.compile(r"RouteDeck", re.I),
-        re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|projection|action|inspect|route-stream)", re.I),
+        re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|action|inspect|route-stream)", re.I),
+        re.compile(r"\bsurface_event\b", re.I),
+        re.compile(r"\boperation_id\b", re.I),
         re.compile(r"\bcatalog\.(?:list|open)\b", re.I),
         re.compile(r"\bvariant\.select\b", re.I),
         re.compile(r"\bcart\.(?:create|add_item|view)\b", re.I),
@@ -421,6 +454,7 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold()
 
     implementation_text = "\n".join(production_chunks)
     assert "/api/medusa-agent/agent/stream" in implementation_text
+    assert "/api/medusa-agent/projection" in implementation_text
     assert "text/event-stream" in implementation_text
     assert "configurable" in implementation_text
     assert "thread_id" in implementation_text
@@ -429,15 +463,20 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold()
     public_text = _combined_text(
         "examples/medusa-agent/frontend/src/App.tsx",
         "examples/medusa-agent/frontend/src/hooks/useSSEChat.ts",
+        "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
         "examples/medusa-agent/frontend/src/styles.css",
     ).lower()
-    for required in ["route map", "inspector", "read-only orientation", "surface_id", "start with normal shopping chat"]:
+    for required in [
+        "route map",
+        "inspector",
+        "projection-backed orientation",
+        "surface_id",
+        "start with normal shopping chat",
+        "/api/medusa-agent/projection",
+    ]:
         assert required in public_text
 
     for banned in [
-        "routedeck",
-        "projection",
-        "dispatch",
         "surface_event",
         "operation_id",
         "store api",
@@ -456,7 +495,7 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_context_scaffold()
     ]:
         assert banned not in public_text
 
-    for private_prefix in ["prod_", "variant_private", "cart_private", "line_private"]:
+    for private_prefix in ["prod_", "variant_private", "cart_private", "line_private", "product_ref", "variant_ref", "cart_ref"]:
         assert private_prefix not in public_text
 
     package_text = _combined_text("routedeck_core", "routedeck_langgraph", "react/src")

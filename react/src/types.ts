@@ -226,6 +226,7 @@ export interface RouteDeckSurfaceAffordance {
 export interface RouteDeckSurfaceInteractionEvent {
   surface_id: string
   affordance_id: string
+  event?: string | null
   entity_key?: string | null
   payload?: Record<string, unknown>
 }

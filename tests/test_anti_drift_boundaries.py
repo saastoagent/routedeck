@@ -33,7 +33,7 @@ def test_routedeck_core_and_react_stay_product_neutral() -> None:
     assert [term for term in forbidden if term in text] == []
 
 
-def test_medusa_frontend_uses_surface_events_not_hidden_refs() -> None:
+def test_medusa_frontend_uses_product_owned_read_only_projection() -> None:
     text = _all_text(
         [
             "examples/medusa-agent/frontend/src/App.tsx",
@@ -41,48 +41,68 @@ def test_medusa_frontend_uses_surface_events_not_hidden_refs() -> None:
         ]
     )
 
-    assert "surface_event" in text
-    assert "product_ref" not in text
-    assert "variant_ref" not in text
-    assert "cart_ref" not in text
-    assert "/api/routedeck" not in text
+    assert "/api/medusa-agent/projection" in text
+    assert 'data-testid="medusa-agent-workspace"' in text
+    assert '"medusa-starter-message"' in text
+    assert '"medusa-projected-surface"' in text
+    assert '"route-map-graph"' in text
+    assert "Projection-backed orientation" in text
+    assert "setSelectedNodeId" in text
+    assert "window.location.pathname" in text
+    assert "surface_id" in text
+
+    forbidden = [
+        "surface_event",
+        "product_ref",
+        "variant_ref",
+        "cart_ref",
+        "/api/routedeck",
+        "/api/medusa-agent/action",
+        "/api/medusa-agent/inspect",
+        "/api/medusa-agent/route-stream",
+        "@medusajs",
+        "Store API",
+        "add to cart",
+        "checkout",
+        "admin",
+    ]
+    assert [term for term in forbidden if term in text] == []
 
 
 def test_medusa_navgraph_is_read_only_and_home_centered() -> None:
     app_text = _read("examples/medusa-agent/frontend/src/App.tsx")
-    navgraph_source = app_text.split("function NavGraphView", 1)[1].split("function layoutNavGraphNodes", 1)[0]
-    manifest_text = _read("examples/medusa-agent/backend/services/routedeck_manifest.py")
+    route_map_source = app_text.split('data-testid="route-map-graph"', 1)[1].split('className="rail-note"', 1)[0]
+    projection_text = _read("examples/medusa-agent/backend/services/routedeck_projection.py")
 
-    assert "<a " not in navgraph_source
-    assert "href=" not in navgraph_source
-    assert "dispatch" not in navgraph_source.lower()
-    assert '"home"' in manifest_text
-    assert "id=\"home\"" in manifest_text or 'id="home"' in manifest_text
-    assert "RouteDeckEdgeSpec(from_stage=\"home\"" in manifest_text
+    assert "route-edge-home-browse" in route_map_source
+    assert "route-edge-browse-detail" in route_map_source
+    assert "route-edge-detail-cart" in route_map_source
+    assert "<a " not in route_map_source
+    assert "href=" not in route_map_source
+    assert "window.location" not in route_map_source
+    assert "history" not in route_map_source
+    assert "sendMessage" not in route_map_source
+    assert "setSelectedNodeId" in route_map_source
+    assert 'id="home"' in projection_text
+    assert "RouteDeckEdgeSpec(from_stage=\"home\"" in projection_text
 
 
-def test_medusa_action_chips_do_not_expose_hidden_route_operations() -> None:
+def test_medusa_prompt_chips_remain_chat_prompts_not_route_operations() -> None:
     app_text = _read("examples/medusa-agent/frontend/src/App.tsx")
-    chip_policy_source = app_text.split("function actionChipsForProjection", 1)[1].split("function CommerceSurface", 1)[0]
-    chip_source = app_text.split("function ActionChips", 1)[1].split("function CommerceSurface", 1)[0]
-    commerce_source = app_text.split("function CommerceSurface", 1)[1].split("function AgentContextPanel", 1)[0]
-    agent_context_source = app_text.split("function AgentContextPanel", 1)[1].split("function NavGraphView", 1)[0]
 
-    assert "route." in chip_policy_source
-    assert "hidden" in chip_policy_source
-    assert "execution_mode" in chip_policy_source
-    assert "target_node" in chip_policy_source
-    assert "currentNode" in chip_policy_source
-    assert "NavGraphView" not in chip_policy_source
-    assert "deeplink" not in chip_policy_source.lower()
-    assert 'data-testid="medusa-chat-action-chips"' in chip_source
+    prompt_source = app_text.split('data-testid="starter-chat-actions"', 1)[1].split("<form", 1)[0]
+
+    assert "chatSuggestionsFromProjection" in app_text
+    assert "projection?.presentation_state" in app_text
+    assert "sendPrompt" in app_text
+    assert "/api/medusa-agent/agent/stream" not in app_text
+    assert 'data-testid="starter-chat-actions"' in app_text
     assert 'data-testid="medusa-chat-stream"' in app_text
-    assert "ActionChips" not in commerce_source
-    assert "NavGraphView" not in commerce_source
-    assert 'aria-label="Shopping surface"' in commerce_source
-    assert "dispatchSurfaceEvent" in commerce_source
-    assert 'aria-label="Agent context"' in agent_context_source
-    assert "NavGraphView" in agent_context_source
+    assert "legal_operations" not in prompt_source
+    assert "operation_id" not in prompt_source
+    assert "surface_event" not in prompt_source
+    assert "RouteDeckOperation" not in prompt_source
+    assert "MedusaProductDetailSurface" in app_text
 
 
 def test_critical_prompt_blocks_navgraph_and_chip_drift() -> None:
@@ -128,21 +148,22 @@ def test_reference_docs_block_surface_navgraph_chip_drift() -> None:
 
 
 def test_medusa_canonical_deeplinks_are_path_based_with_legacy_query_decode() -> None:
-    runtime_text = _read("examples/medusa-agent/backend/services/routedeck_runtime.py")
+    runtime_text = _read("examples/medusa-agent/backend/services/routedeck_projection.py")
     hook_text = _read("examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts")
     readme = _read("examples/medusa-agent/README.md")
 
-    deeplink_source = runtime_text.split("def _deeplink", 1)[1].split("def _public_cart_items", 1)[0]
-    decoder_source = hook_text.split("function routeDeckParamsFromLocation", 1)[1]
+    deeplink_source = runtime_text.split("def _deeplink_for_location", 1)[1].split("def _navgraph_for_location", 1)[0]
+    decoder_source = hook_text.split("function projectionEndpointFromLocation", 1)[1]
 
-    assert '"/detail/{product_path}"' in deeplink_source
-    assert '"/browse"' in deeplink_source
-    assert '"/cart"' in deeplink_source
-    assert '"/?rd_node=' not in deeplink_source
-    assert "pathSegments" in decoder_source
-    assert 'routeDeckParams.set("rd_node", "home")' in decoder_source
-    assert "legacyParams" in decoder_source
-    assert "Legacy `?rd_node=...` links are" in readme
+    assert '"/detail/"' in runtime_text
+    assert '"/browse"' in runtime_text
+    assert '"/cart"' in runtime_text
+    assert "rd_node" not in runtime_text
+    assert "window.location.pathname" in decoder_source
+    assert 'params.set("path"' in decoder_source
+    assert 'params.set("surface_id"' in decoder_source
+    assert "rd_node" not in decoder_source
+    assert "The path remains the canonical public location" in " ".join(readme.split())
     assert "- `/detail/t-shirt`" in readme
 
 
@@ -150,38 +171,53 @@ def test_medusa_starts_with_assistant_turn_not_empty_state() -> None:
     app_text = _read("examples/medusa-agent/frontend/src/App.tsx")
     styles = _read("examples/medusa-agent/frontend/src/styles.css")
 
-    assert 'data-testid="medusa-starter-message"' in app_text
-    assert 'className="message-row assistant starter-message"' in app_text
+    assert '"medusa-starter-message"' in app_text
+    assert 'className="starter-message"' in app_text
     assert "starter-chat-actions" in app_text
     assert 'className="empty-state"' not in app_text
     assert ".empty-state" not in styles
 
 
-def test_medusa_surface_is_embedded_in_chat_stream() -> None:
+def test_medusa_projected_surfaces_are_embedded_and_read_only() -> None:
     app_text = _read("examples/medusa-agent/frontend/src/App.tsx")
-    workspace_source = app_text.split('data-testid="medusa-agent-workspace"', 1)[1].split("<form", 1)[0]
-    chat_source = workspace_source.split('data-testid="medusa-chat-stream"', 1)[1].split("<AgentContextPanel", 1)[0]
 
-    assert "<CommerceSurface" in chat_source
-    assert "<AgentContextPanel" not in chat_source
-    assert workspace_source.index("<CommerceSurface") < workspace_source.index("<AgentContextPanel")
+    assert 'data-testid="medusa-agent-workspace"' in app_text
+    assert 'data-testid="medusa-chat-stream"' in app_text
+    assert 'data-testid="medusa-projected-surface"' in app_text
+    assert "MedusaProductListSurface" in app_text
+    assert "MedusaProductDetailSurface" in app_text
+    assert "<AgentContextPanel" not in app_text
+    assert "surface_event" not in app_text
+    assert "add to cart" not in app_text.lower()
 
 
 def test_medusa_runtime_keeps_private_refs_out_of_public_surface_props() -> None:
-    runtime_text = _read("examples/medusa-agent/backend/services/routedeck_runtime.py")
+    runtime_text = _read("examples/medusa-agent/backend/services/routedeck_projection.py")
 
-    assert '"entity_key": self._entity_key("product", product.id)' in runtime_text
-    assert '"entity_key": self._entity_key("variant", variant.id)' in runtime_text
-    assert '"product_ref": self.product_refs.remember(product.id)' not in runtime_text
-    assert '"variant_ref": self.variant_refs.remember(variant.id)' not in runtime_text
-    assert '"cart_ref": state.cart_ref' not in runtime_text
+    assert 'DEFAULT_PRODUCT_HANDLE = "t-shirt"' in runtime_text
+    assert '"product_handle": location.product_handle' in runtime_text
+    for forbidden in [
+        "product_ref",
+        "variant_ref",
+        "cart_ref",
+        "prod_",
+        "variant_",
+        "cart_",
+        "line_",
+        "li_",
+    ]:
+        assert forbidden not in runtime_text
 
 
 def test_medusa_implementation_has_no_product_specific_routedeck_route_or_phrase_router() -> None:
     paths = [
         *[str(path.relative_to(ROOT)) for path in (ROOT / "examples" / "medusa-agent" / "backend" / "routes").glob("*.py")],
         *[str(path.relative_to(ROOT)) for path in (ROOT / "examples" / "medusa-agent" / "backend" / "services").glob("*.py")],
-        *[str(path.relative_to(ROOT)) for path in (ROOT / "examples" / "medusa-agent" / "frontend" / "src").glob("*.tsx")],
+        *[
+            str(path.relative_to(ROOT))
+            for path in (ROOT / "examples" / "medusa-agent" / "frontend" / "src").glob("*.tsx")
+            if ".test." not in path.name
+        ],
         *[str(path.relative_to(ROOT)) for path in (ROOT / "examples" / "medusa-agent" / "frontend" / "src" / "hooks").glob("*.ts")],
     ]
     text = _all_text(paths).lower()

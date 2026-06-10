@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import { createRouteDeckStore } from '../src/RouteDeckStore.ts'
@@ -45,8 +46,8 @@ test('projection navgraph preserves location and node deeplinks', () => {
         navigation: {
           current: {
             node_id: 'detail',
-            surface_id: 'detail.product_detail',
-            deeplink: { url: '/shop?rd_node=detail&rd_product=t-shirt', resumable: true },
+            surface_id: 'review.detail',
+            deeplink: { url: '/work/review/draft-alpha', resumable: true },
           },
           back_stack: [],
           forward_stack: [],
@@ -57,16 +58,16 @@ test('projection navgraph preserves location and node deeplinks', () => {
         navgraph: {
           current: {
             node_id: 'detail',
-            surface_id: 'detail.product_detail',
-            deeplink: { url: '/shop?rd_node=detail&rd_product=t-shirt', resumable: true },
+            surface_id: 'review.detail',
+            deeplink: { url: '/work/review/draft-alpha', resumable: true },
           },
           nodes: [
-            { id: 'browse', label: 'Browse', deeplink: { url: '/shop?rd_node=browse', resumable: true } },
-            { id: 'detail', label: 'Detail', deeplink: { url: '/shop?rd_node=detail&rd_product=t-shirt', resumable: true } },
+            { id: 'queue', label: 'Queue', deeplink: { url: '/work/review', resumable: true } },
+            { id: 'detail', label: 'Detail', deeplink: { url: '/work/review/draft-alpha', resumable: true } },
           ],
-          edges: [{ from: 'browse', to: 'detail', action_id: 'catalog.open' }],
-          traversed: ['browse'],
-          reachable: ['browse'],
+          edges: [{ from: 'queue', to: 'detail', action_id: 'review.open' }],
+          traversed: ['queue'],
+          reachable: ['queue'],
         },
       },
       status: 'idle',
@@ -74,8 +75,8 @@ test('projection navgraph preserves location and node deeplinks', () => {
   })
 
   const projection = store.getState().projection
-  assert.equal(projection.navigation.current.deeplink.url, '/shop?rd_node=detail&rd_product=t-shirt')
-  assert.equal(projection.navgraph.nodes[1].deeplink.url, '/shop?rd_node=detail&rd_product=t-shirt')
+  assert.equal(projection.navigation.current.deeplink.url, '/work/review/draft-alpha')
+  assert.equal(projection.navgraph.nodes[1].deeplink.url, '/work/review/draft-alpha')
 })
 
 test('surface interaction dispatch passes through without direct operation args', async () => {
@@ -86,11 +87,11 @@ test('surface interaction dispatch passes through without direct operation args'
         ...legacyProjection(),
         surface_affordances: [
           {
-            surface_id: 'detail.product_detail',
-            affordance_id: 'add_to_cart',
-            event: 'add_clicked',
-            operation_id: 'cart.add_item',
-            entity_keys: ['variant:s-black'],
+            surface_id: 'review.detail',
+            affordance_id: 'approve_primary',
+            event: 'approve_clicked',
+            operation_id: 'draft.approve',
+            entity_keys: ['draft:alpha'],
           },
         ],
       },
@@ -99,7 +100,7 @@ test('surface interaction dispatch passes through without direct operation args'
     dispatch: async (input, state) => {
       calls.push(input)
       return {
-        operation_id: 'cart.add_item',
+        operation_id: 'draft.approve',
         accepted: true,
         state,
         messages: [],
@@ -111,20 +112,82 @@ test('surface interaction dispatch passes through without direct operation args'
 
   await store.dispatch({
     surface_event: {
-      surface_id: 'detail.product_detail',
-      affordance_id: 'add_to_cart',
-      entity_key: 'variant:s-black',
-      payload: { quantity: 1 },
+      surface_id: 'review.detail',
+      affordance_id: 'approve_primary',
+      event: 'click',
+      entity_key: 'draft:alpha',
+      payload: { decision: 'approve' },
     },
   })
 
   assert.equal(calls.length, 1)
   assert.deepEqual(calls[0], {
     surface_event: {
-      surface_id: 'detail.product_detail',
-      affordance_id: 'add_to_cart',
-      entity_key: 'variant:s-black',
-      payload: { quantity: 1 },
+      surface_id: 'review.detail',
+      affordance_id: 'approve_primary',
+      event: 'click',
+      entity_key: 'draft:alpha',
+      payload: { decision: 'approve' },
     },
   })
+})
+
+test('React surface interaction event type includes emitted event name', () => {
+  const source = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8')
+  const match = source.match(/export interface RouteDeckSurfaceInteractionEvent \{(?<body>[\s\S]*?)\n\}/)
+
+  assert.ok(match?.groups?.body)
+  assert.match(match.groups.body, /event\?: string \| null/)
+})
+
+test('RouteDeckStore stream subscribes to framework events and applies projection updates', () => {
+  const subscriptions = new Map()
+  const source = {
+    closed: false,
+    addEventListener: (type, listener) => {
+      subscriptions.set(type, listener)
+    },
+    close() {
+      this.closed = true
+    },
+  }
+  const nextProjection = {
+    ...legacyProjection(),
+    graph_node: 'detail',
+    current_context: 'detail',
+    projection_version: 2,
+  }
+  const store = createRouteDeckStore({
+    initialState: {
+      projection: legacyProjection(),
+      status: 'idle',
+    },
+    streamUrl: '/events',
+    eventSourceFactory: () => source,
+  })
+
+  const cleanup = store.connectStream()
+
+  assert.deepEqual([...subscriptions.keys()].sort(), [
+    'graph_transition',
+    'guard_failure',
+    'operation_completed',
+    'operation_started',
+    'projection_update',
+    'runtime_status',
+    'surface_update',
+  ])
+
+  subscriptions.get('projection_update')({
+    data: JSON.stringify({
+      event_type: 'projection_update',
+      payload: { projection: nextProjection, status: 'refreshing' },
+    }),
+  })
+
+  assert.equal(store.getState().projection.projection_version, 2)
+  assert.equal(store.getState().status, 'refreshing')
+
+  cleanup()
+  assert.equal(source.closed, true)
 })

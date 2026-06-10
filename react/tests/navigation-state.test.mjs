@@ -183,7 +183,7 @@ test('resolveRouteDeckActiveSurface prefers the navigation current surface id', 
       review: {
         name: 'review',
         surface_id: 'operation_review.execution.plan',
-        component: 'CorpusOperationReviewSurface',
+        component: 'ReviewOperationSurface',
         variant: 'operation_review',
         role: 'active',
         slot: 'active',
@@ -203,7 +203,7 @@ test('resolveRouteDeckActiveSurface prefers the navigation current surface id', 
   })
 
   assert.equal(current?.surface_id, 'operation_review.execution.plan')
-  assert.equal(current?.component, 'CorpusOperationReviewSurface')
+  assert.equal(current?.component, 'ReviewOperationSurface')
 })
 
 test('location codec and history adapter round-trip a generic RouteDeck location', () => {

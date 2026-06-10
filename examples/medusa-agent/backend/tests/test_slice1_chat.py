@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -99,7 +100,6 @@ def test_backend_route_surface_is_chat_only(client: TestClient):
         ("GET", "/api/medusa-agent/state"),
         ("GET", "/api/medusa-agent/route-manifest"),
         ("GET", "/api/medusa-agent/route-snapshot"),
-        ("GET", "/api/medusa-agent/projection"),
         ("POST", "/api/medusa-agent/action"),
         ("POST", "/api/medusa-agent/inspect"),
         ("GET", "/api/medusa-agent/route-stream"),
@@ -158,12 +158,17 @@ async def test_graph_path_ignores_non_model_events_without_route_deck_frames(mon
 
     from core.config import Settings
     from services.chat_service import ChatService
+    from services.agent_tools import open_medusa_surface
 
     class FakeGraph:
         async def astream_events(self, _graph_input, config, version):
             assert config == {"configurable": {"thread_id": "thread-route"}}
             assert version == "v2"
             yield {"event": "on_tool_start", "data": {"name": "ignored"}}
+            yield {
+                "event": "on_tool_end",
+                "data": {"output": open_medusa_surface.invoke({"surface_id": "browse.product_list"})},
+            }
             yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Products ready.")}}
 
     service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
@@ -173,11 +178,57 @@ async def test_graph_path_ignores_non_model_events_without_route_deck_frames(mon
     assert [event for event, _data in parsed] == [
         "stream_start",
         "agent_start",
+        "projection_update",
         "message_delta",
         "agent_end",
         "stream_end",
     ]
+    projection_update = parsed[2][1]
+    assert projection_update["source"] == "medusa_agent_tool"
+    assert projection_update["accepted_intent"] == "browse_products"
+    assert projection_update["route_context"] == {
+        "path": "/browse",
+        "surface_id": "browse.product_list",
+    }
+    assert projection_update["projection"]["graph_node"] == "browse"
     assert _assistant_text(parsed) == "Products ready."
+
+
+@pytest.mark.asyncio
+async def test_chat_projection_is_limited_to_browse_read_operation(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from langchain_core.messages import AIMessageChunk
+
+    from core.config import Settings
+    from services.chat_service import ChatService
+
+    class FakeGraph:
+        async def astream_events(self, _graph_input, config, version):
+            assert config == {"configurable": {"thread_id": "thread-detail-not-yet"}}
+            assert version == "v2"
+            yield {
+                "event": "on_chat_model_stream",
+                "data": {"chunk": AIMessageChunk(content="I can talk about the T-shirt.")},
+            }
+
+    service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
+
+    parsed = _parse_sse(
+        "".join(
+            [
+                event
+                async for event in service.stream(
+                    "show me the Medusa T-Shirt",
+                    conversation_id="thread-detail-not-yet",
+                    route_context={"path": "/", "surface_id": "home.chat"},
+                )
+            ]
+        )
+    )
+
+    assert "projection_update" not in [event for event, _data in parsed]
+    assert _assistant_text(parsed) == "I can talk about the T-shirt."
 
 
 def test_default_model_can_be_overridden(monkeypatch: pytest.MonkeyPatch):
@@ -218,9 +269,44 @@ def test_graph_builder_uses_async_concise_streaming_model_call():
 
     assert "async def agent_node" in source
     assert "await llm.ainvoke" in source
+    assert ".bind_tools(MEDUSA_AGENT_TOOLS)" in source
+    assert "ToolNode(MEDUSA_AGENT_TOOLS)" in source
     assert "llm.invoke(" not in source
     assert "timeout=settings.model_timeout_seconds" in source
     assert "Keep replies to" in source
+
+
+def test_open_surface_tool_returns_rendered_product_facts():
+    import json
+
+    from services.agent_tools import open_medusa_surface
+
+    payload = json.loads(open_medusa_surface.invoke({"surface_id": "browse.product_list"}))
+
+    assert payload["ok"] is True
+    assert payload["surface_intent"] == {"surface_id": "browse.product_list"}
+    assert payload["route_context"] == {"path": "/browse", "surface_id": "browse.product_list"}
+    assert [product["title"] for product in payload["products"]] == [
+        "Medusa T-Shirt",
+        "Medusa Sweatshirt",
+    ]
+    assert "$48.00" in payload["product_facts"]
+    assert "Natural, Black, Navy" in payload["product_facts"]
+    assert "$78.00" in payload["product_facts"]
+    assert "Olive, Charcoal, Black" in payload["product_facts"]
+
+
+def test_graph_builder_prompt_keeps_current_slice_read_only():
+    source = (BACKEND_ROOT / "services" / "graph_builder.py").read_text(encoding="utf-8")
+
+    assert "read-only" in source
+    assert "cannot change cart state" in source
+    assert "does not render cart controls" in source
+    assert "Do not offer cart steps" in source
+    assert "Do not offer cart actions" in source
+    assert "If the shopper has not explicitly asked about cart" in source
+    assert "add an item to your cart" not in source
+    assert "manage your cart" not in source
 
 
 @pytest.mark.asyncio
@@ -257,6 +343,122 @@ async def test_graph_errors_are_logged_with_conversation_context(caplog):
     )
 
 
+@pytest.mark.asyncio
+async def test_debug_context_thread_records_system_prompt_context_history_and_assistant(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from langchain_core.messages import AIMessageChunk
+
+    from core.config import Settings
+    from services.chat_service import ChatService
+    from services.agent_tools import open_medusa_surface
+
+    class FakeGraph:
+        async def astream_events(self, _graph_input, config, version):
+            assert config == {"configurable": {"thread_id": "debug-thread"}}
+            assert version == "v2"
+            yield {
+                "event": "on_tool_end",
+                "data": {"output": open_medusa_surface.invoke({"surface_id": "browse.product_list"})},
+            }
+            yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="First ")}}
+            yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="answer.")}}
+
+    service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
+
+    parsed = _parse_sse(
+        "".join(
+            [
+                event
+                async for event in service.stream(
+                    "what products do we have?",
+                    conversation_id="debug-thread",
+                    route_context={"path": "/", "surface_id": "home.chat"},
+                )
+            ]
+        )
+    )
+
+    assert "projection_update" in [event for event, _data in parsed]
+    assert _assistant_text(parsed) == "First answer."
+    debug_context = service.debug_context_thread("debug-thread")
+
+    assert debug_context["conversation_id"] == "debug-thread"
+    assert debug_context["system_prompt"]["role"] == "system"
+    assert "You are the Medusa demo shopping assistant." in debug_context["system_prompt"]["content"]
+    assert debug_context["latest_route_context"] == {
+        "path": "/browse",
+        "surface_id": "browse.product_list",
+    }
+    assert debug_context["latest_accepted_intent"]["reason"] == "browse_products"
+    assert debug_context["latest_accepted_intent"]["source"] == "medusa_agent_tool"
+    assert debug_context["latest_projection_version"] == 1
+    assert [message["role"] for message in debug_context["thread"]] == ["system", "user", "system", "assistant"]
+    assert debug_context["thread"][0]["source"] == "routedeck_planning_context"
+    assert "home.chat" in debug_context["thread"][0]["content"]
+    assert debug_context["thread"][1]["content"] == "what products do we have?"
+    assert debug_context["thread"][2]["source"] == "routedeck_planning_context"
+    assert "browse.product_list" in debug_context["thread"][2]["content"]
+    assert debug_context["thread"][3]["content"] == "First answer."
+    assert "prod_" not in str(debug_context)
+
+
+@pytest.mark.asyncio
+async def test_chat_service_reuses_process_local_graph_for_conversation_history(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from langchain_core.messages import AIMessageChunk
+
+    from core.config import Settings
+    from services import graph_builder
+    from services.chat_service import ChatService
+
+    class ReusableGraph:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def astream_events(self, graph_input, config, version):
+            self.calls.append(
+                {
+                    "graph_input": graph_input,
+                    "config": config,
+                    "version": version,
+                }
+            )
+            yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="ok")}}
+
+    built_graphs: list[ReusableGraph] = []
+
+    def fake_build_agent_graph(_settings):
+        graph = ReusableGraph()
+        built_graphs.append(graph)
+        return graph
+
+    monkeypatch.setattr(graph_builder, "build_agent_graph", fake_build_agent_graph)
+    service = ChatService(settings=Settings(openai_api_key="test-key"))
+
+    for message in ("hi", "both"):
+        list(
+            _parse_sse(
+                "".join(
+                    [
+                        event
+                        async for event in service.stream(
+                            message,
+                            conversation_id="history-thread",
+                            route_context={"path": "/", "surface_id": "home.chat"},
+                        )
+                    ]
+                )
+            )
+        )
+
+    assert len(built_graphs) == 1
+    assert len(built_graphs[0].calls) == 2
+    assert built_graphs[0].calls[0]["config"] == {"configurable": {"thread_id": "history-thread"}}
+    assert built_graphs[0].calls[1]["config"] == {"configurable": {"thread_id": "history-thread"}}
+
+
 def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
     runtime_paths = [
         BACKEND_ROOT / "main.py",
@@ -266,9 +468,9 @@ def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
         *sorted((BACKEND_ROOT / "services").glob("*.py")),
     ]
     forbidden = re.compile(
-        r"routedeck_core|routedeck_langgraph|RouteDeck|MedusaRouteDeckRuntime|"
-        r"routedeck_provider|routedeck_prompt|agent_tools|medusa_store|commerce_state|"
-        r"/api/medusa-agent/(state|route-manifest|route-snapshot|projection|action|inspect|route-stream)|"
+        r"routedeck_langgraph|MedusaRouteDeckRuntime|"
+        r"routedeck_provider|routedeck_prompt|medusa_store|commerce_state|"
+        r"/api/medusa-agent/(state|route-manifest|route-snapshot|action|inspect|route-stream)|"
         r"/api/routedeck"
     )
 
@@ -282,3 +484,12 @@ def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
             hits.append(str(path.relative_to(BACKEND_ROOT)))
 
     assert hits == []
+
+
+def test_chat_service_source_has_no_phrase_router_or_command_map():
+    source = (BACKEND_ROOT / "services" / "chat_service.py").read_text(encoding="utf-8")
+
+    assert "_read_surface_target" not in source
+    assert "_normalize_message" not in source
+    assert "_contains_any" not in source
+    assert "words = set" not in source

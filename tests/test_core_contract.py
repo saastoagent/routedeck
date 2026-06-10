@@ -1,10 +1,13 @@
 from routedeck_core import (
     RouteDeckActionSpec,
     RouteDeckCapabilitySpec,
+    RouteDeckDispatchInput,
     RouteDeckEdgeSpec,
     RouteDeckManifest,
     RouteDeckNodeSpec,
+    RouteDeckSemanticObservation,
     RouteDeckSurface,
+    RouteDeckSurfaceInteractionEvent,
     build_projection,
     build_runtime_snapshot,
     reachable_nodes,
@@ -165,6 +168,38 @@ def test_manifest_validation_rejects_unknown_parent_nodes():
     )
 
     assert "Node learning.policy_candidate references unknown parent: missing" in validate_manifest(manifest)
+
+
+def test_surface_interaction_events_preserve_event_name_and_public_bindings():
+    request = RouteDeckDispatchInput(
+        surface_event=RouteDeckSurfaceInteractionEvent(
+            surface_id="review.detail",
+            affordance_id="approve_primary",
+            event="click",
+            entity_key="draft:alpha",
+            payload={"decision": "approve"},
+        ),
+        projection_version=4,
+    )
+
+    payload = request.model_dump(mode="json", by_alias=True)
+    assert payload["surface_event"]["event"] == "click"
+    assert payload["surface_event"]["entity_key"] == "draft:alpha"
+    assert "private_" not in str(payload["surface_event"])
+
+
+def test_semantic_observations_serialize_type_alias_for_product_agent_context():
+    observation = RouteDeckSemanticObservation(
+        type="operation.accepted",
+        summary="Draft approval was accepted.",
+        entity_key="draft:alpha",
+        operation_id="draft.approve",
+        accepted=True,
+    )
+
+    payload = observation.model_dump(mode="json")
+    assert payload["type"] == "operation.accepted"
+    assert "observation_type" not in payload
 
 
 def test_projection_includes_peer_surfaces_and_navigation_state():

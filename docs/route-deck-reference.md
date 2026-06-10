@@ -308,6 +308,16 @@ Rules:
 - The current surface and the chat agent must converge on the same restored
   state. Anything reachable through a surface deeplink must also be reachable
   through chat if the same user and auth state allow it.
+- Convergence is observable behavior, not just schema parity. If public chat says
+  it opened, browsed, selected, compared, or changed a product surface, the
+  product must apply an accepted runtime dispatch, state event, or explicit
+  projection refresh so surfaces, URL path state, planning context, and debug
+  context agree. Assistant prose without a matching projection/runtime update is
+  drift.
+- That convergence must be session-consistent: conversation id, product agent
+  thread id, projection/session state, accepted dispatch or surface intent,
+  route/state stream events, debug/inspect context, and projection version refer
+  to the same product runtime session.
 
 ### Capability
 
@@ -430,6 +440,13 @@ prompt-ready summaries and entity-binding policy.
 Planning context is not a RouteDeck core schema. It is a product adapter layer
 that protects the product agent from guessing hidden ids while keeping private
 upstream identifiers out of ordinary chat text.
+
+Planning context is also the grounding boundary for public chat. Product facts
+that affect user decisions, such as names, prices, variants, colors, sizes,
+availability, cart contents, and current surface state, must come from current
+projection/planning context or a product tool result. If the product has not
+provided that context, the agent asks for the missing setup or says it cannot
+verify the fact yet.
 
 Example product-owned shape:
 

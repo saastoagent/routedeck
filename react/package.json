@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "React components and types for RouteDeck manifest debugging.",
+  "description": "React store, hooks, types, and debugger surfaces for RouteDeck agentic state contracts.",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",

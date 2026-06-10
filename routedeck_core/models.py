@@ -150,6 +150,7 @@ class RouteDeckSurfaceAffordance(BaseModel):
 class RouteDeckSurfaceInteractionEvent(BaseModel):
     surface_id: str
     affordance_id: str
+    event: str | None = None
     entity_key: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 

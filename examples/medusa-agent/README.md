@@ -1,8 +1,8 @@
-# Medusa Agent Slice 1
+# Medusa Agent
 
 This example is the first usable Medusa reference-app slice. It proves a normal
 app-owned commerce chat agent in the visual shell expected by the RouteDeck
-vision, without introducing RouteDeck runtime behavior yet.
+vision, with a small read-only RouteDeck projection grounding layer.
 
 ## Scope
 
@@ -11,18 +11,26 @@ Implemented scope includes:
 - FastAPI backend owned by this app.
 - React chat UI copied from the useful Foundation Agent shell pattern: avatar
   rows, timestamped bubbles, prompt chips, textarea composer, and thinking state.
-- Read-only Route Map and Inspector scaffolding that reflects path plus
-  `surface_id` query state while keeping chat as the only active behavior.
+- Product-owned read-only projection endpoint at
+  `GET /api/medusa-agent/projection`.
+- Projection-backed Route Map and Inspector that reflect product paths plus
+  optional `surface_id` query state while keeping chat as the only active
+  behavior.
 - True Server-Sent Events at `POST /api/medusa-agent/agent/stream`.
 - Minimal no-tool LangGraph commerce agent with default model `gpt-5-mini`.
 - Explicit error event when `OPENAI_API_KEY` is not configured.
 - Process-local conversation continuity with `conversation_id` mapped to
   `configurable.thread_id`.
+- Temporary debug context view backed by
+  `GET /api/medusa-agent/debug/context-thread`; this is a short-lived
+  commit-readiness aid that exposes the full prompt/context/message thread and
+  should be removed before the public example is treated as final.
 
-Slice 1 intentionally excludes:
+This usable slice intentionally excludes:
 
-- RouteDeck runtime, manifest, projection, action, inspect, route stream,
-  dispatch, diagnostics, product surface events, and writes.
+- Public `/api/routedeck/*` routes.
+- Product action, inspect, route stream, dispatch, full diagnostics panels,
+  product surface events, and writes.
 - Clickable navgraph behavior, product surface dispatch, add-to-cart controls,
   checkout, or Store API behavior.
 - Medusa Store API reads or writes.
@@ -111,6 +119,25 @@ npm run dev
 The frontend runs on `http://127.0.0.1:5198` and proxies
 `/api/medusa-agent/*` to the backend on `http://127.0.0.1:8098`.
 
+## Read-Only Projection
+
+The projection endpoint is product-owned:
+
+```text
+GET /api/medusa-agent/projection?path=/detail/t-shirt&surface_id=detail.product_detail
+```
+
+Canonical visible paths are product paths, not framework query routes:
+
+- `/`
+- `/browse`
+- `/detail/t-shirt`
+- `/cart`
+
+`surface_id` is optional query state for restoring the active surface. The path
+remains the canonical public location. The example must not expose `rd_node`,
+private Medusa IDs, operation payloads, or hidden dispatch state in the URL.
+
 ## Test
 
 Backend:
@@ -140,6 +167,6 @@ clarifying questions, and keeps product chat free of implementation details.
 
 ## Reset
 
-Slice 1 reset is process-local: restart the backend to clear conversation
-memory. No database, Medusa container, seeded catalog, payment provider, or admin
+Reset is process-local: restart the backend to clear conversation memory. No
+database, Medusa container, seeded catalog, payment provider, or admin
 credential is required.

@@ -4,15 +4,22 @@ from pathlib import Path
 from typing import Any
 
 from routedeck_core import (
+    RouteDeckActionSpec,
+    RouteDeckCapabilitySpec,
     RouteDeckDispatchInput,
     RouteDeckDispatchResult,
+    RouteDeckEdgeSpec,
     RouteDeckIntrospection,
+    RouteDeckManifest,
+    RouteDeckNodeSpec,
     RouteDeckOperation,
     RouteDeckProjection,
     RouteDeckRuntime,
     RouteDeckRuntimeState,
     RouteDeckSurfaceInteractionEvent,
     RouteDeckSurface,
+    build_dispatch_state_event,
+    build_projection,
 )
 
 
@@ -112,6 +119,135 @@ def test_dispatch_input_can_carry_surface_interaction_event_without_private_refs
     assert payload["operation_id"] is None
     assert payload["surface_event"]["entity_key"] == "variant:s-black"
     assert "variant_" not in str(payload["surface_event"])
+
+
+def test_build_projection_defaults_manifest_capabilities_and_empty_pools():
+    manifest = RouteDeckManifest(
+        version="runtime-helper",
+        nodes=[
+            RouteDeckNodeSpec(id="queue", label="Queue", lane="review", description="Review queue."),
+        ],
+        edges=[],
+        actions=[],
+        capabilities=[
+            RouteDeckCapabilitySpec(
+                capability_id="review.queue",
+                label="Review queue",
+                operation_ids=["review.open"],
+                entity_kinds=["draft"],
+                surface_ids=["review.queue"],
+            )
+        ],
+    )
+
+    projection = build_projection(manifest, current_node="queue")
+
+    assert [capability.capability_id for capability in projection.capabilities] == ["review.queue"]
+    assert projection.available_entities == []
+    assert projection.surface_affordances == []
+    assert projection.legal_operations == []
+
+
+def test_build_projection_derives_navgraph_from_manifest_nodes_and_edges():
+    manifest = RouteDeckManifest(
+        version="runtime-navgraph",
+        nodes=[
+            RouteDeckNodeSpec(
+                id="queue",
+                label="Queue",
+                lane="review",
+                description="Review queue.",
+                capability_id="review.queue",
+            ),
+            RouteDeckNodeSpec(
+                id="detail",
+                label="Detail",
+                lane="review",
+                description="Review detail.",
+                capability_id="review.detail",
+            ),
+        ],
+        edges=[
+            RouteDeckEdgeSpec(
+                from_stage="queue",
+                to_stage="detail",
+                type="action",
+                action_id="review.open",
+                capability_id="review.detail",
+            )
+        ],
+        actions=[RouteDeckActionSpec(id="review.open", label="Open review")],
+    )
+
+    projection = build_projection(manifest, current_node="queue")
+    payload = projection.model_dump(mode="json", by_alias=True)
+
+    assert payload["navgraph"]["current"]["node_id"] == "queue"
+    assert [node["id"] for node in payload["navgraph"]["nodes"]] == ["queue", "detail"]
+    assert payload["navgraph"]["nodes"][1]["capability_ids"] == ["review.detail"]
+    assert payload["navgraph"]["edges"] == [
+        {
+            "from": "queue",
+            "to": "detail",
+            "action_id": "review.open",
+            "capability_id": "review.detail",
+            "metadata": {},
+        }
+    ]
+    assert payload["navgraph"]["reachable"] == ["detail"]
+
+
+def test_build_projection_filters_blocked_operations_at_runtime_boundary():
+    manifest = RouteDeckManifest(
+        version="runtime-operations",
+        nodes=[
+            RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
+        ],
+        edges=[],
+        actions=[],
+    )
+
+    projection = build_projection(
+        manifest,
+        current_node="detail",
+        operations=[
+            RouteDeckOperation(id="draft.approve", label="Approve draft", execution_mode="auto"),
+            RouteDeckOperation(
+                id="draft.escalate",
+                label="Escalate draft",
+                execution_mode="blocked",
+                guard="Reviewer permission required",
+            ),
+        ],
+    )
+
+    assert [operation.id for operation in projection.legal_operations] == ["draft.approve"]
+
+
+def test_dispatch_state_events_include_runtime_state_projection_payload():
+    manifest = RouteDeckManifest(
+        version="runtime-event",
+        nodes=[
+            RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
+        ],
+        edges=[],
+        actions=[],
+    )
+    projection = build_projection(manifest, current_node="detail", projection_version=12)
+    state = RouteDeckRuntimeState(
+        projection=projection,
+        status="dispatching",
+        graph_state={"node": "detail"},
+    )
+
+    event = build_dispatch_state_event(operation_id="draft.approve", state=state)
+    payload = event.model_dump(mode="json", by_alias=True)
+
+    assert payload["event_type"] == "operation_completed"
+    assert payload["projection_version"] == 12
+    assert payload["payload"]["operation_id"] == "draft.approve"
+    assert payload["payload"]["state"]["projection"]["graph_node"] == "detail"
+    assert payload["payload"]["state"]["graph_state"] == {"node": "detail"}
 
 
 def test_runtime_protocol_describes_agentic_state_manager_shape():

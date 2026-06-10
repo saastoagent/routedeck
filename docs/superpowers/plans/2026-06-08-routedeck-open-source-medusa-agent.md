@@ -75,6 +75,22 @@ Medusa owns:
 - Product surfaces live in the chat/workbench stream for agent-centric Medusa. They are not navgraph controls and not detached debugger panels.
 - Product action chips attach to chat/workbench. They do not come from clickable navgraph nodes and do not render `legal_operations` wholesale.
 - Every semantic surface affordance must also be represented in product-agent planning context.
+- Once a product projection or surface is visible, chat requests that claim to
+  browse, open, select, compare, or otherwise change that surface must update the
+  same browser-visible projection through the same Medusa-owned runtime boundary
+  as the equivalent surface affordance. Assistant prose alone is not completion.
+- Public chat must answer product names, prices, variants, colors, sizes,
+  availability, cart contents, and current surface state only from projection,
+  planning context, or a product tool result. Model-only catalog facts are drift.
+- Read-only Medusa slices may still perform guarded read transitions, surface
+  changes, projection refreshes, and canonical path updates. Read-only forbids
+  product side effects, not runtime-accepted projection movement.
+- `conversation_id`, LangGraph `thread_id`, projection/session state, action
+  dispatch, route-stream events, debug/inspect context, and projection version
+  must refer to the same product session before a visible slice is called ready.
+- Dynamic chips must derive from current projection/planning context or an agent
+  proposal, refresh after projection changes, avoid current-node no-ops unless
+  intentionally labelled as refresh/reload, and remain chat-doable.
 - Product-agent SSE, RouteDeck state SSE, and diagnostics streams remain separate.
 - Diagnostics remain read-only and out of public chat.
 - `RouteDeckStore` mirrors runtime state only. It does not become graph truth.
@@ -132,8 +148,8 @@ Open-source docs and metadata:
 | M0 Baseline | Authority docs and dirty worktree understood. | Current messy example identified as reset target. | Status, focused tests, and drift scan captured. |
 | M1 Reset | Framework untouched except guard docs. | Runnable Medusa is Slice 1 chat only. | Slice 1 backend/frontend tests pass and no RouteDeck endpoints exist. |
 | M2 Framework Alpha | Core, LangGraph adapter, React store, docs, examples, and packaging pass release gates. | Medusa still chat-only. | Root pytest, React tests, package checks, doc coverage, and no product leaks. |
-| M3 Projection Proof | RouteDeck projection/state API contract is stable. | Medusa exposes product-owned projection/state without dispatch. | `/api/medusa-agent/projection` works and public UI still stays chat-first. |
-| M4 Surface Proof | Surface, affordance, entity, dispatch, stream, and store contracts are stable. | Medusa UI emits surface events and chat uses matching planning context. | UI click and chat request converge on one runtime boundary. |
+| M3 Projection Proof | RouteDeck projection/state API contract is stable. | Medusa exposes product-owned projection/state without dispatch. | `/api/medusa-agent/projection` works and public UI still stays chat-first; this is static orientation/projection proof, not a usable product-surface slice unless chat convergence is also proven. |
+| M4 Surface Proof | Surface, affordance, entity, dispatch, stream, and store contracts are stable. | Medusa UI emits surface events and chat uses matching planning context. | UI click and chat request converge on one runtime boundary, browser projection updates, URL path state agrees, and product facts are grounded. |
 | M5 Commerce Proof | RouteDeck stays product-neutral. | Medusa reads and writes only local/demo fixture data with reset. | Browse/detail/cart proof with no private ID leaks. |
 | M6 Public Alpha | Packages and docs are ready for open-source alpha. | Medusa proves adoption from packages. | Clean install smoke, docs, screenshots, tests, and release checklist pass. |
 
@@ -584,7 +600,7 @@ npm test
 
 Expected: navgraph and deeplink tests pass without operation dispatch.
 
-## Task 7: Add Surface Affordance Dispatch
+## Task 7: Add First Surface Affordance Dispatch
 
 **Files:**
 
@@ -599,12 +615,12 @@ Expected: navgraph and deeplink tests pass without operation dispatch.
 
 Tests must prove:
 
-- product card click emits `surface_event`
-- variant select emits `surface_event`
-- add-to-cart click emits `surface_event`
+- one read-only product card or browse/detail click emits `surface_event`
 - runtime resolves affordance, entity binding, required args, readiness, auth, and policy
 - unknown affordance, stale entity, unauthorized entity, and missing args reject or clarify
 - UI never sends private product, variant, cart, or line ids
+- variant selection and add-to-cart are intentionally out of scope here; they
+  belong to the later variant and first-write micro-slices.
 
 Run:
 
@@ -655,6 +671,10 @@ Expected: surface dispatch passes and navgraph remains read-only.
 - Modify `examples/medusa-agent/backend/services/graph_builder.py`
 - Modify `examples/medusa-agent/backend/tests/test_slice3_agent_tools.py`
 - Modify `examples/medusa-agent/backend/tests/test_slice1_chat.py`
+- Modify `examples/medusa-agent/frontend/src/App.tsx`
+- Modify `examples/medusa-agent/frontend/src/hooks/useSSEChat.ts`
+- Modify `examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts`
+- Modify `examples/medusa-agent/frontend/src/App.test.tsx`
 
 - [ ] **Step 1: Add planning-context tests**
 
@@ -667,6 +687,8 @@ Tests must prove planning context includes:
 - available and rendered entities
 - surface affordances
 - readiness and missing-arg metadata
+- prompt-ready rendered product facts when the assistant is allowed to answer
+  catalog/detail/cart questions
 
 Tests must prove planning context excludes:
 
@@ -700,7 +722,16 @@ Agent tools must:
 - request clarification for ambiguous entities
 - dispatch through the same runtime boundary as UI surface events
 - stream product-safe semantic observations
+- update the browser-visible projection through RouteDeck state event or
+  explicit projection refresh outside assistant prose
+- update canonical path state or projected deeplink path for read navigation,
+  such as `/browse` after "show products"
+- leave debug context showing the route context, planning context, accepted
+  operation or `surface_intent`, public entity binding, and latest projection
+  version
 - never call Store API directly from the LLM tool layer
+- never answer product facts that are absent from projection, planning context,
+  or product tool output
 
 - [ ] **Step 4: Run chat and tool validation**
 
@@ -711,7 +742,9 @@ cd examples/medusa-agent/backend
 python -m pytest tests/test_slice1_chat.py tests/test_slice3_agent_tools.py tests/test_slice3_routedeck_runtime.py -q
 ```
 
-Expected: chat and surface dispatch converge on one runtime boundary.
+Expected: chat and surface dispatch converge on one runtime boundary, browser
+projection updates, product facts are grounded, and assistant SSE remains
+separate from projection/runtime state.
 
 ## Task 9: Add Local/Demo Medusa Store API Commerce Proof
 
@@ -821,6 +854,12 @@ Diagnostics must not:
 - teach product agents hidden `route.*` operations
 
 ## Task 11: Minimal Generic Examples For Open Source
+
+2026-06-09 recalibration: Task 11 is deferred unless the user explicitly asks
+for separate product-neutral RouteDeck examples. Do not execute this task to
+satisfy a Medusa Agent visible slice. The current visible implementation lane is
+`examples/medusa-agent/`; a prior attempt to create `examples/minimal-*` demos
+was deleted because it drifted away from the Medusa Agent vision.
 
 **Files:**
 
@@ -941,6 +980,13 @@ With local/demo Medusa available:
 - navgraph selection changes inspector only
 - product card click emits surface event
 - chat request binds the same entity and dispatch boundary as the click
+- from `/`, "show products" changes the visible projection to browse through
+  runtime state or explicit projection refresh, not assistant prose alone
+- product detail/chat answers use only product facts present in projection,
+  planning context, or product tool output
+- debug view shows the full context thread, route context, accepted operation or
+  surface intent, and latest projection version while the slice is under
+  development
 - private ids do not appear in public UI or chat
 
 - [ ] **Step 5: Closeout**

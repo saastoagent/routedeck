@@ -16,11 +16,11 @@ streaming events, and debugger/authoring UI. RouteDeck can provide direct
 adapters for LangGraph, FastAPI, and React, but product behavior stays in the
 consuming application.
 
-For example, Corpus should import and use RouteDeck as SaaStoAgent's agentic app
-state layer. Corpus owns SaaStoAgent-specific conversation, setup behavior,
-surface copy, recovery wording, and public chat behavior. RouteDeck owns the
-generic state management contract that lets those product decisions travel from
-LangGraph/backend execution into React.
+Downstream applications import RouteDeck as their agentic app state layer. The
+product owns conversation behavior, domain APIs, surface copy, recovery wording,
+and public chat behavior. RouteDeck owns the generic state management contract
+that lets those product decisions travel from graph/backend execution into
+React.
 
 It is split into:
 
@@ -29,18 +29,20 @@ It is split into:
 - `react`: React store, hooks, debugger, and type contracts for frontend agentic state consumers.
 - `architecture`: code-referenced subsystem ownership, component contracts, and maintenance coverage.
 - `docs`: framework-level architecture and packaging notes.
-- `examples/minimal-langgraph-adapter`: minimal backend-only LangGraph adapter example.
-- `examples/minimal-fastapi-react`: minimal working example showing the full contract without SaaStoAgent product code.
+- `examples/medusa-agent`: active product reference example used to prove RouteDeck can power a real product agent without absorbing product behavior.
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
 - root context files: RouteDeck-local context, handoff, validation index, and lifecycle anchors populated from the sibling `context_architecture_bundle` starter.
 
 `docs/medusa-agent-reference-app.md` is the active source-of-truth spec for a
-future product-specific Medusa reference app. It documents the intended
-product-owned contract only; `examples/medusa-agent` is not implemented yet.
+product-specific Medusa reference app. `examples/medusa-agent` is the active
+runnable example and must stay chat-first while RouteDeck behavior is
+introduced underneath it in disciplined slices.
 `docs/propertydesk-reference-app.md` is retained only as superseded planning
 context.
 
-The framework is a sibling local package during development. SaaStoAgent consumes `routedeck-core`, `routedeck-langgraph`, and `@routedeck/react` from this folder instead of copying framework source into the SaaStoAgent project.
+The framework is a sibling local package during development. Downstream
+applications should consume `routedeck-core`, `routedeck-langgraph`, and
+`@routedeck/react` from this folder instead of copying framework source.
 
 ## LangGraph Adapter
 

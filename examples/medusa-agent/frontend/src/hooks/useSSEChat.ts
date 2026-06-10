@@ -17,6 +17,15 @@ export interface ParsedSSEEvent {
   data: Record<string, unknown>;
 }
 
+export interface RouteContextPayload {
+  path: string;
+  surface_id: string;
+}
+
+export interface UseSSEChatOptions {
+  onProjectionUpdate?: (payload: Record<string, unknown>) => void;
+}
+
 export function parseSSEFrames(
   chunk: string,
   existingBuffer: string,
@@ -48,7 +57,7 @@ export function parseSSEFrames(
   return { events, buffer };
 }
 
-export function useSSEChat() {
+export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -97,6 +106,11 @@ export function useSSEChat() {
         return;
       }
 
+      if (event === "projection_update") {
+        onProjectionUpdate?.(data);
+        return;
+      }
+
       if (event === "error") {
         const message =
           typeof data.message === "string"
@@ -112,7 +126,7 @@ export function useSSEChat() {
         finishStream();
       }
     },
-    [finishStream, updateAssistant],
+    [finishStream, onProjectionUpdate, updateAssistant],
   );
 
   const parseProgress = useCallback(
@@ -127,7 +141,7 @@ export function useSSEChat() {
   );
 
   const sendMessage = useCallback(
-    (message: string) => {
+    (message: string, routeContext?: RouteContextPayload) => {
       const trimmed = message.trim();
       if (!trimmed || isStreaming) return;
 
@@ -166,7 +180,13 @@ export function useSSEChat() {
         assistantContentRef.current = "Connection failed. Please try again.";
         finishStream();
       };
-      xhr.send(JSON.stringify({ message: trimmed, conversation_id: conversationId }));
+      xhr.send(
+        JSON.stringify({
+          message: trimmed,
+          conversation_id: conversationId,
+          ...(routeContext ? { route_context: routeContext } : {}),
+        }),
+      );
     },
     [conversationId, finishStream, isStreaming, parseProgress],
   );

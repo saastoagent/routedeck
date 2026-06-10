@@ -45,6 +45,50 @@ Each behavior contract has four parts:
 - Forbidden behavior: what must not exist yet.
 - Green evidence: the proof required before the slice can be called done.
 
+## Global Convergence And Grounding Gate
+
+This gate exists because a projected surface can look convincing while chat and
+RouteDeck state are still disconnected. No future Medusa slice may be described
+as "usable", "ready for testing", or "first usable slice" unless this gate is
+green for the behavior that slice exposes.
+
+Required for any visible product-surface slice:
+
+- Chat-to-projection convergence: a normal chat request that claims to browse,
+  open, select, compare, or otherwise change the visible product surface must
+  drive the same Medusa-owned RouteDeck runtime boundary as the matching surface
+  affordance. The browser-visible projection must change, or the assistant must
+  explicitly say the action is unavailable in the current slice.
+- Grounded product facts: public chat may mention product names, prices, colors,
+  sizes, availability, variants, cart contents, or current surface state only
+  when those facts are present in projection, planning context, or a product tool
+  result. Model-only catalog facts are a failing drift condition.
+- Read-only semantics: read-only means no cart, checkout, payment, shipping,
+  admin, fixture mutation, or irreversible side effect. It still allows guarded
+  read operations, surface changes, projection refreshes, and canonical path
+  updates accepted by the product runtime.
+- Stream separation: assistant text stays on the product-agent SSE stream.
+  Projection/runtime changes are carried by RouteDeck state events or an
+  explicit projection refresh outside assistant prose.
+- Shared session/thread: `conversation_id`, LangGraph `thread_id`,
+  projection/session state, surface dispatch, route-stream, debug/inspect
+  context, and projection version must refer to the same product session.
+- Dynamic chips: once a slice claims dynamic action chips, chips must derive from
+  current projection/planning context or an agent proposal, refresh after
+  projection changes, avoid current-node no-ops unless intentionally labelled as
+  refresh/reload, and every visible chip must be chat-doable.
+- URL state: graph location uses product paths such as `/browse` and
+  `/detail/t-shirt`. Query params are only optional surface/presentation replay
+  state, such as `surface_id`.
+- Debug visibility: the development debug view must show the current route
+  context, planning context, accepted surface intent or operation, public entity
+  binding, latest projection version, and full prompt/context while this slice is
+  being validated. It can be removed or hidden only in a later explicit slice.
+
+Before this gate is green, name the work honestly as "static projection proof",
+"read-only orientation proof", or "planning-context proof". Do not call it a
+usable agentic surface.
+
 ## Expected Behaviors By Micro-Slice
 
 ### M0.1: Capture Current RouteDeck State
@@ -321,6 +365,11 @@ Green evidence:
 
 ### M2.5: Product-Neutral Minimal Examples
 
+2026-06-09 recalibration: this slice is deferred unless the user explicitly
+asks for a separate product-neutral RouteDeck example. Do not execute M2.5 to
+satisfy a Medusa Agent visible-slice request. The active visible slice remains
+`examples/medusa-agent/`.
+
 Expected behavior:
 
 - RouteDeck has minimal examples that teach the framework without depending on Medusa.
@@ -519,18 +568,24 @@ Green evidence:
 - Planning-context tests prove parity with current surface capabilities.
 - Tests prove excluded fields stay absent.
 
-### M3.7: Chat Can Invoke One Read Operation Through Runtime
+### M3.7: Chat Can Invoke One Read Operation And Update Projection
 
 Expected behavior:
 
 - The product agent can use one approved read tool through RouteDeck runtime when the planning context says it is legal.
 - The chat path and click path converge on the same runtime boundary for that read behavior.
 - The streamed response remains natural assistant text with a product-safe semantic observation.
+- The browser-visible projection changes to the resulting product surface, such
+  as browse after "show products".
+- Product facts in the assistant response are grounded in projection, planning
+  context, or tool output.
 
 Public contract:
 
 - Agent tool uses planning context and dispatches through Medusa-owned RouteDeck runtime.
 - Product-agent SSE remains `POST /api/medusa-agent/agent/stream`.
+- Projection/runtime state is delivered by RouteDeck state event or explicit
+  projection refresh outside assistant prose.
 
 Forbidden behavior:
 
@@ -539,10 +594,14 @@ Forbidden behavior:
 - No command map.
 - No cart write.
 - No checkout.
+- No prose-only claim that a surface opened when projection did not change.
+- No product fact absent from projection, planning context, or tool output.
 
 Green evidence:
 
 - Agent-tool test proves the read operation goes through runtime dispatch.
+- Browser/frontend test proves the projected surface and path/deeplink state
+  update after the chat request.
 - Chat SSE tests still prove natural streaming and Slice 1 error behavior.
 - Fake-agent scan has no runtime hits.
 
@@ -1247,6 +1306,11 @@ Expected: package readiness smoke passes.
 
 ### Micro-Slice M2.5: Product-Neutral Minimal Examples
 
+2026-06-09 recalibration: do not execute this micro-slice during the current
+Medusa Agent implementation lane. The attempted `examples/minimal-*` demos were
+removed because they caused visible-slice drift. Resume here only after explicit
+user approval for generic RouteDeck examples.
+
 **Files:**
 
 - Create: `examples/minimal-langgraph-adapter/README.md`
@@ -1431,6 +1495,10 @@ Tests must prove:
 - projected browse/detail/cart surface shells render as product surfaces without fake behavior
 - surfaces are separate from navgraph and inspector
 - surface controls are disabled or absent until dispatch slice
+- the UI labels or documents this as a static projection/orientation proof, not
+  a usable agentic surface
+- chat requests are not claimed to have browsed or opened products unless the
+  projection actually changes
 
 - [ ] **Step 2: Run RED**
 
@@ -1550,7 +1618,12 @@ Tests must prove:
 - legal product operations are present
 - available/rendered entities are present
 - surface affordances are present
+- prompt-ready rendered product facts are present when the assistant is allowed
+  to answer product questions
+- valid `surface_options` are present for any surface the agent may open
 - hidden `route.*`, blocked operations, private ids, endpoint paths, diagnostics, and raw graph state are excluded
+- assistant-facing context cannot omit rendered surface state while still
+  allowing product factual answers
 
 - [ ] **Step 2: Run RED**
 
@@ -1566,6 +1639,8 @@ Expected: fail until planning context is built.
 - [ ] **Step 3: Implement planning context only**
 
 Do not add agent tools yet. The model prompt can read context, but no operation execution is added in this slice.
+If chat still cannot drive a runtime operation, this slice remains a
+planning-context proof only and must not be called usable.
 
 - [ ] **Step 4: Run GREEN**
 
@@ -1573,7 +1648,7 @@ Run the same command.
 
 Expected: planning context parity passes.
 
-### Micro-Slice M3.7: Chat Can Invoke One Read Operation Through Runtime
+### Micro-Slice M3.7: Chat Can Invoke One Read Operation And Update Projection
 
 **Files:**
 
@@ -1582,16 +1657,32 @@ Expected: planning context parity passes.
 - Modify: `examples/medusa-agent/backend/services/graph_builder.py`
 - Modify: `examples/medusa-agent/backend/tests/test_slice1_chat.py`
 - Modify: `examples/medusa-agent/backend/tests/test_slice3_agent_tools.py`
+- Modify: `examples/medusa-agent/frontend/src/App.tsx`
+- Modify: `examples/medusa-agent/frontend/src/hooks/useSSEChat.ts`
+- Modify: `examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts`
+- Modify: `examples/medusa-agent/frontend/src/App.test.tsx`
 
-- [ ] **Step 1: Add one chat-tool test**
+- [ ] **Step 1: Add one chat-to-projection story test**
 
 Test only one read operation such as browse products. Prove:
 
 - agent tool chooses from planning context
 - tool dispatches through runtime
 - result streams product-safe semantic observation
+- the browser-visible projection changes from home to browse for "show products"
+- the canonical browser path becomes `/browse` or the projection refresh carries
+  a `location.deeplink.path` of `/browse`
+- the projected product surface shows product data from projection/tool output
+- debug context shows the route context, planning context, accepted operation or
+  `surface_intent`, public entity binding when present, and latest projection
+  version
+- assistant text remains on product-agent SSE while projection/runtime state is
+  delivered by RouteDeck state events or an explicit projection refresh outside
+  assistant prose
 - no Store API direct call from tool layer
 - no phrase router or command map
+- no product fact appears in chat unless it exists in projection, planning
+  context, or tool output
 
 - [ ] **Step 2: Run RED**
 
@@ -1603,15 +1694,19 @@ python -m pytest tests/test_slice1_chat.py tests/test_slice3_agent_tools.py -q
 
 Expected: fail until one chat operation works through runtime.
 
-- [ ] **Step 3: Implement one chat read operation**
+- [ ] **Step 3: Implement one chat read operation and projection application**
 
-Do not add cart writes. Do not add checkout. Do not add admin.
+Do not add cart writes. Do not add checkout. Do not add admin. Do not carry
+projection updates as assistant prose. Use the product-owned runtime result plus
+RouteDeck state event or explicit projection refresh to update the visible
+surface.
 
 - [ ] **Step 4: Run GREEN**
 
 Run the same command.
 
-Expected: one chat read operation works and Slice 1 chat remains natural.
+Expected: one chat read operation works, the visible projection updates, product
+facts are grounded, and Slice 1 chat remains natural.
 
 ### Micro-Slice M3.8: Cart Add Is The First Write Operation
 
@@ -1667,6 +1762,9 @@ Tests must prove:
 - state stream emits projection/runtime events, not assistant prose
 - product-agent chat stream remains `POST /api/medusa-agent/agent/stream`
 - diagnostics are not in public chat
+- any transitional explicit projection refresh used in M3.7 is either preserved
+  as a documented fallback or replaced by named `projection_update` state events
+  without changing assistant SSE semantics
 
 - [ ] **Step 2: Run RED**
 
@@ -1769,6 +1867,22 @@ Expected: no framework product leaks, no fake-agent runtime hits, no disallowed 
 
 Smoke only the behavior reached by completed micro-slices. Do not claim checkout, payment, shipping, admin, Docker, or downloadable reference status unless those were implemented in explicit future micro-slices.
 
+For any completed visible product-surface slice, the manual smoke must include:
+
+- start at `/`
+- send "show products" in chat
+- verify the assistant streams text in real time
+- verify the visible projection changes to browse through runtime state, not
+  prose-only response text
+- verify the URL/path state is `/browse` or the projected deeplink path is
+  `/browse`
+- send a product-detail request such as "show me the Medusa T-Shirt" only if the
+  detail slice is complete
+- verify every product fact in chat is present in projection, planning context,
+  or tool output
+- verify the debug view shows the full context thread, route context, accepted
+  operation or surface intent, and latest projection version
+
 ## Commit Rule
 
 Commit after every green micro-slice when implementation begins. Commit messages should include the micro-slice id:
@@ -1800,4 +1914,6 @@ Risk controls:
 
 - The plan stops after M2 before Medusa reintroduction.
 - The first write operation is delayed until read projection, navgraph, surfaces, affordances, and planning context are proven.
+- The first visible usable surface is delayed until chat-to-projection
+  convergence and product-fact grounding are proven in browser behavior.
 - Diagnostics are last so they cannot become the product UI by accident.

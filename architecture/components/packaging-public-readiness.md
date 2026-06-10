@@ -20,9 +20,20 @@ and readiness to become a credible public alpha.
 - npm package `@routedeck/react`.
 - Public README and docs.
 
+## Current Alpha Policy
+
+- Python core can be installed locally with `python -m pip install -e .`.
+- The LangGraph adapter remains optional through `.[langgraph]`.
+- The React package intentionally exports source TypeScript during the local
+  alpha. A public npm release needs a build/declaration output policy first.
+- `react/package.json` keeps `private: true` until package contents,
+  declaration output, and notices are release-ready.
+- Framework packages must not include product-specific API defaults, product
+  labels, product ids, or product runtime dependencies.
+
 ## Dependent Flows
 
-- Local sibling consumption from SaaStoAgent.
+- Local sibling consumption from downstream product repositories.
 - Future PyPI/npm-style install.
 - Public repo export or subtree split.
 - CI/release automation.
@@ -31,6 +42,9 @@ and readiness to become a credible public alpha.
 
 - `python -m pytest tests -q`
 - `cd react && npm test`
+- `python -m pip install -e .`
+- `python -c "from routedeck_core import RouteDeckManifest, RouteDeckProjection; print(RouteDeckManifest.__name__, RouteDeckProjection.__name__)"`
+- `cd react && npm pack --dry-run`
 - packaging roadmap review
 
 ## Update Triggers
