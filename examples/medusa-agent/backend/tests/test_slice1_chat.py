@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -14,6 +15,8 @@ from fastapi.testclient import TestClient
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+
+from services.route_events import route_event_bus
 
 
 def _parse_sse(text: str) -> list[tuple[str, dict]]:
@@ -37,6 +40,44 @@ def _assistant_text(events: list[tuple[str, dict]]) -> str:
     return "".join(data["content"] for event, data in events if event == "message_delta")
 
 
+def _catalog_products():
+    from services.medusa_catalog import MedusaCatalogProduct
+
+    return (
+        MedusaCatalogProduct(
+            handle="t-shirt",
+            title="Medusa T-Shirt",
+            price="$48.00",
+            summary="Premium cotton tee with a relaxed fit.",
+            colors=("Natural", "Black", "Navy"),
+            sizes=("S", "M", "L"),
+            image_url="https://medusa.example/tee.png",
+            image_source="medusa_store_api",
+        ),
+        MedusaCatalogProduct(
+            handle="sweatshirt",
+            title="Medusa Sweatshirt",
+            price="$78.00",
+            summary="Soft fleece sweatshirt for everyday comfort.",
+            colors=("Olive", "Charcoal", "Black"),
+            sizes=("S", "M", "L"),
+            image_url="https://medusa.example/sweatshirt.png",
+            image_source="medusa_store_api",
+        ),
+    )
+
+
+def _fixture_projection(*, path: str = "/", surface_id: str | None = None, settings=None):
+    from services.routedeck_projection import build_medusa_projection
+
+    return build_medusa_projection(
+        path=path,
+        surface_id=surface_id,
+        catalog_products=_catalog_products(),
+        catalog_status={"ok": True, "source": "medusa_store_api", "count": 2},
+    )
+
+
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     from core import config as config_module
@@ -51,6 +92,7 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
 
     chat_service_module.chat_service.settings = config_module.Settings.from_env()
     chat_service_module.chat_service.graph = None
+    route_event_bus.clear()
 
     return TestClient(app)
 
@@ -102,7 +144,6 @@ def test_backend_route_surface_is_chat_only(client: TestClient):
         ("GET", "/api/medusa-agent/route-snapshot"),
         ("POST", "/api/medusa-agent/action"),
         ("POST", "/api/medusa-agent/inspect"),
-        ("GET", "/api/medusa-agent/route-stream"),
         ("GET", "/api/routedeck/anything"),
         ("POST", "/api/routedeck/anything"),
     ]
@@ -110,6 +151,72 @@ def test_backend_route_surface_is_chat_only(client: TestClient):
     for method, path in forbidden_routes:
         response = client.request(method, path, json={} if method == "POST" else None)
         assert response.status_code == 404, f"{method} {path} must not exist in Slice 1"
+
+
+def test_route_stream_replays_routedeck_projection_events_without_assistant_text(client: TestClient):
+    projection = _fixture_projection(
+        path="/browse",
+        surface_id="browse.product_list",
+    ).model_dump(mode="json", by_alias=True)
+
+    route_event_bus.publish(
+        "route-stream-contract",
+        {
+            "event_type": "projection_update",
+            "source": "test",
+            "accepted_intent": "browse_products",
+            "route_context": {"path": "/browse", "surface_id": "browse.product_list"},
+            "projection_version": 2,
+            "projection": projection,
+        },
+    )
+
+    with client.stream(
+        "GET",
+        "/api/medusa-agent/route-stream",
+        params={"conversation_id": "route-stream-contract", "replay_only": "true"},
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        first_chunk = next(response.iter_text())
+
+    assert "event: projection_update" in first_chunk
+    events = _parse_sse(first_chunk)
+    assert len(events) == 1
+    event_name, data = events[0]
+    assert event_name == "projection_update"
+    assert data["event_type"] == "projection_update"
+    assert data["source"] == "test"
+    assert data["accepted_intent"] == "browse_products"
+    assert data["route_context"] == {"path": "/browse", "surface_id": "browse.product_list"}
+    assert data["projection_version"] == 2
+    assert data["projection"]["graph_node"] == "browse"
+    assert data["projection"]["presentation_state"]["active_surface_id"] == "browse.product_list"
+    assert data["projection"]["navigation"]["current"]["surface_id"] == "browse.product_list"
+    assert len(data["projection"]["navgraph"]["nodes"]) == 4
+    assert len(data["projection"]["navgraph"]["edges"]) == 3
+    assert "message_delta" not in first_chunk
+
+
+@pytest.mark.asyncio
+async def test_route_event_bus_delivers_live_projection_events_after_subscription():
+    route_event_bus.clear()
+    event = {
+        "event_type": "projection_update",
+        "source": "test",
+        "accepted_intent": "browse_products",
+        "route_context": {"path": "/browse", "surface_id": "browse.product_list"},
+    }
+    stream = route_event_bus.stream("live-route-stream-contract")
+    next_event = asyncio.create_task(stream.__anext__())
+
+    await asyncio.sleep(0)
+    route_event_bus.publish("live-route-stream-contract", event)
+
+    try:
+        assert await asyncio.wait_for(next_event, timeout=1) == event
+    finally:
+        await stream.aclose()
 
 
 @pytest.mark.asyncio
@@ -158,7 +265,10 @@ async def test_graph_path_ignores_non_model_events_without_route_deck_frames(mon
 
     from core.config import Settings
     from services.chat_service import ChatService
+    from services import agent_tools as agent_tools_module
     from services.agent_tools import open_medusa_surface
+
+    monkeypatch.setattr(agent_tools_module, "build_runtime_medusa_projection", _fixture_projection)
 
     class FakeGraph:
         async def astream_events(self, _graph_input, config, version):
@@ -172,18 +282,21 @@ async def test_graph_path_ignores_non_model_events_without_route_deck_frames(mon
             yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Products ready.")}}
 
     service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
+    route_event_bus.clear()
 
     parsed = _parse_sse("".join([event async for event in service.stream("show products", conversation_id="thread-route")]))
 
     assert [event for event, _data in parsed] == [
         "stream_start",
         "agent_start",
-        "projection_update",
         "message_delta",
         "agent_end",
         "stream_end",
     ]
-    projection_update = parsed[2][1]
+    projection_events = route_event_bus.recent("thread-route")
+    assert len(projection_events) == 1
+    projection_update = projection_events[0]
+    assert projection_update["event_type"] == "projection_update"
     assert projection_update["source"] == "medusa_agent_tool"
     assert projection_update["accepted_intent"] == "browse_products"
     assert projection_update["route_context"] == {
@@ -213,6 +326,7 @@ async def test_chat_projection_is_limited_to_browse_read_operation(monkeypatch):
             }
 
     service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
+    route_event_bus.clear()
 
     parsed = _parse_sse(
         "".join(
@@ -276,11 +390,13 @@ def test_graph_builder_uses_async_concise_streaming_model_call():
     assert "Keep replies to" in source
 
 
-def test_open_surface_tool_returns_rendered_product_facts():
+def test_open_surface_tool_returns_rendered_product_facts(monkeypatch: pytest.MonkeyPatch):
     import json
 
+    from services import agent_tools as agent_tools_module
     from services.agent_tools import open_medusa_surface
 
+    monkeypatch.setattr(agent_tools_module, "build_runtime_medusa_projection", _fixture_projection)
     payload = json.loads(open_medusa_surface.invoke({"surface_id": "browse.product_list"}))
 
     assert payload["ok"] is True
@@ -294,6 +410,7 @@ def test_open_surface_tool_returns_rendered_product_facts():
     assert "Natural, Black, Navy" in payload["product_facts"]
     assert "$78.00" in payload["product_facts"]
     assert "Olive, Charcoal, Black" in payload["product_facts"]
+    assert "image_source: medusa_store_api" in payload["product_facts"]
 
 
 def test_graph_builder_prompt_keeps_current_slice_read_only():
@@ -365,6 +482,7 @@ async def test_debug_context_thread_records_system_prompt_context_history_and_as
             yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="answer.")}}
 
     service = ChatService(settings=Settings(openai_api_key="test-key"), graph=FakeGraph())
+    route_event_bus.clear()
 
     parsed = _parse_sse(
         "".join(
@@ -379,7 +497,8 @@ async def test_debug_context_thread_records_system_prompt_context_history_and_as
         )
     )
 
-    assert "projection_update" in [event for event, _data in parsed]
+    assert "projection_update" not in [event for event, _data in parsed]
+    assert route_event_bus.recent("debug-thread")[0]["event_type"] == "projection_update"
     assert _assistant_text(parsed) == "First answer."
     debug_context = service.debug_context_thread("debug-thread")
 
@@ -459,7 +578,7 @@ async def test_chat_service_reuses_process_local_graph_for_conversation_history(
     assert built_graphs[0].calls[1]["config"] == {"configurable": {"thread_id": "history-thread"}}
 
 
-def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
+def test_backend_runtime_source_has_no_product_write_or_route_deck_public_drift():
     runtime_paths = [
         BACKEND_ROOT / "main.py",
         BACKEND_ROOT / "app.py",
@@ -469,9 +588,9 @@ def test_slice1_backend_runtime_source_has_no_later_slice_imports_or_routes():
     ]
     forbidden = re.compile(
         r"routedeck_langgraph|MedusaRouteDeckRuntime|"
-        r"routedeck_provider|routedeck_prompt|medusa_store|commerce_state|"
-        r"/api/medusa-agent/(state|route-manifest|route-snapshot|action|inspect|route-stream)|"
-        r"/api/routedeck"
+        r"routedeck_provider|routedeck_prompt|commerce_state|"
+        r"/api/medusa-agent/(state|route-manifest|route-snapshot|action|inspect)|"
+        r"/api/routedeck|/admin/|/store/carts|/store/cart|/store/orders"
     )
 
     hits: list[str] = []

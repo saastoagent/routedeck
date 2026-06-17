@@ -6,7 +6,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from services.planning_context import build_planning_context
-from services.routedeck_projection import build_medusa_projection
+from services.routedeck_projection import build_runtime_medusa_projection
 
 
 BROWSE_PRODUCTS_SURFACE_ID = "browse.product_list"
@@ -26,14 +26,24 @@ def open_medusa_surface(surface_id: str) -> str:
             }
         )
 
-    projection = build_medusa_projection(path="/browse", surface_id=surface_id)
+    projection = build_runtime_medusa_projection(path="/browse", surface_id=surface_id)
     payload = projection.model_dump(mode="json", by_alias=True)
-    products = (
-        payload.get("surfaces", {})
-        .get("active", {})
-        .get("props", {})
-        .get("products", [])
-    )
+    active_props = payload.get("surfaces", {}).get("active", {}).get("props", {})
+    products = active_props.get("products", []) if isinstance(active_props, dict) else []
+    catalog_status = active_props.get("catalog_status", {}) if isinstance(active_props, dict) else {}
+
+    if not isinstance(products, list) or not products:
+        return json.dumps(
+            {
+                "ok": False,
+                "source": "medusa_agent_tool",
+                "error": "catalog_unavailable",
+                "message": _catalog_message(catalog_status),
+                "surface_intent": {"surface_id": surface_id},
+                "route_context": {"path": "/browse", "surface_id": surface_id},
+                "catalog_status": catalog_status,
+            }
+        )
 
     return json.dumps(
         {
@@ -45,6 +55,7 @@ def open_medusa_surface(surface_id: str) -> str:
             "route_context": {"path": "/browse", "surface_id": surface_id},
             "projection_version": payload.get("projection_version"),
             "observation": "Opened the read-only Medusa product browse surface with the current product facts.",
+            "catalog_status": catalog_status,
             "product_facts": _product_facts(products),
             "products": products,
         }
@@ -80,11 +91,12 @@ def projection_update_from_tool_output(
     if surface_id != BROWSE_PRODUCTS_SURFACE_ID:
         return None
 
-    projection = build_medusa_projection(path="/browse", surface_id=surface_id)
+    projection = build_runtime_medusa_projection(path="/browse", surface_id=surface_id)
     projection_payload = projection.model_dump(mode="json", by_alias=True)
     planning_context = build_planning_context(projection)
 
     return {
+        "event_type": "projection_update",
         "source": "medusa_agent_tool",
         "intent": "open_surface",
         "accepted_intent": "browse_products",
@@ -129,10 +141,19 @@ def _product_facts(products: Any) -> str:
         summary = _string(product.get("summary"))
         colors = ", ".join(_string_list(product.get("colors")))
         sizes = ", ".join(_string_list(product.get("sizes")))
+        image_source = _string(product.get("image_source"))
         rendered.append(
-            f"{title} - {price}; {summary}; colors: {colors}; sizes: {sizes}."
+            f"{title} - {price}; {summary}; colors: {colors}; sizes: {sizes}; image_source: {image_source}."
         )
     return " ".join(item for item in rendered if item.strip())
+
+
+def _catalog_message(catalog_status: Any) -> str:
+    if isinstance(catalog_status, dict):
+        message = catalog_status.get("message")
+        if isinstance(message, str) and message:
+            return message
+    return "The Medusa catalog is unavailable for read-only projection."
 
 
 def _string(value: Any) -> str:

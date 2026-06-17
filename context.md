@@ -1,152 +1,157 @@
 # RouteDeck Context
 
-Last updated: 2026-06-10
+Last updated: 2026-06-12
 
 ## Current State
 
-2026-06-09 recalibration: the next visible slice is Medusa Agent powered by
-RouteDeck, not a new product-neutral RouteDeck dashboard/demo. A prior
-product-neutral minimal FastAPI/React example was created in error and must be
-deleted before the Medusa slice is reported ready. Future RouteDeck/Medusa work
-must use subagents for reference extraction and drift review, then compare the
-browser behavior and code against `critical_prompt.md`,
-`docs/route-deck-reference.md`, the Medusa micro-slice plan, and
-`tests/test_anti_drift_boundaries.py` before claiming readiness.
+RouteDeck is being prepared as an open-source, product-neutral agentic UI
+framework. Medusa Agent is the product-owned reference example that proves the
+RouteDeck contract without moving commerce behavior into framework code.
 
-2026-06-10 gap audit: the visible Medusa shell exposed projection/surface
-scaffolding, but chat could still answer product requests without moving the
-projection or grounding product facts. Future slices must not call that state
-usable. Once a product projection or product surface is visible, chat requests
-such as "show products" or "show the t-shirt" must either drive the same
-product-owned RouteDeck runtime boundary and next projection as the matching
-surface affordance, or explicitly say that the action/fact is not available in
-the current slice.
+The current Medusa visible slice is now chat-first with read-only Store
+API-backed projection:
 
-The visible product example must stay inside `examples/medusa-agent/` unless
-the user explicitly asks for a separate product-neutral example. Medusa Agent
-is chat-first: Foundation Agent-style shell, real product-owned SSE assistant
-stream, assistant starter turn with action chips, RouteDeck underneath as
-projection/state/navgraph/capability/dispatch plumbing, and no separate
-RouteDeck dashboard replacing the product agent experience.
+- `POST /api/medusa-agent/agent/stream` carries assistant text only.
+- `GET /api/medusa-agent/route-stream` carries RouteDeck projection/state
+  updates for the same `conversation_id`.
+- `GET /api/medusa-agent/projection` returns product-owned RouteDeck projection
+  state for path plus optional `surface_id` query state.
+- Product catalog facts, prices, and product images come from read-only Medusa
+  Store API reads through `backend/services/medusa_catalog.py`.
+- If Medusa Store API config/read fails, the UI must show catalog unavailable;
+  it must not fabricate products or local product media.
+- Product cards render projected `image_url` with
+  `data-image-source="medusa_store_api"`.
+- Local brand art lives under `/medusa-brand/*`; `/medusa-products/*` is banned
+  from runtime frontend source.
+- The Route Map is a literal `@xyflow/react` graph and is read-only orientation.
+  Graph selection may focus the local inspector only; it must not dispatch,
+  navigate, mutate graph truth, or change the browser URL.
+- Prompt chips are chat prompts derived from projection presentation state.
+  They are not `legal_operations`, route operations, or product write commands.
+- Temporary debug context is still present through
+  `GET /api/medusa-agent/debug/context-thread`; it exposes system/planning/user
+  context for commit-readiness proof and should be removed before the public
+  example is final.
 
-RouteDeck has a locked framework reference at `docs/route-deck-reference.md`.
-That reference is the authority for framework language, ownership boundaries,
-navgraph semantics, capabilities, surfaces, entity binding, planning context,
-dispatch, diagnostics, events, and product boundaries.
+Fresh browser evidence from 2026-06-11/12 showed `/browse?surface_id=browse.product_list`
+rendering 4 Store API products: Medusa T-Shirt, Medusa Sweatshirt, Medusa
+Sweatpants, and Medusa Shorts. Product media used Medusa public S3 URLs, no
+`/medusa-products/*` DOM references existed, the graph retained 4 nodes and 3
+edges, and the composer stayed visible.
 
-The reference was expanded into a software-on-paper contract on 2026-06-06. It
-now explicitly covers product/API plane ownership, path-shaped deeplink codecs
-with query-owned surface/presentation state, product-agent SSE versus RouteDeck
-state streams, diagnostics streams, planning-context normalization, action-chip
-filtering, surface event resolution, dispatch semantics, schema field
-responsibilities, Corpus lessons adopted into RouteDeck, and the Medusa
-barebones reset.
+The 2026-06-10 gap audit remains active as a regression guard: assistant prose
+alone is not a state update, and public chat must not invent product facts. A
+normal chat request that shows products must either drive the same product-owned
+projection/runtime boundary as the visible surface or state that the fact/action
+is unavailable in the current slice. Every visible product slice still needs
+browser-proven chat-to-projection convergence before it can be called usable.
 
-`critical_prompt.md` now also carries compact guardrails for stream separation,
-diagnostics, and `RouteDeckStore`: product-agent SSE, RouteDeck state SSE, and
-diagnostics streams stay separate; diagnostics remain read-only and out of
-public chat; `RouteDeckStore` mirrors runtime state and never becomes graph
-truth.
+## Active Authorities
 
-The controlling strategic plan is
-`docs/superpowers/plans/2026-06-08-routedeck-open-source-medusa-agent.md`. It
-supersedes the older 2026-06-03 Medusa readiness plan wherever the older plan
-conflicts with the Medusa chat-only reset. It sequences RouteDeck open-source
-alpha completion and Medusa Agent rebuild as two locked lanes: RouteDeck gets
-framework/package hardening, while Medusa first resets to Slice 1 app-owned chat
-before RouteDeck behavior is reintroduced.
+Read these first next session:
 
-Implementation must execute from the micro-slice overlay at
-`docs/superpowers/plans/2026-06-08-routedeck-medusa-micro-slices.md`. The
-strategic plan explains the destination; the micro-slice overlay controls the
-order of edits, test gates, stop points, and anti-drift checks.
+1. `critical_prompt.md`
+2. `context.md`
+3. `context_checkpoints/context_checkpoint_12-06-2026-medusa-store-api-projection.md`
+4. `docs/route-deck-reference.md`
+5. `docs/medusa-agent-reference-app.md`
+6. `architecture/code-map.md`
+7. `test_index/README.md`
+8. `docs/superpowers/plans/2026-06-08-routedeck-medusa-micro-slices.md`
+9. `examples/medusa-agent/frontend/design-qa.md`
 
-The Medusa runnable example has now reached a transitional checkpoint: Slice 1
-chat-first shell plus read-only projection/orientation scaffolding. This is not
-pure Slice 1, because pure Slice 1 has no RouteDeck projection, Route Map,
-Inspector, or `surface_id`. It is also not a usable product-surface slice,
-because chat-to-projection convergence and product-fact grounding are not yet
-proven. The current checkpoint includes a Foundation Agent-inspired shell, true
-app-owned SSE, static starter prompt chips, read-only Route Map, read-only
-Inspector, URL-derived `surface_id`, and no Store API, product write, checkout,
-admin, or fake deterministic command-router behavior. See
-`context_checkpoints/context_checkpoint_09-06-2026-2-38PM.md`.
+The locked framework authority remains `docs/route-deck-reference.md`. The
+Medusa reference-app authority is `docs/medusa-agent-reference-app.md`, updated
+to require read-only Store API catalog/media reads and exclude Store API writes,
+cart writes, checkout, payment, shipping, admin, private Medusa IDs, `rd_node`
+canonical links, and RouteDeck-prefixed public routes.
 
-The context architecture is now bootstrapped at the RouteDeck root so future
-sessions can restart from local artifacts instead of chat history. This is a
-thin bootstrap, not a full population of all downstream contracts.
+## Active Boundaries
 
-## Active Work
+- RouteDeck core and React package stay product-neutral.
+- Medusa product behavior stays in `examples/medusa-agent`.
+- Product APIs stay under `/api/medusa-agent/*`; do not add public
+  `/api/routedeck/*` product behavior routes.
+- Chat SSE and RouteDeck state SSE stay separate.
+- Product facts in public chat must come from projection/planning context or a
+  product tool result. If unavailable, the assistant must say it cannot verify
+  the fact yet.
+- No deterministic phrase router, command table, fake catalog, hardcoded product
+  answers, local product images, cart mutation, checkout, payment, shipping,
+  admin, or write-capable Store API behavior.
+- Do not call a visible slice ready until browser behavior, source, docs, and
+  anti-drift tests have been compared against the reference and reviewed by a
+  subagent.
 
-- Keep `docs/route-deck-reference.md` stable unless the framework vision itself
-  changes.
-- Execute from `docs/superpowers/plans/2026-06-08-routedeck-medusa-micro-slices.md`
-  when coding. Use
-  `docs/superpowers/plans/2026-06-08-routedeck-open-source-medusa-agent.md` as
-  the strategic map, not as a big-slice implementation checklist.
-- Preserve the current Medusa transitional checkpoint as chat-first with
-  read-only projection/orientation scaffolding. Do not regress it to an empty
-  chat page, and do not jump ahead to dynamic chips, Store API reads/writes, cart
-  flows, or RouteDeck dispatch before the source-of-truth plumbing exists.
-- Do not call a projection/surface slice usable until chat-to-projection
-  convergence is proven in the browser: a normal chat request must update the
-  visible projected surface through an accepted runtime read operation, not just
-  return assistant prose.
-- Public chat must answer product names, prices, colors, sizes, availability,
-  and cart state only from projection/planning context or a product tool result.
-  If that context is missing, the assistant must ask for setup or say it cannot
-  verify the fact yet.
-- Align downstream code and docs to the reference in a later session.
-- Treat current core models, React store/types, and `examples/medusa-agent` as
-  implementation targets that can be changed to match the reference.
+## Changed Contract Since Previous Context
 
-## Deferred Downstream Alignment
+The old context said the Medusa checkpoint had no Store API and only static
+starter prompts. That is stale.
 
-Expected follow-up areas:
+Current contract:
 
-- `routedeck_core/models.py`: navgraph, capability, surface affordance, and
-  entity/planning-context compatible schema alignment.
-- `react/src/`: RouteDeckStore, types, hooks, and UI affordance handling aligned
-  to projection/navgraph/capability semantics.
-- `examples/medusa-agent/`: product-owned planning context, agent tools,
-  surface affordances, navgraph visibility, hidden route operation handling, and
-  chat-to-projection convergence for read-only product browse/detail requests.
-- Medusa dynamic chips: currently static starter prompts only; future chips must
-  come from product planning context or projected capabilities, not frontend-only
-  command lists.
-- `docs/`: derived docs and plans reconciled with the locked reference.
+- Store API reads are required for product catalog/media projection.
+- Store API writes remain excluded.
+- Route-stream is implemented and required for RouteDeck projection updates.
+- The read-only `open_medusa_surface` tool exists for browse projection.
+- Anti-drift tests now allow Store API wording but block `/medusa-products/*`
+  runtime source and stale product-specific fallbacks.
+
+## Context Architecture Closeout
+
+This context rewrite is paired with:
+
+- `logs/20260612_medusa_store_api_projection_closeout.md`
+- `context_checkpoints/context_checkpoint_12-06-2026-medusa-store-api-projection.md`
+- `context_history/20260612_context_before_medusa_store_api_projection_closeout.md`
+
+`architecture/code-map.md` was updated for the Medusa reference example row.
+`test_index/README.md` was updated with the Medusa focused validation suite.
+No ADR was added because this was a reference-app contract correction and
+slice closeout, not a new framework-wide decision beyond the updated reference
+docs and guards.
 
 ## Validation Snapshot
 
-Known recent validation for the reference guard:
+Fresh validation from the Store API projection slice:
 
 ```powershell
-cd agent-lab-powered-projects/routedeck
-python -m pytest tests/test_medusa_reference_slice0.py -q
+cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\backend"
+python -m pytest tests/test_medusa_catalog.py tests/test_slice1_chat.py tests/test_slice2_projection.py tests/test_slice3_projection_surfaces.py -q
 ```
 
-Expected recent result: `12 passed`.
-
-Known recent Medusa Slice 1 validation:
+Result: `27 passed`.
 
 ```powershell
-cd agent-lab-powered-projects/routedeck/examples/medusa-agent/frontend
-npm test
-
-cd ..\backend
-python -m pytest tests -q
+cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\frontend"
+npm test -- --run
 ```
 
-Expected recent results: frontend `9 passed`, backend `10 passed`.
+Result: `17 passed`.
 
-Run `python scripts/check_doc_coverage.py` before closeout when files are
-changed.
+```powershell
+cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck"
+python -m pytest tests/test_anti_drift_boundaries.py tests/test_medusa_reference_slice0.py -q
+```
 
-## Boundaries To Preserve
+Result: `24 passed`.
 
-- RouteDeck stays product-neutral.
-- Product agents and product runtimes stay product-owned.
-- Product APIs stay separate from generic `/api/routedeck/*` framework APIs.
-- No deterministic phrase routing as a substitute for planning context and
-  entity binding.
-- No full context population around stale downstream code before alignment.
+```powershell
+cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\frontend"
+npx vite build
+```
+
+Result: passed, with the known Node `22.9.0` warning because Vite prefers
+`20.19+` or `22.12+`.
+
+Run `python scripts/check_doc_coverage.py` before final closeout whenever docs
+or source files move.
+
+## Next Session
+
+Start by inspecting the dirty RouteDeck diff and the checkpoint above. The next
+practical step is to either commit/checkpoint this Store API-backed browse slice
+or plan the next visible Medusa slice from the micro-slice overlay. Do not start
+cart/write behavior next; keep the next slice read-only unless the reference
+and plan are explicitly updated first.

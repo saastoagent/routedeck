@@ -22,10 +22,6 @@ export interface RouteContextPayload {
   surface_id: string;
 }
 
-export interface UseSSEChatOptions {
-  onProjectionUpdate?: (payload: Record<string, unknown>) => void;
-}
-
 export function parseSSEFrames(
   chunk: string,
   existingBuffer: string,
@@ -57,7 +53,7 @@ export function parseSSEFrames(
   return { events, buffer };
 }
 
-export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
+export function useSSEChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -106,11 +102,6 @@ export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
         return;
       }
 
-      if (event === "projection_update") {
-        onProjectionUpdate?.(data);
-        return;
-      }
-
       if (event === "error") {
         const message =
           typeof data.message === "string"
@@ -126,7 +117,7 @@ export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
         finishStream();
       }
     },
-    [finishStream, onProjectionUpdate, updateAssistant],
+    [finishStream, updateAssistant],
   );
 
   const parseProgress = useCallback(
@@ -144,6 +135,7 @@ export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
     (message: string, routeContext?: RouteContextPayload) => {
       const trimmed = message.trim();
       if (!trimmed || isStreaming) return;
+      const nextConversationId = conversationId ?? crypto.randomUUID();
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -160,6 +152,7 @@ export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
       };
 
       setMessages((current) => [...current, userMessage, assistantMessage]);
+      setConversationId(nextConversationId);
       setIsStreaming(true);
       assistantContentRef.current = "";
       bufferRef.current = "";
@@ -183,7 +176,7 @@ export function useSSEChat({ onProjectionUpdate }: UseSSEChatOptions = {}) {
       xhr.send(
         JSON.stringify({
           message: trimmed,
-          conversation_id: conversationId,
+          conversation_id: nextConversationId,
           ...(routeContext ? { route_context: routeContext } : {}),
         }),
       );

@@ -70,6 +70,12 @@ Required for any visible product-surface slice:
 - Stream separation: assistant text stays on the product-agent SSE stream.
   Projection/runtime changes are carried by RouteDeck state events or an
   explicit projection refresh outside assistant prose.
+- Active state-stream contract after M3.7: `GET /api/medusa-agent/route-stream`
+  is the required product-owned RouteDeck state SSE for Medusa. Earlier
+  slice-zero language that forbids route-stream applies only before M3.7; it
+  must not be used to remove or bypass the state stream once projection updates
+  are chat-triggered. `POST /api/medusa-agent/agent/stream` must not emit
+  `projection_update`.
 - Shared session/thread: `conversation_id`, LangGraph `thread_id`,
   projection/session state, surface dispatch, route-stream, debug/inspect
   context, and projection version must refer to the same product session.
@@ -80,6 +86,10 @@ Required for any visible product-surface slice:
 - URL state: graph location uses product paths such as `/browse` and
   `/detail/t-shirt`. Query params are only optional surface/presentation replay
   state, such as `surface_id`.
+- Navgraph renderer: a visible navgraph is a literal node/edge graph. Use a
+  graph visualization library or dedicated graph renderer, expose nodes and
+  edges in tests, and keep node selection read-only unless a later slice
+  explicitly introduces graph navigation.
 - Debug visibility: the development debug view must show the current route
   context, planning context, accepted surface intent or operation, public entity
   binding, latest projection version, and full prompt/context while this slice is
@@ -123,7 +133,7 @@ Expected behavior:
 
 - The Medusa backend exposes a normal product-owned chat stream and nothing RouteDeck-shaped.
 - A caller can post a user message to the chat stream endpoint.
-- Any RouteDeck projection, action, inspect, route-stream, or `/api/routedeck/*` request receives 404.
+- Any RouteDeck projection, action, inspect, route-stream, or `/api/routedeck/*` request receives 404 in the M1.1 baseline only.
 
 Public contract:
 
@@ -136,7 +146,7 @@ Forbidden behavior:
 - No `GET /api/medusa-agent/projection`.
 - No `POST /api/medusa-agent/action`.
 - No `POST /api/medusa-agent/inspect`.
-- No `GET /api/medusa-agent/route-stream`.
+- No `GET /api/medusa-agent/route-stream` in the M1.1 baseline only. After M3.7, the state stream is required.
 - No public endpoint under `/api/routedeck/*`.
 
 Green evidence:
@@ -431,7 +441,7 @@ Forbidden behavior:
 
 - No `POST /api/medusa-agent/action`.
 - No `POST /api/medusa-agent/inspect`.
-- No `GET /api/medusa-agent/route-stream`.
+- No `GET /api/medusa-agent/route-stream` in the projection-only baseline only. After M3.7, the state stream is required.
 - No Store API write.
 - No private Medusa product, variant, cart, or line-item ids in public payloads.
 
@@ -445,6 +455,8 @@ Green evidence:
 Expected behavior:
 
 - The user can see where the agent/product session is and what locations are reachable.
+- The navgraph is shown as literal graph topology using a graph visualization
+  library or dedicated graph renderer, with visible nodes and edges.
 - Navgraph node selection changes only local inspector focus.
 - Browser URL represents product location through path segments, while query parameters hold optional surface or presentation state.
 
@@ -454,6 +466,8 @@ Public contract:
 - Query state may include `surface_id` or other presentation replay state.
 - The current node path is not encoded as `?rd_node=...` in canonical URLs.
 - Deeplinks use public handles or public entity keys only.
+- The visual graph renderer exposes node and edge semantics in DOM/test anchors
+  so tests can prove real topology is present.
 
 Forbidden behavior:
 
@@ -461,11 +475,15 @@ Forbidden behavior:
 - No navgraph click URL mutation.
 - No private ids in URLs.
 - No graph rendered as a command menu.
+- No custom faux graph made only from manually placed buttons and SVG lines when
+  a graph library is available.
 - No action chips attached to graph nodes.
 
 Green evidence:
 
 - Frontend tests prove read-only graph selection, URL codec behavior, and canonical path use.
+- Frontend tests prove a graph visualization library renders route nodes and
+  edges, while graph-node selection remains inspector-only.
 - Backend projection tests prove deeplink payloads are public and resumable only when authorized.
 
 ### M3.3: Product Surface Rendering Without Dispatch
@@ -584,8 +602,9 @@ Public contract:
 
 - Agent tool uses planning context and dispatches through Medusa-owned RouteDeck runtime.
 - Product-agent SSE remains `POST /api/medusa-agent/agent/stream`.
-- Projection/runtime state is delivered by RouteDeck state event or explicit
-  projection refresh outside assistant prose.
+- Projection/runtime state is delivered by RouteDeck state event frames on the
+  separate RouteDeck state stream. This implementation must not use the earlier
+  transitional chat-stream projection refresh.
 
 Forbidden behavior:
 
@@ -596,13 +615,17 @@ Forbidden behavior:
 - No checkout.
 - No prose-only claim that a surface opened when projection did not change.
 - No product fact absent from projection, planning context, or tool output.
+- No `projection_update` or other RouteDeck state event on
+  `POST /api/medusa-agent/agent/stream`.
 
 Green evidence:
 
 - Agent-tool test proves the read operation goes through runtime dispatch.
 - Browser/frontend test proves the projected surface and path/deeplink state
-  update after the chat request.
+  update after the chat request through `GET /api/medusa-agent/route-stream`.
 - Chat SSE tests still prove natural streaming and Slice 1 error behavior.
+- Chat SSE tests prove `message_delta` remains the only semantic success event
+  on the assistant stream.
 - Fake-agent scan has no runtime hits.
 
 ### M3.8: Cart Add Is The First Write Operation
@@ -645,6 +668,9 @@ Public contract:
 
 - `GET /api/medusa-agent/route-stream` emits SSE frames for RouteDeck events such as `projection_update`, `operation_started`, `operation_completed`, `graph_transition`, `guard_failure`, `surface_update`, or `runtime_status`.
 - RouteDeck state stream frames carry projection/runtime payloads, not assistant text.
+- The frontend subscribes to the RouteDeck state stream separately from the
+  product-agent chat stream. Chat turns can trigger RouteDeck state events, but
+  the browser applies those events from the state stream, not from chat SSE.
 
 Forbidden behavior:
 
@@ -823,7 +849,7 @@ No RouteDeck source changes are allowed in M1. The only goal is to make Medusa a
 - `GET /api/medusa-agent/projection` returns 404
 - `POST /api/medusa-agent/action` returns 404
 - `POST /api/medusa-agent/inspect` returns 404
-- `GET /api/medusa-agent/route-stream` returns 404
+- `GET /api/medusa-agent/route-stream` returns 404 during the M1.1 baseline only
 - `/api/routedeck/*` returns 404
 
 - [ ] **Step 2: Run RED**
@@ -1402,7 +1428,7 @@ Tests must prove:
 
 - `GET /api/medusa-agent/projection` returns RouteDeck-derived projection
 - `/api/routedeck/*` remains absent
-- no action/dispatch/inspect/route-stream endpoint exists yet
+- no action/dispatch/inspect/route-stream endpoint exists yet in this pre-M3.7 projection-only slice
 - projection contains no private Medusa ids
 - Slice 1 chat endpoint still passes
 
@@ -1419,7 +1445,7 @@ Expected: fail until projection endpoint is introduced.
 
 - [ ] **Step 3: Implement projection endpoint only**
 
-No dispatch. No inspector. No state stream. No cart writes. No Store API dependency unless projection explicitly blocks unavailable commerce.
+No dispatch. No inspector. No state stream in this pre-M3.7 projection-only slice. No cart writes. No Store API dependency unless projection explicitly blocks unavailable commerce.
 
 - [ ] **Step 4: Run GREEN**
 
@@ -1437,6 +1463,8 @@ Expected: Slice 1 chat and projection-only endpoint pass.
 
 - Modify: `examples/medusa-agent/backend/services/routedeck_manifest.py`
 - Modify: `examples/medusa-agent/backend/services/routedeck_runtime.py`
+- Modify: `examples/medusa-agent/frontend/package.json`
+- Modify: `examples/medusa-agent/frontend/package-lock.json`
 - Modify: `examples/medusa-agent/frontend/src/App.tsx`
 - Modify: `examples/medusa-agent/frontend/src/App.test.tsx`
 - Modify: `examples/medusa-agent/frontend/src/styles.css`
@@ -1445,6 +1473,9 @@ Expected: Slice 1 chat and projection-only endpoint pass.
 
 Tests must prove:
 
+- the navgraph is rendered through a graph visualization library or dedicated
+  graph renderer, not a hand-rolled SVG/button map
+- graph edges are visible as graph edges and have stable test anchors
 - graph nodes render as read-only inspection controls
 - graph selection does not call dispatch
 - graph selection does not change browser URL
@@ -1465,7 +1496,9 @@ Expected: fail until read-only navgraph UI and URL codec exist.
 
 - [ ] **Step 3: Implement read-only navgraph and path codec**
 
-Do not add dispatch. Do not add product cards unless needed as static projected surface content. Do not add cart writes.
+Use the selected graph visualization library for the visible topology. Do not
+add dispatch. Do not add product cards unless needed as static projected surface
+content. Do not add cart writes.
 
 - [ ] **Step 4: Run GREEN**
 
@@ -1654,6 +1687,7 @@ Expected: planning context parity passes.
 
 - Modify: `examples/medusa-agent/backend/services/agent_tools.py`
 - Modify: `examples/medusa-agent/backend/services/chat_service.py`
+- Modify: `examples/medusa-agent/backend/services/route_events.py`
 - Modify: `examples/medusa-agent/backend/services/graph_builder.py`
 - Modify: `examples/medusa-agent/backend/tests/test_slice1_chat.py`
 - Modify: `examples/medusa-agent/backend/tests/test_slice3_agent_tools.py`
@@ -1677,8 +1711,8 @@ Test only one read operation such as browse products. Prove:
   `surface_intent`, public entity binding when present, and latest projection
   version
 - assistant text remains on product-agent SSE while projection/runtime state is
-  delivered by RouteDeck state events or an explicit projection refresh outside
-  assistant prose
+  delivered by `GET /api/medusa-agent/route-stream`
+- product-agent chat SSE does not emit `projection_update`
 - no Store API direct call from tool layer
 - no phrase router or command map
 - no product fact appears in chat unless it exists in projection, planning
@@ -1697,9 +1731,9 @@ Expected: fail until one chat operation works through runtime.
 - [ ] **Step 3: Implement one chat read operation and projection application**
 
 Do not add cart writes. Do not add checkout. Do not add admin. Do not carry
-projection updates as assistant prose. Use the product-owned runtime result plus
-RouteDeck state event or explicit projection refresh to update the visible
-surface.
+projection updates as assistant prose or as chat-stream events. Use the
+product-owned runtime result plus `GET /api/medusa-agent/route-stream` to update
+the visible surface.
 
 - [ ] **Step 4: Run GREEN**
 
@@ -1751,7 +1785,9 @@ Expected: cart add works and no private ids leak.
 
 - Modify: `examples/medusa-agent/backend/routes/routedeck.py`
 - Modify: `examples/medusa-agent/backend/services/routedeck_runtime.py`
+- Modify: `examples/medusa-agent/backend/services/route_events.py`
 - Modify: `examples/medusa-agent/backend/tests/test_slice2_routedeck.py`
+- Modify: `examples/medusa-agent/frontend/src/hooks/useRouteDeckEvents.ts`
 - Modify: `examples/medusa-agent/frontend/src/App.test.tsx`
 
 - [ ] **Step 1: Add state-stream separation tests**
@@ -1761,10 +1797,13 @@ Tests must prove:
 - `GET /api/medusa-agent/route-stream` emits RouteDeck event frames
 - state stream emits projection/runtime events, not assistant prose
 - product-agent chat stream remains `POST /api/medusa-agent/agent/stream`
+- product-agent chat stream does not emit `projection_update`
+- frontend subscribes to route stream and applies `projection_update` from there
 - diagnostics are not in public chat
 - any transitional explicit projection refresh used in M3.7 is either preserved
   as a documented fallback or replaced by named `projection_update` state events
-  without changing assistant SSE semantics
+  without changing assistant SSE semantics; for the current Medusa example,
+  replace it now instead of preserving the fallback
 
 - [ ] **Step 2: Run RED**
 

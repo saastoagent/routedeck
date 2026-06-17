@@ -38,8 +38,14 @@ export interface ProjectionUpdatePayload {
   surface_intent?: {
     surface_id?: string;
   };
+  payload?: {
+    projection?: unknown;
+    state?: {
+      projection?: unknown;
+    };
+  };
   projection_version?: number;
-  projection?: RouteDeckProjection;
+  projection?: unknown;
 }
 
 export interface RouteDeckSurface {
@@ -126,10 +132,12 @@ export function useRouteDeckProjection() {
   }, []);
 
   const applyProjectionUpdate = (update: ProjectionUpdatePayload) => {
-    if (!update.projection) return;
-    setProjection(update.projection);
+    const nextProjection = projectionFromUpdate(update);
+    if (!isRenderableProjection(nextProjection)) return;
+
+    setProjection(nextProjection);
     setError(null);
-    updateBrowserLocation(update);
+    updateBrowserLocation(update, nextProjection);
   };
 
   return { projection, error, applyProjectionUpdate };
@@ -151,17 +159,40 @@ function projectionEndpointFromLocation(): string {
   return `/api/medusa-agent/projection?${params.toString()}`;
 }
 
-function updateBrowserLocation(update: ProjectionUpdatePayload) {
+function projectionFromUpdate(update: ProjectionUpdatePayload): unknown {
+  return update.projection || update.payload?.projection || update.payload?.state?.projection;
+}
+
+function isRenderableProjection(value: unknown): value is RouteDeckProjection {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.graph_node === "string" &&
+    Array.isArray(value.legal_operations) &&
+    isRecord(value.surfaces) &&
+    isRecord(value.presentation_state) &&
+    isRecord(value.navigation) &&
+    isRecord(value.navigation.current) &&
+    Array.isArray(value.available_entities) &&
+    Array.isArray(value.surface_affordances)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function updateBrowserLocation(update: ProjectionUpdatePayload, projection: RouteDeckProjection) {
   if (typeof window === "undefined") return;
 
   const path =
     update.route_context?.path ||
-    pathOnly(update.projection?.navigation?.current?.deeplink?.url || "") ||
+    pathOnly(projection.navigation?.current?.deeplink?.url || "") ||
     "/";
   const surfaceId =
     update.route_context?.surface_id ||
     update.surface_intent?.surface_id ||
-    update.projection?.navigation?.current?.surface_id ||
+    projection.navigation?.current?.surface_id ||
     "";
   const currentPath = window.location.pathname || "/";
   const currentSurfaceId = new URLSearchParams(window.location.search).get("surface_id") || "";

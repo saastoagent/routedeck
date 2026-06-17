@@ -48,12 +48,17 @@ Visible Surface Usability Gate below is green:
 - Product-owned canonical paths: `/`, `/browse`, `/detail/t-shirt`, and
   `/cart`. Optional `surface_id` query state may restore the active surface, but
   the path remains the canonical public location.
+- Product-owned `GET /api/medusa-agent/route-stream` carries RouteDeck state
+  events such as `projection_update` for the same `conversation_id` as the
+  product chat stream.
+- Read-only projected product surfaces may appear inside the chat/workbench
+  stream when they are grounded by projection and planning context.
 
-The current target still excludes action dispatch, inspect routes, route-stream,
-action chips derived from RouteDeck legal operations, commerce product
-surfaces, Medusa Store API reads, cart writes, checkout, payment, shipping,
-admin, diagnostics panels, private Medusa IDs, `rd_node` canonical links, and
-RouteDeck-prefixed public routes.
+The current target requires read-only Medusa Store API catalog/media reads for
+product facts, prices, and images. It still excludes action dispatch, inspect
+routes, action chips derived from RouteDeck legal operations, Store API writes,
+cart writes, checkout, payment, shipping, admin, private Medusa IDs, `rd_node`
+canonical links, and RouteDeck-prefixed public routes.
 
 Future slices remain design contracts until explicitly implemented by a bounded
 slice. They do not authorize the runnable example to jump ahead of the current
@@ -234,8 +239,8 @@ File layout:
   the stripped `foundation-agent` event pattern.
 - `examples/medusa-agent/backend/routes/chat.py`: `text/event-stream` endpoint
   for `POST /api/medusa-agent/agent/stream`.
-- `examples/medusa-agent/backend/services/graph_builder.py`: minimal no-tool
-  LangGraph commerce agent builder.
+- `examples/medusa-agent/backend/services/graph_builder.py`: minimal LangGraph
+  commerce agent builder with the read-only `open_medusa_surface` tool.
 - `examples/medusa-agent/backend/services/chat_service.py`: app-owned stream
   orchestration with OpenAI execution and explicit missing-key errors.
 - `examples/medusa-agent/backend/requirements.txt`: exact latest-stable
@@ -336,11 +341,13 @@ Purpose: connect local/demo Medusa readiness and introduce RouteDeck through
 explicit product-owned projection, navgraph, and path-state endpoints. Slice 2
 does not execute action dispatch.
 
-Current implemented subset: M3.1/M3.2 introduces only product-owned
-`GET /api/medusa-agent/projection` and projection-backed read-only Route
-Map/Inspector behavior. It does not introduce local/demo Medusa data access,
-state/action/inspect/route-stream endpoints, action chips, dispatch, product
-surfaces, Store API calls, cart writes, or setup readiness UI.
+Current implemented subset: M3.1/M3.2/M3.7/M3.9 introduces product-owned
+`GET /api/medusa-agent/projection`, read-only Medusa Store API catalog/media
+projection, projection-backed read-only Route Map/Inspector behavior,
+product-owned `GET /api/medusa-agent/route-stream`, and chat-triggered
+projection updates to read-only product surfaces. It does not introduce
+state/action/inspect endpoints, action chips derived from RouteDeck legal
+operations, dispatch, Store API writes, cart writes, or setup readiness UI.
 
 Implementation plan:
 `docs/superpowers/plans/2026-06-02-medusa-agent-slice2.md`.
@@ -351,9 +358,11 @@ Expected API split:
 - RouteDeck-derived manifest/projection/snapshot payloads are served under
   `/api/medusa-agent/*` only when the micro-slice explicitly introduces them.
 - `/api/routedeck/*` must not exist in the Medusa example app.
-- `POST /api/medusa-agent/action`, inspect routes, route-stream routes, and
-  operation execution belong to later explicit micro-slices. They are not part
-  of the projection/navgraph/URL checkpoint.
+- `GET /api/medusa-agent/route-stream` belongs to the current product-owned
+  state-stream checkpoint.
+- `POST /api/medusa-agent/action`, inspect routes, and operation execution
+  belong to later explicit micro-slices. They are not part of the current
+  read-only projection/navgraph/URL/state-stream checkpoint.
 
 Done when:
 

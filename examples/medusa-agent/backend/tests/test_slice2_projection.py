@@ -29,7 +29,6 @@ def test_projection_endpoint_is_product_owned_and_read_only() -> None:
 
     assert client.post("/api/medusa-agent/action", json={}).status_code == 404
     assert client.post("/api/medusa-agent/inspect", json={}).status_code == 404
-    assert client.get("/api/medusa-agent/route-stream").status_code == 404
     assert client.get("/api/routedeck/projection").status_code == 404
 
 

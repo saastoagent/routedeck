@@ -405,7 +405,9 @@ def test_slice1_plan_document_is_linked_and_decision_complete():
     assert "stream_events" in plan
     assert "InMemorySaver" in plan
     assert "configurable.thread_id" in plan
-    assert "No RouteDeck runtime, manifest, projection, dispatch, inspect, or RouteDeck stream API is introduced in Slice 1." in plan
+    assert "Active state-stream contract after M3.7: `GET /api/medusa-agent/route-stream`" in plan
+    assert "`POST /api/medusa-agent/agent/stream` must not emit `projection_update`" in plan
+    assert "Navgraph renderer: a visible navgraph is a literal node/edge graph." in plan
     assert "examples/medusa-agent/backend/app.py" in plan
     assert "examples/medusa-agent/frontend/src/App.tsx" in plan
     assert "python -m pytest examples/medusa-agent/backend/tests -q" in plan
@@ -421,7 +423,7 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
         PRODUCT_SPECIFIC_ROUTEDECK_ROUTE,
         re.compile(r"@routedeck/react", re.I),
         re.compile(r"@medusajs/", re.I),
-        re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|action|inspect|route-stream)", re.I),
+        re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|action|inspect)", re.I),
         re.compile(r"\bsurface_event\b", re.I),
         re.compile(r"\boperation_id\b", re.I),
         re.compile(r"\bcatalog\.(?:list|open)\b", re.I),
@@ -455,17 +457,19 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
     implementation_text = "\n".join(production_chunks)
     assert "/api/medusa-agent/agent/stream" in implementation_text
     assert "/api/medusa-agent/projection" in implementation_text
+    assert "/api/medusa-agent/route-stream" in implementation_text
     assert "text/event-stream" in implementation_text
     assert "configurable" in implementation_text
     assert "thread_id" in implementation_text
     assert "/api/routedeck" not in implementation_text.lower()
 
     public_text = _combined_text(
-        "examples/medusa-agent/frontend/src/App.tsx",
-        "examples/medusa-agent/frontend/src/hooks/useSSEChat.ts",
-        "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
-        "examples/medusa-agent/frontend/src/styles.css",
-    ).lower()
+            "examples/medusa-agent/frontend/src/App.tsx",
+            "examples/medusa-agent/frontend/src/hooks/useSSEChat.ts",
+            "examples/medusa-agent/frontend/src/hooks/useRouteDeckEvents.ts",
+            "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
+            "examples/medusa-agent/frontend/src/styles.css",
+        ).lower()
     for required in [
         "route map",
         "inspector",
@@ -473,13 +477,14 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
         "surface_id",
         "start with normal shopping chat",
         "/api/medusa-agent/projection",
+        "/api/medusa-agent/route-stream",
+        "@xyflow/react",
     ]:
         assert required in public_text
 
     for banned in [
         "surface_event",
         "operation_id",
-        "store api",
         "/api/medusa-agent/action",
         "/api/routedeck",
         "checkout",

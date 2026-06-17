@@ -37,11 +37,14 @@ def test_medusa_frontend_uses_product_owned_read_only_projection() -> None:
     text = _all_text(
         [
             "examples/medusa-agent/frontend/src/App.tsx",
+            "examples/medusa-agent/frontend/src/hooks/useRouteDeckEvents.ts",
             "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
         ]
     )
 
     assert "/api/medusa-agent/projection" in text
+    assert "/api/medusa-agent/route-stream" in text
+    assert "@xyflow/react" in text
     assert 'data-testid="medusa-agent-workspace"' in text
     assert '"medusa-starter-message"' in text
     assert '"medusa-projected-surface"' in text
@@ -50,6 +53,8 @@ def test_medusa_frontend_uses_product_owned_read_only_projection() -> None:
     assert "setSelectedNodeId" in text
     assert "window.location.pathname" in text
     assert "surface_id" in text
+    assert 'url: "/detail/t-shirt"' not in text
+    assert '"/medusa-products/' not in text
 
     forbidden = [
         "surface_event",
@@ -59,9 +64,7 @@ def test_medusa_frontend_uses_product_owned_read_only_projection() -> None:
         "/api/routedeck",
         "/api/medusa-agent/action",
         "/api/medusa-agent/inspect",
-        "/api/medusa-agent/route-stream",
         "@medusajs",
-        "Store API",
         "add to cart",
         "checkout",
         "admin",
@@ -77,6 +80,9 @@ def test_medusa_navgraph_is_read_only_and_home_centered() -> None:
     assert "route-edge-home-browse" in route_map_source
     assert "route-edge-browse-detail" in route_map_source
     assert "route-edge-detail-cart" in route_map_source
+    assert "ReactFlow" in route_map_source
+    assert "data-graph-library=\"@xyflow/react\"" in route_map_source
+    assert "<svg" not in route_map_source
     assert "<a " not in route_map_source
     assert "href=" not in route_map_source
     assert "window.location" not in route_map_source
@@ -141,6 +147,8 @@ def test_reference_docs_block_surface_navgraph_chip_drift() -> None:
     assert "Same-node operations are not ordinary next-action chips" in medusa
     assert "first visible Medusa agent state is an assistant chat turn" in medusa
     assert "Medusa product surface is embedded in the chat stream" in medusa
+    assert "`GET /api/medusa-agent/route-stream` belongs to the current product-owned" in medusa
+    assert "route-stream,\naction chips derived" not in medusa
     assert "Product cards, home CTAs, variant buttons, and cart buttons emit" in normalized_medusa
     assert "the canonical visible deeplinks follow the Corpus path-owned codec pattern" in medusa
     assert "merging product surfaces with navgraph/inspector UI" in usage
@@ -194,7 +202,8 @@ def test_medusa_projected_surfaces_are_embedded_and_read_only() -> None:
 def test_medusa_runtime_keeps_private_refs_out_of_public_surface_props() -> None:
     runtime_text = _read("examples/medusa-agent/backend/services/routedeck_projection.py")
 
-    assert 'DEFAULT_PRODUCT_HANDLE = "t-shirt"' in runtime_text
+    assert "DEFAULT_PRODUCT_HANDLE" not in runtime_text
+    assert 'or DEFAULT_PRODUCT_HANDLE' not in runtime_text
     assert '"product_handle": location.product_handle' in runtime_text
     for forbidden in [
         "product_ref",

@@ -15,14 +15,14 @@ from core.protocol import (
     chunk_text,
     error,
     message_delta,
-    projection_update,
     stream_end,
     stream_start,
 )
 from services.graph_builder import COMMERCE_SYSTEM_PROMPT
 from services.agent_tools import projection_update_from_tool_output
 from services.planning_context import build_planning_context, planning_context_message
-from services.routedeck_projection import build_medusa_projection
+from services.route_events import route_event_bus
+from services.routedeck_projection import build_runtime_medusa_projection
 
 
 logger = logging.getLogger(__name__)
@@ -76,9 +76,7 @@ class ChatService:
                     conversation_id,
                     route_context,
                 ):
-                    if item["event"] == "projection_update":
-                        yield projection_update(item["payload"])
-                    elif item["event"] == "message_delta":
+                    if item["event"] == "message_delta":
                         yield message_delta(item["content"])
         except TimeoutError:
             yield error("The shopping assistant took too long to respond. Please try again.", "timeout")
@@ -110,7 +108,7 @@ class ChatService:
             self.graph = graph
 
         config = {"configurable": {"thread_id": conversation_id}}
-        messages = _agent_messages(message, route_context)
+        messages = _agent_messages(message, route_context, self.settings)
         self._record_debug_turn_start(
             conversation_id,
             messages,
@@ -132,7 +130,7 @@ class ChatService:
                     )
                     if next_projection_update:
                         self._record_debug_projection_update(conversation_id, next_projection_update)
-                        yield {"event": "projection_update", "payload": next_projection_update}
+                        route_event_bus.publish(conversation_id, next_projection_update)
                     continue
 
                 if event_name != "on_chat_model_stream":
@@ -219,12 +217,17 @@ class ChatService:
 chat_service = ChatService()
 
 
-def _agent_messages(message: str, route_context: dict[str, Any] | None) -> list[SystemMessage | HumanMessage]:
+def _agent_messages(
+    message: str,
+    route_context: dict[str, Any] | None,
+    settings: Settings,
+) -> list[SystemMessage | HumanMessage]:
     messages: list[SystemMessage | HumanMessage] = []
     if route_context:
-        projection = build_medusa_projection(
+        projection = build_runtime_medusa_projection(
             path=_string_value(route_context.get("path"), "/"),
             surface_id=_optional_string_value(route_context.get("surface_id")),
+            settings=settings,
         )
         context = build_planning_context(projection)
         messages.append(SystemMessage(content=planning_context_message(context)))

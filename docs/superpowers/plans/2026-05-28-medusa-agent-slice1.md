@@ -6,6 +6,17 @@
 
 **Architecture:** Slice 1 is an app-owned FastAPI backend plus a small React chat UI. The backend owns the Medusa commerce-chat agent, exposes `POST /api/medusa-agent/agent/stream`, streams true Server-Sent Events with `text/event-stream`, and runs a minimal LangGraph agent using OpenAI through LangChain. The default model is `gpt-5-mini`. Tests must not require a live OpenAI key; mocked execution is required for local validation. No fallback assistant behavior is allowed.
 
+**Current RouteDeck Correction (post-M3.7):** This document is the historical
+Slice 1 baseline. The active execution contract is now governed by
+`docs/superpowers/plans/2026-06-08-routedeck-medusa-micro-slices.md`.
+Active state-stream contract after M3.7: `GET /api/medusa-agent/route-stream`
+is the product-owned RouteDeck state SSE for Medusa.
+`POST /api/medusa-agent/agent/stream` must not emit `projection_update`.
+Navgraph renderer: a visible navgraph is a literal node/edge graph.
+Use a graph visualization library or dedicated graph renderer;
+hand-positioned buttons with decorative lines are not sufficient once a slice
+claims navgraph UI.
+
 **Foundation-Agent Basis:** Reuse the proven shape, not the full app:
 
 - Keep the true SSE event helper pattern from `agent-lab-powered-projects/foundation-agent/backend/core/protocol.py`.

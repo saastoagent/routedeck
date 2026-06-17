@@ -39,6 +39,9 @@ copy, LLM calls, semantic observations, and side effects.
 - Visual navgraph surfaces are read-only orientation/inspection UI. Selecting a
   graph node may only change local inspection focus; it must not dispatch,
   navigate, mutate graph state, or change the browser URL.
+- A visible navgraph must be rendered as literal graph topology with a graph
+  visualization library or dedicated graph renderer. Hand-positioned buttons
+  with decorative lines are not sufficient once a slice claims navgraph UI.
 - Product action chips come from product-curated projected capabilities,
   operations, affordances, or agent proposals. They do not come from clickable
   navgraph nodes.
@@ -82,6 +85,10 @@ copy, LLM calls, semantic observations, and side effects.
 - Product-agent SSE, RouteDeck state SSE, and diagnostics streams are separate
   channels. Do not mix assistant text, projection updates, and diagnostic traces
   into one public semantic stream.
+- In the Medusa reference example after the state-stream slice,
+  `GET /api/medusa-agent/route-stream` is the product-owned RouteDeck state SSE.
+  `POST /api/medusa-agent/agent/stream` carries assistant chat events and must
+  not emit `projection_update`.
 - Diagnostics are read-only explanation surfaces. They must not become public
   chat, ordinary product UI, product action chip sources, dispatch controls, or
   substitutes for the product runtime.

@@ -16,8 +16,12 @@ Implemented scope includes:
 - Projection-backed Route Map and Inspector that reflect product paths plus
   optional `surface_id` query state while keeping chat as the only active
   behavior.
+- Read-only Medusa Store API catalog/media projection through
+  `MEDUSA_BACKEND_URL` and `MEDUSA_PUBLISHABLE_API_KEY`.
 - True Server-Sent Events at `POST /api/medusa-agent/agent/stream`.
-- Minimal no-tool LangGraph commerce agent with default model `gpt-5-mini`.
+- Minimal LangGraph commerce agent with a read-only `open_medusa_surface` tool
+  for browse projection.
+- Separate RouteDeck state SSE at `GET /api/medusa-agent/route-stream`.
 - Explicit error event when `OPENAI_API_KEY` is not configured.
 - Process-local conversation continuity with `conversation_id` mapped to
   `configurable.thread_id`.
@@ -29,13 +33,12 @@ Implemented scope includes:
 This usable slice intentionally excludes:
 
 - Public `/api/routedeck/*` routes.
-- Product action, inspect, route stream, dispatch, full diagnostics panels,
-  product surface events, and writes.
+- Product action, inspect, dispatch, full diagnostics panels, product surface
+  events, and writes.
 - Clickable navgraph behavior, product surface dispatch, add-to-cart controls,
-  checkout, or Store API behavior.
-- Medusa Store API reads or writes.
-- Product catalog, variant selection, cart, checkout, payment, shipping, admin,
-  seeded data, Docker, reset automation, and order flows.
+  checkout, or Store API writes.
+- Variant selection, cart, checkout, payment, shipping, admin, seeded data,
+  Docker, reset automation, and order flows.
 - Deterministic phrase routers, command menus, fake product catalogs, or fallback
   assistant text when the model cannot run.
 
@@ -51,8 +54,9 @@ shell and streaming:
 - XHR-based SSE parsing in React.
 - Foundation-style chat layout, prompt chips, message timestamps, and composer.
 
-Auth, database persistence, product APIs, tool calls, citations, memory, upload
-flows, commerce writes, and framework diagnostics are intentionally omitted.
+Auth, database persistence, commerce writes, citations, memory, upload flows,
+full framework diagnostics, and write-capable product APIs are intentionally
+omitted.
 
 ## Dependencies
 
@@ -89,6 +93,8 @@ The pinned frontend stack requires Node `^20.19.0 || >=22.12.0`.
 ```powershell
 $env:OPENAI_API_KEY = "..."
 $env:MEDUSA_AGENT_MODEL = "gpt-5-mini"
+$env:MEDUSA_BACKEND_URL = "https://your-medusa.example"
+$env:MEDUSA_PUBLISHABLE_API_KEY = "pk_..."
 ```
 
 For this checkout, the backend also reads `examples/medusa-agent/backend/.env`.
@@ -97,6 +103,11 @@ That file is gitignored.
 `OPENAI_API_KEY` is required for agent responses. Without it, the backend emits
 an SSE `error` event with code `openai_api_key_missing`. Slice 1 intentionally
 does not include fallback assistant text.
+
+`MEDUSA_BACKEND_URL` and `MEDUSA_PUBLISHABLE_API_KEY` are required for product
+catalog and product media projection. Without them, the projected product
+surface renders a catalog-unavailable state instead of fabricating demo
+products or local product images.
 
 ## Run
 
@@ -164,9 +175,12 @@ npm test
 
 Expected behavior: the assistant streams natural shopping help, asks focused
 clarifying questions, and keeps product chat free of implementation details.
+When the shopper asks for products, the browse projection must use the current
+Medusa Store API catalog snapshot or report that the catalog is unavailable.
 
 ## Reset
 
-Reset is process-local: restart the backend to clear conversation memory. No
-database, Medusa container, seeded catalog, payment provider, or admin
-credential is required.
+Reset is process-local: restart the backend to clear conversation memory. A
+readable Medusa Store API endpoint is required for catalog/media projection, but
+no cart, payment provider, write-capable credential, or admin credential is
+required.

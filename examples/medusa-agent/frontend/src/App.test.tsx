@@ -8,6 +8,40 @@ import { join } from "node:path";
 import App from "./App";
 import { parseSSEFrames } from "./hooks/useSSEChat";
 
+vi.mock("@xyflow/react", () => ({
+  Background: () => <div data-testid="route-graph-background" />,
+  Controls: () => <div data-testid="route-graph-controls" />,
+  Handle: () => null,
+  Position: {
+    Bottom: "bottom",
+    Top: "top",
+  },
+  ReactFlow: ({ children, edges, nodes, onNodeClick }: any) => (
+    <div
+      data-edge-count={edges.length}
+      data-node-count={nodes.length}
+      data-testid="route-graph-library-react-flow"
+    >
+      {edges.map((edge: any) => (
+        <span data-edge-id={edge.id} key={edge.id} />
+      ))}
+      {nodes.map((node: any) => (
+        <button
+          aria-label={node.data.label}
+          data-testid={`route-node-${node.id}`}
+          key={node.id}
+          onClick={(event) => onNodeClick?.(event, node)}
+          type="button"
+        >
+          <span>{node.data.label}</span>
+          <span>{node.data.status}</span>
+        </button>
+      ))}
+      {children}
+    </div>
+  ),
+}));
+
 class FakeXMLHttpRequest {
   static instances: FakeXMLHttpRequest[] = [];
 
@@ -49,11 +83,44 @@ class FakeXMLHttpRequest {
   abort() {}
 }
 
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+
+  listeners: Record<string, Array<(event: MessageEvent<string>) => void>> = {};
+  url: string;
+  closed = false;
+
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(eventName: string, listener: (event: MessageEvent<string>) => void) {
+    this.listeners[eventName] = [...(this.listeners[eventName] || []), listener];
+  }
+
+  removeEventListener(eventName: string, listener: (event: MessageEvent<string>) => void) {
+    this.listeners[eventName] = (this.listeners[eventName] || []).filter((item) => item !== listener);
+  }
+
+  push(eventName: string, data: Record<string, unknown>) {
+    for (const listener of this.listeners[eventName] || []) {
+      listener({ data: JSON.stringify(data) } as MessageEvent<string>);
+    }
+  }
+
+  close() {
+    this.closed = true;
+  }
+}
+
 describe("Medusa Slice 1 chat-first UI", () => {
   beforeEach(() => {
     let nextId = 0;
     FakeXMLHttpRequest.instances = [];
+    FakeEventSource.instances = [];
     vi.stubGlobal("XMLHttpRequest", FakeXMLHttpRequest);
+    vi.stubGlobal("EventSource", FakeEventSource);
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.startsWith("/api/medusa-agent/projection")) {
         return {
@@ -66,7 +133,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => debugContextFixture("chat-1"),
+          json: async () => debugContextFixture("test-id-0"),
         };
       }
       throw new Error(`Unexpected fetch: ${url}`);
@@ -84,20 +151,25 @@ describe("Medusa Slice 1 chat-first UI", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Medusa Agent" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /new chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new chat/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("medusa-agent-workspace")).toBeInTheDocument();
     expect(screen.getByTestId("medusa-starter-message")).toBeInTheDocument();
     expect(screen.getByTestId("starter-chat-actions")).toBeInTheDocument();
-    expect(await screen.findByTestId("medusa-projected-surface")).toBeInTheDocument();
-    expect(screen.getByText("Medusa shopping surface")).toBeInTheDocument();
+    expect(screen.queryByTestId("medusa-projected-surface")).not.toBeInTheDocument();
+    expect(screen.queryByText("Medusa shopping surface")).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /message/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
 
     expect(screen.getByText("Route Map")).toBeInTheDocument();
     expect(screen.getByTestId("route-map-graph")).toBeInTheDocument();
+    expect(screen.getByTestId("route-graph-library-react-flow")).toBeInTheDocument();
+    expect(screen.getByTestId("route-map-visible-spine")).toBeInTheDocument();
     expect(screen.getByTestId("route-edge-home-browse")).toBeInTheDocument();
     expect(screen.getByTestId("route-edge-browse-detail")).toBeInTheDocument();
     expect(screen.getByTestId("route-edge-detail-cart")).toBeInTheDocument();
+    expect(screen.getByTestId("visible-route-edge-home-browse")).toBeInTheDocument();
+    expect(screen.getByTestId("visible-route-edge-browse-detail")).toBeInTheDocument();
+    expect(screen.getByTestId("visible-route-edge-detail-cart")).toBeInTheDocument();
     expect(screen.getByText("Inspector")).toBeInTheDocument();
     expect(screen.getAllByText("Home").length).toBeGreaterThan(0);
     expect(screen.getByText("Browse")).toBeInTheDocument();
@@ -124,7 +196,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => debugContextFixture("chat-1"),
+          json: async () => debugContextFixture("test-id-0"),
         };
       }
       throw new Error(`Unexpected fetch: ${url}`);
@@ -170,7 +242,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
     expect(xhr.url).toBe("/api/medusa-agent/agent/stream");
     expect(JSON.parse(xhr.requestBody)).toEqual({
       message: "hi",
-      conversation_id: null,
+      conversation_id: "test-id-0",
       route_context: {
         path: "/",
         surface_id: "home.chat",
@@ -192,7 +264,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
     expect(xhr.url).toBe("/api/medusa-agent/agent/stream");
     expect(JSON.parse(xhr.requestBody)).toEqual({
       message: "Show me products in the current Medusa catalog",
-      conversation_id: null,
+      conversation_id: "test-id-0",
       route_context: {
         path: "/",
         surface_id: "home.chat",
@@ -214,17 +286,24 @@ describe("Medusa Slice 1 chat-first UI", () => {
     const xhr = FakeXMLHttpRequest.instances[0];
     expect(JSON.parse(xhr.requestBody)).toEqual({
       message: "show products",
-      conversation_id: null,
+      conversation_id: "test-id-0",
       route_context: {
         path: "/",
         surface_id: "home.chat",
       },
     });
 
-    pushBrowseProjectionUpdate(xhr);
+    await waitFor(() =>
+      expect(FakeEventSource.instances[0]?.url).toBe(
+        "/api/medusa-agent/route-stream?conversation_id=test-id-0",
+      ),
+    );
+    FakeEventSource.instances[0].push("projection_update", browseProjectionUpdatePayload());
+    pushBrowseChatResponse(xhr, "test-id-0");
     xhr.finish();
 
     await waitFor(() => expect(window.location.pathname).toBe("/browse"));
+    expectRouteGraphMounted();
     expect(screen.getByText("browse.product_list")).toBeInTheDocument();
     expect(screen.getByText("/browse")).toBeInTheDocument();
     expect(screen.getByTestId("medusa-projected-surface")).toHaveTextContent("Projection-only Linen Overshirt");
@@ -245,17 +324,24 @@ describe("Medusa Slice 1 chat-first UI", () => {
     const xhr = FakeXMLHttpRequest.instances[0];
     expect(JSON.parse(xhr.requestBody)).toEqual({
       message: "Show me products in the current Medusa catalog",
-      conversation_id: null,
+      conversation_id: "test-id-0",
       route_context: {
         path: "/",
         surface_id: "home.chat",
       },
     });
 
-    pushBrowseProjectionUpdate(xhr);
+    await waitFor(() =>
+      expect(FakeEventSource.instances[0]?.url).toBe(
+        "/api/medusa-agent/route-stream?conversation_id=test-id-0",
+      ),
+    );
+    FakeEventSource.instances[0].push("projection_update", browseProjectionUpdatePayload());
+    pushBrowseChatResponse(xhr, "test-id-0");
     xhr.finish();
 
     await waitFor(() => expect(window.location.pathname).toBe("/browse"));
+    expectRouteGraphMounted();
     expect(screen.getByText("browse.product_list")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Compare projection-only facts" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show me products" })).not.toBeInTheDocument();
@@ -275,7 +361,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => debugContextFixture("chat-1"),
+          json: async () => debugContextFixture("test-id-0"),
         };
       }
       throw new Error(`Unexpected fetch: ${url}`);
@@ -291,16 +377,62 @@ describe("Medusa Slice 1 chat-first UI", () => {
       ),
     );
     const surface = await screen.findByTestId("medusa-projected-surface");
-    expect(surface).toHaveTextContent("Projected product surface");
+    expect(screen.getByTestId("medusa-projected-turn")).toHaveTextContent("Here's the Medusa T-Shirt.");
+    expect(surface).not.toHaveTextContent("Projected product surface");
+    expect(surface).not.toHaveTextContent("Read-only");
     expect(surface).toHaveTextContent("Medusa T-Shirt");
     expect(surface).toHaveTextContent("$48.00");
-    expect(surface).toHaveTextContent("Read-only detail surface for Medusa T-Shirt.");
     expect(screen.getByText("detail.product_detail")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /add.*cart|checkout|admin/i })).not.toBeInTheDocument();
   });
 
+  test("product images come from projected Medusa Store API media, not local demo assets", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.startsWith("/api/medusa-agent/projection")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => projectionFixture("browse"),
+        };
+      }
+      if (url.startsWith("/api/medusa-agent/debug/context-thread")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => debugContextFixture(),
+        };
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/browse?surface_id=browse.product_list");
+
+    render(<App />);
+
+    expect(await screen.findByTestId("medusa-projected-turn")).toHaveTextContent(
+      "Great choice. Here's a quick comparison to help you decide.",
+    );
+    const surface = screen.getByTestId("medusa-projected-surface");
+    expect(surface).not.toHaveTextContent("Projected product surface");
+    expect(surface).not.toHaveTextContent("Read-only browse surface");
+
+    await waitFor(() => expect(screen.getAllByRole("img", { name: /product photo/i }).length).toBeGreaterThan(0));
+    const images = screen.getAllByRole("img", { name: /product photo/i });
+    images.forEach((image) => {
+      expect(image).toHaveAttribute("data-image-source", "medusa_store_api");
+      expect(image).toHaveAttribute(
+        "title",
+        "Image projected from Medusa.",
+      );
+      expect(image.getAttribute("src")).toMatch(/^https:\/\/medusa\.example\//);
+    });
+  });
+
   test("parses true SSE chunks and appends message_delta incrementally", async () => {
     render(<App />);
+
+    expect(await screen.findByTestId("route-graph-library-react-flow")).toHaveAttribute("data-node-count", "4");
+    expectRouteGraphMounted();
 
     fireEvent.change(screen.getByRole("textbox", { name: /message/i }), {
       target: { value: "hi" },
@@ -308,7 +440,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     const xhr = FakeXMLHttpRequest.instances[0];
-    xhr.push('event: stream_start\ndata: {"conversation_id":"chat-1","model":"gpt-5-mini"}\n\n');
+    xhr.push('event: stream_start\ndata: {"conversation_id":"test-id-0","model":"gpt-5-mini"}\n\n');
     xhr.push('event: agent_start\ndata: {"agent_name":"medusa-commerce-agent"}\n\n');
     xhr.push('event: message_delta\ndata: {"content":"Hi. "}\n\n');
 
@@ -324,6 +456,49 @@ describe("Medusa Slice 1 chat-first UI", () => {
 
     await waitFor(() => expect(screen.getByText("Ready")).toBeInTheDocument());
     expect(screen.getByRole("textbox", { name: /message/i })).not.toBeDisabled();
+    expect(window.location.pathname).toBe("/");
+    expectRouteGraphMounted();
+    expect(screen.getByText("home.chat")).toBeInTheDocument();
+    expect(FakeEventSource.instances[0]?.url).toBe(
+      "/api/medusa-agent/route-stream?conversation_id=test-id-0",
+    );
+  });
+
+  test("ignores partial route projection updates so a simple hi cannot blank the navgraph", async () => {
+    render(<App />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("route-graph-library-react-flow")).toHaveAttribute("data-node-count", "4"),
+    );
+    expectRouteGraphMounted();
+
+    fireEvent.change(screen.getByRole("textbox", { name: /message/i }), {
+      target: { value: "hi" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    const xhr = FakeXMLHttpRequest.instances[0];
+    xhr.push(sseFrame("stream_start", { conversation_id: "test-id-0", model: "gpt-5-mini" }));
+    await waitFor(() =>
+      expect(FakeEventSource.instances[0]?.url).toBe(
+        "/api/medusa-agent/route-stream?conversation_id=test-id-0",
+      ),
+    );
+
+    FakeEventSource.instances[0].push("projection_update", {
+      event_type: "projection_update",
+      route_context: { path: "/browse", surface_id: "browse.product_list" },
+      projection_version: 2,
+      projection: { graph_node: "browse" },
+    });
+    xhr.push(sseFrame("message_delta", { content: "Hi." }));
+    xhr.push(sseFrame("stream_end", {}));
+    xhr.finish();
+
+    await waitFor(() => expect(screen.getByText("Ready")).toBeInTheDocument());
+    expect(window.location.pathname).toBe("/");
+    expect(screen.getByText("home.chat")).toBeInTheDocument();
+    expectRouteGraphMounted();
   });
 
   test("missing-key SSE error is shown as assistant text without fake fallback content", async () => {
@@ -335,7 +510,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     const xhr = FakeXMLHttpRequest.instances[0];
-    xhr.push('event: stream_start\ndata: {"conversation_id":"chat-1","model":"gpt-5-mini"}\n\n');
+    xhr.push('event: stream_start\ndata: {"conversation_id":"test-id-0","model":"gpt-5-mini"}\n\n');
     xhr.push('event: agent_start\ndata: {"agent_name":"medusa-commerce-agent"}\n\n');
     xhr.push('event: error\ndata: {"message":"OPENAI_API_KEY is required for the Medusa agent.","code":"openai_api_key_missing"}\n\n');
     xhr.push("event: agent_end\ndata: {}\n\n");
@@ -365,11 +540,11 @@ describe("Medusa Slice 1 chat-first UI", () => {
         };
       }
       if (url.startsWith("/api/medusa-agent/debug/context-thread")) {
-        expect(url).toContain("conversation_id=chat-1");
+        expect(url).toContain("conversation_id=test-id-0");
         return {
           ok: true,
           status: 200,
-          json: async () => debugContextFixture("chat-1"),
+          json: async () => debugContextFixture("test-id-0"),
         };
       }
       throw new Error(`Unexpected fetch: ${url}`);
@@ -388,7 +563,7 @@ describe("Medusa Slice 1 chat-first UI", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     const xhr = FakeXMLHttpRequest.instances[0];
-    xhr.push('event: stream_start\ndata: {"conversation_id":"chat-1","model":"gpt-5-mini"}\n\n');
+    xhr.push('event: stream_start\ndata: {"conversation_id":"test-id-0","model":"gpt-5-mini"}\n\n');
     xhr.push('event: agent_start\ndata: {"agent_name":"medusa-commerce-agent"}\n\n');
     xhr.push('event: message_delta\ndata: {"content":"Two products."}\n\n');
     xhr.push("event: agent_end\ndata: {}\n\n");
@@ -405,17 +580,29 @@ describe("Medusa Slice 1 chat-first UI", () => {
     expect(screen.getAllByText(/Two products/i).length).toBeGreaterThan(0);
   });
 
-  test("runtime frontend source has no fake dispatch, Store API, write, or private-id drift", () => {
+  test("runtime frontend source has no fake dispatch, write, private-id, or local product-media drift", () => {
     const sourceFiles = [
       join(process.cwd(), "src", "App.tsx"),
       join(process.cwd(), "src", "hooks", "useSSEChat.ts"),
+      join(process.cwd(), "src", "hooks", "useRouteDeckEvents.ts"),
       join(process.cwd(), "src", "main.tsx"),
       join(process.cwd(), "src", "styles.css"),
     ];
-    const forbidden = /dispatch|Store API|surface_event|operation_id|@medusajs|\/api\/medusa-agent\/(action|inspect|route-stream)|\/api\/routedeck|checkout|admin|add selected|add to cart|catalog\.|cart\.(?:create|add_item|view)|prod_|variant_private|cart_private|line_private/i;
+    const forbidden = /dispatch|surface_event|operation_id|@medusajs|\/api\/medusa-agent\/(action|inspect)|\/api\/routedeck|checkout|admin|add selected|add to cart|catalog\.|cart\.(?:create|add_item|view)|prod_|variant_private|cart_private|line_private|\/medusa-products\//i;
     const hits = sourceFiles.filter((path) => forbidden.test(readFileSync(path, "utf8")));
 
     expect(hits).toEqual([]);
+    expect(readFileSync(join(process.cwd(), "src", "hooks", "useSSEChat.ts"), "utf8")).not.toContain(
+      "projection_update",
+    );
+    expect(readFileSync(join(process.cwd(), "src", "hooks", "useRouteDeckEvents.ts"), "utf8")).toContain(
+      "/api/medusa-agent/route-stream",
+    );
+    expect(readFileSync(join(process.cwd(), "src", "App.tsx"), "utf8")).toContain("@xyflow/react");
+    expect(readFileSync(join(process.cwd(), "src", "App.tsx"), "utf8")).not.toContain("productImageSrc");
+    expect(readFileSync(join(process.cwd(), "src", "App.tsx"), "utf8")).not.toContain(
+      "local-generated-demo-asset",
+    );
   });
 
   test("layout pins the composer in the viewport instead of forcing page scroll", () => {
@@ -439,7 +626,15 @@ describe("Medusa Slice 1 chat-first UI", () => {
     expect(tabletBlock).toMatch(/body\s*{[\s\S]*overflow:\s*hidden/);
     expect(tabletBlock).toMatch(/\.app-shell\s*{[\s\S]*height:\s*100dvh/);
     expect(tabletBlock).toMatch(/\.app-shell\s*{[\s\S]*overflow:\s*hidden/);
-    expect(tabletBlock).toMatch(/\.context-rail\s*{[\s\S]*overflow-y:\s*auto/);
+    expect(tabletBlock).toMatch(
+      /\.app-shell\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s*minmax\(300px,\s*38vh\)\s*38px/,
+    );
+    expect(tabletBlock).toMatch(/\.context-rail\s*{[\s\S]*grid-auto-flow:\s*column/);
+    expect(tabletBlock).toMatch(/\.context-rail\s*{[\s\S]*overflow-x:\s*auto/);
+    expect(tabletBlock).toMatch(/\.context-rail\s*{[\s\S]*overflow-y:\s*hidden/);
+    expect(tabletBlock).toMatch(/\.route-map\s*{[\s\S]*height:\s*clamp\(/);
+    expect(tabletBlock).toMatch(/\.route-map\s*{[\s\S]*min-height:\s*260px/);
+    expect(tabletBlock).toMatch(/\.app-status-bar\s*{[\s\S]*grid-row:\s*3/);
   });
 });
 
@@ -471,13 +666,13 @@ function projectionFixture(node: "home" | "browse" | "detail" | "cart") {
         role: "active",
         surface_kind: "embedded",
         label: labelByNode[node],
-        props: surfacePropsByNode[node],
+        props: JSON.parse(JSON.stringify(surfacePropsByNode[node])),
       },
     },
     presentation_state: {
       active_surface_id: surfaceByNode[node],
       product_handle: node === "detail" ? "t-shirt" : undefined,
-      chat_suggestions: chatSuggestionsByNode[node],
+      chat_suggestions: JSON.parse(JSON.stringify(chatSuggestionsByNode[node])),
     },
     navigation: {
       current: {
@@ -562,34 +757,9 @@ function debugContextFixture(conversationId: string) {
   };
 }
 
-function pushBrowseProjectionUpdate(xhr: FakeXMLHttpRequest) {
-  xhr.push(sseFrame("stream_start", { conversation_id: "chat-1", model: "gpt-5-mini" }));
+function pushBrowseChatResponse(xhr: FakeXMLHttpRequest, conversationId: string) {
+  xhr.push(sseFrame("stream_start", { conversation_id: conversationId, model: "gpt-5-mini" }));
   xhr.push(sseFrame("agent_start", { agent_name: "medusa-commerce-agent" }));
-  xhr.push(
-    sseFrame("projection_update", {
-      accepted_intent: "browse_products",
-      route_context: {
-        path: "/browse",
-        surface_id: "browse.product_list",
-      },
-      planning_context: {
-        current: {
-          node_id: "browse",
-          surface_id: "browse.product_list",
-          deeplink: "/browse",
-        },
-        available_entities: [
-          {
-            kind: "product",
-            entity_key: "product:linen-overshirt",
-            label: "Projection-only Linen Overshirt",
-          },
-        ],
-      },
-      projection_version: 2,
-      projection: browseProjectionFromSse(),
-    }),
-  );
   xhr.push(sseFrame("message_delta", { content: "Here are the products I can show from the current projection." }));
   xhr.push(sseFrame("agent_end", {}));
   xhr.push(sseFrame("stream_end", {}));
@@ -599,7 +769,33 @@ function sseFrame(event: string, data: Record<string, unknown>) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function browseProjectionFromSse() {
+function browseProjectionUpdatePayload() {
+  return {
+    accepted_intent: "browse_products",
+    route_context: {
+      path: "/browse",
+      surface_id: "browse.product_list",
+    },
+    planning_context: {
+      current: {
+        node_id: "browse",
+        surface_id: "browse.product_list",
+        deeplink: "/browse",
+      },
+      available_entities: [
+        {
+          kind: "product",
+          entity_key: "product:linen-overshirt",
+          label: "Projection-only Linen Overshirt",
+        },
+      ],
+    },
+    projection_version: 2,
+    projection: browseProjectionFromRouteStream(),
+  };
+}
+
+function browseProjectionFromRouteStream() {
   const projection = projectionFixture("browse") as any;
   projection.projection_version = 2;
   projection.presentation_state.chat_suggestions = [
@@ -631,6 +827,20 @@ function browseProjectionFromSse() {
   return projection;
 }
 
+function expectRouteGraphMounted() {
+  const graph = screen.getByTestId("route-graph-library-react-flow");
+
+  expect(graph).toHaveAttribute("data-node-count", "4");
+  expect(graph).toHaveAttribute("data-edge-count", "3");
+  expect(screen.getByTestId("route-node-home")).toBeInTheDocument();
+  expect(screen.getByTestId("route-node-browse")).toBeInTheDocument();
+  expect(screen.getByTestId("route-node-detail")).toBeInTheDocument();
+  expect(screen.getByTestId("route-node-cart")).toBeInTheDocument();
+  expect(graph.querySelector('[data-edge-id="route-edge-home-browse"]')).not.toBeNull();
+  expect(graph.querySelector('[data-edge-id="route-edge-browse-detail"]')).not.toBeNull();
+  expect(graph.querySelector('[data-edge-id="route-edge-detail-cart"]')).not.toBeNull();
+}
+
 const componentByNode = {
   home: "MedusaHomeChatSurface",
   browse: "MedusaProductListSurface",
@@ -647,8 +857,12 @@ const labelByNode = {
 
 const chatSuggestionsByNode = {
   home: [{ label: "Show me products", message: "Show me products in the current Medusa catalog" }],
-  browse: [{ label: "Compare tee and sweatshirt", message: "Compare the T-shirt and sweatshirt." }],
-  detail: [{ label: "Ask about this T-shirt", message: "What should I know about this Medusa T-Shirt?" }],
+  browse: [
+    { label: "Show products", message: "Show me products in the current Medusa catalog" },
+    { label: "Compare visible products", message: "Compare the visible Medusa catalog products." },
+    { label: "Sizing help", message: "What should I consider before choosing a Medusa size?" },
+  ],
+  detail: [{ label: "Ask about this product", message: "What should I know about Medusa T-Shirt?" }],
   cart: [{ label: "Review my cart", message: "Review my current cart summary." }],
 };
 
@@ -657,6 +871,8 @@ const product = {
   title: "Medusa T-Shirt",
   price: "$48.00",
   summary: "Premium cotton tee with a relaxed fit.",
+  image_url: "https://medusa.example/tee.png",
+  image_source: "medusa_store_api",
 };
 
 const surfacePropsByNode = {
@@ -676,6 +892,8 @@ const surfacePropsByNode = {
         title: "Medusa Sweatshirt",
         price: "$78.00",
         summary: "Soft fleece sweatshirt for everyday comfort.",
+        image_url: "https://medusa.example/sweatshirt.png",
+        image_source: "medusa_store_api",
       },
     ],
   },

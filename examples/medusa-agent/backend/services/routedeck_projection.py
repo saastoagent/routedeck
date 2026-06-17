@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import quote
 
+from core.config import Settings
 from routedeck_core import (
     RouteDeckAvailableEntity,
     RouteDeckCapabilitySpec,
@@ -19,19 +20,7 @@ from routedeck_core import (
     RouteDeckSurface,
     build_projection,
 )
-
-
-DEFAULT_PRODUCT_HANDLE = "t-shirt"
-
-
-@dataclass(frozen=True)
-class MedusaProduct:
-    handle: str
-    title: str
-    price: str
-    summary: str
-    colors: tuple[str, ...]
-    sizes: tuple[str, ...]
+from services.medusa_catalog import MedusaCatalogProduct, load_medusa_catalog
 
 
 @dataclass(frozen=True)
@@ -44,30 +33,12 @@ class MedusaRouteLocation:
     surface_query_supplied: bool = False
 
 
-PRODUCTS = {
-    "t-shirt": MedusaProduct(
-        handle="t-shirt",
-        title="Medusa T-Shirt",
-        price="$48.00",
-        summary="Premium cotton tee with a relaxed fit.",
-        colors=("Natural", "Black", "Navy"),
-        sizes=("S", "M", "L"),
-    ),
-    "sweatshirt": MedusaProduct(
-        handle="sweatshirt",
-        title="Medusa Sweatshirt",
-        price="$78.00",
-        summary="Soft fleece sweatshirt for everyday comfort.",
-        colors=("Olive", "Charcoal", "Black"),
-        sizes=("S", "M", "L"),
-    ),
-}
-
-
 def build_medusa_projection(
     *,
     path: str = "/",
     surface_id: str | None = None,
+    catalog_products: tuple[MedusaCatalogProduct, ...] = (),
+    catalog_status: dict[str, object] | None = None,
 ) -> RouteDeckProjection:
     location = route_location_from_url(path=path, surface_id=surface_id)
     current = RouteDeckLocation(
@@ -84,18 +55,39 @@ def build_medusa_projection(
         MEDUSA_MANIFEST,
         current_node=location.node_id,
         operations=[],
-        surfaces=[_active_surface(location)],
-        presentation_state=_presentation_state(location),
+        surfaces=[_active_surface(location, catalog_products, catalog_status)],
+        presentation_state=_presentation_state(location, catalog_products),
         navigation=RouteDeckNavigationState(current=current),
         capabilities=MEDUSA_MANIFEST.capabilities,
-        navgraph=_navgraph_for_location(location, current),
-        available_entities=_available_entities(),
+        navgraph=_navgraph_for_location(location, current, catalog_products),
+        available_entities=_available_entities(catalog_products),
         surface_affordances=[],
         diagnostics={
-            "slice": "M3.3/M3.6",
+            "slice": "M3.3/M3.6/M3.7",
             "owner": "examples/medusa-agent",
-            "note": "Read-only projected surfaces and planning context; chat SSE remains the only active behavior.",
+            "catalog": catalog_status or {
+                "ok": False,
+                "source": "medusa_store_api",
+                "code": "catalog_not_loaded",
+                "message": "No Medusa catalog snapshot was supplied to the projection builder.",
+            },
+            "note": "Read-only projected surfaces and planning context; chat SSE carries assistant text and RouteDeck state SSE carries projection updates.",
         },
+    )
+
+
+def build_runtime_medusa_projection(
+    *,
+    path: str = "/",
+    surface_id: str | None = None,
+    settings: Settings | None = None,
+) -> RouteDeckProjection:
+    catalog = load_medusa_catalog(settings)
+    return build_medusa_projection(
+        path=path,
+        surface_id=surface_id,
+        catalog_products=catalog.products,
+        catalog_status=catalog.status,
     )
 
 
@@ -103,15 +95,19 @@ def route_location_from_url(*, path: str, surface_id: str | None = None) -> Medu
     normalized_path = _normalize_path(path)
     supplied_surface = surface_id.strip() if surface_id else None
 
-    if normalized_path.startswith("/detail/"):
-        handle = normalized_path.removeprefix("/detail/").split("/", 1)[0] or DEFAULT_PRODUCT_HANDLE
-        canonical_path = f"/detail/{quote(handle, safe='')}"
+    if normalized_path == "/detail" or normalized_path.startswith("/detail/"):
+        handle = (
+            normalized_path.removeprefix("/detail/").split("/", 1)[0]
+            if normalized_path.startswith("/detail/")
+            else ""
+        )
+        canonical_path = f"/detail/{quote(handle, safe='')}" if handle else "/detail"
         return MedusaRouteLocation(
             node_id="detail",
             label="Detail",
             path=canonical_path,
             surface_id=supplied_surface or "detail.product_detail",
-            product_handle=handle,
+            product_handle=handle or None,
             surface_query_supplied=bool(supplied_surface),
         )
 
@@ -154,19 +150,26 @@ def _location_params(location: MedusaRouteLocation) -> dict[str, str]:
     return {}
 
 
-def _presentation_state(location: MedusaRouteLocation) -> dict[str, object]:
+def _presentation_state(
+    location: MedusaRouteLocation,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
+) -> dict[str, object]:
     state: dict[str, object] = {
         "active_surface_id": location.surface_id,
         "current_node": location.node_id,
         "deeplink": _deeplink_for_location(location, include_surface_query=location.surface_query_supplied),
-        "chat_suggestions": _chat_suggestions(location),
+        "chat_suggestions": _chat_suggestions(location, catalog_products),
     }
     if location.product_handle:
         state["product_handle"] = location.product_handle
     return state
 
 
-def _active_surface(location: MedusaRouteLocation) -> RouteDeckSurface:
+def _active_surface(
+    location: MedusaRouteLocation,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
+    catalog_status: dict[str, object] | None,
+) -> RouteDeckSurface:
     component_by_node = {
         "home": "MedusaHomeChatSurface",
         "browse": "MedusaProductListSurface",
@@ -189,26 +192,46 @@ def _active_surface(location: MedusaRouteLocation) -> RouteDeckSurface:
         surface_kind="embedded",
         label=label_by_node[location.node_id],
         default=True,
-        props=_surface_props(location),
+        props=_surface_props(location, catalog_products, catalog_status),
         lifecycle="stable",
     )
 
 
-def _surface_props(location: MedusaRouteLocation) -> dict[str, object]:
+def _surface_props(
+    location: MedusaRouteLocation,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
+    catalog_status: dict[str, object] | None,
+) -> dict[str, object]:
     base: dict[str, object] = {
         "path": location.path,
         "surface_id": location.surface_id,
+        "catalog_status": catalog_status or {
+            "ok": False,
+            "source": "medusa_store_api",
+            "code": "catalog_not_loaded",
+        },
     }
 
     if location.node_id == "browse":
+        if not catalog_products:
+            return {
+                **base,
+                "surface_summary": "Medusa catalog is unavailable for read-only product projection.",
+                "products": [],
+            }
         return {
             **base,
-            "surface_summary": "Read-only browse surface with two Medusa products.",
-            "products": [_product_payload(product) for product in PRODUCTS.values()],
+            "surface_summary": f"Read-only Medusa catalog surface with {len(catalog_products)} products.",
+            "products": [_product_payload(product) for product in catalog_products],
         }
 
     if location.node_id == "detail":
-        product = _product_for_handle(location.product_handle)
+        product = _product_for_handle(location.product_handle, catalog_products)
+        if not product:
+            return {
+                **base,
+                "surface_summary": "Requested product is not available from the Medusa catalog.",
+            }
         return {
             **base,
             "surface_summary": f"Read-only detail surface for {product.title}.",
@@ -232,11 +255,16 @@ def _surface_props(location: MedusaRouteLocation) -> dict[str, object]:
     }
 
 
-def _product_for_handle(handle: str | None) -> MedusaProduct:
-    return PRODUCTS.get(handle or DEFAULT_PRODUCT_HANDLE, PRODUCTS[DEFAULT_PRODUCT_HANDLE])
+def _product_for_handle(
+    handle: str | None,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
+) -> MedusaCatalogProduct | None:
+    if not handle:
+        return None
+    return next((product for product in catalog_products if product.handle == handle), None)
 
 
-def _product_payload(product: MedusaProduct) -> dict[str, object]:
+def _product_payload(product: MedusaCatalogProduct) -> dict[str, object]:
     return {
         "handle": product.handle,
         "title": product.title,
@@ -244,10 +272,12 @@ def _product_payload(product: MedusaProduct) -> dict[str, object]:
         "summary": product.summary,
         "colors": list(product.colors),
         "sizes": list(product.sizes),
+        "image_url": product.image_url,
+        "image_source": product.image_source,
     }
 
 
-def _available_entities() -> list[RouteDeckAvailableEntity]:
+def _available_entities(catalog_products: tuple[MedusaCatalogProduct, ...]) -> list[RouteDeckAvailableEntity]:
     return [
         RouteDeckAvailableEntity(
             kind="product",
@@ -260,30 +290,41 @@ def _available_entities() -> list[RouteDeckAvailableEntity]:
                 "price": product.price,
             },
         )
-        for product in PRODUCTS.values()
+        for product in catalog_products
     ]
 
 
 def _rendered_surfaces_for_product(handle: str) -> list[str]:
-    if handle == DEFAULT_PRODUCT_HANDLE:
-        return ["browse.product_list", "detail.product_detail"]
-    return ["browse.product_list"]
+    return ["browse.product_list", "detail.product_detail"]
 
 
-def _chat_suggestions(location: MedusaRouteLocation) -> list[dict[str, str]]:
+def _chat_suggestions(
+    location: MedusaRouteLocation,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
+) -> list[dict[str, str]]:
     if location.node_id == "browse":
         return [
             {
-                "label": "Compare tee and sweatshirt",
-                "message": "Compare the T-shirt and sweatshirt.",
-            }
+                "label": "Show products",
+                "message": "Show me products in the current Medusa catalog",
+            },
+            {
+                "label": "Compare visible products",
+                "message": "Compare the visible Medusa catalog products.",
+            },
+            {
+                "label": "Sizing help",
+                "message": "What should I consider before choosing a Medusa size?",
+            },
         ]
 
     if location.node_id == "detail":
+        product = _product_for_handle(location.product_handle, catalog_products)
+        product_title = product.title if product else "this Medusa product"
         return [
             {
-                "label": "Ask about this T-shirt",
-                "message": "What should I know about this Medusa T-Shirt?",
+                "label": "Ask about this product",
+                "message": f"What should I know about {product_title}?",
             }
         ]
 
@@ -312,8 +353,10 @@ def _deeplink_for_location(location: MedusaRouteLocation, *, include_surface_que
 def _navgraph_for_location(
     location: MedusaRouteLocation,
     current: RouteDeckLocation,
+    catalog_products: tuple[MedusaCatalogProduct, ...],
 ) -> RouteDeckNavGraph:
-    detail_path = f"/detail/{quote(location.product_handle or DEFAULT_PRODUCT_HANDLE, safe='')}"
+    detail_handle = location.product_handle or _first_product_handle(catalog_products)
+    detail_path = f"/detail/{quote(detail_handle, safe='')}" if detail_handle else "/detail"
     nodes = [
         RouteDeckNavGraphNode(
             id="home",
@@ -352,6 +395,10 @@ def _navgraph_for_location(
         traversed=_traversed_nodes(location.node_id),
         reachable=_reachable_nodes(location.node_id),
     )
+
+
+def _first_product_handle(catalog_products: tuple[MedusaCatalogProduct, ...]) -> str | None:
+    return catalog_products[0].handle if catalog_products else None
 
 
 def _traversed_nodes(node_id: str) -> list[str]:

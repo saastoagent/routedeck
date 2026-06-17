@@ -32,11 +32,11 @@ this file, update the downstream artifact or make a deliberate framework
 decision here first. Do not treat drift in `examples/medusa-agent`,
 SaaStoAgent/Corpus, or React client code as new RouteDeck law.
 
-## Reference-App Reset Rule
+## Reference-App Slice Rule
 
 The Medusa reference app exists to prove RouteDeck by starting from a normal
 product agent and then adding RouteDeck contracts in disciplined slices. The
-current proof target is barebones app-owned agent chat:
+reset baseline is barebones app-owned agent chat:
 
 - one chat-first screen
 - one product-owned agent streaming endpoint
@@ -46,10 +46,30 @@ current proof target is barebones app-owned agent chat:
   product surface, commerce surface, cart mutation, Store API behavior,
   diagnostics panel, graph-first placeholder, or RouteDeck-prefixed public API
 
-The runnable Medusa example must be stripped back to that chat-only proof before
-new RouteDeck behavior is added again. Later RouteDeck slices are valid only
-when each slice adds one contract from this document and proves that contract
-through product-owned routes and normal chat.
+That baseline is Slice 0. It is not the permanent state of the example after
+later slices are accepted. When a later slice is implemented, the reference must
+say which RouteDeck layer is now in scope and which layers remain forbidden.
+Future reviewers must compare the implementation to the current slice contract,
+not to the Slice 0 reset baseline.
+
+The current Medusa proof target has advanced past Slice 0. It includes:
+
+- chat-first product UI
+- product-agent SSE at `POST /api/medusa-agent/agent/stream` for assistant text
+- product-owned RouteDeck state SSE at `GET /api/medusa-agent/route-stream`
+- product-owned projection endpoint at `GET /api/medusa-agent/projection`
+- read-only projected surfaces under the chat transcript
+- a literal read-only navgraph rendered as graph topology
+- a read-only inspector/debug view while the reference is still being audited
+
+The current Medusa proof target still excludes:
+
+- generic `/api/routedeck/*` public APIs for the Medusa example
+- RouteDeck dispatch/action endpoints
+- cart, checkout, admin, Store API mutation, or commerce writes
+- graph-first workbenches, dashboards, command menus, or fake all-slice demos
+- navgraph clicks that mutate browser URL, runtime state, cart state, or agent
+  intent
 
 The barebones Medusa app is a product example, not a RouteDeck framework API. It
 does not prove RouteDeck by showing many framework widgets. It proves RouteDeck
@@ -169,6 +189,11 @@ show that topology as a graph, not only as a flat list of labels. The navgraph
 shows where the agent/user is, where they can go, which surface is active, which
 path has been traversed, which locations can be opened directly, and which
 capabilities are available at each reachable location.
+
+When a product example renders a visual navgraph, it should use a graph
+visualization library or a dedicated graph renderer that models nodes and edges
+as graph elements. Hand-positioned buttons plus decorative SVG lines are not a
+sufficient proof surface once graph topology is part of the slice contract.
 
 The navgraph is derived from manifest topology, product runtime state, and
 projection navigation. It is not necessarily the product graph. A product graph
@@ -1700,10 +1725,10 @@ The product-specific Corpus details RouteDeck does not adopt are:
 - SaaStoAgent database ids
 - Corpus-specific route names outside the generic route-family pattern
 
-## Medusa Barebones Proof Contract
+## Medusa Slice Contracts And Current Checkpoint
 
-The Medusa example currently needs a reset because the proof became a pile of
-later-slice behavior. The required proof is smaller:
+Medusa Slice 0 is the reset contract. It is preserved here because every later
+slice must be explainable as one deliberate layer on top of this baseline:
 
 | Part | Contract |
 | --- | --- |
@@ -1720,14 +1745,14 @@ later-slice behavior. The required proof is smaller:
 | Cart/checkout/admin | Completely absent. |
 | UI controls | Composer only, plus product-owned non-RouteDeck chat affordances if needed. |
 
-What barebones Medusa is:
+What Slice 0 barebones Medusa is:
 
 - a normal product app
 - a normal product-owned chat stream
 - an agent-first reference starting point
 - a clean baseline for future RouteDeck adoption
 
-What barebones Medusa is not:
+What Slice 0 barebones Medusa is not:
 
 - a RouteDeck demo
 - a graph debugger
@@ -1737,14 +1762,32 @@ What barebones Medusa is not:
 - a deterministic command menu
 - a fake all-slices demo
 
-Future Medusa RouteDeck slices must reintroduce one layer at a time:
+Current accepted Medusa checkpoint:
 
-1. projection/state only, no operation execution
-2. manifest/navgraph and read-only inspector
-3. surface affordances with guarded dispatch
-4. chat planning context and typed product-agent operation selection
-5. commerce writes against a resettable local/demo fixture
-6. diagnostics and packaging after product behavior is stable
+| Part | Current Contract |
+| --- | --- |
+| First screen | Still chat-first. RouteDeck context is secondary rail/context under or beside chat. |
+| Chat endpoint | `POST /api/medusa-agent/agent/stream`; true SSE assistant stream. |
+| Chat events | Assistant text uses `message_delta`; chat stream must not emit `projection_update`. |
+| RouteDeck state endpoint | `GET /api/medusa-agent/route-stream`; product-owned RouteDeck state SSE. |
+| RouteDeck state events | `projection_update` only for projection/state changes; no assistant prose. |
+| Projection endpoint | `GET /api/medusa-agent/projection`; product-owned projection through Medusa route prefix. |
+| Projection payload | Full renderable `RouteDeckProjection` when a projection is supplied. A partial fragment such as only `graph_node` must not replace the current projection. |
+| Browser location | Product path is the path, for example `/browse`; `surface_id` is optional query state. |
+| Navgraph | Literal graph topology rendered with a graph library; nodes and edges remain visible after chat turns and state-stream updates. |
+| Navgraph selection | Read-only local inspection focus only; no URL navigation, dispatch, cart mutation, or agent intent. |
+| Product surfaces | Read-only projected product surfaces embedded in the chat-first experience. |
+| Action chips | Product-agent chat affordances derived from projection/presentation state, not navgraph commands. |
+| Debug context | Temporary read-only debug panel shows the full context thread, including system prompt, until a later cleanup slice removes it. |
+| Generic RouteDeck API | Still absent for the Medusa example; do not add `/api/routedeck/*` as the product API. |
+| Dispatch/write behavior | Still absent; no cart, checkout, admin, Store API write, or irreversible side effect. |
+
+Remaining Medusa RouteDeck slices must continue one layer at a time:
+
+1. surface affordances with guarded dispatch
+2. chat planning context and typed product-agent operation selection
+3. commerce writes against a resettable local/demo fixture
+4. diagnostics cleanup and packaging after product behavior is stable
 
 ## Acceptance Checklist
 

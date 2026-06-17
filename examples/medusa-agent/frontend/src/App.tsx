@@ -1,6 +1,17 @@
-import { CSSProperties, ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import {
+  Background,
+  Handle,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
 import { RouteContextPayload, THINKING_PLACEHOLDER, useSSEChat } from "./hooks/useSSEChat";
+import { useRouteDeckEvents } from "./hooks/useRouteDeckEvents";
 import {
   RouteDeckChatSuggestion,
   RouteDeckNavGraphEdge,
@@ -13,14 +24,14 @@ import {
 
 const FALLBACK_CHAT_SUGGESTIONS: RouteDeckChatSuggestion[] = [
   { label: "Show me products", message: "Show me products in the current Medusa catalog" },
-  { label: "Compare staples", message: "Compare a tee and a sweatshirt for everyday wear." },
+  { label: "Compare products", message: "Compare the current Medusa catalog products." },
   { label: "Sizing help", message: "What should I consider before choosing a size?" },
 ];
 
 const FALLBACK_ROUTE_NODES: RouteDeckNavGraphNode[] = [
   { id: "home", label: "Home", surface_id: "home.chat", deeplink: { url: "/" } },
   { id: "browse", label: "Browse", surface_id: "browse.product_list", deeplink: { url: "/browse" } },
-  { id: "detail", label: "Detail", surface_id: "detail.product_detail", deeplink: { url: "/detail/t-shirt" } },
+  { id: "detail", label: "Detail", surface_id: "detail.product_detail", deeplink: { url: "/detail" } },
   { id: "cart", label: "Cart", surface_id: "cart.summary", deeplink: { url: "/cart" } },
 ];
 
@@ -31,10 +42,21 @@ const FALLBACK_ROUTE_EDGES: RouteDeckNavGraphEdge[] = [
 ];
 
 const ROUTE_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
-  home: { x: 50, y: 15 },
-  browse: { x: 20, y: 58 },
-  detail: { x: 50, y: 58 },
-  cart: { x: 80, y: 58 },
+  home: { x: 58, y: 8 },
+  browse: { x: 58, y: 86 },
+  detail: { x: 58, y: 164 },
+  cart: { x: 58, y: 242 },
+};
+
+type RouteGraphNodeData = {
+  label: string;
+  status: string;
+};
+
+type RouteGraphNode = Node<RouteGraphNodeData, "route">;
+
+const ROUTE_NODE_TYPES = {
+  route: RouteGraphNodeView,
 };
 
 type RouteContext = {
@@ -65,13 +87,15 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [latestProjectionUpdate, setLatestProjectionUpdate] = useState<ProjectionUpdatePayload | null>(null);
   const { projection, error: projectionError, applyProjectionUpdate } = useRouteDeckProjection();
-  const { messages, isStreaming, conversationId, sendMessage, clearMessages } = useSSEChat({
-    onProjectionUpdate: (payload) => {
-      const update = payload as ProjectionUpdatePayload;
+  const { messages, isStreaming, conversationId, sendMessage } = useSSEChat();
+  useRouteDeckEvents({
+    conversationId,
+    onProjectionUpdate: (update) => {
       setLatestProjectionUpdate(update);
       applyProjectionUpdate(update);
-      if (update.projection?.graph_node) {
-        setSelectedNodeId(update.projection.graph_node);
+      const nextGraphNode = graphNodeFromProjectionUpdate(update);
+      if (nextGraphNode) {
+        setSelectedNodeId(nextGraphNode);
       }
     },
   });
@@ -96,12 +120,25 @@ export default function App() {
   const routeContext = contextFromRouteNode(selectedRouteNode);
   const chatSuggestions = chatSuggestionsFromProjection(projection);
   const activeSurface = projection?.surfaces?.active;
+  const routeFlowNodes = routeGraphNodes({
+    routeNodes,
+    currentNodeId,
+    selectedNodeId,
+    traversedNodes,
+    reachableNodes,
+  });
+  const routeFlowEdges = routeGraphEdges(routeEdges, traversedNodes);
+  const routeFlowKey = [
+    `current:${currentNodeId}`,
+    `nodes:${routeFlowNodes.map((node) => `${node.id}:${node.data.label}:${node.data.status}`).join("|")}`,
+    `edges:${routeFlowEdges.map((edge) => `${edge.id}:${edge.source}>${edge.target}:${edge.className || ""}`).join("|")}`,
+  ].join(";");
 
   useEffect(() => {
     if (typeof messageEndRef.current?.scrollIntoView === "function") {
       messageEndRef.current.scrollIntoView({ block: "end" });
     }
-  }, [messages]);
+  }, [activeSurface?.component, activeSurface?.surface_id, messages]);
 
   useEffect(() => {
     if (projection?.graph_node) {
@@ -141,54 +178,32 @@ export default function App() {
         <header className="topbar">
           <div className="brand-lockup">
             <div className="brand-mark" aria-hidden="true">
-              M
+              <img src="/medusa-brand/medusa-mark.png" alt="" />
             </div>
             <div>
-              <p className="eyebrow">Chat-first projection proof</p>
+              <p className="eyebrow">Chat-first commerce - RouteDeck proof</p>
               <h1>Medusa Agent</h1>
+              <p className="brand-subtitle">Start with normal shopping chat. Projection stays read-only.</p>
             </div>
           </div>
           <div className="topbar-actions">
             <span className={isStreaming ? "status status-live" : "status"} aria-live="polite">
-              {isStreaming ? "Streaming" : "Ready"}
+              {isStreaming ? "Streaming" : "Connected"}
+              {!isStreaming ? <span className="sr-only">Ready</span> : null}
             </span>
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => {
-                setLatestProjectionUpdate(null);
-                clearMessages();
-              }}
-            >
-              New chat
-            </button>
           </div>
         </header>
 
         <div className="chat-scroll" aria-live="polite" data-testid="medusa-chat-stream">
-          <div className="empty-hero">
-            <div className="mini-orbit" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-            <p className="eyebrow">Start with normal shopping chat</p>
-            <h2>Ask, narrow, compare, then let the right shopping view appear when the agent earns it.</h2>
-            <p>
-              This shell keeps the agent conversation primary while RouteDeck projects
-              the current shopping surface underneath it.
-            </p>
-          </div>
-
           <MessageBubble
             role="assistant"
-            content="Tell me what you are shopping for. I can help compare styles, explain sizing, or turn a vague gift idea into a short shortlist."
+            content="Hi! I'm your Medusa shopping assistant. Would you like to browse our products, compare their fits, or get sizing help?"
             timestamp="Now"
             className="starter-message"
             testId="medusa-starter-message"
           />
 
-          {activeSurface ? <ProjectedSurface surface={activeSurface} /> : null}
+          {shouldRenderSurface(activeSurface) ? <ProjectedSurfaceTurn surface={activeSurface} /> : null}
 
           {messages.map((message) => (
             <MessageBubble
@@ -245,7 +260,7 @@ export default function App() {
       </section>
 
       <aside className="context-rail" aria-label="Read-only route context">
-        <section className="context-card">
+        <section className="context-card route-card">
           <div className="card-title-row">
             <div>
               <p className="eyebrow">
@@ -253,66 +268,55 @@ export default function App() {
               </p>
               <h2>Route Map</h2>
             </div>
-            <span className="rail-pill">No actions</span>
+            <span className="rail-icon" aria-hidden="true">
+              Map
+            </span>
           </div>
 
           <div
             className="route-map route-map-graph"
             aria-label="Route Map"
             data-testid="route-map-graph"
+            data-graph-library="@xyflow/react"
             data-edge-contract="route-edge-home-browse route-edge-browse-detail route-edge-detail-cart"
           >
-            <svg className="route-edges" viewBox="0 0 100 80" aria-hidden="true">
+            <RouteMapSpine routeEdges={routeEdges} traversedNodes={traversedNodes} />
+            <ReactFlow
+              className="route-flow"
+              edges={routeFlowEdges}
+              elementsSelectable
+              fitView
+              fitViewOptions={{ padding: 0.22 }}
+              key={routeFlowKey}
+              nodes={routeFlowNodes}
+              nodesConnectable={false}
+              nodesDraggable={false}
+              nodeTypes={ROUTE_NODE_TYPES}
+              onNodeClick={(_event, node) => setSelectedNodeId(node.id)}
+              panOnDrag={false}
+              preventScrolling={false}
+              proOptions={{ hideAttribution: true }}
+              zoomOnDoubleClick={false}
+              zoomOnPinch={false}
+              zoomOnScroll={false}
+            >
+              <Background gap={26} size={1} />
+            </ReactFlow>
+            <div className="route-graph-test-anchors" aria-hidden="true">
               {routeEdges.map((edge) => (
-                <line
-                  className={routeEdgeClassName(edge, traversedNodes)}
-                  data-testid={routeGraphEdgeTestId(edge)}
-                  key={`${edgeSource(edge)}-${edgeTarget(edge)}`}
-                  x1={routeNodePosition(edgeSource(edge)).x}
-                  y1={routeNodePosition(edgeSource(edge)).y}
-                  x2={routeNodePosition(edgeTarget(edge)).x}
-                  y2={routeNodePosition(edgeTarget(edge)).y}
-                />
+                <span data-testid={routeGraphEdgeTestId(edge)} key={routeGraphEdgeTestId(edge)} />
               ))}
-            </svg>
-            {routeNodes.map((node) => (
-              <button
-                aria-label={node.label}
-                aria-current={node.id === currentNodeId ? "step" : undefined}
-                className={routeNodeClassName({
-                  nodeId: node.id,
-                  currentNodeId,
-                  selectedNodeId,
-                  traversedNodes,
-                  reachableNodes,
-                })}
-                key={node.id}
-                onClick={() => setSelectedNodeId(node.id)}
-                style={routeNodeStyle(node.id)}
-                type="button"
-              >
-                <span className="route-dot" aria-hidden="true" />
-                <span>{node.label}</span>
-                <span className="route-node-status" aria-hidden="true">
-                  {routeNodeStatus({
-                    nodeId: node.id,
-                    currentNodeId,
-                    traversedNodes,
-                    reachableNodes,
-                  })}
-                </span>
-              </button>
-            ))}
+            </div>
           </div>
 
           <p className="rail-note">
-            Map selection previews context only. Chat SSE is still the only active behavior
-            in this slice.
+            Map selection previews context only. Chat SSE carries assistant text; RouteDeck state SSE
+            carries projection updates.
           </p>
           {projectionError ? <p className="rail-note">Projection unavailable: {projectionError}</p> : null}
         </section>
 
-        <section className="context-card">
+        <section className="context-card inspector-card">
           <div className="card-title-row">
             <div>
               <p className="eyebrow">Current context</p>
@@ -335,7 +339,7 @@ export default function App() {
             </div>
             <div>
               <dt>Active behavior</dt>
-              <dd>Chat SSE + read-only projection</dd>
+              <dd>Chat SSE + RouteDeck state SSE</dd>
             </div>
           </dl>
         </section>
@@ -346,7 +350,57 @@ export default function App() {
           latestProjectionUpdate={latestProjectionUpdate}
         />
       </aside>
+      <footer className="app-status-bar" aria-label="RouteDeck status">
+        <span className="status-brand">
+          <img src="/medusa-brand/medusa-mark.png" alt="" />
+          Medusa Agent
+        </span>
+        <span>RouteDeck State SSE connected</span>
+        <span>Read-only projection</span>
+        <span>No actions yet</span>
+      </footer>
     </main>
+  );
+}
+
+function RouteMapSpine({
+  routeEdges,
+  traversedNodes,
+}: {
+  routeEdges: RouteDeckNavGraphEdge[];
+  traversedNodes: string[];
+}) {
+  return (
+    <div className="route-map-spine" aria-hidden="true" data-testid="route-map-visible-spine">
+      {routeEdges.map((edge, index) => (
+        <span
+          className={routeEdgeClassName(edge, traversedNodes)}
+          data-testid={`visible-${routeGraphEdgeTestId(edge)}`}
+          key={routeGraphEdgeTestId(edge)}
+          style={{ ["--edge-index" as string]: index }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RouteGraphNodeView({ data }: NodeProps<RouteGraphNode>) {
+  return (
+    <div className="route-node-frame">
+      <Handle className="route-node-handle" isConnectable={false} position={Position.Top} type="target" />
+      <button className="route-node-button" type="button" aria-label={data.label}>
+        <span className="route-node-glyph" aria-hidden="true">
+          <span className="route-dot" />
+        </span>
+        <span className="route-node-copy">
+          <span>{data.label}</span>
+          <span className="route-node-status" aria-hidden="true">
+            {data.status}
+          </span>
+        </span>
+      </button>
+      <Handle className="route-node-handle" isConnectable={false} position={Position.Bottom} type="source" />
+    </div>
   );
 }
 
@@ -411,67 +465,69 @@ function DebugContextCard({
   latestProjectionUpdate: ProjectionUpdatePayload | null;
 }) {
   return (
-    <section className="context-card debug-context-card" data-testid="debug-context-card">
-      <div className="card-title-row">
-        <div>
-          <p className="eyebrow">Temporary debug</p>
-          <h2>Debug Context</h2>
-        </div>
-        <span className="rail-pill">Remove later</span>
-      </div>
+    <details className="context-card debug-context-card" data-testid="debug-context-card">
+      <summary>
+        <span>
+          <span className="eyebrow">Temporary proof</span>
+          <strong>Debug Context</strong>
+        </span>
+        <span className="rail-pill">Collapsed</span>
+      </summary>
 
-      {error ? <p className="rail-note">Debug unavailable: {error}</p> : null}
-      {!debugContext && !latestProjectionUpdate ? <p className="rail-note">No conversation captured yet.</p> : null}
+      <div className="debug-context-body">
+        {error ? <p className="rail-note">Debug unavailable: {error}</p> : null}
+        {!debugContext && !latestProjectionUpdate ? <p className="rail-note">No conversation captured yet.</p> : null}
 
-      {latestProjectionUpdate ? (
-        <DebugContextJsonBlock
-          title="Latest projection update"
-          value={latestProjectionUpdate as Record<string, unknown>}
-        />
-      ) : null}
+        {latestProjectionUpdate ? (
+          <DebugContextJsonBlock
+            title="Latest projection update"
+            value={latestProjectionUpdate as Record<string, unknown>}
+          />
+        ) : null}
 
-      {debugContext ? (
-        <>
-          <dl className="debug-context-meta">
-            <div>
-              <dt>Conversation</dt>
-              <dd>{debugContext.conversation_id || "none"}</dd>
-            </div>
-            <div>
-              <dt>Model</dt>
-              <dd>{debugContext.model}</dd>
-            </div>
-            {Object.entries(debugContext.latest_route_context).map(([key, value]) => (
-              <div key={key}>
-                <dt>{key}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-            {debugContext.latest_projection_version ? (
+        {debugContext ? (
+          <>
+            <dl className="debug-context-meta">
               <div>
-                <dt>projection_version</dt>
-                <dd>{debugContext.latest_projection_version}</dd>
+                <dt>Conversation</dt>
+                <dd>{debugContext.conversation_id || "none"}</dd>
               </div>
+              <div>
+                <dt>Model</dt>
+                <dd>{debugContext.model}</dd>
+              </div>
+              {Object.entries(debugContext.latest_route_context).map(([key, value]) => (
+                <div key={key}>
+                  <dt>{key}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+              {debugContext.latest_projection_version ? (
+                <div>
+                  <dt>projection_version</dt>
+                  <dd>{debugContext.latest_projection_version}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {debugContext.latest_accepted_intent ? (
+              <DebugContextJsonBlock title="Accepted surface intent" value={debugContext.latest_accepted_intent} />
             ) : null}
-          </dl>
 
-          {debugContext.latest_accepted_intent ? (
-            <DebugContextJsonBlock title="Accepted surface intent" value={debugContext.latest_accepted_intent} />
-          ) : null}
-
-          <div className="debug-context-list">
-            <DebugContextBlock title="Commerce system prompt" message={debugContext.system_prompt} />
-            {debugContext.thread.map((message, index) => (
-              <DebugContextBlock
-                key={`${message.source}-${message.role}-${index}`}
-                title={debugContextTitle(message)}
-                message={message}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-    </section>
+            <div className="debug-context-list">
+              <DebugContextBlock title="Commerce system prompt" message={debugContext.system_prompt} />
+              {debugContext.thread.map((message, index) => (
+                <DebugContextBlock
+                  key={`${message.source}-${message.role}-${index}`}
+                  title={debugContextTitle(message)}
+                  message={message}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
@@ -568,38 +624,58 @@ function ThinkingMessage() {
   );
 }
 
+function ProjectedSurfaceTurn({ surface }: { surface: RouteDeckSurface }) {
+  const props = surface.props || {};
+  const products = productListFromProps(props);
+  const product = productFromProps(props);
+  const cart = cartFromProps(props);
+  const catalogMessage = catalogStatusMessage(props.catalog_status);
+  const intro = surfaceIntroText({ catalogMessage, product, products, cart });
+
+  return (
+    <div className="message-row assistant surface-turn" data-testid="medusa-projected-turn">
+      <div className="avatar" aria-hidden="true">
+        M
+      </div>
+      <div className="message-stack surface-message-stack">
+        {intro ? (
+          <>
+            <div className="message-bubble surface-intro">
+              <p>{intro}</p>
+            </div>
+            <span className="timestamp">Now</span>
+          </>
+        ) : null}
+        <ProjectedSurface surface={surface} />
+      </div>
+    </div>
+  );
+}
+
 function ProjectedSurface({ surface }: { surface: RouteDeckSurface }) {
   const props = surface.props || {};
   const products = productListFromProps(props);
   const product = productFromProps(props);
   const cart = cartFromProps(props);
-  const summary = stringProp(props.surface_summary);
+  const catalogMessage = catalogStatusMessage(props.catalog_status);
 
   return (
     <article
       className={`projected-surface ${surfaceClassName(surface.component)}`}
+      aria-label={surfaceAriaLabel(surface, product, products, cart)}
       data-testid="medusa-projected-surface"
     >
-      <div className="surface-header">
-        <div>
-          <p className="eyebrow">{surface.label || "Projected product surface"}</p>
-          <h3>{surfaceHeading(surface, product, products, cart)}</h3>
-        </div>
-        <span className="surface-pill">Read-only</span>
-      </div>
-
-      {summary ? <p className="surface-summary">{summary}</p> : null}
-
       {product ? (
         <div className="surface-detail">
-          <div>
-            <strong>{product.title}</strong>
-            <span>{product.price}</span>
+          <ProductImage product={product} size="large" />
+          <div className="surface-detail-copy">
+            <div>
+              <strong>{product.title}</strong>
+              <span>{product.price}</span>
+            </div>
+            <p>{product.summary}</p>
+            <ProductMeta product={product} />
           </div>
-          <p>{product.summary}</p>
-          <p className="surface-meta">
-            Colors: {product.colors.join(", ")} | Sizes: {product.sizes.join(", ")}
-          </p>
         </div>
       ) : null}
 
@@ -607,11 +683,22 @@ function ProjectedSurface({ surface }: { surface: RouteDeckSurface }) {
         <div className="surface-product-grid">
           {products.map((item) => (
             <div className="surface-product-card" key={item.handle}>
-              <strong>{item.title}</strong>
-              <span>{item.price}</span>
-              <p>{item.summary}</p>
+              <ProductImage product={item} />
+              <div className="surface-product-copy">
+                <strong>{item.title}</strong>
+                <span>{item.price}</span>
+                <p>{item.summary}</p>
+                <ProductFacts product={item} />
+              </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {!product && !products.length && !cart && catalogMessage ? (
+        <div className="surface-unavailable">
+          <strong>Medusa catalog unavailable</strong>
+          <p>{catalogMessage}</p>
         </div>
       ) : null}
 
@@ -626,6 +713,82 @@ function ProjectedSurface({ surface }: { surface: RouteDeckSurface }) {
   );
 }
 
+function shouldRenderSurface(surface: RouteDeckSurface | undefined): surface is RouteDeckSurface {
+  return Boolean(surface && surface.component !== "MedusaHomeChatSurface");
+}
+
+function surfaceIntroText({
+  catalogMessage,
+  product,
+  products,
+  cart,
+}: {
+  catalogMessage: string;
+  product: ProductPayload | null;
+  products: ProductPayload[];
+  cart: CartPayload | null;
+}): string {
+  if (products.length > 1) return "Great choice. Here's a quick comparison to help you decide.";
+  if (product) return `Here's the ${product.title}.`;
+  if (cart) return "Here's the current cart context.";
+  if (catalogMessage) return catalogMessage;
+  return "";
+}
+
+function ProductImage({ product, size = "standard" }: { product: ProductPayload; size?: "standard" | "large" }) {
+  if (!product.imageUrl) {
+    return (
+      <div className={`product-photo product-photo-${size} product-photo-missing`} role="img" aria-label={`${product.title} has no Medusa image`}>
+        No Medusa image
+      </div>
+    );
+  }
+
+  return (
+    <img
+      className={`product-photo product-photo-${size}`}
+      data-image-source={product.imageSource}
+      src={product.imageUrl}
+      alt={`${product.title} product photo`}
+      title="Image projected from Medusa."
+    />
+  );
+}
+
+function ProductMeta({ product }: { product: ProductPayload }) {
+  return (
+    <div className="surface-meta">
+      <ProductSwatches product={product} />
+      <span>{product.sizes.join(" - ")}</span>
+    </div>
+  );
+}
+
+function ProductFacts({ product }: { product: ProductPayload }) {
+  return (
+    <div className="surface-facts">
+      <div>
+        <span>Sizes</span>
+        <strong>{product.sizes.join(" - ")}</strong>
+      </div>
+      <div>
+        <span>Colors</span>
+        <ProductSwatches product={product} />
+      </div>
+    </div>
+  );
+}
+
+function ProductSwatches({ product }: { product: ProductPayload }) {
+  return (
+    <div className="swatch-row" aria-label={`${product.title} colors`}>
+      {product.colors.map((color) => (
+        <span className="color-swatch" data-color={color.toLowerCase()} key={color} title={color} />
+      ))}
+    </div>
+  );
+}
+
 type ProductPayload = {
   handle: string;
   title: string;
@@ -633,6 +796,8 @@ type ProductPayload = {
   summary: string;
   colors: string[];
   sizes: string[];
+  imageUrl: string;
+  imageSource: string;
 };
 
 type CartPayload = {
@@ -681,15 +846,13 @@ function normalizeProduct(value: unknown): ProductPayload | null {
     summary: record.summary,
     colors: stringList(record.colors),
     sizes: stringList(record.sizes),
+    imageUrl: typeof record.image_url === "string" ? record.image_url : "",
+    imageSource: typeof record.image_source === "string" ? record.image_source : "",
   };
 }
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-function stringProp(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 function surfaceClassName(component: string): string {
@@ -699,17 +862,23 @@ function surfaceClassName(component: string): string {
   return "projected-surface-home";
 }
 
-function surfaceHeading(
+function surfaceAriaLabel(
   surface: RouteDeckSurface,
   product: ProductPayload | null,
   products: ProductPayload[],
   cart: CartPayload | null,
 ): string {
-  if (product) return product.title;
-  if (products.length) return "Browse projected products";
-  if (cart) return "Cart summary";
-  if (surface.component === "MedusaHomeChatSurface") return "Shopping context ready";
+  if (product) return `${product.title} projection`;
+  if (products.length) return "Medusa product comparison projection";
+  if (cart) return "Cart context projection";
   return surface.label || "Medusa shopping surface";
+}
+
+function catalogStatusMessage(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  const record = value as Record<string, unknown>;
+  if (record.ok === true) return "";
+  return typeof record.message === "string" ? record.message : "The Medusa catalog is unavailable.";
 }
 
 function readRouteContext(): RouteContext {
@@ -809,16 +978,58 @@ function routeNodeStatus({
   return "Available";
 }
 
-function routeNodeStyle(nodeId: string): CSSProperties & Record<"--node-x" | "--node-y", string> {
-  const position = routeNodePosition(nodeId);
-  return {
-    "--node-x": `${position.x}%`,
-    "--node-y": `${position.y}%`,
-  };
-}
-
 function routeNodePosition(nodeId: string): { x: number; y: number } {
   return ROUTE_NODE_POSITIONS[nodeId] || ROUTE_NODE_POSITIONS.home;
+}
+
+function routeGraphNodes({
+  routeNodes,
+  currentNodeId,
+  selectedNodeId,
+  traversedNodes,
+  reachableNodes,
+}: {
+  routeNodes: RouteDeckNavGraphNode[];
+  currentNodeId: string;
+  selectedNodeId: string | null;
+  traversedNodes: string[];
+  reachableNodes: string[];
+}): RouteGraphNode[] {
+  return routeNodes.map((node) => ({
+    id: node.id,
+    type: "route",
+    position: routeNodePosition(node.id),
+    data: {
+      label: node.label,
+      status: routeNodeStatus({
+        nodeId: node.id,
+        currentNodeId,
+        traversedNodes,
+        reachableNodes,
+      }),
+    },
+    className: routeNodeClassName({
+      nodeId: node.id,
+      currentNodeId,
+      selectedNodeId,
+      traversedNodes,
+      reachableNodes,
+    }),
+    selectable: true,
+    draggable: false,
+  }));
+}
+
+function routeGraphEdges(routeEdges: RouteDeckNavGraphEdge[], traversedNodes: string[]): Edge[] {
+  return routeEdges
+    .map((edge) => ({
+      id: routeGraphEdgeTestId(edge),
+      source: edgeSource(edge),
+      target: edgeTarget(edge),
+      type: "smoothstep",
+      className: routeEdgeClassName(edge, traversedNodes),
+    }))
+    .filter((edge) => edge.source && edge.target);
 }
 
 function routeEdgeClassName(edge: RouteDeckNavGraphEdge, traversedNodes: string[]): string {
@@ -858,6 +1069,20 @@ function chatSuggestionsFromProjection(projection: RouteDeckProjection | null): 
       Boolean(item) && typeof item.label === "string" && typeof item.message === "string",
   );
   return suggestions.length ? suggestions : FALLBACK_CHAT_SUGGESTIONS;
+}
+
+function graphNodeFromProjectionUpdate(update: ProjectionUpdatePayload): string | null {
+  const projection = projectionPayloadFromUpdate(update);
+  if (!isProjectionRecord(projection) || !isProjectionRecord(projection.presentation_state)) return null;
+  return typeof projection.graph_node === "string" ? projection.graph_node : null;
+}
+
+function projectionPayloadFromUpdate(update: ProjectionUpdatePayload): unknown {
+  return update.projection || update.payload?.projection || update.payload?.state?.projection;
+}
+
+function isProjectionRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function nodeForPath(path: string): string {
