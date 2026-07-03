@@ -1,6 +1,19 @@
 from routedeck_core import RouteDeckSurfaceRegistry, route_deck_node
 
 
+class SurfaceSpec:
+    name = "active"
+    surface_id = "orders.active"
+    component = "OrdersSurface"
+    variant = "orders"
+    role = "active"
+    slot = "active"
+    surface_kind = "embedded"
+    label = "Orders"
+    props = {"title": "Orders"}
+    lifecycle = "stable"
+
+
 def test_surface_registry_maps_components_defaults_and_review_ids() -> None:
     registry = RouteDeckSurfaceRegistry(
         active_components_by_node={"browse": "BrowseSurface"},
@@ -33,6 +46,19 @@ def test_surface_registry_builds_operation_review_surface() -> None:
     assert surface.surface_kind == "peer"
     assert surface.props["operation_args"] == {"product_id": "public_1"}
     assert surface.props["source"] == "test"
+
+
+def test_surface_registry_builds_surface_from_product_descriptor() -> None:
+    surface = RouteDeckSurfaceRegistry().build_surface_from_spec(
+        SurfaceSpec(),
+        props={"title": "Live orders", "count": 3},
+    )
+
+    assert surface.name == "active"
+    assert surface.surface_id == "orders.active"
+    assert surface.component == "OrdersSurface"
+    assert surface.role == "active"
+    assert surface.props == {"title": "Live orders", "count": 3}
 
 
 def test_surface_registry_validates_requested_variant_against_node() -> None:

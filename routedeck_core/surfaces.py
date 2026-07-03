@@ -87,6 +87,33 @@ class RouteDeckSurfaceRegistry:
             lifecycle=lifecycle,
         )
 
+    def build_surface_from_spec(
+        self,
+        spec: Any,
+        *,
+        variant: str | None = None,
+        label: str | None = None,
+        props: Mapping[str, Any] | None = None,
+    ) -> RouteDeckSurface:
+        """Build a RouteDeck surface from a product-owned descriptor object."""
+
+        resolved_props = props
+        if resolved_props is None:
+            spec_props = getattr(spec, "props", None)
+            resolved_props = dict(spec_props or {})
+        return self.build_surface(
+            name=getattr(spec, "name"),
+            surface_id=getattr(spec, "surface_id", None),
+            component=getattr(spec, "component"),
+            variant=variant or getattr(spec, "variant", "default"),
+            role=getattr(spec, "role", "frame"),
+            slot=getattr(spec, "slot", None),
+            surface_kind=getattr(spec, "surface_kind", "embedded"),
+            label=label or getattr(spec, "label", None),
+            props=resolved_props,
+            lifecycle=getattr(spec, "lifecycle", "ephemeral"),
+        )
+
     def operation_review_surface(
         self,
         *,
