@@ -1,9 +1,14 @@
 from routedeck_core import (
+    ROUTEDECK_PENDING_OPERATION_ARGS_PARAM,
+    ROUTEDECK_PENDING_OPERATION_ID_PARAM,
+    RouteDeckGraphNavigationController,
+    RouteDeckGraphState,
     RouteDeckLocation,
     RouteDeckNavigationPolicy,
     RouteDeckOperation,
     RouteDeckProjection,
     RouteDeckSurface,
+    RouteDeckSurfaceRegistry,
 )
 
 
@@ -144,3 +149,40 @@ def test_navigation_policy_open_transition_pushes_previous_location() -> None:
     assert transition.target == target
     assert transition.back_stack == [RouteDeckLocation(node_id="home"), current]
     assert transition.forward_stack == []
+
+
+def test_graph_navigation_controller_applies_route_state_without_product_adapter() -> None:
+    registry = RouteDeckSurfaceRegistry(
+        active_components_by_node={
+            "home": "HomeSurface",
+            "detail": "DetailSurface",
+        }
+    )
+    state = RouteDeckGraphState(
+        node="home",
+        route_params={"tab": "overview"},
+        pending_operation_id="draft.publish",
+        pending_operation_args={"draft_id": "draft_1"},
+    )
+    navigation = RouteDeckGraphNavigationController(surface_registry=registry)
+
+    current = navigation.current_location(state)
+
+    assert current.surface_id == "operation_review.draft.publish"
+    assert current.params[ROUTEDECK_PENDING_OPERATION_ID_PARAM] == "draft.publish"
+    assert current.params[ROUTEDECK_PENDING_OPERATION_ARGS_PARAM] == {"draft_id": "draft_1"}
+
+    navigation.open_node(
+        state,
+        {
+            "node_id": "detail",
+            "surface_id": "detail.active",
+            "params": {"item_id": "item_1"},
+        },
+    )
+
+    assert state.node == "detail"
+    assert state.active_surface_id == "detail.active"
+    assert state.route_params == {"item_id": "item_1"}
+    assert state.pending_operation_id is None
+    assert [location.node_id for location in state.navigation_back_stack] == ["home"]
