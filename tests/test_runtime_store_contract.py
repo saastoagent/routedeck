@@ -18,8 +18,12 @@ from routedeck_core import (
     RouteDeckRuntimeState,
     RouteDeckSurfaceInteractionEvent,
     RouteDeckSurface,
+    build_dispatch_result,
     build_dispatch_state_event,
+    build_operation_completed_event,
     build_projection,
+    build_projection_update_event,
+    build_runtime_state,
 )
 
 
@@ -86,6 +90,119 @@ def test_dispatch_result_carries_new_runtime_state_and_active_surface():
     assert result.state.projection.graph_node == "auth_register"
     assert result.active_surface is not None
     assert result.messages == [{"content": "Create your account."}]
+
+
+def test_build_runtime_state_inherits_projection_diagnostics_by_default():
+    projection = RouteDeckProjection(
+        current_context="auth_register",
+        graph_node="auth_register",
+        projection_version=3,
+        navigation={
+            "current": {"node_id": "auth_register"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
+        diagnostics={"blocked": ["auth required"]},
+    )
+
+    state = build_runtime_state(
+        projection=projection,
+        graph_state={"node": "auth_register"},
+        location="/register",
+    )
+
+    assert state.status == "idle"
+    assert state.graph_state == {"node": "auth_register"}
+    assert state.location == "/register"
+    assert state.diagnostics == {"blocked": ["auth required"]}
+
+
+def test_build_projection_update_event_carries_runtime_state_and_projection():
+    projection = RouteDeckProjection(
+        current_context="dashboard",
+        graph_node="dashboard",
+        projection_version=9,
+        navigation={
+            "current": {"node_id": "dashboard"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
+    )
+    state = build_runtime_state(projection=projection, graph_state={"node": "dashboard"})
+
+    event = build_projection_update_event(state=state, payload={"source": "test"})
+    payload = event.model_dump(mode="json", by_alias=True)
+
+    assert payload["event_type"] == "projection_update"
+    assert payload["projection_version"] == 9
+    assert payload["payload"]["projection"]["graph_node"] == "dashboard"
+    assert payload["payload"]["state"]["graph_state"] == {"node": "dashboard"}
+    assert payload["payload"]["source"] == "test"
+
+
+def test_build_dispatch_result_defaults_to_operation_completed_event():
+    projection = RouteDeckProjection(
+        current_context="dashboard",
+        graph_node="dashboard",
+        projection_version=11,
+        navigation={
+            "current": {"node_id": "dashboard"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
+        surfaces={
+            "main": RouteDeckSurface(
+                name="main",
+                component="DashboardPanel",
+                role="active",
+            )
+        },
+    )
+    state = build_runtime_state(projection=projection)
+
+    result = build_dispatch_result(
+        operation_id="dashboard.open",
+        state=state,
+        active_surface=projection.surfaces["main"],
+        messages=[{"content": "Opened dashboard."}],
+        metadata={"replace_path": "/dashboard"},
+    )
+    payload = result.model_dump(mode="json", by_alias=True)
+
+    assert result.accepted is True
+    assert result.active_surface == projection.surfaces["main"]
+    assert payload["messages"] == [{"content": "Opened dashboard."}]
+    assert payload["metadata"] == {"replace_path": "/dashboard"}
+    assert payload["events"][0]["event_type"] == "operation_completed"
+    assert payload["events"][0]["projection_version"] == 11
+    assert payload["events"][0]["payload"]["operation_id"] == "dashboard.open"
+    assert payload["events"][0]["payload"]["projection"]["graph_node"] == "dashboard"
+
+
+def test_build_operation_completed_event_accepts_payload_overlay():
+    projection = RouteDeckProjection(
+        current_context="review",
+        graph_node="review",
+        projection_version=5,
+        navigation={
+            "current": {"node_id": "review"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
+    )
+
+    event = build_operation_completed_event(
+        operation_id="review.approve",
+        projection=projection,
+        payload={"result": "approved"},
+    )
+    payload = event.model_dump(mode="json", by_alias=True)
+
+    assert payload["event_type"] == "operation_completed"
+    assert payload["projection_version"] == 5
+    assert payload["payload"]["operation_id"] == "review.approve"
+    assert payload["payload"]["projection"]["graph_node"] == "review"
+    assert payload["payload"]["result"] == "approved"
 
 
 def test_introspection_contract_is_read_only_graph_context():

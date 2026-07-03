@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import asyncio
+import subprocess
 from typing import Any, TypedDict
 
 from routedeck_core import RouteDeckActionSpec, RouteDeckEdgeSpec, RouteDeckManifest, RouteDeckNodeSpec
@@ -61,9 +62,18 @@ def _resolver(_edge, state: dict[str, Any]) -> bool:
 
 
 def test_routedeck_core_does_not_import_langgraph():
-    import routedeck_core  # noqa: F401
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import routedeck_core; raise SystemExit(1 if 'langgraph' in sys.modules else 0)",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
-    assert "langgraph" not in sys.modules
+    assert result.returncode == 0, result.stderr
 
 
 def test_adapter_validation_reports_missing_handler_and_resolver():

@@ -140,6 +140,86 @@ def build_dispatch_state_event(
     )
 
 
+def build_runtime_state(
+    *,
+    projection: RouteDeckProjection,
+    status: str = "idle",
+    graph_state: dict[str, Any] | None = None,
+    location: str | None = None,
+    diagnostics: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> RouteDeckRuntimeState:
+    return RouteDeckRuntimeState(
+        projection=projection,
+        status=status,
+        graph_state=dict(graph_state or {}),
+        location=location,
+        diagnostics=dict(projection.diagnostics if diagnostics is None else diagnostics),
+        metadata=dict(metadata or {}),
+    )
+
+
+def build_projection_update_event(
+    *,
+    state: RouteDeckRuntimeState,
+    projection_version: int | None = None,
+    payload: dict[str, Any] | None = None,
+) -> RouteDeckEvent:
+    return RouteDeckEvent(
+        event_type="projection_update",
+        projection_version=projection_version if projection_version is not None else state.projection.projection_version,
+        payload={
+            "projection": state.projection.model_dump(mode="json"),
+            "state": state.model_dump(mode="json"),
+            **(payload or {}),
+        },
+    )
+
+
+def build_operation_completed_event(
+    *,
+    operation_id: str,
+    projection: RouteDeckProjection,
+    projection_version: int | None = None,
+    payload: dict[str, Any] | None = None,
+) -> RouteDeckEvent:
+    return RouteDeckEvent(
+        event_type="operation_completed",
+        projection_version=projection_version if projection_version is not None else projection.projection_version,
+        payload={
+            "operation_id": operation_id,
+            "projection": projection.model_dump(mode="json"),
+            **(payload or {}),
+        },
+    )
+
+
+def build_dispatch_result(
+    *,
+    operation_id: str,
+    state: RouteDeckRuntimeState,
+    accepted: bool = True,
+    active_surface: RouteDeckSurface | None = None,
+    messages: list[dict[str, Any]] | None = None,
+    events: list[RouteDeckEvent] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> RouteDeckDispatchResult:
+    return RouteDeckDispatchResult(
+        operation_id=operation_id,
+        accepted=accepted,
+        state=state,
+        active_surface=active_surface,
+        messages=list(messages or []),
+        events=list(events) if events is not None else [
+            build_operation_completed_event(
+                operation_id=operation_id,
+                projection=state.projection,
+            )
+        ],
+        metadata=dict(metadata or {}),
+    )
+
+
 def _coerce_surface_variant(surface: RouteDeckSurface, node: Any) -> RouteDeckSurface:
     if node is None:
         return surface

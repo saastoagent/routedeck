@@ -194,6 +194,147 @@ class RouteDeckRuntimeSnapshot(BaseModel):
     diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
+class RouteDeckActionField(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
+    label: str = Field(min_length=1, max_length=120)
+    field_type: RouteDeckFieldType = "text"
+    required: bool = False
+    placeholder: str | None = Field(default=None, max_length=240)
+    default: Any = None
+    options: list[dict[str, str]] | None = None
+    help_text: str | None = Field(default=None, max_length=300)
+    validation_hint: str | None = Field(default=None, max_length=300)
+    sensitive: bool = False
+
+
+class RouteDeckActionCard(BaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    label: str = Field(min_length=1, max_length=120)
+    capability_id: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=240)
+    emphasis: RouteDeckActionEmphasis = "secondary"
+    kind: RouteDeckActionKind = "button"
+    category: RouteDeckActionCategory | None = None
+    placement: RouteDeckActionPlacement | None = None
+    explanation: str | None = Field(default=None, max_length=500)
+    recovery_prompt: str | None = Field(default=None, max_length=300)
+    feedback_target: str | None = Field(default=None, max_length=160)
+    fields: list[RouteDeckActionField] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    disabled_reason: str | None = Field(default=None, max_length=240)
+
+
+class RouteDeckUIArtifact(BaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    kind: Literal["widget", "markup"]
+    surface: Literal["inline", "canvas", "both"] = "inline"
+    title: str | None = Field(default=None, max_length=160)
+    widget_type: str | None = Field(default=None, max_length=120)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    markup: str | None = Field(default=None, max_length=20_000)
+
+
+class RouteDeckGraphMessage(BaseModel):
+    role: Literal["assistant"] = "assistant"
+    content: str
+
+
+class RouteDeckGraphManifestNode(BaseModel):
+    id: str
+    label: str
+    lane: str
+    parent: str | None = None
+    description: str | None = None
+    prompt_placeholder: str | None = None
+    allowed_actions: list[str] = Field(default_factory=list)
+    expected_input: str | None = None
+    recovery_prompt: str | None = None
+
+
+class RouteDeckGraphManifestEdge(BaseModel):
+    from_stage: str = Field(alias="from")
+    to_stage: str = Field(alias="to")
+    type: str
+    condition: str | None = None
+    explanation: str | None = None
+    action_id: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class RouteDeckGraphManifestAction(BaseModel):
+    id: str
+    label: str
+    capability_id: str | None = None
+    description: str | None = None
+    emphasis: RouteDeckActionEmphasis = "secondary"
+    kind: RouteDeckActionKind = "button"
+    category: RouteDeckActionCategory | None = None
+    placement: RouteDeckActionPlacement | None = None
+    fields: list[RouteDeckActionField] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    allowed_nodes: list[str] = Field(default_factory=list)
+    visibility: str = "contextual"
+    recovery_prompt: str | None = None
+    sensitive: bool = False
+
+
+class RouteDeckGraphManifest(BaseModel):
+    version: str
+    nodes: list[RouteDeckGraphManifestNode] = Field(default_factory=list)
+    edges: list[RouteDeckGraphManifestEdge] = Field(default_factory=list)
+    actions: list[RouteDeckGraphManifestAction] = Field(default_factory=list)
+    policies: dict[str, Any] = Field(default_factory=dict)
+    test_paths: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RouteDeckGraphNavigationLocation(BaseModel):
+    node_id: str
+    surface_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteDeckGraphState(BaseModel):
+    node: str = "home"
+    active_surface_id: str | None = None
+    route_params: dict[str, Any] = Field(default_factory=dict)
+    navigation_back_stack: list[RouteDeckGraphNavigationLocation] = Field(default_factory=list)
+    navigation_forward_stack: list[RouteDeckGraphNavigationLocation] = Field(default_factory=list)
+    pending_operation_id: str | None = None
+    pending_operation_args: dict[str, Any] = Field(default_factory=dict)
+    dirty_surfaces: dict[str, bool] = Field(default_factory=dict)
+    graph_context: dict[str, Any] = Field(default_factory=dict)
+    executed_nodes: list[str] = Field(default_factory=list)
+
+
+class RouteDeckGraphRequest(BaseModel):
+    state: RouteDeckGraphState | None = None
+    node_id: str | None = Field(default=None, max_length=120)
+    selected_action_id: str | None = Field(default=None, max_length=160)
+    action_payload: dict[str, Any] = Field(default_factory=dict)
+    user_input: str | None = Field(default=None, max_length=8_000)
+
+
+class RouteDeckContextLens(BaseModel):
+    current_node: str
+    working_on: str
+
+
+class RouteDeckGraphResponse(BaseModel):
+    state: RouteDeckGraphState
+    graph_version: str
+    graph_manifest: RouteDeckGraphManifest
+    route_deck_snapshot: RouteDeckRuntimeSnapshot
+    context_lens: RouteDeckContextLens
+    available_actions: list[RouteDeckActionCard] = Field(default_factory=list)
+    persistent_actions: list[RouteDeckActionCard] = Field(default_factory=list)
+    ui_artifacts: list[RouteDeckUIArtifact] = Field(default_factory=list)
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+    messages: list[RouteDeckGraphMessage] = Field(default_factory=list)
+    replace_path: str | None = None
+
+
 class RouteDeckOperation(BaseModel):
     id: str
     label: str
