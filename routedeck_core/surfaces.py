@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, ClassVar
 
 from .models import RouteDeckSurface
 
 
 class RouteDeckSurfaceRegistry:
     """Configurable helpers for product-owned RouteDeck surfaces."""
+
+    Surface: ClassVar[type[RouteDeckSurface]] = RouteDeckSurface
 
     def __init__(
         self,
@@ -73,7 +75,7 @@ class RouteDeckSurfaceRegistry:
         props: Mapping[str, Any] | None = None,
         lifecycle: str = "ephemeral",
     ) -> RouteDeckSurface:
-        return RouteDeckSurface(
+        return self.Surface(
             name=name,
             surface_id=surface_id,
             component=component,
@@ -113,6 +115,30 @@ class RouteDeckSurfaceRegistry:
             props=resolved_props,
             lifecycle=getattr(spec, "lifecycle", "ephemeral"),
         )
+
+    def surface_props_for_spec(self, spec: Any, **context: Any) -> Mapping[str, Any]:
+        resolve_props = getattr(spec, "resolve_props", None)
+        if callable(resolve_props):
+            return dict(resolve_props(**context))
+        spec_props = getattr(spec, "props", None)
+        return dict(spec_props or {})
+
+    def surface_label_for_spec(self, spec: Any, **context: Any) -> str | None:
+        return getattr(spec, "label", None)
+
+    def surface_variant_for_spec(self, spec: Any, **context: Any) -> str:
+        return getattr(spec, "variant", "default")
+
+    def surface_from_spec(self, spec: Any, **context: Any) -> RouteDeckSurface:
+        return self.build_surface_from_spec(
+            spec,
+            variant=self.surface_variant_for_spec(spec, **context),
+            label=self.surface_label_for_spec(spec, **context),
+            props=self.surface_props_for_spec(spec, **context),
+        )
+
+    def surfaces_from_specs(self, specs: Iterable[Any], **context: Any) -> list[RouteDeckSurface]:
+        return [self.surface_from_spec(spec, **context) for spec in specs]
 
     def operation_review_surface(
         self,

@@ -318,6 +318,9 @@ class RouteDeckGraphRequest(BaseModel):
 class RouteDeckContextLens(BaseModel):
     current_node: str
     working_on: str
+    active_surface_id: str | None = None
+    route_params: dict[str, Any] = Field(default_factory=dict)
+    legal_operation_ids: list[str] = Field(default_factory=list)
 
 
 class RouteDeckGraphResponse(BaseModel):
@@ -429,6 +432,7 @@ class RouteDeckProjection(BaseModel):
     surfaces: dict[str, RouteDeckSurface] = Field(default_factory=dict)
     presentation_state: dict[str, Any] = Field(default_factory=dict)
     navigation: RouteDeckNavigationState
+    context_lens: RouteDeckContextLens | None = None
     capabilities: list[RouteDeckCapabilitySpec] = Field(default_factory=list)
     navgraph: RouteDeckNavGraph | None = None
     available_entities: list[RouteDeckAvailableEntity] = Field(default_factory=list)

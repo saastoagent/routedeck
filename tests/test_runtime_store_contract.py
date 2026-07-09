@@ -158,7 +158,7 @@ def test_build_dispatch_result_defaults_to_operation_completed_event():
             )
         },
     )
-    state = build_runtime_state(projection=projection)
+    state = build_runtime_state(projection=projection, graph_state={"node": "dashboard"})
 
     result = build_dispatch_result(
         operation_id="dashboard.open",
@@ -176,7 +176,11 @@ def test_build_dispatch_result_defaults_to_operation_completed_event():
     assert payload["events"][0]["event_type"] == "operation_completed"
     assert payload["events"][0]["projection_version"] == 11
     assert payload["events"][0]["payload"]["operation_id"] == "dashboard.open"
+    assert payload["events"][0]["payload"]["state"] == {"node": "dashboard"}
     assert payload["events"][0]["payload"]["projection"]["graph_node"] == "dashboard"
+    assert payload["events"][0]["payload"]["active_surface"]["component"] == "DashboardPanel"
+    assert payload["events"][0]["payload"]["messages"] == [{"content": "Opened dashboard."}]
+    assert payload["events"][0]["payload"]["replace_path"] == "/dashboard"
 
 
 def test_build_operation_completed_event_accepts_payload_overlay():

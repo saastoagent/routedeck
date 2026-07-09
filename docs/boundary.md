@@ -1,5 +1,11 @@
 # RouteDeck Boundary
 
+> 2026-07-06 update: the main RouteDeck product direction is now
+> LangGraph-native. See
+> [`decisions/ADR-001-langgraph-native-routedeck.md`](../decisions/ADR-001-langgraph-native-routedeck.md).
+> This document still describes useful product/framework separation, but its
+> older "LangGraph optional" framing is superseded for the backend runtime.
+
 For the fuller human, agent, and developer usage guide, read `docs/using-routedeck.md`.
 
 RouteDeck owns agentic navigation UX contracts.

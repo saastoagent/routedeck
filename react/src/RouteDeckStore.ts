@@ -298,6 +298,7 @@ function normalizeProjection(projection: RouteDeckProjection): RouteDeckProjecti
     surfaces: projection.surfaces || {},
     presentation_state: projection.presentation_state || {},
     navigation,
+    context_lens: normalizeContextLens(projection, navigation),
     capabilities: projection.capabilities || [],
     navgraph: normalizeNavGraph(projection.navgraph, navigation),
     available_entities: projection.available_entities || [],
@@ -475,12 +476,20 @@ function normalizeNavGraph(
 }
 
 function withNavigation(projection: RouteDeckProjection, navigation: RouteDeckProjection['navigation']): RouteDeckProjection {
-  return { ...projection, navigation }
+  return { ...projection, navigation, context_lens: normalizeContextLens(projection, navigation) }
 }
 
 function withProjectionNode(projection: RouteDeckProjection, nodeId: string): RouteDeckProjection {
   if (!nodeId) return projection
-  return { ...projection, graph_node: nodeId, current_context: nodeId }
+  return {
+    ...projection,
+    graph_node: nodeId,
+    current_context: nodeId,
+    context_lens: {
+      ...normalizeContextLens(projection, projection.navigation),
+      current_node: nodeId,
+    },
+  }
 }
 
 function withActiveSurfaceId(projection: RouteDeckProjection, surfaceId: string): RouteDeckProjection {
@@ -496,6 +505,23 @@ function withActiveSurfaceId(projection: RouteDeckProjection, surfaceId: string)
         variant,
       },
     },
+    context_lens: {
+      ...normalizeContextLens(projection, projection.navigation),
+      active_surface_id: surfaceId,
+    },
+  }
+}
+
+function normalizeContextLens(
+  projection: RouteDeckProjection,
+  navigation: RouteDeckProjection['navigation'],
+): NonNullable<RouteDeckProjection['context_lens']> {
+  return {
+    current_node: projection.context_lens?.current_node || projection.graph_node,
+    working_on: projection.context_lens?.working_on || projection.current_context || projection.graph_node,
+    active_surface_id: navigation.current?.surface_id || projection.context_lens?.active_surface_id || null,
+    route_params: navigation.current?.params || projection.context_lens?.route_params || {},
+    legal_operation_ids: projection.legal_operations?.map((operation) => operation.id) || [],
   }
 }
 

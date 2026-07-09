@@ -1,5 +1,10 @@
 # RouteDeck Framework Architecture
 
+> 2026-07-06 update: RouteDeck's backend framework direction is now
+> LangGraph-native while custom LangGraph graphs remain first-class. See
+> [`decisions/ADR-001-langgraph-native-routedeck.md`](../decisions/ADR-001-langgraph-native-routedeck.md).
+> Interpret the older optional-adapter wording below through that accepted ADR.
+
 > Canonical direction: read `docs/agentic-ui-state-runtime.md` first. RouteDeck is graph-backed state management for agentic UI. This document describes the older package split and should be interpreted through that runtime/store model.
 
 RouteDeck is a framework layer for agentic navigation UX. It is not a replacement for LangGraph, FastAPI, or React.

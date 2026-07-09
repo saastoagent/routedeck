@@ -5,6 +5,7 @@ from routedeck_core import (
     RouteDeckAvailableEntity,
     RouteDeckBindingExpression,
     RouteDeckCapabilitySpec,
+    RouteDeckContextLens,
     RouteDeckDeepLink,
     RouteDeckEntityOperationBinding,
     RouteDeckManifest,
@@ -174,6 +175,45 @@ def test_projection_contract_exposes_capabilities_entities_and_affordances():
     assert payload["legal_operations"][0]["capability_id"] == "draft.approve"
     assert payload["available_entities"][0]["entity_key"] == "draft:alpha"
     assert payload["surface_affordances"][0]["arg_bindings"]["decision"] == {"from": "event", "path": "decision"}
+
+
+def test_projection_contract_exposes_context_lens_as_first_class_projection_context():
+    projection = build_projection(
+        RouteDeckManifest(
+            version="context-lens-contract",
+            nodes=[
+                RouteDeckNodeSpec(
+                    id="dashboard",
+                    label="Dashboard",
+                    lane="workspace",
+                    description="Dashboard node.",
+                )
+            ],
+            edges=[],
+            actions=[],
+        ),
+        current_node="dashboard",
+        operations=[
+            RouteDeckOperation(
+                id="dashboard.refresh",
+                label="Refresh dashboard",
+            )
+        ],
+        navigation={"current": {"node_id": "dashboard", "surface_id": "dashboard.active", "params": {"tab": "overview"}}},
+        context_lens=RouteDeckContextLens(
+            current_node="dashboard",
+            working_on="Dashboard",
+        ),
+    )
+
+    payload = projection.model_dump(mode="json")
+    assert payload["context_lens"] == {
+        "current_node": "dashboard",
+        "working_on": "Dashboard",
+        "active_surface_id": "dashboard.active",
+        "route_params": {"tab": "overview"},
+        "legal_operation_ids": ["dashboard.refresh"],
+    }
 
 
 def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes():

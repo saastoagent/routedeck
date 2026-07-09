@@ -87,6 +87,14 @@ export interface RouteDeckRuntimeSnapshot {
   diagnostics?: Record<string, unknown>
 }
 
+export interface RouteDeckContextLens {
+  current_node: string
+  working_on: string
+  active_surface_id?: string | null
+  route_params?: Record<string, unknown>
+  legal_operation_ids?: string[]
+}
+
 export type RouteDeckSafetyClass =
   | 'navigation'
   | 'state_selection'
@@ -273,6 +281,7 @@ export interface RouteDeckProjection {
   surfaces: Record<string, RouteDeckSurface>
   presentation_state: Record<string, unknown>
   navigation: RouteDeckNavigationState
+  context_lens?: RouteDeckContextLens | null
   capabilities?: RouteDeckCapabilitySpec[]
   navgraph?: RouteDeckNavGraph | null
   available_entities?: RouteDeckAvailableEntity[]

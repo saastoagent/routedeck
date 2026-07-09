@@ -1,4 +1,12 @@
-from routedeck_core import RouteDeckSurfaceRegistry, route_deck_node
+from routedeck_core import RouteDeckSurface, RouteDeckSurfaceRegistry, route_deck_node
+
+
+class ProductSurface(RouteDeckSurface):
+    product: str = "demo"
+
+
+class ProductSurfaceRegistry(RouteDeckSurfaceRegistry):
+    Surface = ProductSurface
 
 
 class SurfaceSpec:
@@ -12,6 +20,13 @@ class SurfaceSpec:
     label = "Orders"
     props = {"title": "Orders"}
     lifecycle = "stable"
+
+
+class ContextSurfaceSpec(SurfaceSpec):
+    props = {}
+
+    def resolve_props(self, *, title: str, count: int) -> dict[str, object]:
+        return {"title": title, "count": count}
 
 
 def test_surface_registry_maps_components_defaults_and_review_ids() -> None:
@@ -59,6 +74,32 @@ def test_surface_registry_builds_surface_from_product_descriptor() -> None:
     assert surface.component == "OrdersSurface"
     assert surface.role == "active"
     assert surface.props == {"title": "Live orders", "count": 3}
+
+
+def test_surface_registry_builds_declared_surface_subclass() -> None:
+    surface = ProductSurfaceRegistry().build_surface_from_spec(SurfaceSpec())
+    review_surface = ProductSurfaceRegistry().operation_review_surface(
+        node_id="orders",
+        operation_id="orders.refresh",
+        component="ReviewSurface",
+    )
+
+    assert isinstance(surface, ProductSurface)
+    assert isinstance(review_surface, ProductSurface)
+    assert surface.product == "demo"
+
+
+def test_surface_registry_builds_surface_lists_from_product_specs() -> None:
+    surfaces = ProductSurfaceRegistry().surfaces_from_specs(
+        [ContextSurfaceSpec(), SurfaceSpec()],
+        title="Live orders",
+        count=3,
+    )
+
+    assert [surface.surface_id for surface in surfaces] == ["orders.active", "orders.active"]
+    assert all(isinstance(surface, ProductSurface) for surface in surfaces)
+    assert surfaces[0].props == {"title": "Live orders", "count": 3}
+    assert surfaces[1].props == {"title": "Orders"}
 
 
 def test_surface_registry_validates_requested_variant_against_node() -> None:

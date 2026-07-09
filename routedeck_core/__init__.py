@@ -5,6 +5,7 @@ from .authoring import (
     route_deck_field,
     route_deck_node,
 )
+from .app import RouteDeckApp
 from .dispatch import RouteDeckActionDispatcher, RouteDeckActionResult
 from .models import (
     RouteDeckActionCard,
@@ -60,6 +61,8 @@ from .navigation import (
 )
 from .runtime import (
     RouteDeckRuntime,
+    RouteDeckRuntimeBase,
+    build_dispatch_result_completed_event,
     build_dispatch_result,
     build_dispatch_state_event,
     build_operation_completed_event,
@@ -74,6 +77,7 @@ from .validation import RouteDeckValidationError, validate_manifest
 
 __all__ = [
     "RouteDeckActionDispatcher",
+    "RouteDeckApp",
     "RouteDeckActionResult",
     "RouteDeckActionCard",
     "RouteDeckActionField",
@@ -117,6 +121,7 @@ __all__ = [
     "RouteDeckRouteActionIds",
     "RouteDeckStateProjector",
     "RouteDeckRuntime",
+    "RouteDeckRuntimeBase",
     "RouteDeckRuntimeState",
     "RouteDeckRuntimeSnapshot",
     "RouteDeckSensitivePolicy",
@@ -129,6 +134,7 @@ __all__ = [
     "RouteDeckValidationError",
     "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
     "ROUTEDECK_PENDING_OPERATION_ID_PARAM",
+    "build_dispatch_result_completed_event",
     "build_dispatch_result",
     "build_dispatch_state_event",
     "build_operation_completed_event",
