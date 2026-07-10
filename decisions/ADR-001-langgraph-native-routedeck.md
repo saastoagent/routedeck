@@ -1,7 +1,14 @@
 # ADR-001: RouteDeck Is A LangGraph-Native Dynamic UI Application Framework
 
-Status: Accepted
+Status: Superseded in part by ADR-003
 Date: 2026-07-06
+
+2026-07-10 supersession: `ADR-003-agentic-interaction-state-governor.md`
+controls RouteDeck's current identity and first-release scope. RouteDeck core is
+runtime-neutral, LangGraph is not required, and a Full Flow compiler is not an
+active first-release requirement. This ADR remains historical rationale for not
+reinventing LangGraph and for keeping execution graphs distinct from the
+navgraph.
 
 2026-07-10 amendment: ADR-002 refines this direction into two adoption modes
 over one interaction kernel. `compile()` returns a `RouteDeckCompiledApp`; its

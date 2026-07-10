@@ -1,7 +1,15 @@
 # RouteDeck Reference
 
-Status: canonical framework reference
+Status: canonical framework reference; ADR-003 controls current vision and scope
 Date: 2026-07-10
+
+> **Current authority:**
+> `../decisions/ADR-003-agentic-interaction-state-governor.md` supersedes this
+> document wherever it requires a LangGraph compiler, Full Flow/Core
+> Integration modes, RouteDeck-owned tool execution, or new durability/replay
+> infrastructure. Preserve the proven Corpus feature semantics in this
+> reference, but do not treat its broader historical target as first-release
+> scope.
 
 Schema authority: `routedeck_core/models.py` (current implementation). The
 accepted target splits application, client-contract, event, executor, and

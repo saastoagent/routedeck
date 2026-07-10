@@ -1,7 +1,13 @@
 # ADR-002: RouteDeck Supports Two Adoption Modes Through One Kernel
 
-Status: Accepted
+Status: Superseded in part by ADR-003
 Date: 2026-07-10
+
+Supersession note: `ADR-003-agentic-interaction-state-governor.md` keeps the
+valuable runtime-neutral kernel boundary but defers multiple adoption modes,
+the Full Flow compiler, durable event/outbox infrastructure, and independent
+examples. The first extraction is limited to behavior already demonstrated by
+Corpus, with Medusa as a later portability proof.
 
 ## Context
 

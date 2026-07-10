@@ -1,219 +1,233 @@
 # Critical Prompt - RouteDeck
 
-RouteDeck is a full-stack framework for robust agentic applications. A product
-defines its domain state, user-facing flows, nodes, operations, guards, handlers,
-and surfaces; RouteDeck compiles and runs that definition over LangGraph and
-connects it to typed events, Server-Sent Events, projections, diagnostics, and a
-React client store without letting UI or chat own product truth.
+The controlling decision is
+[ADR-003](./decisions/ADR-003-agentic-interaction-state-governor.md).
 
-The application specification is the single public interaction source of truth:
-nodes, flows/outcomes, operations, surface identity/placement, affordances,
-declared event schemas, and the versioned frontend contract derive from it.
+RouteDeck is state management and interaction governance for agentic
+applications. It gives an agent only the context it currently needs, supervises
+every application-semantic tool call, and keeps navigation, real identifiers,
+guards, surfaces, tool results, SSE updates, and frontend state coherent.
 
-The canonical framework reference is `docs/route-deck-reference.md`. Start there
-before changing framework language, schema meaning, runtime contracts, surfaces,
-or product examples.
+RouteDeck is not the agent, model, graph engine, product tool executor, product
+database, or authentication system.
 
 ## North Star
 
-The default developer experience is declarative:
-
 ```text
-Product application definition
-  -> RouteDeck validation and compilation
-  -> LangGraph execution
-  -> RouteDeck interaction/runtime state
-  -> typed RouteDeck event protocol
-  -> SSE channel views and RouteDeckStore
-  -> product surfaces, chat, automation, and diagnostics
+trusted product facts + navgraph declaration
+  -> RouteDeck interaction/session projection
+  -> scoped agent context with visible real IDs and legal tools
+  -> agent proposes a tool call
+  -> RouteDeck allows, blocks, requests input, or requires review
+  -> host agent runtime executes an allowed product tool
+  -> host reports the result/failure to RouteDeck
+  -> RouteDeck updates context, surfaces, events, feedback, and client state
 ```
 
-RouteDeck also supports advanced developers who already have a working agent or
-custom LangGraph graph. They attach their executor through the same RouteDeck
-state, interaction, event, projection, and store kernel instead of rewriting the
-agent inside a second framework.
+The navgraph is the agentic application's interaction map: user-facing states,
+reachable transitions, tools, surfaces, deep links, and recovery paths. It is
+not the agent's private execution graph.
 
-RouteDeck's spine is:
+## Ownership
 
-```text
-Product graph truth
-  -> RouteDeck navgraph
-  -> capability contract
-  -> RouteDeck projection
-  -> surfaces, chat, automation, diagnostics
-  -> affordance event or agent-selected capability request
-  -> RouteDeck dispatch
-  -> graph commit, rejection, review, or recovery
-  -> semantic observation and next projection
-```
+RouteDeck owns reusable:
 
-RouteDeck owns reusable application compilation, LangGraph integration,
-projection, navigation, navgraph, capability, dispatch, review, surface,
-diagnostics, introspection, event sequencing, SSE transport, and client-store
-contracts. RouteDeck also owns authoritative interaction-session/idempotency
-semantics and a durable reference event/session/outbox backend. Products own
-domain vocabulary, product declarations, prompts,
-planning context construction, domain handlers, surface components, domain data,
-auth, domain persistence, product policy, UI copy, LLM calls, semantic
-observations, and side effects.
+- interaction and session state
+- navgraph validation and guarded navigation
+- scoped planning/context projection
+- legal/blocked tool metadata and structured feedback
+- current-operation real-ID allowlists
+- before/after tool-call supervision
+- needs-input and review interaction state
+- active/frame/peer/detail/form/review surface mechanics
+- surface selection, affordance, and dirty-state coordination
+- back/forward/cancel/recovery and product-owned deep-link integration
+- relevant tool-result observation and projection updates
+- existing typed interaction events and SSE framing demonstrated by Corpus
+- frontend projection/store synchronization
+- read-only diagnostics and public/private information separation
 
-## Two Supported Developer Modes
+Products own:
 
-1. **RouteDeck Full Flow** is the golden path for ordinary developers and
-   agent-assisted or vibe-coded applications. RouteDeck compiles the app
-   definition into the LangGraph-backed runtime and supplies the full backend,
-   event, SSE, projection, and React state path.
-2. **RouteDeck Core Integration** is the adoption path for advanced agent
-   developers. Their existing execution runtime remains intact behind a typed
-   executor adapter while RouteDeck supplies state and interaction management,
-   guards, review, projections, events, surfaces, diagnostics, and frontend
-   state.
+- domain records and business truth
+- authentication and trusted actor facts
+- product-supplied guard functions and policy facts
+- prompts, model calls, agent personality, and response wording
+- product tool implementations and actual tool invocation
+- external side effects
+- product surface components, props, copy, and visual design
+- private agent-runtime state
 
-Both modes use the same contracts and conformance suite. Full Flow is the shared
-kernel plus the first-class LangGraph compiler, not a separate implementation.
+RouteDeck evaluates and enforces product-supplied guards before the host runtime
+invokes a tool. Product code remains responsible for the tool's domain
+correctness and effects.
 
-## Non-Negotiable Boundaries
+## Tool Supervision
 
-- Product graph truth stays in the product graph or product runtime.
-- RouteDeck session state is authoritative for the public interaction contract;
-  clients never submit authoritative graph state.
-- RouteDeck atomically claims dispatch before executor invocation. Duplicate or
-  interrupted work is explicit, and external exactly-once behavior is never
-  implied when a downstream system does not participate in the transaction.
-- Frontends load the backend-exported client contract and keep only product
-  component registration, product copy, and UI-local presentation state.
-- RouteDeck projection is output, not the source of graph behavior.
-- Surfaces present capabilities through affordances; they do not mutate graph
-  state directly.
+Every application-semantic read and write tool call crosses RouteDeck.
+RouteDeck does not invoke the tool. It returns one of:
+
+- `allowed`, with validated/normalized arguments
+- `blocked`, with a reason and currently available alternatives
+- `needs_input`, with missing fields
+- `requires_review`, with review state/surface information
+
+The host integration invokes only allowed tools and reports every result or
+failure back through RouteDeck. An integration that deliberately bypasses this
+gate is outside the RouteDeck guarantee.
+
+## Real Identifier Rule
+
+Use real product IDs, matching working Corpus behavior. Do not add opaque
+RouteDeck IDs to the first extraction.
+
+A trusted product provider places visible records and real IDs into the current
+projection. RouteDeck accepts an agent-supplied ID only when it is allowed for
+the requested tool in the current session/navgraph state. Fabricated, stale,
+hidden, cross-context, or currently ineligible IDs are blocked before the host
+tool runner sees them.
+
+Public assistant responses must still redact internal IDs when the product
+experience should not reveal them.
+
+## Declarative Authoring
+
+Developers describe the interaction map once: nodes, transitions, available
+tools, required selections, surfaces, deep links, and recovery behavior.
+
+Ordinary product functions supply changing facts and behavior: load visible
+records, calculate guards, populate product surfaces, run tools in the host
+runtime, and interpret results. Products must not recreate generic context
+filtering, navigation history, surface lifecycle, ID allowlisting, feedback, or
+SSE framing.
+
+## Corpus Parity Rule
+
+Working Corpus behavior is the first RouteDeck feature oracle even where its
+current code ownership is wrong.
+
+The first extraction is limited to capabilities Corpus already demonstrates:
+
+- 26 interaction nodes and 40 operations
+- guarded reachability and recovery
+- scoped planning context
+- visible real-ID selections
+- legal/blocked operations and review flows
+- active and alternate product surfaces
+- deep links and navigation history
+- tool-result evidence and result review
+- existing Corpus SSE and frontend projection behavior
+- diagnostics and internal/public redaction
+
+Do not add speculative framework infrastructure during this extraction. A
+RouteDeck-only test count is not completion; every slice must preserve the
+matching Corpus backend and browser behavior.
+
+## Runtime Neutrality
+
+RouteDeck core must not require LangGraph. The first integration uses the
+existing Corpus planner/agent driver through a small injected boundary.
+Runtime-neutral means RouteDeck does not know how the agent made its decision;
+it does not mean building many adapters now.
+
+The Medusa agent is the later portability proof. A LangGraph adapter or compiler
+requires a separate user-approved decision.
+
+## Non-Negotiable Product Rules
+
+- LLMs do not patch application state directly; they request supervised tools.
+- Assistant prose alone is not a state update.
+- Public chat must not invent product facts.
+- Anything semantic that a surface can do must also be representable to the
+  agent through current scoped context.
+- A chat statement is not a state change. Browse/open/select/compare/tool claims
+  must cross the same supervised interaction boundary as the equivalent UI
+  affordance and produce the matching projection update.
+- Hidden `route.*` operations stay out of normal product UI and agent context.
+- Legal tools are not rendered wholesale as one-click actions. Form, selector,
+  review, hidden, and blocked posture must be respected.
+- Product facts must come from current projection/context or a reported product
+  tool result. The agent must not invent products, prices, variants,
+  availability, selections, permissions, or current surface state.
+- Product surfaces are separate from navgraph diagnostics. Surface controls
+  request supervised tools; diagnostic navgraph selection is read-only.
 - Visual navgraph surfaces are read-only orientation/inspection UI. Selecting a
-  graph node may only change local inspection focus; it must not dispatch,
-  navigate, mutate graph state, or change the browser URL.
-- A visible navgraph must be rendered as literal graph topology with a graph
-  visualization library or dedicated graph renderer. Hand-positioned buttons
-  with decorative lines are not sufficient once a slice claims navgraph UI.
+  graph node must not dispatch, navigate, mutate graph state, or change the
+  browser URL.
 - Product action chips come from product-curated projected capabilities,
-  operations, affordances, or agent proposals. They do not come from clickable
-  navgraph nodes.
-- Product action chips belong to the product chat/assistant experience, such as
-  Corpus-style quick actions attached to assistant turns or the active composer
-  context. Do not render them as navgraph artifacts.
-- Agent-first reference apps should open with an assistant chat turn that carries
-  starter action chips when legal actions exist. Do not replace the chat with an
-  empty-state panel, landing page, debugger, or graph-first placeholder.
-- Do not render `legal_operations` wholesale as chips. Hide blocked,
-  hidden/internal, unbound selector/form, and normal current-node no-op
-  operations unless the product intentionally presents a refresh/reload action.
+  operations, affordances, or agent proposals.
+- Product action chips belong to the product chat/assistant experience, not the
+  navgraph.
+- Agent-first reference apps should open with an assistant chat turn when legal
+  starter actions exist.
+- Internal `route.*` operations are never ordinary product chips.
+- Do not render `legal_operations` wholesale as chips.
 - Product surfaces and navgraph/inspector surfaces must stay separate. In
   agent-centric apps, the active product surface belongs inside the chat or
-  workbench stream, Corpus-style, not as a detached product side panel. Product
-  cards, home CTAs, cart buttons, and variant controls emit declared surface
-  affordance events; navgraph selection only changes local inspection focus.
-- Address-bar deeplinks are product-owned URL codecs. Follow the Corpus pattern:
-  graph location belongs in product path segments, and query params are reserved
-  for optional surface/presentation state or legacy compatibility. Do not make
-  `?rd_node=...` the canonical public URL for new product examples.
-- Internal `route.*` operations are never ordinary product chips.
-- Anything semantic that can be done from a surface must also be available to
-  chat through product-agent planning context.
-- Once a product projection or product surface is visible, a chat turn that
-  claims to browse, open, select, compare, or otherwise change the product
-  surface must cross the same product-owned RouteDeck runtime boundary as the
-  equivalent surface affordance. Assistant prose alone is not a state update.
-- Read-only means no product side effects such as cart, checkout, payment,
-  shipping, admin, or irreversible writes. It does not prohibit guarded read
-  transitions, surface changes, projection refreshes, or canonical path updates
-  that are accepted by the product runtime.
-- Product agents consume product-owned planning context derived from RouteDeck
-  projection; RouteDeck does not own prompts, model calls, or phrase routing.
-- Public chat must not invent product facts. Product names, prices, variants,
-  colors, sizes, availability, cart contents, and current surface state must be
-  grounded in projection/planning context or a product tool result; otherwise the
-  agent asks for setup or says the fact is unavailable.
-- Internal `route.*` operations are framework/runtime plumbing and stay hidden
-  from ordinary product UI and product-agent planning context.
-- Product-agent SSE, RouteDeck state SSE, and diagnostics streams are separate
-  semantic channels within one RouteDeck event architecture. They may be exposed
-  as filtered endpoints or a multiplexed stream, but assistant text, projection
-  updates, tool lifecycle, surface updates, and diagnostic traces keep explicit
-  channel and visibility metadata.
-- In the Medusa reference example after the state-stream slice,
-  `GET /api/medusa-agent/route-stream` is the product-owned RouteDeck state SSE.
-  `POST /api/medusa-agent/agent/stream` carries assistant chat events and must
-  not emit `projection_update`.
-- Diagnostics are read-only explanation surfaces. They must not become public
-  chat, ordinary product UI, product action chip sources, dispatch controls, or
-  substitutes for the product runtime.
-- `RouteDeckStore` mirrors runtime state for React clients. It must not become
-  graph truth, invent capabilities, bypass dispatch validation, or store product
-  side effects.
-- Product-specific APIs stay product-owned. Do not turn `/api/routedeck/*` into
-  a Medusa, SaaStoAgent, cart, checkout, admin, or product-domain API.
-- Do not add deterministic command routers as a substitute for agent planning
-  context, entity binding, and runtime validation.
-- When implementing a visible Medusa Agent slice, do not satisfy it by creating
-  a separate product-neutral RouteDeck demo, dashboard, or graph-first app.
-  Medusa visible work stays in `examples/medusa-agent/` and must preserve the
-  chat-first product-agent experience while RouteDeck operates underneath it.
-- Use subagents for RouteDeck/Medusa implementation slices: one reference or
-  vision reviewer and one drift/code reviewer at minimum before readiness is
-  claimed.
+  workbench stream, not in a detached side panel.
+- Address-bar deeplinks are product-owned URL codecs. Do not make
+  `?rd_node=...` the canonical public URL for a new product.
+- Diagnostics never become public chat, a product action source, or a mutation
+  control.
+- Assistant, interaction-state, tool/surface, and diagnostic events retain
+  explicit semantic and visibility separation even when transported through
+  SSE.
+- RouteDeck frontend state mirrors the supervised runtime; it does not invent
+  legal tools, results, or product truth.
+- Product-specific APIs and tool behavior stay product-owned.
+- Missing real data, dependencies, guards, tool runners, or invariants fail
+  loudly. No fake, canned, heuristic, or silent fallback may make a product
+  path look grounded.
 
-## Current Architecture Posture
+## Explicitly Deferred
 
-- Schema authority: `routedeck_core/models.py`
-- Framework reference: `docs/route-deck-reference.md`
-- Backend contracts: `routedeck_core/`
-- First-class LangGraph compiler and custom-graph adapter: `routedeck_langgraph/`
-- React client package: `react/src/`
-- Active product reference example: `examples/medusa-agent/`
-- Source ownership map: `architecture/code-map.md`
-- Validation anchors: `test_index/README.md` and executable tests
+Unless separately approved, the first extraction does not include:
 
-## Active Warning
-
-The RouteDeck reference is ahead of parts of the derived codebase. Treat current
-core models, React types/store, and `examples/medusa-agent` implementation as
-downstream alignment targets, not final authority, when they conflict with
-`docs/route-deck-reference.md`.
+- RouteDeck-owned product tool execution
+- opaque identifier infrastructure
+- a required LangGraph dependency or compiler
+- new SQLite/event/outbox durability
+- replay/idempotency beyond existing Corpus behavior
+- Full Flow/Core Integration product modes
+- independent example projects
 
 ## Stop Conditions
 
 Stop and re-plan if:
 
-- a change contradicts `docs/route-deck-reference.md`
-- navgraph UI mutates graph state, dispatches, navigates, or changes route state
-- framework code starts owning product prompts, product agents, or domain APIs
-- a surface-only capability cannot also be represented in chat planning context
-- a visible product surface is called usable before an equivalent chat request
-  can drive the same projection/runtime boundary
-- assistant chat answers product facts that are absent from projection,
-  planning context, or a product tool result
-- read-only is interpreted as "no guarded read transition" instead of "no
-  product side effect"
-- product chips expose internal `route.*` operations or hidden runtime plumbing
-- product chips drift out of the chat/assistant experience into navgraph UI
-- product-agent text streams, RouteDeck state streams, or diagnostics streams
-  are collapsed into one public stream
-- diagnostics become public chat, default product UI, a chip source, or a
-  mutation control
-- `RouteDeckStore` starts inventing graph truth, capabilities, product side
-  effects, or dispatch outcomes outside the runtime
-- an agent reference app starts from an empty-state panel instead of an assistant
-  chat turn with starter chips
-- product surfaces and navgraph/inspector UI are merged so product clicks look
-  like graph navigation
-- an agent-centric product surface is rendered as a detached side panel instead
-  of being embedded in the chat/workbench stream
-- a new product example exposes query-only `?rd_node=...` links as the canonical
-  copyable browser deeplink instead of a product-owned path codec
+- a change contradicts ADR-003
+- an agent can invoke an application-semantic tool without RouteDeck oversight
+- RouteDeck begins invoking product tools itself
+- an ID not present in the current tool-specific allowlist reaches the host tool
+  runner
+- hidden entities, credentials, route operations, or diagnostics enter normal
+  agent context
+- product code must rebuild generic RouteDeck context, navigation, surfaces,
+  feedback, or SSE behavior
+- a RouteDeck change breaks an active Corpus route or browser flow
+- a slice adds compiler, durability, adapter, or example scope not demonstrated
+  by Corpus and separately approved
 - product chips render current-node no-op operations as ordinary next actions
-- source ownership is unclear in `architecture/code-map.md`
-- Full Flow and Core Integration implement different event, projection, guard,
-  surface, or store semantics instead of sharing one kernel
-- product code must manually assemble generic RouteDeck projection, navigation,
-  review, event sequencing, or SSE frames to use the Full Flow path
+- an agent reference app starts from an empty-state panel instead of an
+  assistant chat turn
+- an agent-centric surface becomes a detached side panel instead of being
+  embedded in the chat/workbench stream
+- a new product example exposes query-only `?rd_node=...` links as the canonical
+  copyable browser deeplink
+- assistant prose is accepted as state change without matching supervised
+  execution and projection evidence
 - implementation would overwrite unrelated user work
-- a Medusa Agent slice is being reinterpreted as a standalone product-neutral
-  RouteDeck example or debugger
-- a slice is called ready before browser behavior and code are compared against
-  the Medusa vision and anti-drift tests
+
+## Current Authority
+
+- Controlling decision:
+  `decisions/ADR-003-agentic-interaction-state-governor.md`
+- Current state: `context.md`
+- Existing schema authority: `routedeck_core/models.py`
+- Existing feature reference: `docs/route-deck-reference.md`, subject to ADR-003
+- Corpus behavioral baseline: `../saastoagent-v0.1/context.md`
+- Retired plan:
+  `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`
+
+Before runtime/browser verification, ask whether to use local, Mac mini LAN, or
+Mac mini Tailscale and report the exact command and smoke URL.

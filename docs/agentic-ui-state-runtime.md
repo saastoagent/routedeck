@@ -1,7 +1,13 @@
 # RouteDeck Agentic UI State Runtime
 
-Status: Canonical framework direction
+Status: historical architecture detail; ADR-003 controls current direction
 Date: 2026-07-10
+
+`../decisions/ADR-003-agentic-interaction-state-governor.md` supersedes the
+LangGraph-required, compiler-first, durability-first, and multiple-adoption-mode
+portions of this document. RouteDeck's current identity is runtime-neutral
+agentic interaction/session state and before/after tool-call supervision, with
+the first extraction limited to behavior already demonstrated by Corpus.
 
 RouteDeck is a full-stack framework for robust agentic applications and an
 embeddable state/interaction runtime for existing agents. Its default backend

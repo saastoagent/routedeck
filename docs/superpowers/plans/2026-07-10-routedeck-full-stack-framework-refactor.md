@@ -1,5 +1,11 @@
 # RouteDeck Full-Stack Framework Refactor Implementation Plan
 
+> **Status: RETIRED on 2026-07-10. Do not execute this plan.** It was replaced
+> by `../../../decisions/ADR-003-agentic-interaction-state-governor.md`. The plan
+> expanded beyond proven Corpus behavior and changed RouteDeck's public dispatch
+> contract before migrating Corpus, breaking the active product path. It is
+> preserved only as historical design material.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Refactor RouteDeck into one server-authoritative state and interaction kernel that powers a LangGraph-native Full Flow for ordinary developers and a Core Integration path for existing agents, with typed events/SSE, React state, comprehensive tests, a lightweight Corpus migration, and two standalone example projects.
