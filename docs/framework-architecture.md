@@ -1,65 +1,120 @@
 # RouteDeck Framework Architecture
 
-> 2026-07-06 update: RouteDeck's backend framework direction is now
-> LangGraph-native while custom LangGraph graphs remain first-class. See
-> [`decisions/ADR-001-langgraph-native-routedeck.md`](../decisions/ADR-001-langgraph-native-routedeck.md).
-> Interpret the older optional-adapter wording below through that accepted ADR.
+Status: Target architecture accepted; implementation is transitional
+Date: 2026-07-10
 
-> Canonical direction: read `docs/agentic-ui-state-runtime.md` first. RouteDeck is graph-backed state management for agentic UI. This document describes the older package split and should be interpreted through that runtime/store model.
+Read [`route-deck-reference.md`](./route-deck-reference.md),
+[`agentic-ui-state-runtime.md`](./agentic-ui-state-runtime.md),
+[`ADR-001`](../decisions/ADR-001-langgraph-native-routedeck.md), and
+[`ADR-002`](../decisions/ADR-002-two-adoption-modes-one-kernel.md) as the
+authorities for framework meaning.
 
-RouteDeck is a framework layer for agentic navigation UX. It is not a replacement for LangGraph, FastAPI, or React.
+RouteDeck is a full-stack framework for robust agentic applications. It sits on
+top of LangGraph for its first-class Python execution path and provides the
+shared state, interaction, guard, review, projection, surface, event/SSE,
+diagnostic, and React-store mechanics around product behavior.
 
-RouteDeck owns the contract and reusable UI for graph navigation: manifest shape, runtime snapshot shape, valid and blocked action surfaces, recovery prompts, forms, graph debugging, and future authoring surfaces. Product applications own domain graph behavior, auth, workspace semantics, and business decisions.
+## One Kernel, Two Adoption Modes
 
-## Backend Package
+### Full Flow
 
-`routedeck_core` is the backend package. It should stay free of SaaStoAgent database models, auth models, and product handlers.
+A product declares its domain state, public interaction nodes and flows,
+operations, guards, handlers, context providers, surfaces, and event schemas.
+RouteDeck validates the declaration and compiles the LangGraph-backed runtime,
+FastAPI/SSE contract, projection path, and React-facing state contract.
 
-It provides:
+Product code should not construct LangGraph plumbing, runtime subclasses,
+projection builders, generic event buses, or SSE frames in this mode.
 
-- Pydantic contracts for manifests, nodes, edges, actions, fields, policies, and runtime snapshots.
-- Manifest validation.
-- Runtime snapshot helpers.
+### Core Integration
 
-In a LangGraph/FastAPI app, the normal layering is:
+An advanced developer keeps an existing agent or compiled LangGraph graph. A
+typed executor adapter maps that execution into the same RouteDeck interaction
+kernel without forcing public interaction nodes to match private execution
+nodes or requiring the graph to be rewritten.
 
-1. LangGraph executes state transitions.
-2. Product stage handlers perform domain work.
-3. RouteDeck validates submitted UI actions and emits manifest/snapshot metadata.
-4. FastAPI transports the manifest, actions, and snapshots over REST/SSE.
+Only executor construction differs. Operation legality, versioning,
+idempotency, guards, review, surfaces, projections, events, diagnostics, and
+React behavior remain shared and must pass one conformance suite.
 
-SaaStoAgent-specific files under `backend/services/route_deck/` are an adapter/catalog on top of `routedeck_core`.
+## Single Interaction Source Of Truth
 
-Stack-specific helpers for LangGraph or FastAPI can live in RouteDeck as adapters, but they must stay product-neutral.
+The RouteDeck application specification owns the public interaction contract:
 
-## LangGraph Adapter
+- nodes and declared flow outcomes
+- operations, inputs, guards, and review policy
+- surface identity, placement, variants, and affordances
+- public event types and payload schemas
 
-`routedeck_langgraph` is the optional bridge for LangGraph apps. It owns the LangGraph dependency and provides:
+Product context and surface providers may resolve live facts and dynamic props.
+They must not repeat identity or routing truth in parallel catalogs. An existing
+agent may retain a richer private execution topology behind its adapter.
 
-- Manifest-to-handler parity validation.
-- Edge condition resolver validation.
-- Transition assertions that verify handler output stays on RouteDeck edges.
-- A common `StateGraph` builder for apps that want RouteDeck-style grouped graph wiring.
+## Package Responsibilities
 
-Use the adapter in two levels:
+### `routedeck_core`
 
-1. Validation-only: keep an existing LangGraph graph and call `validate_langgraph_contract(...)` plus `assert_route_transition(...)`.
-2. Graph-builder: call `build_route_deck_state_graph(...)` to scaffold the common `turn_start -> route_action -> group -> node -> finalize` wiring.
+Product-neutral application schemas and the interaction kernel:
 
-Do not put product-specific auth, workspace, or persistence logic into the adapter.
+- server-authoritative session and projection state
+- atomic dispatch claims, expected-version checks, and idempotency records
+- operation validation, guard evaluation, review, and recovery
+- flow outcome validation, navigation, projection, and surfaces
+- typed event envelopes, payload schemas, visibility, ordering, and replay
+- executor, session-store, event-backend, and context-provider protocols
 
-## Frontend Package
+It must not import SaaStoAgent/Corpus, Medusa, product models, or product
+handlers. Framework-neutral interfaces must not expose unnecessary LangGraph
+types.
 
-`@routedeck/react` is the frontend package. It should stay free of SaaStoAgent store, auth, routes, and domain components.
+### `routedeck_langgraph`
 
-It provides:
+The first-class Python execution implementation:
 
-- Shared TypeScript contracts for RouteDeck manifests and runtime snapshots.
-- Debugger components that visualize nodes, edges, valid actions, blocked actions, and recovery prompts.
-- A full-graph canvas that sizes from the manifest instead of assuming a fixed app-specific node count. Product shells can place it in a drawer, modal, or standalone debug page.
+- Full Flow compiler from a RouteDeck application specification
+- executor adapter for existing/custom compiled LangGraph graphs
+- mapping between private execution nodes and public interaction outcomes
+- LangGraph callback/tool/assistant events mapped into typed RouteDeck events
 
-In a React app, the normal layering is:
+### `routedeck_fastapi` (planned)
 
-1. Product shell owns layout, routing, auth, and state store.
-2. Product API client stores RouteDeck manifest/snapshot payloads.
-3. `@routedeck/react` renders reusable debugging or authoring surfaces.
+Product-neutral HTTP and SSE transport:
+
+- session, turn, dispatch, review, snapshot, and inspect routes
+- filtered and multiplexed event-channel endpoints
+- SSE IDs, replay cursors, keepalive, bounded subscriptions, and disconnect
+  cleanup
+- caller-supplied product and diagnostic authentication dependencies
+
+### `@routedeck/react`
+
+The frontend state and surface runtime:
+
+- typed event client and reducer
+- ordering, deduplication, reconnect, and stale-projection rejection
+- server-authoritative dispatch/navigation behavior
+- surface component registry and visible missing-component errors
+- hooks, diagnostics, and debugger/authoring UI
+
+Product shells still own layout, auth, visual identity, product copy, and actual
+surface components.
+
+## Reliability Boundary
+
+RouteDeck atomically claims a dispatch before invoking the executor. Duplicate
+idempotency keys cannot invoke it twice. A crash around an external side effect
+is represented as interrupted work and is never silently retried as success.
+Product handlers receive the idempotency key for downstream APIs because no
+framework can promise exactly-once behavior across an uncoordinated external
+system.
+
+## Current Implementation Reality
+
+The repository currently contains substantial core contracts,
+`RouteDeckRuntimeBase`, a builder foundation, LangGraph validation/common graph
+wiring, and the React store/debugger. It does not yet contain the complete
+server-authoritative kernel, Full Flow compiler, existing-agent executor,
+FastAPI/SSE package, or standalone two-mode examples described above.
+
+The implementation sequence is defined in
+[`2026-07-10-routedeck-full-stack-framework-refactor.md`](./superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md).

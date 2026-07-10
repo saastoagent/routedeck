@@ -1,6 +1,6 @@
 # Structure - RouteDeck
 
-Last updated: 2026-06-03
+Last updated: 2026-07-10
 
 This is a maintained project tree and source ownership snapshot, not a full
 recursive listing.
@@ -23,7 +23,10 @@ routedeck/
   examples/
   react/
   routedeck_core/
+  routedeck_fastapi/       # planned by the active refactor
   routedeck_langgraph/
+  routedeck_sqlite/        # planned durable single-host backend
+  routedeck_testing/       # planned shared conformance harness
   scripts/
   skills/
   tests/
@@ -42,10 +45,13 @@ routedeck/
 
 | Path | Owner subsystem | Notes |
 | --- | --- | --- |
-| `routedeck_core/` | Core contracts and runtime state | Product-neutral Python models, projections, operations, events, validation helpers. |
-| `routedeck_langgraph/` | LangGraph adapter | Optional bridge for LangGraph validation and graph wiring. |
+| `routedeck_core/` | Core contracts and interaction kernel | Product-neutral application specification, server-authoritative sessions, projections, operations, review, typed events, and validation. |
+| `routedeck_langgraph/` | LangGraph execution | First-class Full Flow compiler and existing/custom LangGraph executor adapter. |
+| `routedeck_fastapi/` | FastAPI/SSE transport (planned) | Product-neutral session, dispatch, review, inspect, typed event channel, and replay routes. |
+| `routedeck_sqlite/` | Durable reference backend (planned) | Transactional session, dispatch claim, idempotent result, event log, replay, and outbox for single-host deployments. |
+| `routedeck_testing/` | Conformance harness (planned) | Shared assertions run against Full Flow, Core Integration, backend implementations, and Corpus. |
 | `react/src/` | React runtime, store, and debugger | Client store, hooks, surfaces, debugger, and TypeScript contracts. |
-| `examples/` | Minimal examples | Product-neutral examples and the Medusa reference example. |
+| `examples/` | Adoption examples | Medusa reference plus planned self-contained Full Flow change-planner and Core Integration document-review projects. |
 | `docs/` | Packaging and public readiness | Framework docs, reference docs, whitepaper, and reference-app specs. |
 | `architecture/` | Architecture coverage docs | Code map and component docs. |
 | `skills/` | Repo-local skills and scaffolding | Repeatable RouteDeck workflows. |

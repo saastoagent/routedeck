@@ -1,105 +1,120 @@
 # System Flow Index - RouteDeck
 
-Last updated: 2026-06-03
+Last updated: 2026-07-10
+Status: Target flow accepted; implementation is transitional
 
-This is the compact source of truth for currently intended runtime and UX flows.
-Use `context.md` for restart state and `architecture/components/` for subsystem
-detail.
+This is the compact source of truth for intended runtime and UX flows. Use
+`context.md` for the current implementation snapshot and
+`architecture/components/` for subsystem detail.
 
 ## Framework Spine
 
 ```text
-Product graph truth
-  -> RouteDeck navgraph
-  -> capability contract
-  -> RouteDeck projection
-  -> surfaces, chat, automation, diagnostics
-  -> affordance event or agent-selected capability request
-  -> RouteDeck dispatch
-  -> graph commit, rejection, review, or recovery
-  -> semantic observation and next projection
+Product RouteDeck application specification
+  -> compile-time contract validation
+  -> Full Flow LangGraph executor OR existing-agent executor adapter
+  -> shared RouteDeck interaction kernel
+  -> server-authoritative session and guarded/reviewed dispatch
+  -> declared outcome and state commit
+  -> projection and active surfaces
+  -> ordered typed event log
+  -> filtered/multiplexed SSE channel views
+  -> RouteDeck React store, product surfaces, assistant, and diagnostics
 ```
 
-Current anchors:
+The application specification is the single source for public nodes, flows,
+operations, surface identity/placement, affordances, and event schemas. Private
+execution topology and domain state remain behind the executor/product boundary.
 
-- Framework reference: `docs/route-deck-reference.md`
-- Project setup: `README.md`
-- Current context: `context.md`
-- Code ownership map: `architecture/code-map.md`
-- Component docs: `architecture/components/`
-- Validation index: `test_index/README.md`
+## Adoption Flows
 
-## Primary Interfaces
-
-- Python schemas and helpers: `routedeck_core/`
-- Optional LangGraph adapter: `routedeck_langgraph/`
-- React client package: `react/src/`
-- Product runtime shape: snapshot, projection, dispatch, inspect, stream
-- Generic RouteDeck API plane in examples: `/api/routedeck/*`
-- Product-owned agent API plane in examples: `/api/<product>/agent/stream`
-
-## Main Runtime Flow
+### Full Flow
 
 ```text
-product runtime or graph state
-  -> RouteDeck projection and navgraph
-  -> React surfaces or product-agent planning context
-  -> dispatch input
-  -> runtime validation
-  -> accepted result, rejection, review, recovery, or next projection
+product declarations and domain handlers
+  -> RouteDeck Full Flow compiler
+  -> LangGraph-backed RouteDeck executor
+  -> shared kernel and full-stack transport/store path
+```
+
+### Core Integration
+
+```text
+unchanged existing/custom agent
+  -> typed RouteDeck executor adapter
+  -> shared kernel and full-stack transport/store path
+```
+
+Both flows must pass the same runtime, event, projection, guard, review, surface,
+and React conformance assertions.
+
+## Dispatch Flow
+
+```text
+session id + expected projection version + idempotency key + typed intent
+  -> load authoritative session
+  -> validate operation/input/auth/guard/review policy
+  -> atomically claim dispatch
+  -> invoke executor once with correlation/idempotency context
+  -> validate declared outcome and public node
+  -> commit authoritative state and projection
+  -> persist ordered terminal events
+  -> return/replay the recorded result
 ```
 
 Rules:
 
-- Product graph truth is authoritative.
-- Projection is a client-facing view.
-- Surfaces emit semantic affordance events.
-- Chat selects the same capabilities using planning context.
-- Runtime validation resolves entity binding and commits or rejects.
+- Clients never submit authoritative graph state.
+- Duplicate dispatch keys never invoke the executor twice.
+- Interrupted external work is explicit; RouteDeck does not silently rerun it.
+- Product handlers propagate the idempotency key to downstream side effects.
+- A blocked guard or staged review never reaches the executor.
 
-## Diagnostic Flow
+## Event And SSE Flow
 
 ```text
-runtime state
-  -> RouteDeck introspection or diagnostics
-  -> read-only explanation surface
+runtime, executor, assistant, tool, or surface emission
+  -> validate event type, payload schema, channel, and visibility
+  -> allocate session-scoped sequence
+  -> persist before fan-out
+  -> assistant | runtime | tool | surface | diagnostic channel view
+  -> SSE id/event/data frame and replay after Last-Event-ID
+  -> client dedupe/order/stale-projection reduction
 ```
 
-Rules:
+Diagnostic and hidden execution data never leak into public assistant or runtime
+views. Network close without a terminal semantic event is interrupted, not
+successful.
 
-- Diagnostics are read-only unless explicitly designed otherwise.
-- Diagnostics can expose framework details ordinary product UI should hide.
-- Internal `route.*` operations stay hidden from ordinary product-agent planning
-  context.
+## Surface Flow
 
-## Known Compatibility Debt
-
-- The reference is ahead of downstream core, React, and Medusa example code.
-- Full context population should follow downstream alignment.
-
-## Validation Index
-
-Fast reference guard:
-
-```powershell
-python -m pytest tests/test_medusa_reference_slice0.py -q
+```text
+declared surface identity and node placement
+  -> product provider resolves dynamic props only
+  -> projection selects legal active surface
+  -> React component registry renders product component
+  -> typed affordance intent returns through shared dispatch
 ```
 
-Architecture coverage advisory:
+The frontend registry maps component keys to React components; it does not
+duplicate node, flow, operation, or surface policy.
 
-```powershell
-python scripts/check_doc_coverage.py
-```
+## Current Compatibility Debt
 
-Broader Python contract suite:
+- `RouteDeckApp.compile()` does not yet build the target compiler/runtime.
+- Existing dispatch still permits client-provided graph state in legacy paths.
+- The shared typed event backend and `routedeck_fastapi` package do not yet
+  exist.
+- `routedeck_langgraph` currently provides validation/common wiring, not the
+  complete Full Flow compiler or existing-agent executor.
+- Corpus still owns generic runtime/event/projection mechanics pending vertical
+  migration.
 
-```powershell
-python -m pytest tests -q
-```
+## Authorities And Validation
 
-React suite:
-
-```powershell
-cd react
-npm test
-```
+- Reference: `docs/route-deck-reference.md`
+- Decisions: `decisions/ADR-001-langgraph-native-routedeck.md` and
+  `decisions/ADR-002-two-adoption-modes-one-kernel.md`
+- Plan: `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`
+- Ownership: `architecture/code-map.md`
+- Validation commands and meaning: `test_index/README.md`

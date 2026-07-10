@@ -1,14 +1,16 @@
 # RouteDeck Reference
 
 Status: canonical framework reference
-Date: 2026-06-06
+Date: 2026-07-10
 
-Schema authority: `routedeck_core/models.py`
+Schema authority: `routedeck_core/models.py` (current implementation). The
+accepted target splits application, client-contract, event, executor, and
+backend schemas as recorded in ADR-002 and the active full-framework plan.
 
 This file is the north-star reference for RouteDeck framework language,
 ownership boundaries, capability semantics, and payload shapes. Product examples
-define their own domain vocabulary. RouteDeck framework terms follow this file
-and the schema names in `routedeck_core/models.py`.
+define their own domain vocabulary. RouteDeck framework terms follow this file,
+ADR-001, ADR-002, and the schema modules named by the active implementation plan.
 
 This document is the software-on-paper contract for RouteDeck. A downstream
 implementation is correct only when a reviewer can trace every visible behavior,
@@ -110,6 +112,28 @@ Core rules:
 - Component-local behavior such as hover, scroll, focus, visual expansion, and
   in-progress typing is not a RouteDeck capability until the product promotes it
   into surface/session state or graph state.
+
+### Developer Adoption Modes
+
+RouteDeck supports two developer journeys through one runtime kernel:
+
+- **Full Flow:** the product declares state, flows, interaction nodes,
+  operations, guards, handlers, context, and surfaces. RouteDeck validates and
+  compiles that definition into the LangGraph execution shape, event runtime,
+  SSE channel views, projections, diagnostics, and React store integration.
+- **Core Integration:** an existing agent or custom graph remains the execution
+  owner behind a typed executor adapter. RouteDeck adds interaction state,
+  operation validation, guards, review, projection, surfaces, events,
+  diagnostics, and frontend state without requiring a graph rewrite.
+
+Both modes use the same application specification, runtime state, operation,
+surface, event, projection, store, and conformance contracts. Full Flow is the
+kernel plus the first-class LangGraph compiler; it is not a separate runtime.
+
+In the default Full Flow, the consuming product should be primarily an
+application definition plus domain handlers, prompts, context providers, and
+surface components. Generic projection assembly, navigation stacks, review
+staging, event sequencing, and SSE framing belong to RouteDeck.
 
 ## Truth And State Layers
 
@@ -706,10 +730,12 @@ available in the current projection.
 
 ### Product Runtime
 
-The product-owned adapter that connects RouteDeck contracts to a product graph,
-database, external API, auth policy, and side effects. A product runtime exposes
-RouteDeck snapshots, projections, dispatch, streams, and introspection while
-keeping business rules and private identifiers inside the product boundary.
+The execution boundary that connects RouteDeck contracts to a product graph,
+database, external API, auth policy, and side effects. In Full Flow, RouteDeck
+compiles this runtime over LangGraph from the product application definition. In
+Core Integration, a product-owned executor adapter connects an existing agent or
+custom graph to the same runtime contract. Business rules and private identifiers
+remain inside the product boundary in both modes.
 
 Runtime interface contract:
 
@@ -719,12 +745,12 @@ Runtime interface contract:
 | projection | Product request context | `RouteDeckProjection` | Return the client-facing projection only. |
 | dispatch | `RouteDeckDispatchInput` and product request context | `RouteDeckDispatchResult` | Validate and apply or reject one semantic request. |
 | inspect | Product query and request context | `RouteDeckIntrospection` | Explain current state without changing it. |
-| stream | Product request context | `RouteDeckEvent` sequence | Emit RouteDeck state events, not product-agent text. |
+| subscribe | Session, channel set, and optional replay cursor | `RouteDeckEvent` sequence | Emit typed events allowed by channel and visibility. |
 
-The interface contract is transport-neutral. A product can expose it through
-product-owned HTTP routes, a generic RouteDeck API plane, an in-process adapter,
-or test fixtures. The contract does not grant RouteDeck ownership of product
-routes, product auth, product agents, or product side effects.
+The interface contract is transport-neutral. RouteDeck can expose it through
+generated Full Flow routes, product-owned HTTP routes, a generic RouteDeck API
+plane, an in-process adapter, or test fixtures. The contract does not grant
+RouteDeck ownership of product auth, prompts, domain handlers, or side effects.
 
 ### Runtime State
 
@@ -805,13 +831,20 @@ ordinary product UI uses product language.
 
 ### Events And Streams
 
-Runtime events are represented by `RouteDeckEvent`. RouteDeck streams emit state
-events such as `projection_update`, `operation_started`, `operation_completed`,
+Runtime events are represented by `RouteDeckEvent`. RouteDeck streams emit typed
+assistant, runtime, tool, surface, and diagnostic events, including
+`projection_update`, `operation_started`, `operation_completed`,
 `graph_transition`, `guard_failure`, `surface_update`, and `runtime_status`.
 Accepted dispatch events that change RouteDeck-visible state must carry either
 `payload.state` or `payload.projection` so generic clients can apply the update
 without product-specific navigation logic.
-Product-agent text streams are separate product-owned streams.
+
+RouteDeck owns one typed event architecture with semantic channels including
+`assistant`, `runtime`, `tool`, `surface`, and `diagnostic`. All events share
+event identity, run/turn correlation, sequence ordering, projection version,
+occurrence time, visibility, and payload rules. Products can expose filtered channel
+views or one multiplexed stream. Channel unification must not leak private
+diagnostics or graph state into public assistant consumers.
 
 ### Product Agent
 
@@ -962,19 +995,23 @@ selection as user intent.
 
 ## Server-Sent Events Contract
 
-RouteDeck products normally have three stream lanes. They share the SSE frame
-format, but they do not share ownership.
+RouteDeck applications use one event protocol with multiple semantic stream
+views. Endpoint ownership and visibility can differ, but event identity,
+correlation, ordering, terminal semantics, and replay behavior do not.
 
 | Lane | Endpoint owner | Typical route | Primary event family | Meaning |
 | --- | --- | --- | --- | --- |
-| Product-agent chat stream | Product | `POST /api/<product>/agent/stream` | `message_delta` | One conversational turn. |
-| RouteDeck state stream | RouteDeck contract through product or generic API | `GET /api/<product>/route-stream` or `GET /api/routedeck/stream` | `projection_update` | State/projection subscription. |
-| Diagnostics stream | Product or devtools | `GET /api/diagnostics/stream` or `POST /api/<product>/inspect` plus stream wrapper | `diagnostic_event` | Read-only introspection. |
+| Product-agent chat stream | Product content; RouteDeck transport in Full Flow | `POST /api/<product>/agent/stream` | `assistant` / `message_delta` | One conversational turn. |
+| RouteDeck state stream | RouteDeck contract through product or generic API | `GET /api/<product>/route-stream` or `GET /api/routedeck/stream` | `runtime` / `projection_update` | State/projection subscription. |
+| Diagnostics stream | Product or devtools | `GET /api/diagnostics/stream` or `POST /api/<product>/inspect` plus stream wrapper | `diagnostic` / `diagnostic_event` | Read-only introspection. |
 
 ### SSE Frame Rules
 
 - Response content type is `text/event-stream`.
 - Every event frame uses `event: <name>` and `data: <json payload>`.
+- Semantic events use the RouteDeck envelope: `event_id`, `event_type`,
+  `channel`, `run_id`, `turn_id`, `sequence`, `projection_version`, `occurred_at`,
+  `visibility`, and typed `payload` as applicable.
 - Keepalive comments use `: ping` and do not carry semantic state.
 - Product-agent streams must not emit private ids, hidden route operations,
   dispatch traces, auth headers, payment ids, admin credentials, or raw graph
@@ -985,14 +1022,18 @@ format, but they do not share ownership.
   inside diagnostic contexts.
 - The stream producer owns event ordering. Clients apply events in order and
   ignore event names they do not understand.
+- A resumable stream preserves sequence and event identity across reconnects;
+  transport replay must not re-execute a completed domain operation.
 - A stream end event closes semantic work. Network close without stream end is
   treated as interrupted, not successful.
 
 ### Product-Agent Chat SSE
 
-The product-agent chat stream is product-owned. It streams assistant text and
-product-safe semantic observations. It can carry RouteDeck event summaries only
-when the product intentionally bridges dispatch results into the same turn.
+The product owns assistant meaning, prompts, model choice, and product-safe
+semantic observations. In Full Flow, RouteDeck owns the shared event envelope,
+sequencing, SSE transport, and channel filtering. In Core Integration, the
+executor adapter maps existing agent events into the same envelope. Assistant
+consumers receive only events allowed by their visibility channel.
 
 Reference request schema:
 
@@ -1667,10 +1708,21 @@ names and literal values come from `routedeck_core/models.py`.
 
 | Field | Meaning |
 | --- | --- |
-| `event_type` | `projection_update`, `operation_started`, `operation_completed`, `graph_transition`, `guard_failure`, `surface_update`, or `runtime_status`. |
-| `turn_id` | Product or runtime turn correlation id. |
-| `projection_version` | Projection version associated with event. |
-| `payload` | Event payload. |
+| `schema_version` | RouteDeck event-envelope schema version. |
+| `event_id` | Stable replay/deduplication identity. |
+| `event_type` | Registered standard or application-declared event type. |
+| `channel` | `assistant`, `runtime`, `tool`, `surface`, or `diagnostic`. |
+| `visibility` | `public`, `product`, or `diagnostic`. |
+| `app_id` | Owning RouteDeck application id. |
+| `session_id` | Authoritative session identity. |
+| `sequence` | Session-global persisted sequence. Filtered views can contain gaps. |
+| `occurred_at` | UTC occurrence time. |
+| `run_id` | Optional executor/run correlation id. |
+| `turn_id` | Optional product/runtime turn correlation id. |
+| `operation_id` | Optional declared operation correlation id. |
+| `graph_node` | Optional public interaction node. |
+| `projection_version` | Optional projection version associated with the event. |
+| `payload` | Payload validated against the standard or declared event schema. |
 
 `RouteDeckIntrospection`
 

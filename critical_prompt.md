@@ -1,14 +1,37 @@
 # Critical Prompt - RouteDeck
 
-RouteDeck is a reusable framework for graph-backed agentic UI state. It lets
-products expose dynamic surfaces, navgraph location, capabilities, dispatch,
-diagnostics, and client stores without letting UI or chat own product truth.
+RouteDeck is a full-stack framework for robust agentic applications. A product
+defines its domain state, user-facing flows, nodes, operations, guards, handlers,
+and surfaces; RouteDeck compiles and runs that definition over LangGraph and
+connects it to typed events, Server-Sent Events, projections, diagnostics, and a
+React client store without letting UI or chat own product truth.
+
+The application specification is the single public interaction source of truth:
+nodes, flows/outcomes, operations, surface identity/placement, affordances,
+declared event schemas, and the versioned frontend contract derive from it.
 
 The canonical framework reference is `docs/route-deck-reference.md`. Start there
 before changing framework language, schema meaning, runtime contracts, surfaces,
 or product examples.
 
 ## North Star
+
+The default developer experience is declarative:
+
+```text
+Product application definition
+  -> RouteDeck validation and compilation
+  -> LangGraph execution
+  -> RouteDeck interaction/runtime state
+  -> typed RouteDeck event protocol
+  -> SSE channel views and RouteDeckStore
+  -> product surfaces, chat, automation, and diagnostics
+```
+
+RouteDeck also supports advanced developers who already have a working agent or
+custom LangGraph graph. They attach their executor through the same RouteDeck
+state, interaction, event, projection, and store kernel instead of rewriting the
+agent inside a second framework.
 
 RouteDeck's spine is:
 
@@ -24,15 +47,41 @@ Product graph truth
   -> semantic observation and next projection
 ```
 
-RouteDeck owns reusable projection, navigation, navgraph, capability, dispatch,
-surface, diagnostics, introspection, event, and client-store contracts. Products
-own domain vocabulary, prompts, planning context construction, product agents,
-product runtimes, domain data, auth, persistence, business policy, product UI
-copy, LLM calls, semantic observations, and side effects.
+RouteDeck owns reusable application compilation, LangGraph integration,
+projection, navigation, navgraph, capability, dispatch, review, surface,
+diagnostics, introspection, event sequencing, SSE transport, and client-store
+contracts. RouteDeck also owns authoritative interaction-session/idempotency
+semantics and a durable reference event/session/outbox backend. Products own
+domain vocabulary, product declarations, prompts,
+planning context construction, domain handlers, surface components, domain data,
+auth, domain persistence, product policy, UI copy, LLM calls, semantic
+observations, and side effects.
+
+## Two Supported Developer Modes
+
+1. **RouteDeck Full Flow** is the golden path for ordinary developers and
+   agent-assisted or vibe-coded applications. RouteDeck compiles the app
+   definition into the LangGraph-backed runtime and supplies the full backend,
+   event, SSE, projection, and React state path.
+2. **RouteDeck Core Integration** is the adoption path for advanced agent
+   developers. Their existing execution runtime remains intact behind a typed
+   executor adapter while RouteDeck supplies state and interaction management,
+   guards, review, projections, events, surfaces, diagnostics, and frontend
+   state.
+
+Both modes use the same contracts and conformance suite. Full Flow is the shared
+kernel plus the first-class LangGraph compiler, not a separate implementation.
 
 ## Non-Negotiable Boundaries
 
 - Product graph truth stays in the product graph or product runtime.
+- RouteDeck session state is authoritative for the public interaction contract;
+  clients never submit authoritative graph state.
+- RouteDeck atomically claims dispatch before executor invocation. Duplicate or
+  interrupted work is explicit, and external exactly-once behavior is never
+  implied when a downstream system does not participate in the transaction.
+- Frontends load the backend-exported client contract and keep only product
+  component registration, product copy, and UI-local presentation state.
 - RouteDeck projection is output, not the source of graph behavior.
 - Surfaces present capabilities through affordances; they do not mutate graph
   state directly.
@@ -83,8 +132,10 @@ copy, LLM calls, semantic observations, and side effects.
 - Internal `route.*` operations are framework/runtime plumbing and stay hidden
   from ordinary product UI and product-agent planning context.
 - Product-agent SSE, RouteDeck state SSE, and diagnostics streams are separate
-  channels. Do not mix assistant text, projection updates, and diagnostic traces
-  into one public semantic stream.
+  semantic channels within one RouteDeck event architecture. They may be exposed
+  as filtered endpoints or a multiplexed stream, but assistant text, projection
+  updates, tool lifecycle, surface updates, and diagnostic traces keep explicit
+  channel and visibility metadata.
 - In the Medusa reference example after the state-stream slice,
   `GET /api/medusa-agent/route-stream` is the product-owned RouteDeck state SSE.
   `POST /api/medusa-agent/agent/stream` carries assistant chat events and must
@@ -112,7 +163,7 @@ copy, LLM calls, semantic observations, and side effects.
 - Schema authority: `routedeck_core/models.py`
 - Framework reference: `docs/route-deck-reference.md`
 - Backend contracts: `routedeck_core/`
-- Optional LangGraph adapter: `routedeck_langgraph/`
+- First-class LangGraph compiler and custom-graph adapter: `routedeck_langgraph/`
 - React client package: `react/src/`
 - Active product reference example: `examples/medusa-agent/`
 - Source ownership map: `architecture/code-map.md`
@@ -157,6 +208,10 @@ Stop and re-plan if:
   copyable browser deeplink instead of a product-owned path codec
 - product chips render current-node no-op operations as ordinary next actions
 - source ownership is unclear in `architecture/code-map.md`
+- Full Flow and Core Integration implement different event, projection, guard,
+  surface, or store semantics instead of sharing one kernel
+- product code must manually assemble generic RouteDeck projection, navigation,
+  review, event sequencing, or SSE frames to use the Full Flow path
 - implementation would overwrite unrelated user work
 - a Medusa Agent slice is being reinterpreted as a standalone product-neutral
   RouteDeck example or debugger

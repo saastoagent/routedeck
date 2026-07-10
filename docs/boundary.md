@@ -1,33 +1,52 @@
 # RouteDeck Boundary
 
-> 2026-07-06 update: the main RouteDeck product direction is now
-> LangGraph-native. See
-> [`decisions/ADR-001-langgraph-native-routedeck.md`](../decisions/ADR-001-langgraph-native-routedeck.md).
-> This document still describes useful product/framework separation, but its
-> older "LangGraph optional" framing is superseded for the backend runtime.
+Status: Target boundary accepted; implementation is transitional
+Date: 2026-07-10
 
-For the fuller human, agent, and developer usage guide, read `docs/using-routedeck.md`.
+For the full reference and developer guide, read
+[`route-deck-reference.md`](./route-deck-reference.md) and
+[`using-routedeck.md`](./using-routedeck.md).
 
-RouteDeck owns agentic navigation UX contracts.
+RouteDeck owns the product-neutral mechanics required to turn product behavior
+into a robust full-stack agentic application.
 
 It owns:
 
-- manifest and runtime snapshot schemas
-- validation helpers for graph navigation payloads
-- valid and blocked action surfaces
-- recovery prompt and form metadata contracts
-- reusable React debugger and future authoring UI
-- optional product-neutral adapters for LangGraph, FastAPI, and React
-- runnable examples and package docs
+- application, node, flow, operation, guard, review, and surface contracts
+- the first-class LangGraph Full Flow compiler
+- the executor boundary for existing/custom agents
+- server-authoritative sessions, versions, dispatch claims, and idempotency
+- navigation, projection, recovery, and interaction-state mechanics
+- typed event schemas, channels, visibility, ordering, persistence, and replay
+- FastAPI/SSE framing and product-neutral transport factories
+- the React event/store/surface runtime and diagnostics/debugger primitives
+- conformance tests and standalone examples for both adoption modes
 
 Consuming products own:
 
-- domain graph catalogs and node/action IDs
-- auth, workspace, account, and persistence semantics
-- business workflow handlers
-- REST tool execution decisions
-- product shell layout, routing, state, and visual identity
+- domain state fields and private execution facts
+- prompts, model/provider selection, and assistant meaning
+- auth, tenancy, workspace, account, and persistence policy
+- database queries, domain handlers, external APIs, and side effects
+- product guards and context facts supplied through RouteDeck protocols
+- dynamic surface props, React surface components, layout, copy, and identity
 
-For SaaStoAgent, `backend/services/route_deck/` remains the product adapter/catalog. It imports RouteDeck primitives from `routedeck_core`, uses `routedeck_langgraph` for LangGraph contract checks and transition assertions, and passes RouteDeck snapshots to the SaaStoAgent frontend, which renders framework UI through `@routedeck/react`.
+The RouteDeck application specification is the single source for public nodes,
+flows, operations, surface identity/placement, affordances, and declared event
+schemas. Product providers resolve live values; they do not redefine those
+contracts in a second catalog.
 
-`routedeck_core` must not import LangGraph. LangGraph support lives in the optional `routedeck_langgraph` adapter so non-LangGraph runtimes can still use RouteDeck manifests and snapshots.
+`routedeck_core` stays product-neutral. `routedeck_langgraph` is first-class,
+not optional in the Full Flow architecture, while its executor protocol keeps
+the core free of unnecessary LangGraph implementation types.
+
+For SaaStoAgent, Corpus must become a thin Full Flow application definition plus
+domain behavior. Corpus may extend RouteDeck contracts only for genuine product
+fields. It must not own generic runtime subclasses, projection assembly,
+navigation stacks, review mechanics, event sequencing, SSE formatting, or
+client-authoritative graph-state reconstruction.
+
+The older `backend/services/route_deck/` SaaStoAgent adapter/catalog is product
+compatibility code, not RouteDeck framework ownership. It must be explicitly
+migrated, retained as a named compatibility boundary, or retired after call-site
+proof.

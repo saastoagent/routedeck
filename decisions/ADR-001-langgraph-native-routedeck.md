@@ -3,6 +3,11 @@
 Status: Accepted
 Date: 2026-07-06
 
+2026-07-10 amendment: ADR-002 refines this direction into two adoption modes
+over one interaction kernel. `compile()` returns a `RouteDeckCompiledApp`; its
+`.runtime` is the shared `RouteDeckInteractionRuntime`, and Core Integration
+constructs the same runtime with an existing-agent executor.
+
 ## Context
 
 RouteDeck started as a product-neutral contract for graph-backed agentic UI:
@@ -112,16 +117,18 @@ The target application shape is:
 app = (
     RouteDeckApp("corpus")
     .state(AppGraphState)
-    .langgraph(corpus_graph)
     .nodes(APP_GRAPH_NODES)
-    .actions(APP_GRAPH_ACTIONS)
-    .surfaces(CorpusSurfaceCatalog())
+    .flows(APP_GRAPH_FLOWS)
+    .operations(APP_GRAPH_OPERATIONS)
+    .surfaces(CORPUS_SURFACES)
     .context(CorpusContextProvider())
     .guards(CorpusGuardPolicy())
-    .executor(CorpusLangGraphExecutor())
+    .handlers(CORPUS_HANDLERS)
+    .backend(RouteDeckSqliteBackend("corpus.db"))
 )
 
-runtime = app.compile()
+compiled = app.compile()
+runtime = compiled.runtime
 ```
 
 At runtime:
@@ -131,7 +138,7 @@ FastAPI request
   -> RouteDeck runtime
   -> validate interaction operation
   -> stage review if needed
-  -> dispatch to LangGraph adapter
+  -> dispatch to compiled LangGraph executor
   -> receive state/events/effects
   -> validate returned user-facing state
   -> build RouteDeck projection

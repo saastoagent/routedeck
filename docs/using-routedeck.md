@@ -1,15 +1,17 @@
 # Using RouteDeck For Agents, Humans, And Product Developers
 
 Status: Practical usage guide
-Date: 2026-05-26
+Date: 2026-07-10
 
-RouteDeck is a graph-backed state runtime for agentic UI. It lets a product
-graph expose what is currently true, what can be done next, which surfaces are
-valid, which operations are safe to dispatch, and why something is blocked.
+RouteDeck is a full-stack framework for robust agentic applications, with an
+embeddable state and interaction runtime for existing agents. It lets a product
+declare what is true, what can be done next, which surfaces are valid, which
+operations are safe to dispatch, and why something is blocked.
 
-RouteDeck is not a chatbot, product shell, workflow database, auth layer, prompt
-manager, SaaS integration runtime, or LLM router. It is the reusable state and
-operation contract between a graph-owned application and agentic UI.
+RouteDeck does not own product prompts, product auth, product databases, domain
+side effects, or product copy. It owns the reusable application compiler/runtime,
+state and interaction kernel, typed event/SSE architecture, projection, and
+frontend state path around those product concerns.
 
 For the canonical framework reference, read
 [`route-deck-reference.md`](./route-deck-reference.md).
@@ -30,7 +32,12 @@ Product services execute domain work.
 
 ## Who Uses RouteDeck
 
-RouteDeck has three user groups:
+RouteDeck has two developer adoption modes and three runtime audiences:
+
+- Full Flow developers declare an app and let RouteDeck compile and run the
+  LangGraph-backed backend, event, SSE, projection, and React state path.
+- Core Integration developers keep an existing agent or custom graph and attach
+  it to the same RouteDeck kernel through an executor adapter.
 
 - human operators use product UI rendered from RouteDeck projections
 - product agents use product-facing RouteDeck context to choose typed operations
@@ -222,59 +229,96 @@ Agent rules:
 
 ## How Developers Should Integrate RouteDeck
 
-Backend runtime shape:
+### Full Flow
+
+Use Full Flow when RouteDeck should assemble the application runtime:
 
 ```python
-class ProductRouteDeckRuntime:
-    async def snapshot(self, context) -> RouteDeckRuntimeState: ...
-    async def projection(self, context) -> RouteDeckProjection: ...
-    async def dispatch(self, request, context) -> RouteDeckDispatchResult: ...
-    async def inspect(self, query, context) -> RouteDeckIntrospection: ...
-    async def stream(self, context) -> AsyncIterator[RouteDeckEvent]: ...
+app = (
+    RouteDeckApp("support-agent")
+    .state(SupportState)
+    .nodes(SUPPORT_NODES)
+    .flows(SUPPORT_FLOWS)
+    .operations(SUPPORT_OPERATIONS)
+    .surfaces(SUPPORT_SURFACES)
+    .context(SupportContextProvider())
+    .guards(SupportGuardPolicy())
+    .handlers(SupportHandlers())
+    .backend(RouteDeckSqliteBackend("support-agent.db"))
+)
+
+compiled = app.compile()
+runtime = compiled.runtime
+router = compiled.create_router(prefix="/api/support")
 ```
 
-RouteDeck can be exposed as a distinct generic API plane:
+This is the target API; current implementation work is tracked by the full
+framework refactor plan.
+
+### Core Integration
+
+Use Core Integration when execution already exists:
+
+```python
+runtime = RouteDeckInteractionRuntime.attach(
+    spec=SUPPORT_INTERACTION_SPEC,
+    executor=ExistingAgentAdapter(existing_agent),
+    backend=RouteDeckSqliteBackend("support-agent.db"),
+)
+```
+
+The adapter supplies snapshot, dispatch, and streaming execution behavior. It
+does not redefine RouteDeck operations, guards, events, surfaces, projections,
+or store semantics.
+
+### Runtime Contract
+
+Both modes expose the same backend runtime shape:
+
+```python
+class RouteDeckInteractionRuntime:
+    async def create_session(self, request) -> RouteDeckRuntimeState: ...
+    async def snapshot(self, session_id) -> RouteDeckRuntimeState: ...
+    async def dispatch(self, request: RouteDeckDispatchInput) -> RouteDeckDispatchResult: ...
+    async def inspect(self, session_id, query) -> RouteDeckIntrospection: ...
+    async def subscribe(self, session_id, channels, after_event_id=None) -> AsyncIterator[RouteDeckEvent]: ...
+```
+
+RouteDeck can be exposed as a distinct generic API plane, or mounted under a
+product-selected prefix. Its target API is:
 
 ```text
-GET  /api/routedeck/manifest
-GET  /api/routedeck/snapshot
-GET  /api/routedeck/projection
-POST /api/routedeck/dispatch
-POST /api/routedeck/inspect
-GET  /api/routedeck/stream
+GET  /api/<product>/contract
+POST /api/<product>/sessions
+GET  /api/<product>/sessions/{session_id}/snapshot
+POST /api/<product>/sessions/{session_id}/turns
+POST /api/<product>/sessions/{session_id}/dispatch
+POST /api/<product>/sessions/{session_id}/inspect
+POST /api/<product>/sessions/{session_id}/reviews/{review_id}/approve
+POST /api/<product>/sessions/{session_id}/reviews/{review_id}/reject
+GET  /api/<product>/sessions/{session_id}/events/{channel}
+GET  /api/<product>/sessions/{session_id}/events?channels=assistant,runtime,surface
 ```
 
-Product APIs can sit beside that RouteDeck API plane:
-
-```text
-GET  /api/<product>/state
-GET  /api/<product>/stream
-POST /api/<product>/action
-GET  /api/diagnostics/stream
-```
-
-Product reference apps can also expose RouteDeck-derived projection, action,
-inspect, and stream behavior through product-owned URLs such as
-`/api/medusa-agent/projection` and `/api/medusa-agent/action`. Use that shape
-when the endpoint is part of the product app rather than a standalone framework
-surface.
-
-Use separate RouteDeck APIs when operators, agents, or debugger surfaces need a
-clear framework boundary. The wrong boundary is not `/api/routedeck/*` itself;
-the wrong boundary is putting product-specific semantics under that namespace,
-for example `/api/routedeck/<product>/checkout` or a RouteDeck endpoint that
-owns product auth, tenancy, payment, or business policy.
+The prefix and auth dependencies remain product-owned. RouteDeck owns route
+mechanics and schemas; product-specific checkout, tenancy, billing, or provider
+semantics remain in product handlers. Older product-specific state/action/stream
+routes are compatibility shapes during migration, not the Full Flow default.
 
 React integration:
 
 ```ts
 const store = createRouteDeckStore({
-  snapshotUrl: '/api/corpus/state',
-  dispatchUrl: '/api/corpus/action',
-  streamUrl: '/api/corpus/stream',
-  inspectUrl: '/api/diagnostics/stream',
+  contractUrl: '/api/support/contract',
+  sessionUrl: '/api/support/sessions/session-1',
+  channels: ['assistant', 'runtime', 'surface'],
 })
 ```
+
+The store loads the versioned client contract derived from the backend
+application specification. Product frontend code registers React components by
+declared component key; it does not repeat nodes, flows, operations, or surface
+policy.
 
 Mount once:
 

@@ -2,13 +2,15 @@
 
 Start with `docs/agentic-ui-state-runtime.md` for the current architecture direction.
 
-RouteDeck is graph-backed state management for agentic applications.
+RouteDeck is a full-stack framework for robust agentic applications, with an
+embeddable state and interaction runtime for existing agents.
 
-Applications should import RouteDeck and use it the way frontend apps use Redux,
-MobX, or React Query: as a reusable state layer, not as product code. On the
-backend, RouteDeck binds LangGraph/FastAPI runtime state into a stable agentic
-state contract. On the frontend, `@routedeck/react` exposes that contract through
-stores, hooks, surfaces, events, and debugger components.
+Full Flow applications import RouteDeck, declare domain state, flows,
+operations, guards, handlers, context, and surfaces, then let RouteDeck compile
+and run the LangGraph-backed backend plus typed event/SSE, projection,
+diagnostics, and React state path. Core Integration applications attach an
+existing agent or custom graph to the same state and interaction kernel through
+an executor adapter.
 
 RouteDeck defines how agent-centric platforms expose graph state, valid actions,
 blocked actions, recovery prompts, forms, runtime snapshots, surface state,
@@ -25,11 +27,15 @@ React.
 It is split into:
 
 - `routedeck_core`: Python contracts, projections, operations, events, surfaces, runtime state, and validation helpers for backend agentic state.
-- `routedeck_langgraph`: optional LangGraph adapter for handler parity, edge resolver validation, transition assertions, and common graph wiring.
+- `routedeck_langgraph`: first-class Full Flow execution compiler and custom LangGraph adapter; the current implementation contains the validation and graph-wiring foundation.
+- planned `routedeck_sqlite`: durable single-host session, idempotency, event-log, replay, and transactional outbox backend.
+- planned `routedeck_fastapi`: product-neutral contract/session/dispatch/review/inspect routes and typed SSE channel transport.
+- planned `routedeck_testing`: shared Full Flow/Core Integration conformance harness.
 - `react`: React store, hooks, debugger, and type contracts for frontend agentic state consumers.
 - `architecture`: code-referenced subsystem ownership, component contracts, and maintenance coverage.
 - `docs`: framework-level architecture and packaging notes.
-- `examples/medusa-agent`: active product reference example used to prove RouteDeck can power a real product agent without absorbing product behavior.
+- `examples/medusa-agent`: product reference integration used to prove RouteDeck can power a real product agent without absorbing product behavior.
+- planned `examples/full-flow-change-planner` and `examples/core-integration-document-review`, both independent of Corpus/Medusa.
 - `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
 - root context files: RouteDeck-local context, handoff, validation index, and lifecycle anchors populated from the sibling `context_architecture_bundle` starter.
 
@@ -44,9 +50,28 @@ The framework is a sibling local package during development. Downstream
 applications should consume `routedeck-core`, `routedeck-langgraph`, and
 `@routedeck/react` from this folder instead of copying framework source.
 
-## LangGraph Adapter
+## Developer Modes
 
-`routedeck_core` stays runtime-neutral and dependency-light. Install the optional LangGraph extra only for LangGraph apps:
+- **Full Flow:** RouteDeck supplies the LangGraph-native full-stack golden path
+  for ordinary developers and agent-assisted/vibe coding.
+- **Core Integration:** RouteDeck supplies state and interaction management for
+  an existing agent or custom graph without requiring an execution rewrite.
+
+Both modes share operations, guards, review, events, projections, surfaces,
+diagnostics, and React store semantics. See
+`decisions/ADR-002-two-adoption-modes-one-kernel.md`.
+
+One application specification drives public nodes, flows/outcomes, operations,
+surface identity/placement, declared event schemas, validation, and the exported
+frontend contract. RouteDeck atomically claims dispatch before execution and
+ships a durable SQLite reference backend; it does not silently claim exactly-once
+side effects across external systems.
+
+## LangGraph Runtime
+
+`routedeck_core` keeps framework-neutral contracts dependency-light. LangGraph
+is the first-class Python execution foundation; install the LangGraph extra for
+Full Flow and custom LangGraph integrations:
 
 ```powershell
 python -m venv .venv

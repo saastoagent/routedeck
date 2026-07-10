@@ -1,9 +1,11 @@
 # RouteDeck Agentic UI State Runtime
 
 Status: Canonical framework direction
-Date: 2026-05-19
+Date: 2026-07-10
 
-RouteDeck is graph-backed state management for agentic UI.
+RouteDeck is a full-stack framework for robust agentic applications and an
+embeddable state/interaction runtime for existing agents. Its default backend
+path is LangGraph-native.
 
 For the canonical framework reference, read `docs/route-deck-reference.md`.
 For a practical operator, agent, and developer guide, read `docs/using-routedeck.md`.
@@ -13,8 +15,8 @@ It sits in the same broad mental category as Redux, MobX, Zustand, or other Reac
 The core idea:
 
 ```text
-Graph owns truth.
-RouteDeck owns the generic agentic UI state runtime over that graph.
+Product domain state/private executor checkpoints own domain truth.
+RouteDeck owns authoritative public interaction-session state over that executor.
 RouteDeckStore exposes that runtime to React.
 Product agents and product UI consume the store.
 ```
@@ -32,16 +34,21 @@ Redux middleware -> guards, autonomy policy, stream adapters, persistence adapte
 Redux DevTools   -> RouteDeck diagnostics and introspection
 ```
 
-The runtime stack:
+The default Full Flow stack:
 
 ```text
-Graph runtime
-  -> RouteDeckRuntime adapter
-    -> RouteDeckRuntimeState
-      -> RouteDeckStore
-        -> React hooks
-          -> product UI, product agents, diagnostics
+Product application definition
+  -> RouteDeck compiler/runtime
+    -> LangGraph execution
+      -> RouteDeckRuntimeState and RouteDeckEvent protocol
+        -> SSE channel views and RouteDeckStore
+          -> React hooks, product surfaces, agents, and diagnostics
 ```
+
+Advanced developers can attach an existing agent or custom graph through a
+typed executor adapter. The adapter changes who supplies execution; it does not
+change RouteDeck operation, guard, projection, event, surface, store, or
+diagnostic semantics.
 
 ## Framework Boundaries
 
@@ -56,7 +63,10 @@ RouteDeck framework code owns product-neutral contracts and utilities:
 - `RouteDeckDispatchResult`
 - `RouteDeckRuntimeStatus`
 - `RouteDeckIntrospection`
-- `RouteDeckRuntime`
+- `RouteDeckAppSpec`
+- `RouteDeckClientContract`
+- `RouteDeckInteractionRuntime`
+- `RouteDeckRuntimeBackend`
 - `RouteDeckStore`
 
 RouteDeck framework code must not own:
@@ -81,27 +91,37 @@ routedeck_core
   product-neutral models, protocols, projection/runtime contracts
 
 routedeck_langgraph
-  optional LangGraph adapter implementing RouteDeckRuntime
+  first-class Full Flow compiler plus custom LangGraph adapter
+
+routedeck_sqlite
+  durable single-host session, idempotency, event log, replay, and outbox
+
+routedeck_fastapi
+  product-neutral client-contract, session, dispatch, review, inspect, and SSE routes
 
 product backend
-  product graph, domain handlers, auth, persistence, prompts, LLM calls
+  product graph, domain handlers, auth, domain persistence, prompts, LLM calls
 
-product RouteDeck adapter
-  translates product graph state into generic RouteDeck runtime state
+product application definition or executor adapter
+  declares the Full Flow app or maps an existing agent into RouteDeck runtime
 ```
 
 Target protocol shape:
 
 ```python
-class RouteDeckRuntime:
-    async def snapshot(context) -> RouteDeckRuntimeState: ...
-    async def projection(context) -> RouteDeckProjection: ...
-    async def dispatch(input, context) -> RouteDeckDispatchResult: ...
-    async def inspect(input, context) -> RouteDeckIntrospection: ...
-    async def stream(context) -> AsyncIterator[RouteDeckEvent]: ...
+class RouteDeckInteractionRuntime:
+    async def create_session(request) -> RouteDeckRuntimeState: ...
+    async def snapshot(session_id) -> RouteDeckRuntimeState: ...
+    async def dispatch(input: RouteDeckDispatchInput) -> RouteDeckDispatchResult: ...
+    async def inspect(session_id, query) -> RouteDeckIntrospection: ...
+    async def subscribe(session_id, channels, after_event_id=None) -> AsyncIterator[RouteDeckEvent]: ...
 ```
 
-The graph kernel validates operations, enforces guards, commits transitions, and returns recovery context. RouteDeck wraps that behavior in a reusable state-management contract. It does not bypass the graph.
+The shared RouteDeck kernel loads authoritative interaction state, validates
+operations and inputs, enforces product-supplied guards/review policy, claims
+dispatch atomically, invokes the executor, validates the declared outcome, and
+commits state/projection/terminal events through a coordinated backend. It does
+not bypass product domain rules or private executor state.
 
 ## React Store Contract
 
@@ -142,14 +162,14 @@ The default HTTP/SSE implementation is a transport adapter:
 
 ```ts
 createRouteDeckStore({
-  snapshotUrl,
-  dispatchUrl,
-  streamUrl,
-  inspectUrl,
+  contractUrl,
+  sessionUrl,
+  channels,
 })
 ```
 
-It knows how to fetch, dispatch, subscribe, and inspect. It does not know product behavior.
+It loads the backend-derived client contract and knows how to fetch, dispatch,
+subscribe, replay, resynchronize, and inspect. It does not know product behavior.
 
 ## Runtime State
 
@@ -186,11 +206,11 @@ RouteDeck dispatch is the generic action path:
 ```text
 UI or product agent chooses a typed operation
   -> RouteDeckStore.dispatch(input)
-    -> backend RouteDeckRuntime.dispatch(input)
-      -> product graph validates guards
-        -> graph commits, rejects, or asks for review
-          -> RouteDeckRuntimeState is rebuilt
-            -> RouteDeckStore publishes state
+    -> RouteDeckInteractionRuntime.dispatch(input)
+      -> shared kernel validates version/input/guards/review and claims dispatch
+        -> Full Flow or existing-agent executor runs once
+          -> kernel validates outcome and commits state/result/events atomically
+            -> RouteDeckStore reduces ordered typed events
               -> React subscribers update
 ```
 
@@ -241,7 +261,9 @@ navigation validation.
 
 ## Surfaces
 
-Surfaces are graph-declared and RouteDeck-projected. They are not arbitrary React children invented by product code after the fact.
+Surfaces are declared once in the RouteDeck application specification and
+RouteDeck-projected. They are not arbitrary React children or a second frontend
+catalog invented after the fact.
 Surfaces present runtime capabilities; they do not own the capabilities.
 
 Surface roles:
@@ -275,20 +297,22 @@ permissions, setup, and arguments before committing.
 
 ## Streams
 
-RouteDeck streams are state streams:
+RouteDeck owns one typed event architecture. Semantic channel views include:
 
 ```text
-projection_update
-operation_started
-operation_completed
-graph_transition
-guard_failure
-surface_update
-runtime_status
-diagnostic_update
+assistant  -> message_delta, semantic_observation
+runtime    -> projection_update, operation_started, operation_completed,
+              graph_transition, guard_failure, runtime_status
+tool       -> tool_started, tool_completed, tool_failed
+surface    -> surface_update, affordance_received
+diagnostic -> diagnostic_update, trace_update
 ```
 
-Product-agent streams are separate. In SaaStoAgent, Corpus text/proposal streaming is not the RouteDeck stream. Both streams can share `turn_id` and `projection_version`.
+Filtered SSE endpoints and a multiplexed SSE endpoint may expose the same event
+log. They share event identity, correlation, ordering, terminal semantics, and
+replay rules while retaining explicit visibility boundaries. Product prompts
+and assistant meaning remain product-owned; generic event sequencing and SSE
+framing do not belong in each product runtime.
 
 ## Diagnostics and Introspection
 
@@ -335,17 +359,20 @@ and semantic route edges.
 
 ## SaaStoAgent Consumption Pattern
 
-SaaStoAgent consumes RouteDeck like an application consumes a state manager:
+SaaStoAgent is migrating toward the Full Flow consumption pattern:
 
 ```text
-CorpusGraphRuntime
-  -> SaaStoAgent RouteDeck adapter
-    -> generic RouteDeckRuntime
-      -> RouteDeckStore
+Corpus application definition and domain handlers
+  -> RouteDeck Full Flow compiler/runtime
+    -> LangGraph execution
+      -> RouteDeck event/projection/store pipeline
         -> Corpus shell, contextual surfaces, diagnostics
 ```
 
-Corpus is the SaaStoAgent product agent. Corpus reads RouteDeck state and dispatches RouteDeck operations. It does not own RouteDeck state management.
+Corpus is the SaaStoAgent product agent and application definition. It declares
+product behavior and consumes RouteDeck state; it does not own generic RouteDeck
+state management, projection assembly, event sequencing, SSE framing, or
+LangGraph scaffolding.
 Corpus also demonstrates the preferred browser deeplink split: graph location is
 encoded in product-owned path segments such as `/app/home` or
 `/app/agents/:agent_id/:node_id`, while query params are reserved for optional
@@ -354,7 +381,7 @@ surface state such as `surface_id`.
 Corpus owns:
 
 - user intent interpretation
-- assistant text streaming
+- assistant meaning, prompts, and product-safe text payloads
 - platform-agent prompts and policies
 - legal operation selection
 - visible proposals
@@ -369,6 +396,8 @@ RouteDeck owns:
 - surface projection
 - diagnostics
 - introspection
+- event envelope, sequence, persistence, replay, and SSE framing
+- versioned client-contract export
 
 The product UI must not render `legal_operations` directly as default action chips. Visible choices should be Corpus-authored proposals, initiated surfaces, or diagnostics.
 When a product renders action chips, those chips are a product-curated
@@ -382,27 +411,15 @@ separate from the navgraph and inspector: product UI emits declared surface
 affordance events, and the navgraph updates only after dispatch/projection
 state changes.
 
-## Implementation Plan Incorporated
+## Active Implementation Plan
 
-The current reset combines two accepted plans:
-
-1. RouteDeck + SaaStoAgent reset:
-   - remove product-runtime leakage from RouteDeck
-   - keep legal operations internal/runtime-facing
-   - split Corpus, RouteDeck, and diagnostics streams
-   - make diagnostics richer than raw JSON
-   - remove `/api/app/graph/*` from the product path
-   - keep Corpus central
-
-2. RouteDeck runtime-store implementation:
-   - add backend runtime state and dispatch contracts
-   - add `RouteDeckStore` and generic HTTP/SSE store factory
-   - mount SaaStoAgent on a configured store
-   - move dispatch/state/introspection behavior into a product adapter
-   - keep Corpus chat streaming separate from RouteDeck state streaming
-   - remove duplicated frontend projection/state juggling
-
-This is the anti-drift target. Future patches should extend this shape instead of reintroducing passive projection plumbing or product-specific RouteDeck code.
+The accepted implementation sequence is
+`docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`:
+build the executor-independent kernel and durability boundary, prove Core
+Integration against an unchanged graph, compile Full Flow as another executor
+construction path, upgrade React, prove both standalone examples, and then
+migrate Corpus vertically. Future patches should extend that shape instead of
+reintroducing passive projection plumbing or product-specific RouteDeck code.
 
 ## Anti-Drift Rules
 
