@@ -1,3 +1,62 @@
+from .application import CapabilityRef, CapabilitySpec, CompiledApplicationSpec, NodeSpec
 from .failures import FailureKind, FailureSafeDetails, RouteDeckFailure
+from .navigation import (
+    DeepLinkPolicy,
+    DirtyStatePolicy,
+    NavigationPolicySpec,
+    NodeKind,
+    NodeRef,
+    RecoveryPolicySpec,
+    RouteSpec,
+    TransitionSpec,
+)
+from .operations import (
+    ContextProviderSpec,
+    EntityProviderSpec,
+    GuardRef,
+    GuardSpec,
+    OperationRef,
+    OperationSpec,
+    ProviderRef,
+    ReviewPolicy,
+    SafetyClass,
+)
+from .surfaces import (
+    SurfaceAffordanceSpec,
+    SurfaceLifecycle,
+    SurfaceRef,
+    SurfaceSlotsSpec,
+    SurfaceSpec,
+)
 
-__all__ = ["FailureKind", "FailureSafeDetails", "RouteDeckFailure"]
+__all__ = [
+    "CapabilityRef",
+    "CapabilitySpec",
+    "CompiledApplicationSpec",
+    "ContextProviderSpec",
+    "DeepLinkPolicy",
+    "DirtyStatePolicy",
+    "EntityProviderSpec",
+    "FailureKind",
+    "FailureSafeDetails",
+    "GuardRef",
+    "GuardSpec",
+    "NavigationPolicySpec",
+    "NodeKind",
+    "NodeRef",
+    "NodeSpec",
+    "OperationRef",
+    "OperationSpec",
+    "ProviderRef",
+    "RecoveryPolicySpec",
+    "ReviewPolicy",
+    "RouteDeckFailure",
+    "RouteSpec",
+    "SafetyClass",
+    "SurfaceAffordanceSpec",
+    "SurfaceLifecycle",
+    "SurfaceRef",
+    "SurfaceSlotsSpec",
+    "SurfaceSpec",
+    "TransitionSpec",
+]

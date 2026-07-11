@@ -414,7 +414,7 @@ def test_slice1_plan_document_is_linked_and_decision_complete():
     assert "npm test" in plan
 
 
-def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
+def test_medusa_runnable_example_keeps_transport_separate_from_buyer_specs():
     example = ROOT / "examples" / "medusa-agent"
     assert example.exists()
 
@@ -425,15 +425,6 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
         re.compile(r"@medusajs/", re.I),
         re.compile(r"/api/medusa-agent/(?:state|route-manifest|route-snapshot|action|inspect)", re.I),
         re.compile(r"\bsurface_event\b", re.I),
-        re.compile(r"\boperation_id\b", re.I),
-        re.compile(r"\bcatalog\.(?:list|open)\b", re.I),
-        re.compile(r"\bvariant\.select\b", re.I),
-        re.compile(r"\bcart\.(?:create|add_item|view)\b", re.I),
-        re.compile(r"\bcheckout\b", re.I),
-        re.compile(r"\bpayment\b", re.I),
-        re.compile(r"\bshipping\b", re.I),
-        re.compile(r"\badmin(?:\s+mutation)?\b", re.I),
-        re.compile(r"\bfulfillment\b", re.I),
     ]
 
     production_chunks = []
@@ -450,9 +441,33 @@ def test_medusa_runnable_example_is_chat_first_with_read_only_projection():
                 )
 
     assert not implementation_failures, (
-        "The runnable Medusa example must stay Slice 1 chat-only until RouteDeck is reintroduced by micro-slice:\n"
+        "The runnable Medusa example must not reintroduce retired product-specific RouteDeck APIs or direct Medusa SDK coupling:\n"
         + "\n".join(implementation_failures)
     )
+
+    spec_text = _combined_text(
+        "examples/medusa-agent/backend/medusa_agent/composition.py",
+        "examples/medusa-agent/backend/medusa_agent/features",
+    ).lower()
+    for required in [
+        "buyer.home",
+        "catalog.browse",
+        "catalog.product",
+        "cart.summary",
+        "checkout.review",
+        "orders.confirmation",
+        "checkout.place_order",
+    ]:
+        assert required in spec_text
+    for banned in [
+        "routedeckruntimebase",
+        "build_route_deck_state_graph",
+        "medusastoreclient",
+        "httpx",
+        "/store/",
+        "/admin/",
+    ]:
+        assert banned not in spec_text
 
     implementation_text = "\n".join(production_chunks)
     assert "/api/medusa-agent/agent/stream" in implementation_text

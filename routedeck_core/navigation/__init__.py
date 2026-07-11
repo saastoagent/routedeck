@@ -6,14 +6,21 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .models import (
+from ..models import (
     RouteDeckGraphNavigationLocation,
     RouteDeckGraphState,
     RouteDeckLocation,
     RouteDeckProjection,
     RouteDeckSurface,
 )
-from .surfaces import RouteDeckSurfaceRegistry
+from ..surfaces import RouteDeckSurfaceRegistry
+from .routes import (
+    CompiledRoutes,
+    DecodedRoute,
+    PublicRouteKeyValidator,
+    RouteResumeCapability,
+    RouteSessionContext,
+)
 
 
 ROUTEDECK_PENDING_OPERATION_ID_PARAM = "__pending_operation_id"
@@ -408,3 +415,17 @@ class RouteDeckGraphNavigationController:
             back_stack=state.navigation_back_stack,
         )
         self.apply_transition(state, transition)
+
+
+__all__ = [
+    "CompiledRoutes",
+    "DecodedRoute",
+    "PublicRouteKeyValidator",
+    "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
+    "ROUTEDECK_PENDING_OPERATION_ID_PARAM",
+    "RouteDeckGraphNavigationController",
+    "RouteDeckNavigationPolicy",
+    "RouteDeckNavigationTransition",
+    "RouteResumeCapability",
+    "RouteSessionContext",
+]

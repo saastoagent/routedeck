@@ -10,6 +10,11 @@ EXPECTED_FRAMEWORK_PACKAGES = (
     "routedeck_langgraph",
     "routedeck_sqlite",
 )
+EXPECTED_PUBLIC_FRAMEWORK_IMPORTS = {
+    *EXPECTED_FRAMEWORK_PACKAGES,
+    "routedeck_core.app",
+    "routedeck_core.contracts.navigation",
+}
 
 
 def test_medusa_composition_uses_only_public_routedeck_packages() -> None:
@@ -33,4 +38,4 @@ def test_medusa_composition_uses_only_public_routedeck_packages() -> None:
         and node.module.startswith("routedeck_")
     )
 
-    assert imported_routedeck_modules == set(EXPECTED_FRAMEWORK_PACKAGES)
+    assert imported_routedeck_modules == EXPECTED_PUBLIC_FRAMEWORK_IMPORTS

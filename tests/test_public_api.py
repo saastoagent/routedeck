@@ -27,18 +27,20 @@ def test_public_packages_import_and_publish_type_markers() -> None:
 
 
 def test_target_core_subpackages_are_importable_without_module_collisions() -> None:
+    import routedeck_core.app
     import routedeck_core.context
     import routedeck_core.contracts
+    import routedeck_core.navigation
     import routedeck_core.ports
     import routedeck_core.projection
     import routedeck_core.state
     import routedeck_core.supervision
 
     core_root = Path(routedeck_core.__file__).parent
-    assert (core_root / "app.py").is_file()
-    assert not (core_root / "app").exists()
-    assert (core_root / "navigation.py").is_file()
-    assert not (core_root / "navigation").exists()
+    assert not (core_root / "app.py").exists()
+    assert (core_root / "app" / "__init__.py").is_file()
+    assert not (core_root / "navigation.py").exists()
+    assert (core_root / "navigation" / "__init__.py").is_file()
 
 
 def test_runtime_subclass_remains_compatibility_only() -> None:
