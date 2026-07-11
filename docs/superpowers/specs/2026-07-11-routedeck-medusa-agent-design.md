@@ -1,6 +1,6 @@
 # RouteDeck And Medusa Buyer Agent Design
 
-Status: Design approved and self-reviewed; awaiting written-spec approval
+Status: Approved; implementation plan active
 Date: 2026-07-11
 Scope: Replace the existing `examples/medusa-agent` implementation with a clean standalone RouteDeck-backed Medusa buyer agent.
 
@@ -585,4 +585,4 @@ The architecture, ownership, LangGraph interface, feature authoring model, packa
 
 The inline placeholder, consistency, scope, ambiguity, privacy, concurrency, and release-gate review is complete. The specification has no unresolved placeholders or known contradictory ownership, persistence, retry, deep-link, or runtime requirements.
 
-The sole remaining design gate is final user approval of this written specification. After that approval, the writing-plans workflow produces the executable implementation plan. Implementation begins only after that plan is approved for Goal Mode execution.
+The user approved the complete written specification on 2026-07-11 and authorized implementation planning, local execution, Goal Mode, and path-scoped commit/push work. The executable plan is `docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md`.
