@@ -360,7 +360,7 @@ Use explicit extras in `pyproject.toml`:
 
 ```toml
 [project.optional-dependencies]
-langgraph = ["langgraph==1.0.10", "langchain==1.2.2", "langchain-openai==1.2.2"]
+langgraph = ["langgraph==1.2.9", "langchain==1.3.13", "langchain-openai==1.3.5"]
 fastapi = ["fastapi==0.136.3", "httpx==0.28.1", "uvicorn==0.48.0"]
 sqlite = ["cryptography>=43,<47"]
 testing = ["pytest==9.0.3", "pytest-asyncio==1.4.0", "pytest-cov>=6,<8"]
@@ -376,7 +376,7 @@ packages = [
 ]
 ```
 
-`langgraph==1.0.10` is the latest `1.0.x` release admitted by `langchain==1.2.2`'s published `langgraph>=1.0.2,<1.1.0` requirement. Treat these three agent-runtime pins as one resolved set; changing any member requires re-running dependency resolution and the LangGraph adapter gates.
+Treat the three agent-runtime pins as one resolved set; changing any member requires re-running dependency resolution, `pip check`, the import probe for `StateGraph`, `ToolNode`, and `create_agent`, and the LangGraph adapter gates.
 
 Create the stable core error model in `routedeck_core/contracts/failures.py`; `routedeck_core/errors.py` and the root public API re-export it without defining a second model:
 
