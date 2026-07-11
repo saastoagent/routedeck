@@ -301,7 +301,7 @@ git push origin saastoagent
 - Modify: `routedeck_core/__init__.py`
 - Create: `routedeck_core/contracts/failures.py`
 - Create: `routedeck_core/errors.py` as a compatibility re-export
-- Create: package `__init__.py` and `py.typed` files from the target map
+- Create: package `__init__.py` and `py.typed` files from the target map except the colliding `routedeck_core/app/` and `routedeck_core/navigation/` packages, which Task 3 migrates explicitly from the current `app.py` and `navigation.py` modules
 - Create: `tests/test_public_api.py`
 - Create: `tests/test_boundary_rules.py`
 - Create: `scripts/check_boundaries.py`
@@ -472,6 +472,10 @@ git push origin saastoagent
 ### Task 3: Compile Feature Specifications And The Medusa Buyer Graph
 
 **Files:**
+- Remove after compatibility behavior is migrated: `routedeck_core/app.py`
+- Remove after compatibility behavior is migrated: `routedeck_core/navigation.py`
+- Create: `routedeck_core/app/__init__.py` as the compatibility/public package facade
+- Create: `routedeck_core/navigation/__init__.py` as the compatibility/public package facade
 - Create: `routedeck_core/contracts/{application,operations,navigation,surfaces}.py`
 - Create: `routedeck_core/app/{feature,bindings,compiler,compiled}.py`
 - Create: `routedeck_core/navigation/routes.py`
@@ -560,7 +564,7 @@ class FeatureBindings:
     guards: Mapping[GuardRef, Guard]
 ```
 
-`SurfaceSlotsSpec` models active, frame, peer, detail, form, review, status, error, and diagnostic mechanics plus lifecycle/affordance policy; it is not a single component string. Operations, providers, guards, capabilities, and surfaces are declared once as module-level typed objects and stored directly in rich nodes; product code never repeats bare string IDs. Bindings use the declared objects' typed `.ref` values. `FeatureSpec` owns nodes and internal transitions, and the compiler derives canonical operation/surface catalogs while rejecting distinct definitions that reuse an ID. Compilation consumes specs only. `bind_app` validates exactly one binding for each declared provider/guard/handler. Cross-feature transitions live only in `composition.py`.
+`SurfaceSlotsSpec` models active, frame, peer, detail, form, review, status, error, and diagnostic mechanics plus lifecycle/affordance policy; it is not a single component string. Operations, providers, guards, capabilities, and surfaces are declared once as module-level typed objects and stored directly in rich nodes; product code never repeats bare string IDs. Bindings use the declared objects' typed `.ref` values. `FeatureSpec` owns nodes and internal transitions, and the compiler derives canonical operation/surface catalogs while rejecting distinct definitions that reuse an ID. Compilation consumes specs only. `bind_app` validates exactly one binding for each declared provider/guard/handler. Cross-feature transitions live only in `composition.py`. Before creating the two package directories, migrate intentional public exports and retained compatibility behavior from `app.py` and `navigation.py` into the package `__init__.py` facades, then delete the colliding module files. Corpus imports continue to resolve; the fresh Medusa application does not use the legacy runtime-subclass path.
 
 - [ ] **Step 4: Implement segment-based route compilation without regex**
 
@@ -574,6 +578,7 @@ Run:
 
 ```powershell
 python -m pytest tests/app -q
+python -m pytest tests/test_app_builder.py tests/test_navigation_policy.py tests/test_core_contract.py -q
 python scripts/export_contracts.py --app-factory medusa_agent.composition:compile_medusa_app_spec --output artifacts/contracts
 ```
 
