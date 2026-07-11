@@ -1,33 +1,33 @@
 # RouteDeck Context
 
-Last updated: 2026-07-10
-Status: The agentic interaction-state vision is locked in ADR-003. The previous
-compiler/durability-first refactor plan is retired. No replacement
-implementation plan is active yet.
+Last updated: 2026-07-11
+Status: ADR-004 activates the approved RouteDeck and Medusa buyer-agent design
+and its consumer-driven implementation plan. Execution is local Windows only.
 
 ## Start Here
 
 1. [Critical prompt](./critical_prompt.md)
-2. [ADR-003: RouteDeck Governs Agentic Interaction State](./decisions/ADR-003-agentic-interaction-state-governor.md)
-3. [Current context](./context.md)
-4. [Decision index](./decisions/README.md)
-5. [RouteDeck reference](./docs/route-deck-reference.md) for existing feature vocabulary and payloads,
-   subject to ADR-003 where older target language conflicts
-6. [Architecture code map](./architecture/code-map.md)
-7. [Test index](./test_index/README.md)
-8. [SaaStoAgent/Corpus context](../saastoagent-v0.1/context.md) for the current Corpus feature baseline
+2. [ADR-004: RouteDeck And Medusa Advance Through Consumer-Driven Runtime Slices](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
+3. [Approved RouteDeck and Medusa buyer-agent design](./docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
+4. [Active implementation plan](./docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md)
+5. [Current context](./context.md)
+6. [Decision index](./decisions/README.md)
+7. [RouteDeck reference](./docs/route-deck-reference.md) for existing feature vocabulary and payloads,
+   subject to ADR-004 and the approved design where older target language conflicts
+8. [Architecture code map](./architecture/code-map.md)
+9. [Test index](./test_index/README.md)
+10. [SaaStoAgent/Corpus context](../saastoagent-v0.1/context.md) as historical feature evidence and an existing integration boundary
 
 Do not resume the
 [retired full-stack refactor plan](./docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md).
 It is retained as historical material only.
 
-## Pre-Implementation Review Gate
+## Active Implementation Authority
 
-> **Temporary gate — remove this entire section when implementation begins.**
-> The user must thoroughly review and approve
-> [ADR-003](./decisions/ADR-003-agentic-interaction-state-governor.md) before
-> any RouteDeck or Corpus implementation starts. Until that review is complete,
-> keep work in documentation/analysis only.
+The authority chain is ADR-004 -> approved design -> active implementation
+plan. ADR-003 remains historical rationale for RouteDeck's product identity and
+tool-supervision boundary, but no longer controls sequencing or defers the
+approved runtime work.
 
 ## Locked Product Direction
 
@@ -74,25 +74,24 @@ only when it is in the current allowlist for that tool/operation and session
 state. Public product responses still redact internal IDs when they should not
 be shown to the user.
 
-## Corpus Is The First Feature Baseline
+## Medusa Is The First Consumer
 
-Working Corpus behavior defines the first extraction boundary even where the
-current code ownership is wrong. Preserve:
+The standalone Medusa guest-buyer agent now drives RouteDeck development
+through consumer-driven vertical slices. Each slice introduces only the
+framework capability immediately consumed by matching Medusa behavior. A
+RouteDeck-only result never completes a slice; the corresponding Medusa backend
+and browser behavior must also work at the plan's required gates.
 
-- the 26-node/40-operation navgraph and guarded reachability
-- scoped planning context: current node/surface, active SaaS Agent, visible
-  entities, surface choices, and legal product operations
-- authentication/membership/readiness/pending-review guards and feedback
-- real-ID selections sourced from visible product surfaces
-- active, frame, peer, detail, form, and review surfaces
-- surface selection and dirty-surface handling
-- back, forward, cancel, recovery, and product-owned deep links
-- tool result/evidence handling and result-review flows
-- existing Corpus SSE behavior and frontend projection updates
-- diagnostics and public/internal information separation
+The Medusa application owns Store API access, commerce models, providers,
+guards, handlers, LangGraph prompt/model behavior, and product surfaces.
+RouteDeck owns product-neutral feature composition, interaction/session state,
+supervision, persistence, transport, and frontend synchronization. Product
+handlers execute only through the injected host executor.
 
-RouteDeck-internal tests do not prove a slice complete. Corpus backend behavior
-and the matching browser flow must remain green after every extraction slice.
+Corpus remains an existing integration and useful historical behavior
+reference, but it no longer controls implementation sequencing. Preserve the
+Medusa **2026-06-10 gap audit** and its **chat-to-projection convergence** rule
+as acceptance evidence for the standalone buyer agent.
 
 ## Current Implementation Reality
 
@@ -106,50 +105,46 @@ Already present:
 - a feature-rich Corpus runtime that demonstrates the intended behavior but
   still contains generic RouteDeck mechanics
 
-Known gaps relative to ADR-003:
+Known gaps relative to ADR-004:
 
-- Corpus subclasses and extends RouteDeck instead of consuming a small composed
-  interaction kernel
-- tool supervision is not yet expressed as a reusable before/after boundary
-  for every application-semantic tool call
-- real IDs are exposed from visible surfaces, but generic operation-scoped
-  allowlist validation is not yet consistently enforced
-- generic context filtering, surfaces, navigation, SSE framing, diagnostics,
-  and result observation remain mixed into Corpus
-- the current docs/reference still contain historical Full Flow, compiler,
-  durability, and multi-mode language; ADR-003 controls when they conflict
+- the immutable feature-composition API and runtime bindings are not yet in the
+  approved package structure
+- the single supervised operation runner, durable session/event state, SQLite
+  adapter, and generic FastAPI/SSE transport are not yet complete
+- optional LangGraph middleware and the new headless/React packages still need
+  the approved boundary and conformance proof
+- the current Medusa reference code must be replaced slice-by-slice by the
+  standalone buyer agent without moving commerce logic into RouteDeck
+- older docs still contain historical Full Flow, two-mode, Corpus-first, and
+  deferral language; ADR-004 and the approved design control when they conflict
 
-## Explicitly Deferred
+## Approved Runtime Scope
 
-Do not add these to the first extraction without a new user-approved decision:
+ADR-004 authorizes feature-composed authoring, durable RouteDeck session and
+event state, generic FastAPI/SSE and SQLite adapters, optional LangGraph
+middleware, headless/React packages, and the standalone Medusa buyer-agent
+portability proof.
 
-- a RouteDeck-owned tool executor
-- opaque identifier infrastructure
-- a required LangGraph dependency or compiler
-- new SQLite session/event/outbox infrastructure
-- replay/idempotency systems not already needed by Corpus behavior
-- multiple adoption modes and conformance infrastructure
-- independent example projects
-
-The Medusa agent is a later portability proof after Corpus parity is stable.
-
-Preserve the Medusa **2026-06-10 gap audit** and its
-**chat-to-projection convergence** rule as historical acceptance evidence. Any
-later Medusa portability proof must still require a claimed interaction change
-to cross the supervised runtime boundary and produce the matching projection
-update.
+RouteDeck still does not own product tool execution or Medusa business logic.
+The product supplies an injected executor, real Store API data, and explicit
+handlers/providers/guards. Missing data, credentials, dependencies, or
+invariants fail visibly; product paths do not substitute fixtures, canned
+responses, heuristic routing, or silent fallbacks.
 
 ## Migration And Validation Rule
 
-1. Establish the current working Corpus behavior as the executable baseline.
-2. Extract one already-working capability vertically.
-3. Keep the active Corpus caller contract compatible.
-4. Run focused backend tests and the matching browser flow.
-5. Remove duplicate Corpus code only after call-site and behavior proof.
+1. Write the focused failing framework or consumer test for the slice.
+2. Add only the RouteDeck capability immediately consumed by Medusa.
+3. Route both agent and UI operations through the same supervised runner.
+4. Prove the matching Medusa backend and browser behavior against real local
+   sources of truth at the plan's required integration gates.
+5. Remove legacy or duplicate paths only after replacement and boundary proof.
 
-No service or browser run is authorized by this context alone. Before runtime
-verification, ask whether to use local, Mac mini LAN, or Mac mini Tailscale and
-report the exact command and smoke URL.
+Implementation, databases, services, test stacks, browser automation, and
+release verification run on the local Windows development machine. Do not
+probe, select, or fall back to the Mac mini. Start services only in an active
+plan task that expressly authorizes them, and report the exact command and
+smoke URL.
 
 ## Historical Decisions
 
@@ -158,5 +153,8 @@ report the exact command and smoke URL.
   direction.
 - `ADR-002-two-adoption-modes-one-kernel.md`: historical runtime-neutral ideas;
   superseded for first-release multi-mode/durability requirements.
+- `ADR-003-agentic-interaction-state-governor.md`: historical rationale for
+  interaction governance and host-owned product-tool execution; superseded by
+  ADR-004 for sequencing and approved runtime scope.
 - `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`:
   retired and must not be executed.

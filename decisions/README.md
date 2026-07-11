@@ -9,7 +9,15 @@ boundaries.
 - [ADR-001: RouteDeck Is A LangGraph-Native Dynamic UI Application Framework](./ADR-001-langgraph-native-routedeck.md)
 - [ADR-002: RouteDeck Supports Two Adoption Modes Through One Kernel](./ADR-002-two-adoption-modes-one-kernel.md)
 - [ADR-003: RouteDeck Governs Agentic Interaction State](./ADR-003-agentic-interaction-state-governor.md)
+- [ADR-004: RouteDeck And Medusa Advance Through Consumer-Driven Runtime Slices](./ADR-004-routedeck-medusa-consumer-driven-runtime.md)
 
-ADR-003 is the current controlling product and migration decision. ADR-001 and
-ADR-002 are retained as history where ADR-003 supersedes their compiler-first,
-LangGraph-required, durability-first, and multi-mode release requirements.
+ADR-004 is the current controlling implementation and migration decision. It
+links the approved
+[RouteDeck and Medusa buyer-agent design](../docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
+to its active
+[implementation plan](../docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md)
+and fixes execution to the local Windows development machine.
+
+ADR-003 remains historical rationale for RouteDeck's interaction-governance
+identity and host-executor boundary. ADR-001 and ADR-002 are also retained as
+history where later decisions supersede their release sequencing and scope.
