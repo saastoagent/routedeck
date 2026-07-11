@@ -9,7 +9,7 @@ from ..contracts.application import (
     CompiledApplicationSpec,
     NodeSpec,
 )
-from ..contracts.navigation import TransitionSpec
+from ..contracts.navigation import DeepLinkPolicy, TransitionSpec
 from ..contracts.operations import (
     GuardSpec,
     OperationSpec,
@@ -39,14 +39,15 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         raise RouteDeckValidationError("Application must declare at least one feature")
 
     _validate_feature_namespaces(source_spec)
-    nodes = tuple(
-        node for feature in source_spec.features for node in feature.nodes
+    nodes = tuple(node for feature in source_spec.features for node in feature.nodes)
+    transitions = (
+        tuple(
+            transition
+            for feature in source_spec.features
+            for transition in feature.transitions
+        )
+        + source_spec.transitions
     )
-    transitions = tuple(
-        transition
-        for feature in source_spec.features
-        for transition in feature.transitions
-    ) + source_spec.transitions
 
     node_by_id: dict[str, NodeSpec] = {}
     operations: dict[str, OperationSpec] = {}
@@ -66,9 +67,7 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         for guard in node.guards:
             _register_canonical("guard", guards, guard.id, guard)
         for capability in node.capabilities:
-            _register_canonical(
-                "capability", capabilities, capability.id, capability
-            )
+            _register_canonical("capability", capabilities, capability.id, capability)
         for surface in _all_surfaces(node.surfaces):
             _register_canonical("surface", surfaces, surface.id, surface)
 
@@ -189,6 +188,23 @@ def _validate_node_references(
             raise RouteDeckValidationError(
                 f"Node {node.id!r} references missing cancel target"
             )
+        if node.navigation.cancel_target is not None:
+            target = node_by_id[node.navigation.cancel_target.id]
+            target_segments = tuple(
+                segment for segment in target.route.template.split("/") if segment
+            )
+            has_parameters = any(
+                segment.startswith("{") and segment.endswith("}")
+                for segment in target_segments
+            )
+            if (
+                target.route.deep_link_policy is not DeepLinkPolicy.SHAREABLE
+                or has_parameters
+            ):
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} cancel target must be a parameterless "
+                    "shareable route"
+                )
         failure_surface = node.recovery.failure_surface
         if failure_surface is not None and failure_surface.id not in surfaces:
             raise RouteDeckValidationError(
@@ -345,9 +361,7 @@ def _validate_reachability(
 ) -> None:
     destinations: dict[str, list[str]] = {}
     for transition in transitions:
-        destinations.setdefault(transition.source.id, []).append(
-            transition.target.id
-        )
+        destinations.setdefault(transition.source.id, []).append(transition.target.id)
     reachable = {entry_node_id}
     pending = deque([entry_node_id])
     while pending:
@@ -489,9 +503,7 @@ def _validate_executable_test_paths(
         for path in paths
         if path.branch == "deep_link"
     }
-    required_deep_links = {
-        (node.id, node.route.deep_link_policy) for node in nodes
-    }
+    required_deep_links = {(node.id, node.route.deep_link_policy) for node in nodes}
     covered_safety = {
         (path.node_id, path.operation_id, path.safety_class)
         for path in paths
@@ -520,9 +532,7 @@ def _validate_executable_test_paths(
         if path.branch == "recovery"
     }
     required_recovery = {
-        (node.id, directive)
-        for node in nodes
-        for directive in node.recovery.directives
+        (node.id, directive) for node in nodes for directive in node.recovery.directives
     }
     if not (
         covered_transitions >= required_transitions

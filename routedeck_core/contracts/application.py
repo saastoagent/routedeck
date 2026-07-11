@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from .navigation import (
     NavigationPolicySpec,
@@ -17,6 +17,7 @@ from .operations import (
     OperationRef,
     OperationSpec,
 )
+from .projection import FrozenJsonObject
 from .surfaces import SurfaceRef, SurfaceSlotsSpec
 
 
@@ -53,7 +54,12 @@ class NodeSpec(_FrozenContract):
     surfaces: SurfaceSlotsSpec
     navigation: NavigationPolicySpec = NavigationPolicySpec()
     recovery: RecoveryPolicySpec = RecoveryPolicySpec()
-    public_metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    public_metadata: FrozenJsonObject = Field(
+        default_factory=lambda: FrozenJsonObject({})
+    )
+
+    def public_metadata_value(self) -> dict[str, object]:
+        return self.public_metadata.to_dict()
 
     @property
     def ref(self) -> NodeRef:

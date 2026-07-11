@@ -1,4 +1,4 @@
-"""Explicitly test-only invalid contracts and binding doubles."""
+"""Explicitly test-only contract factories and binding doubles."""
 
 from __future__ import annotations
 
@@ -28,6 +28,19 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
+from routedeck_core.contracts.projection import PublicEntityHandle
+from routedeck_core.contracts.session import (
+    Location,
+    LocationParameter,
+    PrivateDraft,
+    PrivateEntityBinding,
+    PrivateSessionState,
+    PublicSessionState,
+    ResumeCapabilityBinding,
+    RouteDeckSession,
+)
+from routedeck_core.navigation.routes import RouteResumeCapability
+from routedeck_core.state.session import navgraph_version
 
 
 _PROVIDER = ContextProviderSpec(
@@ -95,9 +108,7 @@ _MIDDLE = NodeSpec(
     id="test.middle",
     title="Middle",
     kind=NodeKind.WORKFLOW,
-    route=RouteSpec(
-        template="/middle", deep_link_policy=DeepLinkPolicy.SHAREABLE
-    ),
+    route=RouteSpec(template="/middle", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(_PROVIDER,),
     guards=(_GUARD,),
     operations=(_FINISH,),
@@ -137,8 +148,8 @@ _TO_END = TransitionSpec(
 def invalid_app(mutation: str) -> ApplicationSpec:
     """Return one deliberately invalid application for compiler tests."""
 
-    nodes = (_START, _MIDDLE, _END)
-    transitions = (_TO_MIDDLE, _TO_END)
+    nodes: tuple[NodeSpec, ...] = (_START, _MIDDLE, _END)
+    transitions: tuple[TransitionSpec, ...] = (_TO_MIDDLE, _TO_END)
 
     if mutation == "duplicate_node":
         nodes = (*nodes, _START)
@@ -184,8 +195,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             update={"surfaces": (*_CAPABILITY.surfaces, SurfaceRef(id="test.missing"))}
         )
         nodes = tuple(
-            node.model_copy(update={"capabilities": (capability,)})
-            for node in nodes
+            node.model_copy(update={"capabilities": (capability,)}) for node in nodes
         )
     elif mutation == "missing_outcome":
         transitions = (
@@ -210,26 +220,48 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _MIDDLE,
             _END.model_copy(update={"parent": _START.ref}),
         )
+    elif mutation == "parameterized_cancel_target":
+        parameterized_middle = _MIDDLE.model_copy(
+            update={
+                "route": RouteSpec(
+                    template="/middle/{item_handle}",
+                    deep_link_policy=DeepLinkPolicy.SHAREABLE,
+                )
+            }
+        )
+        nodes = (
+            _START.model_copy(
+                update={
+                    "navigation": _START.navigation.model_copy(
+                        update={"cancel_target": parameterized_middle.ref}
+                    )
+                }
+            ),
+            parameterized_middle,
+            _END,
+        )
     elif mutation == "conflicting_operation":
-        conflict = _ADVANCE.model_copy(update={"title": "Conflicting advance"})
+        operation_conflict = _ADVANCE.model_copy(
+            update={"title": "Conflicting advance"}
+        )
         nodes = (
             _START,
-            _MIDDLE.model_copy(update={"operations": (_FINISH, conflict)}),
+            _MIDDLE.model_copy(update={"operations": (_FINISH, operation_conflict)}),
             _END,
         )
     elif mutation == "conflicting_provider":
-        conflict = _PROVIDER.model_copy(
+        provider_conflict = _PROVIDER.model_copy(
             update={"description": "Conflicting test-only provider."}
         )
         nodes = (
             _START,
             _MIDDLE.model_copy(
-                update={"context_providers": (_PROVIDER, conflict)}
+                update={"context_providers": (_PROVIDER, provider_conflict)}
             ),
             _END,
         )
     elif mutation == "conflicting_surface":
-        conflict = _START_SURFACE.model_copy(
+        surface_conflict = _START_SURFACE.model_copy(
             update={"component": "test.conflicting_start"}
         )
         nodes = (
@@ -237,7 +269,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _MIDDLE.model_copy(
                 update={
                     "surfaces": _MIDDLE.surfaces.model_copy(
-                        update={"active": conflict}
+                        update={"active": surface_conflict}
                     )
                 }
             ),
@@ -308,4 +340,85 @@ def _test_double(*args: object, **kwargs: object) -> object:
     return object()
 
 
-__all__ = ["invalid_app", "invalid_bindings"]
+def session_factory(
+    *,
+    app: CompiledRouteDeckApp | None = None,
+    session_id: str = "session-1",
+    node_id: str = "buyer.home",
+    route_params: tuple[LocationParameter, ...] = (),
+    contact_email: str | None = None,
+    private_entity_id: str | None = None,
+    public_entity_handle: str | None = None,
+    private_drafts: tuple[PrivateDraft, ...] = (),
+    resume_capabilities: tuple[RouteResumeCapability, ...] = (),
+) -> RouteDeckSession:
+    """Build isolated canonical state; values here never enter product paths."""
+
+    drafts = private_drafts
+    if contact_email is not None:
+        contact_draft = PrivateDraft(
+            form_id="contact",
+            field_names=("email",),
+            revision=1,
+        )
+        drafts = tuple(
+            draft for draft in drafts if draft.form_id != contact_draft.form_id
+        ) + (contact_draft,)
+
+    if (private_entity_id is None) != (public_entity_handle is None):
+        raise ValueError(
+            "private_entity_id and public_entity_handle must be supplied together"
+        )
+
+    private_bindings: tuple[PrivateEntityBinding, ...] = ()
+    public_entities: tuple[PublicEntityHandle, ...] = ()
+    if private_entity_id is not None and public_entity_handle is not None:
+        private_bindings = (
+            PrivateEntityBinding(
+                entity_kind="product",
+                public_handle=public_entity_handle,
+                private_id=private_entity_id,
+                allowed_operation_ids=(
+                    "catalog.open_product",
+                    "catalog.select_variant",
+                    "cart.add_item",
+                ),
+            ),
+        )
+        public_entities = (
+            PublicEntityHandle(
+                entity_kind="product",
+                handle=public_entity_handle,
+            ),
+        )
+
+    capability_bindings = tuple(
+        ResumeCapabilityBinding(
+            handle=capability.handle,
+            session_id=capability.session_id,
+            node_id=capability.node_id,
+            expires_at=capability.expires_at,
+            route_params=capability.route_params,
+        )
+        for capability in resume_capabilities
+    )
+    return RouteDeckSession(
+        session_id=session_id,
+        schema_version=1,
+        navgraph_version=(
+            navgraph_version(app) if app is not None else "test-navgraph-v1"
+        ),
+        session_version=1,
+        projection_version=1,
+        event_cursor=0,
+        current=Location(node_id=node_id, route_params=route_params),
+        private_state=PrivateSessionState(
+            drafts=drafts,
+            entity_bindings=private_bindings,
+            resume_capabilities=capability_bindings,
+        ),
+        public_state=PublicSessionState(entity_handles=public_entities),
+    )
+
+
+__all__ = ["invalid_app", "invalid_bindings", "session_factory"]

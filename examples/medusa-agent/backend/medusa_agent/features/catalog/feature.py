@@ -141,6 +141,25 @@ PRODUCT_DETAIL = SurfaceSpec(
             id="select_variant", event="select", operation=SELECT_VARIANT.ref
         ),
     ),
+    public_props_schema={
+        "type": "object",
+        "properties": {
+            "display": {
+                "type": "object",
+                "properties": {
+                    "nested": {
+                        "type": "object",
+                        "properties": {"label": {"type": "string"}},
+                        "required": ["label"],
+                        "additionalProperties": False,
+                    }
+                },
+                "required": ["nested"],
+                "additionalProperties": False,
+            }
+        },
+        "additionalProperties": False,
+    },
 )
 CATALOG_STATUS = SurfaceSpec(
     id="catalog.status",
@@ -204,9 +223,7 @@ CATALOG_BROWSE_NODE = NodeSpec(
     id="catalog.browse",
     title="Products",
     kind=NodeKind.SECTION,
-    route=RouteSpec(
-        template="/products", deep_link_policy=DeepLinkPolicy.SHAREABLE
-    ),
+    route=RouteSpec(template="/products", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(CATALOG_PRODUCTS_PROVIDER,),
     guards=(PUBLIC_PRODUCT_GUARD,),
     operations=(CATALOG_LIST, CATALOG_SEARCH, OPEN_PRODUCT),

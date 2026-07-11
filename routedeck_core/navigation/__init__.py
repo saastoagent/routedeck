@@ -44,13 +44,22 @@ class RouteDeckNavigationPolicy:
             if surface.role == "active" and isinstance(surface.surface_id, str)
         }
 
-    def active_surface_from_projection(self, projection: RouteDeckProjection) -> RouteDeckSurface | None:
+    def active_surface_from_projection(
+        self, projection: RouteDeckProjection
+    ) -> RouteDeckSurface | None:
         current_surface_id = projection.navigation.current.surface_id
         if current_surface_id:
             for surface in projection.surfaces.values():
                 if surface.surface_id == current_surface_id:
                     return surface
-        return next((surface for surface in projection.surfaces.values() if surface.role == "active"), None)
+        return next(
+            (
+                surface
+                for surface in projection.surfaces.values()
+                if surface.role == "active"
+            ),
+            None,
+        )
 
     def legal_target_node_ids(
         self,
@@ -66,8 +75,16 @@ class RouteDeckNavigationPolicy:
             for operation in projection.legal_operations
             if isinstance(operation.target_node, str) and operation.target_node
         )
-        node_ids.update(location.node_id for location in self._locations(back_stack) if location.node_id)
-        node_ids.update(location.node_id for location in self._locations(forward_stack) if location.node_id)
+        node_ids.update(
+            location.node_id
+            for location in self._locations(back_stack)
+            if location.node_id
+        )
+        node_ids.update(
+            location.node_id
+            for location in self._locations(forward_stack)
+            if location.node_id
+        )
         return node_ids
 
     def known_navigation_location(
@@ -100,7 +117,9 @@ class RouteDeckNavigationPolicy:
         surface_id = payload.get("surface_id")
         return RouteDeckLocation(
             node_id=str(payload.get("node_id") or current_location.node_id),
-            surface_id=str(surface_id) if surface_id is not None else current_location.surface_id,
+            surface_id=str(surface_id)
+            if surface_id is not None
+            else current_location.surface_id,
             params=next_params,
         )
 
@@ -222,7 +241,9 @@ class RouteDeckGraphNavigationController:
         surface_registry: RouteDeckSurfaceRegistry,
         node_by_id: Mapping[str, Any] | None = None,
         policy: RouteDeckNavigationPolicy | None = None,
-        location_factory: Callable[..., RouteDeckGraphNavigationLocation] = RouteDeckGraphNavigationLocation,
+        location_factory: Callable[
+            ..., RouteDeckGraphNavigationLocation
+        ] = RouteDeckGraphNavigationLocation,
     ) -> None:
         self._surface_registry = surface_registry
         self._node_by_id = dict(node_by_id or {})
@@ -232,10 +253,14 @@ class RouteDeckGraphNavigationController:
     def active_surface_ids(self, projection: RouteDeckProjection) -> set[str]:
         return self._policy.active_surface_ids(projection)
 
-    def active_surface_from_projection(self, projection: RouteDeckProjection) -> RouteDeckSurface | None:
+    def active_surface_from_projection(
+        self, projection: RouteDeckProjection
+    ) -> RouteDeckSurface | None:
         return self._policy.active_surface_from_projection(projection)
 
-    def legal_target_node_ids_from_projection(self, projection: RouteDeckProjection, state: RouteDeckGraphState) -> set[str]:
+    def legal_target_node_ids_from_projection(
+        self, projection: RouteDeckProjection, state: RouteDeckGraphState
+    ) -> set[str]:
         return self._policy.legal_target_node_ids(
             projection=projection,
             current_node=state.node,
@@ -262,7 +287,9 @@ class RouteDeckGraphNavigationController:
         )
 
     def resolved_surface_id(self, state: RouteDeckGraphState) -> str | None:
-        review_surface_id = self._surface_registry.operation_id_from_surface_id(state.active_surface_id)
+        review_surface_id = self._surface_registry.operation_id_from_surface_id(
+            state.active_surface_id
+        )
         if review_surface_id and state.pending_operation_id != review_surface_id:
             return self.default_surface_id(state)
         return state.active_surface_id or self.default_surface_id(state)
@@ -273,16 +300,22 @@ class RouteDeckGraphNavigationController:
         if state.pending_operation_id:
             params[ROUTEDECK_PENDING_OPERATION_ID_PARAM] = state.pending_operation_id
         if state.pending_operation_args:
-            params[ROUTEDECK_PENDING_OPERATION_ARGS_PARAM] = dict(state.pending_operation_args)
+            params[ROUTEDECK_PENDING_OPERATION_ARGS_PARAM] = dict(
+                state.pending_operation_args
+            )
         return params
 
     def extra_history_params(self, state: RouteDeckGraphState) -> Mapping[str, Any]:
         return {}
 
-    def apply_extra_history_params(self, state: RouteDeckGraphState, params: dict[str, Any]) -> None:
+    def apply_extra_history_params(
+        self, state: RouteDeckGraphState, params: dict[str, Any]
+    ) -> None:
         return None
 
-    def current_location(self, state: RouteDeckGraphState) -> RouteDeckGraphNavigationLocation:
+    def current_location(
+        self, state: RouteDeckGraphState
+    ) -> RouteDeckGraphNavigationLocation:
         return self.make_location(
             node_id=state.node,
             surface_id=self.resolved_surface_id(state),
@@ -302,14 +335,18 @@ class RouteDeckGraphNavigationController:
             params=dict(params or {}),
         )
 
-    def location_from_route_deck(self, location: RouteDeckLocation) -> RouteDeckGraphNavigationLocation:
+    def location_from_route_deck(
+        self, location: RouteDeckLocation
+    ) -> RouteDeckGraphNavigationLocation:
         return self.make_location(
             node_id=location.node_id,
             surface_id=location.surface_id,
             params=location.params,
         )
 
-    def locations_from_route_deck(self, locations: list[RouteDeckLocation]) -> list[RouteDeckGraphNavigationLocation]:
+    def locations_from_route_deck(
+        self, locations: list[RouteDeckLocation]
+    ) -> list[RouteDeckGraphNavigationLocation]:
         return [self.location_from_route_deck(location) for location in locations]
 
     def location_from_payload(
@@ -327,7 +364,9 @@ class RouteDeckGraphNavigationController:
             )
         )
 
-    def apply_location(self, state: RouteDeckGraphState, location: RouteDeckGraphNavigationLocation) -> None:
+    def apply_location(
+        self, state: RouteDeckGraphState, location: RouteDeckGraphNavigationLocation
+    ) -> None:
         params = dict(location.params or {})
         pending_operation_id = params.pop(ROUTEDECK_PENDING_OPERATION_ID_PARAM, None)
         pending_operation_args = params.pop(ROUTEDECK_PENDING_OPERATION_ARGS_PARAM, {})
@@ -335,11 +374,17 @@ class RouteDeckGraphNavigationController:
         self.apply_extra_history_params(state, params)
         state.node = location.node_id
         state.route_params = params
-        state.pending_operation_id = str(pending_operation_id) if pending_operation_id else None
-        state.pending_operation_args = pending_operation_args if isinstance(pending_operation_args, dict) else {}
+        state.pending_operation_id = (
+            str(pending_operation_id) if pending_operation_id else None
+        )
+        state.pending_operation_args = (
+            pending_operation_args if isinstance(pending_operation_args, dict) else {}
+        )
         state.active_surface_id = location.surface_id or self.default_surface_id(state)
 
-    def push_navigation(self, state: RouteDeckGraphState, previous: RouteDeckGraphNavigationLocation) -> None:
+    def push_navigation(
+        self, state: RouteDeckGraphState, previous: RouteDeckGraphNavigationLocation
+    ) -> None:
         current_stack = [
             self._policy.location_from(location)
             for location in state.navigation_back_stack
@@ -354,12 +399,20 @@ class RouteDeckGraphNavigationController:
         state.navigation_back_stack = self.locations_from_route_deck(updated_stack)
         state.navigation_forward_stack = []
 
-    def cancel_target_location(self, state: RouteDeckGraphState) -> RouteDeckGraphNavigationLocation | None:
+    def cancel_target_location(
+        self, state: RouteDeckGraphState
+    ) -> RouteDeckGraphNavigationLocation | None:
         return state.navigation_back_stack[-1] if state.navigation_back_stack else None
 
-    def apply_transition(self, state: RouteDeckGraphState, transition: RouteDeckNavigationTransition) -> None:
-        state.navigation_back_stack = self.locations_from_route_deck(transition.back_stack)
-        state.navigation_forward_stack = self.locations_from_route_deck(transition.forward_stack)
+    def apply_transition(
+        self, state: RouteDeckGraphState, transition: RouteDeckNavigationTransition
+    ) -> None:
+        state.navigation_back_stack = self.locations_from_route_deck(
+            transition.back_stack
+        )
+        state.navigation_forward_stack = self.locations_from_route_deck(
+            transition.forward_stack
+        )
         self.apply_location(state, self.location_from_route_deck(transition.target))
 
     def move_back(self, state: RouteDeckGraphState) -> bool:
@@ -399,14 +452,26 @@ class RouteDeckGraphNavigationController:
     def open_node(self, state: RouteDeckGraphState, payload: Mapping[str, Any]) -> None:
         transition = self._policy.open_transition(
             current=self.current_location(state),
-            target=self.location_from_payload(state, payload, preserve_current_params=False),
+            target=self.location_from_payload(
+                state, payload, preserve_current_params=False
+            ),
             back_stack=state.navigation_back_stack,
         )
         self.apply_transition(state, transition)
 
-    def switch_surface(self, state: RouteDeckGraphState, payload: Mapping[str, Any]) -> None:
-        target = self.location_from_payload(state, payload, preserve_current_params=True)
-        if state.pending_operation_id and target.surface_id != self._surface_registry.operation_review_surface_id(state.pending_operation_id):
+    def switch_surface(
+        self, state: RouteDeckGraphState, payload: Mapping[str, Any]
+    ) -> None:
+        target = self.location_from_payload(
+            state, payload, preserve_current_params=True
+        )
+        if (
+            state.pending_operation_id
+            and target.surface_id
+            != self._surface_registry.operation_review_surface_id(
+                state.pending_operation_id
+            )
+        ):
             target.params.pop(ROUTEDECK_PENDING_OPERATION_ID_PARAM, None)
             target.params.pop(ROUTEDECK_PENDING_OPERATION_ARGS_PARAM, None)
         transition = self._policy.open_transition(
@@ -417,9 +482,34 @@ class RouteDeckGraphNavigationController:
         self.apply_transition(state, transition)
 
 
+def __getattr__(name: str) -> object:
+    """Lazily expose canonical navigation APIs without package import cycles."""
+
+    if name == "NavigationEngine":
+        from .engine import NavigationEngine
+
+        return NavigationEngine
+    if name in {"CapabilityMismatch", "DeepLinkEngine", "SessionRequired"}:
+        from .deep_links import CapabilityMismatch, DeepLinkEngine, SessionRequired
+
+        return {
+            "CapabilityMismatch": CapabilityMismatch,
+            "DeepLinkEngine": DeepLinkEngine,
+            "SessionRequired": SessionRequired,
+        }[name]
+    if name == "validate_session_location":
+        from .session_location import validate_session_location
+
+        return validate_session_location
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
+    "CapabilityMismatch",
     "CompiledRoutes",
     "DecodedRoute",
+    "DeepLinkEngine",
+    "NavigationEngine",
     "PublicRouteKeyValidator",
     "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
     "ROUTEDECK_PENDING_OPERATION_ID_PARAM",
@@ -428,4 +518,6 @@ __all__ = [
     "RouteDeckNavigationTransition",
     "RouteResumeCapability",
     "RouteSessionContext",
+    "SessionRequired",
+    "validate_session_location",
 ]

@@ -51,7 +51,11 @@ from .models import (
     RouteDeckSurfaceInteractionEvent,
     RouteDeckUIArtifact,
 )
-from .operations import RouteDeckOperationPolicy, RouteDeckOperationRequestPolicy, RouteDeckRouteActionIds
+from .operations import (
+    RouteDeckOperationPolicy,
+    RouteDeckOperationRequestPolicy,
+    RouteDeckRouteActionIds,
+)
 from .projector import RouteDeckStateProjector
 from .navigation import (
     ROUTEDECK_PENDING_OPERATION_ARGS_PARAM,
@@ -60,6 +64,14 @@ from .navigation import (
     RouteDeckNavigationPolicy,
     RouteDeckNavigationTransition,
 )
+from .context import ContextScopeBuilder, OperationContextScope
+from .contracts.events import CanonicalRouteDeckEvent
+from .contracts.projection import PublicProjection
+from .contracts.session import RouteDeckSession, SessionSnapshot
+from .navigation.deep_links import DeepLinkEngine
+from .navigation.engine import NavigationEngine
+from .ports import RouteDeckNotifier, RouteDeckSessionStore
+from .projection import ProjectionProjector
 from .runtime import (
     RouteDeckRuntime,
     build_dispatch_result_completed_event,
@@ -85,9 +97,17 @@ def __getattr__(name: str) -> object:
         return RouteDeckRuntimeBase
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 __all__ = [
+    "CanonicalRouteDeckEvent",
+    "ContextScopeBuilder",
+    "DeepLinkEngine",
     "FailureKind",
     "FailureSafeDetails",
+    "NavigationEngine",
+    "OperationContextScope",
+    "ProjectionProjector",
+    "PublicProjection",
     "RouteDeckActionDispatcher",
     "RouteDeckApp",
     "RouteDeckActionResult",
@@ -136,6 +156,9 @@ __all__ = [
     "RouteDeckFailure",
     "RouteDeckRuntimeState",
     "RouteDeckRuntimeSnapshot",
+    "RouteDeckSession",
+    "RouteDeckSessionStore",
+    "RouteDeckNotifier",
     "RouteDeckSensitivePolicy",
     "RouteDeckSemanticObservation",
     "RouteDeckSurface",
@@ -143,6 +166,7 @@ __all__ = [
     "RouteDeckSurfaceInteractionEvent",
     "RouteDeckSurfaceRegistry",
     "RouteDeckUIArtifact",
+    "SessionSnapshot",
     "RouteDeckValidationError",
     "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
     "ROUTEDECK_PENDING_OPERATION_ID_PARAM",

@@ -25,9 +25,10 @@ def test_medusa_features_compile_to_the_nine_node_graph() -> None:
     app = compile_medusa_app_spec()
 
     assert tuple(node.id for node in app.spec.nodes) == EXPECTED_NODE_IDS
-    assert app.routes.encode(
-        "catalog.product", {"product_handle": "t-shirt"}
-    ) == "/products/t-shirt"
+    assert (
+        app.routes.encode("catalog.product", {"product_handle": "t-shirt"})
+        == "/products/t-shirt"
+    )
     assert (
         app.frontend_contract.surfaces["catalog.product_detail"].component
         == "catalog.product_detail"
@@ -45,6 +46,7 @@ def test_medusa_features_compile_to_the_nine_node_graph() -> None:
         "missing_provider",
         "unreachable_node",
         "hierarchy_cycle",
+        "parameterized_cancel_target",
     ),
 )
 def test_compiler_rejects_invalid_specs(mutation: str) -> None:

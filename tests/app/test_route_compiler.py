@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
+from routedeck_core.contracts.session import LocationParameter
 from routedeck_core.navigation.routes import (
     PublicRouteKeyValidator,
     RouteResumeCapability,
@@ -41,14 +42,24 @@ def _context(
     return RouteSessionContext(
         guest_session_id="guest-1",
         public_key_validator=_catalog_validator(),
-        resume_capabilities={
-            registered_handle: RouteResumeCapability(
+        resume_capabilities=(
+            RouteResumeCapability(
                 handle=registered_handle,
                 session_id=session_id,
                 node_id=node_id,
                 expires_at=expires_at or NOW + timedelta(minutes=5),
-            )
-        },
+                route_params=(
+                    (
+                        LocationParameter(
+                            name="confirmation_handle",
+                            value="order-result",
+                        ),
+                    )
+                    if node_id == "orders.confirmation"
+                    else ()
+                ),
+            ),
+        ),
         now=NOW,
     )
 
@@ -56,16 +67,17 @@ def _context(
 def test_routes_encode_and_decode_by_declared_segments() -> None:
     routes = compile_medusa_app_spec().routes
 
-    assert routes.encode(
-        "catalog.product", {"product_handle": "cafe mug"}
-    ) == "/products/cafe%20mug"
+    assert (
+        routes.encode("catalog.product", {"product_handle": "cafe mug"})
+        == "/products/cafe%20mug"
+    )
     decoded = routes.decode("/products/cafe%20mug", _context())
     assert decoded.node_id == "catalog.product"
     assert decoded.params == {"product_handle": "cafe mug"}
+    with pytest.raises(TypeError):
+        decoded.params["product_handle"] = "substituted"
 
-    regex_like = routes.encode(
-        "catalog.product", {"product_handle": "a+b.(test)"}
-    )
+    regex_like = routes.encode("catalog.product", {"product_handle": "a+b.(test)"})
     assert routes.decode(regex_like, _context()).params == {
         "product_handle": "a+b.(test)"
     }
@@ -109,9 +121,7 @@ def test_product_handle_must_be_in_the_caller_supplied_public_binding() -> None:
 
 
 def test_route_matching_normalizes_repeated_and_trailing_slashes() -> None:
-    decoded = compile_medusa_app_spec().routes.decode(
-        "/products//t-shirt/", _context()
-    )
+    decoded = compile_medusa_app_spec().routes.decode("/products//t-shirt/", _context())
 
     assert decoded.node_id == "catalog.product"
     assert decoded.params == {"product_handle": "t-shirt"}
@@ -172,16 +182,14 @@ def test_decoding_is_pure_and_never_creates_replacement_state() -> None:
     context = _context(node_id="checkout.review")
     before = (
         context.guest_session_id,
-        dict(context.resume_capabilities),
+        context.resume_capabilities,
         context.now,
     )
 
-    routes.decode(
-        "/checkout/review?resume_handle=opaque-resume-capability", context
-    )
+    routes.decode("/checkout/review?resume_handle=opaque-resume-capability", context)
 
     assert (
         context.guest_session_id,
-        dict(context.resume_capabilities),
+        context.resume_capabilities,
         context.now,
     ) == before

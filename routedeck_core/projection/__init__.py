@@ -1,3 +1,6 @@
-"""RouteDeck public-projection package."""
+"""Schema-driven RouteDeck public-projection APIs."""
 
-__all__: list[str] = []
+from .projector import ProjectionProjector
+from .redaction import project_public_values
+
+__all__ = ["ProjectionProjector", "project_public_values"]

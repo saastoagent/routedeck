@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
+
+from .projection import FrozenJsonObject
 
 
 class _FrozenContract(BaseModel):
@@ -41,7 +42,12 @@ class GuardRef(_FrozenContract):
 class ContextProviderSpec(_FrozenContract):
     id: str = Field(min_length=1)
     description: str
-    output_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: FrozenJsonObject = Field(
+        default_factory=lambda: FrozenJsonObject({})
+    )
+
+    def output_schema_value(self) -> dict[str, object]:
+        return self.output_schema.to_dict()
 
     @property
     def ref(self) -> ProviderRef:
@@ -52,7 +58,12 @@ class EntityProviderSpec(_FrozenContract):
     id: str = Field(min_length=1)
     entity_kind: str = Field(min_length=1)
     description: str
-    output_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: FrozenJsonObject = Field(
+        default_factory=lambda: FrozenJsonObject({})
+    )
+
+    def output_schema_value(self) -> dict[str, object]:
+        return self.output_schema.to_dict()
 
     @property
     def ref(self) -> ProviderRef:
@@ -72,13 +83,21 @@ class OperationSpec(_FrozenContract):
     id: str = Field(min_length=1)
     title: str
     description: str
-    input_schema: dict[str, Any] = Field(default_factory=dict)
+    input_schema: FrozenJsonObject = Field(default_factory=lambda: FrozenJsonObject({}))
     safety_class: SafetyClass
     review_policy: ReviewPolicy = ReviewPolicy.NONE
     outcomes: tuple[str, ...]
     provider_refs: tuple[ProviderRef, ...] = ()
     guard_refs: tuple[GuardRef, ...] = ()
-    public_metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    public_metadata: FrozenJsonObject = Field(
+        default_factory=lambda: FrozenJsonObject({})
+    )
+
+    def input_schema_value(self) -> dict[str, object]:
+        return self.input_schema.to_dict()
+
+    def public_metadata_value(self) -> dict[str, object]:
+        return self.public_metadata.to_dict()
 
     @property
     def ref(self) -> OperationRef:

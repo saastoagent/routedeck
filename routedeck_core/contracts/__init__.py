@@ -1,4 +1,21 @@
-from .application import CapabilityRef, CapabilitySpec, CompiledApplicationSpec, NodeSpec
+from .application import (
+    CapabilityRef,
+    CapabilitySpec,
+    CompiledApplicationSpec,
+    NodeSpec,
+)
+from .conversation import (
+    ConversationRole,
+    ConversationTurn,
+    ConversationTurnStatus,
+    FinalizedConversationTurn,
+)
+from .events import (
+    CanonicalRouteDeckEvent,
+    EventPage,
+    RouteDeckEvent,
+    RouteDeckEventKind,
+)
 from .failures import FailureKind, FailureSafeDetails, RouteDeckFailure
 from .navigation import (
     DeepLinkPolicy,
@@ -21,6 +38,23 @@ from .operations import (
     ReviewPolicy,
     SafetyClass,
 )
+from .projection import (
+    ClassifiedValue,
+    DataClassification,
+    FrozenJson,
+    PublicEntityHandle,
+    PublicProjection,
+)
+from .session import (
+    Location,
+    LocationParameter,
+    PrivateDraft,
+    PrivateSessionState,
+    PublicSessionState,
+    ResumeCapabilityBinding,
+    RouteDeckSession,
+    SessionSnapshot,
+)
 from .surfaces import (
     SurfaceAffordanceSpec,
     SurfaceLifecycle,
@@ -33,12 +67,20 @@ __all__ = [
     "CapabilityRef",
     "CapabilitySpec",
     "CompiledApplicationSpec",
+    "CanonicalRouteDeckEvent",
+    "ClassifiedValue",
+    "ConversationRole",
+    "ConversationTurn",
+    "ConversationTurnStatus",
     "ContextProviderSpec",
     "DeepLinkPolicy",
+    "DataClassification",
     "DirtyStatePolicy",
     "EntityProviderSpec",
     "FailureKind",
     "FailureSafeDetails",
+    "FinalizedConversationTurn",
+    "FrozenJson",
     "GuardRef",
     "GuardSpec",
     "NavigationPolicySpec",
@@ -47,10 +89,22 @@ __all__ = [
     "NodeSpec",
     "OperationRef",
     "OperationSpec",
+    "EventPage",
+    "Location",
+    "LocationParameter",
+    "PrivateDraft",
+    "PrivateSessionState",
     "ProviderRef",
+    "PublicEntityHandle",
+    "PublicProjection",
+    "PublicSessionState",
     "RecoveryPolicySpec",
     "ReviewPolicy",
+    "ResumeCapabilityBinding",
     "RouteDeckFailure",
+    "RouteDeckEventKind",
+    "RouteDeckEvent",
+    "RouteDeckSession",
     "RouteSpec",
     "SafetyClass",
     "SurfaceAffordanceSpec",
@@ -58,5 +112,6 @@ __all__ = [
     "SurfaceRef",
     "SurfaceSlotsSpec",
     "SurfaceSpec",
+    "SessionSnapshot",
     "TransitionSpec",
 ]
