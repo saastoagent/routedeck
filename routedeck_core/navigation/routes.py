@@ -81,16 +81,6 @@ class _CompiledRoute:
             if segment.parameter is not None
         )
 
-    @property
-    def signature(self) -> tuple[tuple[str, str], ...]:
-        return tuple(
-            ("parameter", "")
-            if segment.parameter is not None
-            else ("literal", segment.literal or "")
-            for segment in self.segments
-        )
-
-
 class CompiledRoutes:
     def __init__(self, routes: tuple[_CompiledRoute, ...]) -> None:
         self._routes = routes
@@ -99,19 +89,17 @@ class CompiledRoutes:
     @classmethod
     def from_nodes(cls, nodes: tuple[NodeSpec, ...]) -> CompiledRoutes:
         routes: list[_CompiledRoute] = []
-        signatures: dict[tuple[tuple[str, str], ...], str] = {}
         for node in nodes:
             route = _compile_route(
                 node_id=node.id,
                 template=node.route.template,
                 deep_link_policy=node.route.deep_link_policy,
             )
-            previous = signatures.get(route.signature)
-            if previous is not None:
-                raise RouteDeckValidationError(
-                    f"Route {node.id!r} conflicts with route {previous!r}"
-                )
-            signatures[route.signature] = node.id
+            for previous in routes:
+                if _routes_overlap(previous, route):
+                    raise RouteDeckValidationError(
+                        f"Route {node.id!r} overlaps route {previous.node_id!r}"
+                    )
             routes.append(route)
         return cls(tuple(routes))
 
@@ -279,6 +267,21 @@ def _compile_route(
         deep_link_policy=deep_link_policy,
         segments=tuple(segments),
     )
+
+
+def _routes_overlap(left: _CompiledRoute, right: _CompiledRoute) -> bool:
+    if len(left.segments) != len(right.segments):
+        return False
+    for left_segment, right_segment in zip(
+        left.segments, right.segments, strict=True
+    ):
+        if (
+            left_segment.literal is not None
+            and right_segment.literal is not None
+            and left_segment.literal != right_segment.literal
+        ):
+            return False
+    return True
 
 
 def _encode_segment(name: str, value: str) -> str:

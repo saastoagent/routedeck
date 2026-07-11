@@ -1,3 +1,13 @@
-from .feature import FEATURE_SPEC
+from .feature import (
+    CONFIRMATION_NODE,
+    FEATURE_SPEC,
+    ORDER_CONFIRMATION,
+    ORDERS_CAPABILITY,
+)
 
-__all__ = ["FEATURE_SPEC"]
+__all__ = [
+    "CONFIRMATION_NODE",
+    "FEATURE_SPEC",
+    "ORDER_CONFIRMATION",
+    "ORDERS_CAPABILITY",
+]

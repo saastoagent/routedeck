@@ -52,6 +52,16 @@ def test_compiler_rejects_invalid_specs(mutation: str) -> None:
         compile_app(invalid_app(mutation))
 
 
+def test_compiler_rejects_overlapping_route_templates() -> None:
+    with pytest.raises(RouteDeckValidationError):
+        compile_app(invalid_app("ambiguous_route"))
+
+
+def test_compiler_rejects_ambiguous_transition_outcomes() -> None:
+    with pytest.raises(RouteDeckValidationError):
+        compile_app(invalid_app("ambiguous_transition"))
+
+
 @pytest.mark.parametrize(
     "mutation",
     ("conflicting_operation", "conflicting_provider", "conflicting_surface"),

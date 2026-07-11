@@ -161,16 +161,15 @@ def _all_surfaces(slots: SurfaceSlotsSpec) -> tuple[SurfaceSpec, ...]:
 
 def _validate_feature_transition_ownership(source_spec: ApplicationSpec) -> None:
     for feature in source_spec.features:
+        feature_node_ids = {node.id for node in feature.nodes}
         for transition in feature.transitions:
-            if transition.source.feature != transition.target.feature:
+            if (
+                transition.source.id not in feature_node_ids
+                or transition.target.id not in feature_node_ids
+            ):
                 raise RouteDeckValidationError(
-                    "Feature specs may declare only feature-internal transitions"
+                    "Feature specs may declare transitions only between their own nodes"
                 )
-    for transition in source_spec.transitions:
-        if transition.source.feature == transition.target.feature:
-            raise RouteDeckValidationError(
-                "Application composition transitions must be cross-feature"
-            )
 
 
 def _validate_node_references(
@@ -278,7 +277,7 @@ def _validate_transitions(
     node_by_id: dict[str, NodeSpec],
     operations: dict[str, OperationSpec],
 ) -> None:
-    seen: set[tuple[str, str, str, str]] = set()
+    branch_targets: dict[tuple[str, str, str], str] = {}
     for transition in transitions:
         if transition.source.id not in node_by_id:
             raise RouteDeckValidationError(
@@ -306,15 +305,22 @@ def _validate_transitions(
                 f"Transition references undeclared outcome {transition.outcome!r} "
                 f"for {operation.id!r}"
             )
-        key = (
+        branch = (
             transition.source.id,
             transition.operation.id,
             transition.outcome,
-            transition.target.id,
         )
-        if key in seen:
-            raise RouteDeckValidationError(f"Duplicate transition: {key!r}")
-        seen.add(key)
+        previous_target = branch_targets.get(branch)
+        if previous_target is not None:
+            if previous_target == transition.target.id:
+                raise RouteDeckValidationError(
+                    f"Duplicate transition branch: {branch!r} -> {previous_target!r}"
+                )
+            raise RouteDeckValidationError(
+                f"Ambiguous transition branch {branch!r} targets both "
+                f"{previous_target!r} and {transition.target.id!r}"
+            )
+        branch_targets[branch] = transition.target.id
 
 
 def _validate_hierarchy(

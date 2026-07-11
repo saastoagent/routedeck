@@ -23,14 +23,6 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-from ..checkout.feature import (
-    CHECKOUT_CAPABILITY,
-    CHECKOUT_FACTS_PROVIDER,
-    CHECKOUT_READY_GUARD,
-    CHECKOUT_START,
-)
-
-
 BUYER_MARKET_PROVIDER = ContextProviderSpec(
     id="cart.buyer_market",
     description="Typed buyer market, region, currency, and sales-channel configuration.",
@@ -113,6 +105,21 @@ CART_REMOVE_ITEM = OperationSpec(
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
+OPEN_CART_AFFORDANCE = SurfaceAffordanceSpec(
+    id="open_cart",
+    event="open",
+    operation=CART_OPEN.ref,
+)
+CREATE_CART_AFFORDANCE = SurfaceAffordanceSpec(
+    id="create_cart",
+    event="create",
+    operation=CART_CREATE.ref,
+)
+ADD_ITEM_AFFORDANCE = SurfaceAffordanceSpec(
+    id="add_item",
+    event="add",
+    operation=CART_ADD_ITEM.ref,
+)
 
 CART_FRAME = SurfaceSpec(
     id="cart.frame",
@@ -129,9 +136,6 @@ CART_SUMMARY = SurfaceSpec(
         ),
         SurfaceAffordanceSpec(
             id="remove_item", event="remove", operation=CART_REMOVE_ITEM.ref
-        ),
-        SurfaceAffordanceSpec(
-            id="start_checkout", event="submit", operation=CHECKOUT_START.ref
         ),
     ),
 )
@@ -175,15 +179,11 @@ CART_NODE = NodeSpec(
     route=RouteSpec(
         template="/cart", deep_link_policy=DeepLinkPolicy.SESSION_BOUND
     ),
-    context_providers=(
-        BUYER_MARKET_PROVIDER,
-        CART_STATE_PROVIDER,
-        CHECKOUT_FACTS_PROVIDER,
-    ),
+    context_providers=(BUYER_MARKET_PROVIDER, CART_STATE_PROVIDER),
     entity_providers=(CART_ITEMS_PROVIDER,),
-    guards=(CART_EXISTS_GUARD, CHECKOUT_READY_GUARD),
-    operations=(CART_UPDATE_ITEM, CART_REMOVE_ITEM, CHECKOUT_START),
-    capabilities=(CART_CAPABILITY, CHECKOUT_CAPABILITY),
+    guards=(CART_EXISTS_GUARD,),
+    operations=(CART_UPDATE_ITEM, CART_REMOVE_ITEM),
+    capabilities=(CART_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
         active=CART_SUMMARY,
         frame=(CART_FRAME,),
@@ -218,6 +218,7 @@ FEATURE_SPEC = FeatureSpec(
 
 
 __all__ = [
+    "ADD_ITEM_AFFORDANCE",
     "BUYER_MARKET_PROVIDER",
     "CART_ADD_ITEM",
     "CART_CAPABILITY",
@@ -226,5 +227,8 @@ __all__ = [
     "CART_NODE",
     "CART_OPEN",
     "CART_STATE_PROVIDER",
+    "CART_SUMMARY",
+    "CREATE_CART_AFFORDANCE",
     "FEATURE_SPEC",
+    "OPEN_CART_AFFORDANCE",
 ]

@@ -148,6 +148,32 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _MIDDLE.model_copy(update={"route": _START.route}),
             _END,
         )
+    elif mutation == "ambiguous_route":
+        nodes = (
+            _START,
+            _MIDDLE.model_copy(
+                update={
+                    "route": RouteSpec(
+                        template="/products/new",
+                        deep_link_policy=DeepLinkPolicy.SHAREABLE,
+                    )
+                }
+            ),
+            _END.model_copy(
+                update={
+                    "route": RouteSpec(
+                        template="/products/{product_handle}",
+                        deep_link_policy=DeepLinkPolicy.SHAREABLE,
+                    )
+                }
+            ),
+        )
+    elif mutation == "ambiguous_transition":
+        transitions = (
+            _TO_MIDDLE,
+            _TO_MIDDLE.model_copy(update={"target": _END.ref}),
+            _TO_END,
+        )
     elif mutation == "dangling_transition":
         transitions = (
             _TO_MIDDLE.model_copy(update={"target": NodeRef(id="test.missing")}),

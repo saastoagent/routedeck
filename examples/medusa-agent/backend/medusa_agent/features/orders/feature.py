@@ -8,13 +8,8 @@ from routedeck_core.contracts.navigation import (
     RecoveryPolicySpec,
     RouteSpec,
 )
-from routedeck_core.contracts.operations import (
-    EntityProviderSpec,
-    OperationSpec,
-    SafetyClass,
-)
+from routedeck_core.contracts.operations import EntityProviderSpec
 from routedeck_core.contracts.surfaces import (
-    SurfaceAffordanceSpec,
     SurfaceLifecycle,
     SurfaceSlotsSpec,
     SurfaceSpec,
@@ -26,14 +21,6 @@ ORDER_PROVIDER = EntityProviderSpec(
     entity_kind="order",
     description="Independently verified order facts for the completion result.",
 )
-CONTINUE_SHOPPING = OperationSpec(
-    id="catalog.continue_shopping",
-    title="Continue shopping",
-    description="Return to catalog browsing after confirmation.",
-    safety_class=SafetyClass.NAVIGATION,
-    outcomes=("continued",),
-)
-
 ORDERS_FRAME = SurfaceSpec(
     id="orders.frame",
     component="orders.frame",
@@ -43,13 +30,6 @@ ORDER_CONFIRMATION = SurfaceSpec(
     id="orders.confirmation",
     component="orders.confirmation",
     lifecycle=SurfaceLifecycle.STABLE,
-    affordances=(
-        SurfaceAffordanceSpec(
-            id="continue_shopping",
-            event="open",
-            operation=CONTINUE_SHOPPING.ref,
-        ),
-    ),
 )
 ORDERS_STATUS = SurfaceSpec(
     id="orders.status",
@@ -68,7 +48,6 @@ ORDERS_DIAGNOSTIC = SurfaceSpec(
 ORDERS_CAPABILITY = CapabilitySpec(
     id="orders.confirmation",
     title="Order confirmation",
-    operations=(CONTINUE_SHOPPING.ref,),
     surfaces=(
         ORDER_CONFIRMATION.ref,
         ORDERS_STATUS.ref,
@@ -86,7 +65,6 @@ CONFIRMATION_NODE = NodeSpec(
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
     entity_providers=(ORDER_PROVIDER,),
-    operations=(CONTINUE_SHOPPING,),
     capabilities=(ORDERS_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
         active=ORDER_CONFIRMATION,
@@ -106,4 +84,9 @@ FEATURE_SPEC = FeatureSpec(
 )
 
 
-__all__ = ["CONFIRMATION_NODE", "CONTINUE_SHOPPING", "FEATURE_SPEC"]
+__all__ = [
+    "CONFIRMATION_NODE",
+    "FEATURE_SPEC",
+    "ORDER_CONFIRMATION",
+    "ORDERS_CAPABILITY",
+]

@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import ast
+import importlib.util
+import inspect
 from collections.abc import Mapping
+from types import ModuleType
 
 from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.features.cart import feature as cart_feature
+from medusa_agent.features.catalog import feature as catalog_feature
+from medusa_agent.features.checkout import feature as checkout_feature
+from medusa_agent.features.orders import feature as orders_feature
 from pydantic import BaseModel
 from routedeck_core.contracts.navigation import DeepLinkPolicy
 
@@ -126,6 +134,122 @@ def test_feature_specs_are_data_only_and_cross_feature_edges_live_in_composition
     }
     assert compiled_cross_feature
     assert compiled_cross_feature.isdisjoint(feature_transitions)
+
+
+def test_feature_modules_are_isolated_and_composition_owns_contributions() -> None:
+    modules = (
+        catalog_feature,
+        cart_feature,
+        checkout_feature,
+        orders_feature,
+    )
+    sibling_imports = {
+        module.__name__: _sibling_feature_imports(module) for module in modules
+    }
+    assert sibling_imports == {module.__name__: set() for module in modules}
+
+    catalog_nodes = {node.id: node for node in catalog_feature.FEATURE_SPEC.nodes}
+    cart_node = cart_feature.FEATURE_SPEC.nodes[0]
+    orders_node = orders_feature.FEATURE_SPEC.nodes[0]
+    assert {operation.id for operation in catalog_nodes["catalog.browse"].operations} == {
+        "catalog.list",
+        "catalog.search",
+        "catalog.open_product",
+    }
+    assert {
+        operation.id for operation in catalog_nodes["catalog.product"].operations
+    } == {"catalog.select_variant"}
+    assert {operation.id for operation in cart_node.operations} == {
+        "cart.update_item",
+        "cart.remove_item",
+    }
+    assert orders_node.operations == ()
+
+    app = compile_medusa_app_spec()
+    compiled_nodes = {node.id: node for node in app.spec.nodes}
+    composition_transitions = {
+        (
+            transition.source.id,
+            transition.operation.id,
+            transition.outcome,
+            transition.target.id,
+        )
+        for transition in app.source_spec.transitions
+    }
+    assert (
+        "catalog.product",
+        "cart.create",
+        "created",
+        "catalog.product",
+    ) in composition_transitions
+    assert (
+        "catalog.product",
+        "cart.add_item",
+        "added",
+        "catalog.product",
+    ) in composition_transitions
+    assert {
+        operation.id for operation in compiled_nodes["catalog.product"].operations
+    } >= {"cart.create", "cart.add_item", "cart.open"}
+    assert {operation.id for operation in compiled_nodes["cart.summary"].operations} >= {
+        "checkout.start"
+    }
+    assert {
+        operation.id for operation in compiled_nodes["orders.confirmation"].operations
+    } == {"catalog.continue_shopping"}
+
+    assert _affordance_operation_ids(
+        catalog_nodes["catalog.product"].surfaces.active
+    ) == {"catalog.select_variant"}
+    assert _affordance_operation_ids(
+        compiled_nodes["catalog.product"].surfaces.active
+    ) >= {"cart.create", "cart.add_item", "cart.open"}
+    assert _affordance_operation_ids(cart_node.surfaces.active) == {
+        "cart.update_item",
+        "cart.remove_item",
+    }
+    assert _affordance_operation_ids(
+        compiled_nodes["cart.summary"].surfaces.active
+    ) >= {"checkout.start"}
+    assert _affordance_operation_ids(orders_node.surfaces.active) == set()
+    assert _affordance_operation_ids(
+        compiled_nodes["orders.confirmation"].surfaces.active
+    ) == {"catalog.continue_shopping"}
+
+
+def _sibling_feature_imports(module: ModuleType) -> set[str]:
+    imports: set[str] = set()
+    current_feature = module.__package__.rsplit(".", 1)[-1]
+    for node in ast.walk(ast.parse(inspect.getsource(module))):
+        targets: tuple[str, ...] = ()
+        if isinstance(node, ast.ImportFrom) and node.module is not None:
+            if node.level:
+                targets = (
+                    importlib.util.resolve_name(
+                        f"{'.' * node.level}{node.module}", module.__package__
+                    ),
+                )
+            else:
+                targets = (node.module,)
+        elif isinstance(node, ast.Import):
+            targets = tuple(alias.name for alias in node.names)
+        for target in targets:
+            parts = target.split(".")
+            if (
+                len(parts) >= 4
+                and parts[:2] == ["medusa_agent", "features"]
+                and parts[2] != current_feature
+            ):
+                imports.add(target)
+    return imports
+
+
+def _affordance_operation_ids(surface) -> set[str]:
+    return {
+        affordance.operation.id
+        for affordance in surface.affordances
+        if affordance.operation is not None
+    }
 
 
 def _walk_model_fields(value: object):

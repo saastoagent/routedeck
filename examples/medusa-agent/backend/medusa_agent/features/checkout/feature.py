@@ -68,6 +68,11 @@ CHECKOUT_START = OperationSpec(
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(CHECKOUT_READY_GUARD.ref,),
 )
+START_CHECKOUT_AFFORDANCE = SurfaceAffordanceSpec(
+    id="start_checkout",
+    event="submit",
+    operation=CHECKOUT_START.ref,
+)
 SAVE_CONTACT = OperationSpec(
     id="checkout.save_contact",
     title="Save guest contact",
@@ -353,10 +358,13 @@ FEATURE_SPEC = FeatureSpec(
 
 
 __all__ = [
+    "CHECKOUT_CAPABILITY",
     "CHECKOUT_FACTS_PROVIDER",
     "CHECKOUT_READY_GUARD",
     "CHECKOUT_START",
+    "CONTACT_NODE",
     "FEATURE_SPEC",
     "PLACE_ORDER",
     "REVIEW_NODE",
+    "START_CHECKOUT_AFFORDANCE",
 ]
