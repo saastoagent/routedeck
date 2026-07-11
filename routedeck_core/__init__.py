@@ -7,6 +7,7 @@ from .authoring import (
 )
 from .app import RouteDeckApp
 from .dispatch import RouteDeckActionDispatcher, RouteDeckActionResult
+from .errors import FailureKind, FailureSafeDetails, RouteDeckFailure
 from .models import (
     RouteDeckActionCard,
     RouteDeckActionSpec,
@@ -61,7 +62,6 @@ from .navigation import (
 )
 from .runtime import (
     RouteDeckRuntime,
-    RouteDeckRuntimeBase,
     build_dispatch_result_completed_event,
     build_dispatch_result,
     build_dispatch_state_event,
@@ -75,7 +75,19 @@ from .runtime import (
 from .surfaces import RouteDeckSurfaceRegistry
 from .validation import RouteDeckValidationError, validate_manifest
 
+
+def __getattr__(name: str) -> object:
+    """Resolve the legacy runtime subclass without publishing it in ``__all__``."""
+
+    if name == "RouteDeckRuntimeBase":
+        from .runtime import RouteDeckRuntimeBase
+
+        return RouteDeckRuntimeBase
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 __all__ = [
+    "FailureKind",
+    "FailureSafeDetails",
     "RouteDeckActionDispatcher",
     "RouteDeckApp",
     "RouteDeckActionResult",
@@ -121,7 +133,7 @@ __all__ = [
     "RouteDeckRouteActionIds",
     "RouteDeckStateProjector",
     "RouteDeckRuntime",
-    "RouteDeckRuntimeBase",
+    "RouteDeckFailure",
     "RouteDeckRuntimeState",
     "RouteDeckRuntimeSnapshot",
     "RouteDeckSensitivePolicy",
