@@ -2,10 +2,38 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict
+
 from routedeck_core.app import CompiledRouteDeckApp
+from routedeck_core.app.compiled import FrontendContract
+from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.failures import RouteDeckFailure
+from routedeck_core.contracts.operations import OperationResult
+from routedeck_core.contracts.projection import PublicProjection
+from routedeck_fastapi.router import (
+    DispatchRequest,
+    PrivateFormWriteRequest,
+    ReviewRequest,
+)
+
+
+class RouteDeckTransportContracts(BaseModel):
+    """Schema catalog consumed by the headless TypeScript package."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    public_projection: PublicProjection
+    event: CanonicalRouteDeckEvent
+    failure: RouteDeckFailure
+    operation_result: OperationResult
+    frontend_contract: FrontendContract
+    dispatch_request: DispatchRequest
+    review_request: ReviewRequest
+    private_form_write_request: PrivateFormWriteRequest
 
 
 def _parse_args() -> argparse.Namespace:
@@ -14,10 +42,14 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--app-factory",
-        required=True,
         help="Ordinary import target in module:function form.",
     )
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--schema-output",
+        type=Path,
+        help="Write the generic RouteDeck transport schema catalog.",
+    )
     return parser.parse_args()
 
 
@@ -49,8 +81,36 @@ def export_contracts(
     return tuple(written)
 
 
+def export_transport_schema(output: Path) -> Path:
+    schema = RouteDeckTransportContracts.model_json_schema(
+        ref_template="#/$defs/{model}",
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(
+            schema,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return output
+
+
 def main() -> int:
     args = _parse_args()
+    if args.schema_output is not None:
+        if args.app_factory is not None or args.output is not None:
+            raise ValueError(
+                "--schema-output cannot be combined with --app-factory or --output"
+            )
+        print(export_transport_schema(args.schema_output))
+        return 0
+    if args.app_factory is None or args.output is None:
+        raise ValueError("--app-factory and --output are required together")
     written = export_contracts(_load_factory(args.app_factory), args.output)
     for path in written:
         print(path)

@@ -194,7 +194,9 @@ class ProjectionLocation(_FrozenContract):
 
 class ProjectedNavigation(_FrozenContract):
     current: ProjectionLocation
+    current_entry_id: int = Field(ge=1)
     route_template: str
+    resume_handle: str | None
     can_back: bool
     can_forward: bool
     can_cancel: bool

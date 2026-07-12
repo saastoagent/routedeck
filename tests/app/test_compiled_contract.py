@@ -69,8 +69,7 @@ def test_executable_paths_cover_every_declared_branch() -> None:
         if path.operation_id is not None and path.safety_class is not None
     }
     assert covered_safety >= {
-        (operation.id, operation.safety_class)
-        for operation in app.operations.values()
+        (operation.id, operation.safety_class) for operation in app.operations.values()
     }
 
     assert {
@@ -79,14 +78,8 @@ def test_executable_paths_cover_every_declared_branch() -> None:
         if path.operation_id == "checkout.place_order"
     } >= {"review_approved", "review_rejected"}
     assert {
-        path.node_id
-        for path in app.executable_test_paths
-        if path.branch == "recovery"
-    } >= {
-        node.id
-        for node in app.spec.nodes
-        if node.recovery.directives
-    }
+        path.node_id for path in app.executable_test_paths if path.branch == "recovery"
+    } >= {node.id for node in app.spec.nodes if node.recovery.directives}
 
 
 def test_compilation_fails_when_an_executable_path_cannot_be_derived() -> None:
@@ -94,10 +87,31 @@ def test_compilation_fails_when_an_executable_path_cannot_be_derived() -> None:
         compile_app(invalid_app("unexecutable_path"))
 
 
-def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings() -> None:
-    contract = compile_medusa_app_spec().frontend_contract
+def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings() -> (
+    None
+):
+    compiled = compile_medusa_app_spec()
+    contract = compiled.frontend_contract
     product = contract.nodes["catalog.product"]
+    contact_node = next(
+        node for node in compiled.spec.nodes if node.id == "checkout.contact"
+    )
+    review_node = next(
+        node for node in compiled.spec.nodes if node.id == "checkout.review"
+    )
+    contact_binding = contact_node.surfaces.active.private_form_binding
+    review_binding = review_node.surfaces.active.private_form_binding
 
+    assert contact_binding is not None
+    assert contact_binding.form_id_prop == "form_handle"
+    assert contact_binding.allowed_field_names == (
+        "email",
+        "shipping_address",
+        "billing_choice",
+        "billing_address",
+    )
+    assert review_binding == contact_binding
+    assert contract.surfaces["checkout.contact_form"] is contact_node.surfaces.active
     assert product.surfaces.active == "catalog.product_detail"
     assert product.surfaces.frame
     assert set(type(product.surfaces).model_fields) >= {
@@ -123,6 +137,8 @@ def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings()
         "api_key",
         "authorization",
         "medusa_agent.",
+        "private_form_binding",
+        "allowed_field_names",
         "/store/",
         "/admin/",
     ):

@@ -1,0 +1,54 @@
+[run]
+branch = True
+source =
+    routedeck_core
+    routedeck_fastapi
+    routedeck_langgraph
+    routedeck_sqlite
+    routedeck_testing
+
+[report]
+fail_under = 0
+show_missing = True
+
+[routedeck:coverage_group:state]
+source = python
+include =
+    routedeck_core/state/*.py
+branch_threshold = 85
+
+[routedeck:coverage_group:navigation]
+source = python
+# The legacy navigation/__init__.py compatibility facade remains in overall
+# coverage; the release-critical group enumerates the standalone runtime path.
+include =
+    routedeck_core/navigation/deep_links.py
+    routedeck_core/navigation/engine.py
+    routedeck_core/navigation/routes.py
+    routedeck_core/navigation/session_location.py
+    routedeck_core/navigation/transactions.py
+branch_threshold = 85
+
+[routedeck:coverage_group:supervision]
+source = python
+include =
+    routedeck_core/supervision/*.py
+branch_threshold = 85
+
+[routedeck:coverage_group:projection]
+source = python
+include =
+    routedeck_core/projection/*.py
+branch_threshold = 85
+
+[routedeck:coverage_group:persistence]
+source = python
+include =
+    routedeck_sqlite/*.py
+branch_threshold = 85
+
+[routedeck:coverage_group:event_reducer]
+source = typescript
+include =
+    packages/core/src/store/reducer.ts
+branch_threshold = 85

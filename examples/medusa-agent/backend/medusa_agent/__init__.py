@@ -1,3 +1,5 @@
 """Standalone Medusa consumer package for RouteDeck."""
 
-__all__: list[str] = []
+from .config import Settings
+
+__all__ = ["Settings"]

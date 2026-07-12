@@ -17,6 +17,7 @@ class TurnOwnerKind(StrEnum):
     SURFACE = "surface"
     REVIEW = "review"
     SYSTEM = "system"
+    NAVIGATION = "navigation"
 
 
 class TurnClaim(BaseModel):

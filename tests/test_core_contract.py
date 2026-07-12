@@ -26,7 +26,9 @@ def test_manifest_validation_accepts_connected_action_graph():
                 description="Collect intent.",
                 allowed_actions=["intent.confirm"],
             ),
-            RouteDeckNodeSpec(id="done", label="Done", lane="terminal", description="Terminal state."),
+            RouteDeckNodeSpec(
+                id="done", label="Done", lane="terminal", description="Terminal state."
+            ),
         ],
         edges=[
             RouteDeckEdgeSpec(
@@ -64,8 +66,17 @@ def test_manifest_validation_accepts_connected_action_graph():
 def test_manifest_validation_reports_missing_targets():
     manifest = RouteDeckManifest(
         version="broken",
-        nodes=[RouteDeckNodeSpec(id="intent", label="Intent", lane="system", description="Collect intent.")],
-        edges=[RouteDeckEdgeSpec(from_stage="intent", to_stage="missing", type="direct")],
+        nodes=[
+            RouteDeckNodeSpec(
+                id="intent",
+                label="Intent",
+                lane="system",
+                description="Collect intent.",
+            )
+        ],
+        edges=[
+            RouteDeckEdgeSpec(from_stage="intent", to_stage="missing", type="direct")
+        ],
         actions=[],
     )
 
@@ -75,7 +86,9 @@ def test_manifest_validation_reports_missing_targets():
 def test_manifest_validation_reports_unknown_capabilities_and_edge_actions():
     manifest = RouteDeckManifest(
         version="capability-validation",
-        capabilities=[RouteDeckCapabilitySpec(capability_id="catalog.browse", label="Browse")],
+        capabilities=[
+            RouteDeckCapabilitySpec(capability_id="catalog.browse", label="Browse")
+        ],
         nodes=[
             RouteDeckNodeSpec(
                 id="browse",
@@ -85,7 +98,9 @@ def test_manifest_validation_reports_unknown_capabilities_and_edge_actions():
                 allowed_actions=["catalog.open"],
                 capability_id="catalog.detail",
             ),
-            RouteDeckNodeSpec(id="detail", label="Detail", lane="shopping", description="Detail."),
+            RouteDeckNodeSpec(
+                id="detail", label="Detail", lane="shopping", description="Detail."
+            ),
         ],
         edges=[
             RouteDeckEdgeSpec(
@@ -97,7 +112,9 @@ def test_manifest_validation_reports_unknown_capabilities_and_edge_actions():
             )
         ],
         actions=[
-            RouteDeckActionSpec(id="catalog.open", label="Open", capability_id="catalog.detail"),
+            RouteDeckActionSpec(
+                id="catalog.open", label="Open", capability_id="catalog.detail"
+            ),
         ],
     )
 
@@ -141,7 +158,9 @@ def test_manifest_validation_accepts_hierarchical_nodes_and_contains_edges():
             )
         ],
         actions=[
-            RouteDeckActionSpec(id="route.open_node", label="Open node", allowed_nodes=["*"]),
+            RouteDeckActionSpec(
+                id="route.open_node", label="Open node", allowed_nodes=["*"]
+            ),
             RouteDeckActionSpec(id="route.cancel", label="Cancel", allowed_nodes=["*"]),
         ],
     )
@@ -164,10 +183,15 @@ def test_manifest_validation_rejects_unknown_parent_nodes():
             ),
         ],
         edges=[],
-        actions=[RouteDeckActionSpec(id="route.cancel", label="Cancel", allowed_nodes=["*"])],
+        actions=[
+            RouteDeckActionSpec(id="route.cancel", label="Cancel", allowed_nodes=["*"])
+        ],
     )
 
-    assert "Node learning.policy_candidate references unknown parent: missing" in validate_manifest(manifest)
+    assert (
+        "Node learning.policy_candidate references unknown parent: missing"
+        in validate_manifest(manifest)
+    )
 
 
 def test_surface_interaction_events_preserve_event_name_and_public_bindings():
@@ -217,7 +241,11 @@ def test_projection_includes_peer_surfaces_and_navigation_state():
             ),
         ],
         edges=[],
-        actions=[RouteDeckActionSpec(id="route.switch_surface", label="Switch surface", allowed_nodes=["*"])],
+        actions=[
+            RouteDeckActionSpec(
+                id="route.switch_surface", label="Switch surface", allowed_nodes=["*"]
+            )
+        ],
     )
 
     projection = build_projection(

@@ -74,22 +74,61 @@ class ToyRuntime(RouteDeckRuntimeBase[ToyState, RouteDeckGraphMessage]):
                 lane="workspace",
                 description="Toy detail.",
                 parent="home",
-                actions=["route.switch_surface", "route.back", "toy.configure", "toy.finish"],
+                actions=[
+                    "route.switch_surface",
+                    "route.back",
+                    "toy.configure",
+                    "toy.finish",
+                ],
                 allowed_surfaces={"active": ["summary", "logs"]},
                 default_surfaces={"active": "summary"},
             )
         )
-        .add_action(route_deck_action("route.open_node", "Open node", category="navigation", invocation_kind="hidden"))
-        .add_action(route_deck_action("route.switch_surface", "Switch surface", category="navigation", invocation_kind="hidden"))
-        .add_action(route_deck_action("route.back", "Back", category="navigation", invocation_kind="hidden"))
-        .add_action(route_deck_action("route.forward", "Forward", category="navigation", invocation_kind="hidden"))
-        .add_action(route_deck_action("route.cancel", "Cancel", category="navigation", invocation_kind="hidden"))
+        .add_action(
+            route_deck_action(
+                "route.open_node",
+                "Open node",
+                category="navigation",
+                invocation_kind="hidden",
+            )
+        )
+        .add_action(
+            route_deck_action(
+                "route.switch_surface",
+                "Switch surface",
+                category="navigation",
+                invocation_kind="hidden",
+            )
+        )
+        .add_action(
+            route_deck_action(
+                "route.back", "Back", category="navigation", invocation_kind="hidden"
+            )
+        )
+        .add_action(
+            route_deck_action(
+                "route.forward",
+                "Forward",
+                category="navigation",
+                invocation_kind="hidden",
+            )
+        )
+        .add_action(
+            route_deck_action(
+                "route.cancel",
+                "Cancel",
+                category="navigation",
+                invocation_kind="hidden",
+            )
+        )
         .add_action(
             route_deck_action(
                 "toy.configure",
                 "Configure",
                 kind="form",
-                fields=[RouteDeckFieldSpec(key="account_id", label="Account", required=True)],
+                fields=[
+                    RouteDeckFieldSpec(key="account_id", label="Account", required=True)
+                ],
             )
         )
         .add_action(route_deck_action("toy.finish", "Finish", invocation_kind="direct"))
@@ -177,7 +216,9 @@ class ProjectingRuntime(ToyRuntime):
 
 
 class LocatedRuntime(ToyRuntime):
-    def base_location_for_state(self, state: ToyState, context: dict[str, object]) -> str | None:
+    def base_location_for_state(
+        self, state: ToyState, context: dict[str, object]
+    ) -> str | None:
         return "/workspace/detail?tab=summary#top"
 
 
@@ -208,8 +249,12 @@ def test_routedeck_runtime_base_exposes_route_action_helpers() -> None:
     runtime = ToyRuntime()
     state = ToyState(
         node="detail",
-        navigation_back_stack=[RouteDeckGraphNavigationLocation(node_id="home", surface_id="home.active")],
-        navigation_forward_stack=[RouteDeckGraphNavigationLocation(node_id="detail", surface_id="detail.logs")],
+        navigation_back_stack=[
+            RouteDeckGraphNavigationLocation(node_id="home", surface_id="home.active")
+        ],
+        navigation_forward_stack=[
+            RouteDeckGraphNavigationLocation(node_id="detail", surface_id="detail.logs")
+        ],
     )
 
     route_actions = [action.id for action in runtime.route_actions_for_state(state)]
@@ -225,17 +270,24 @@ def test_routedeck_runtime_base_exposes_route_action_helpers() -> None:
     assert runtime.is_route_action_id("toy.configure") is False
 
 
-def test_routedeck_runtime_base_owns_surface_intent_and_presentation_state_helpers() -> None:
+def test_routedeck_runtime_base_owns_surface_intent_and_presentation_state_helpers() -> (
+    None
+):
     runtime = ToyRuntime()
     state = ToyState(node="home")
     context: dict[str, object] = {}
 
     assert runtime.stored_presentation_state_for_state(state, context) == {}
-    assert runtime.surface_navigation_id_from_intent({"surface_id": "home.active"}) == "home.active"
+    assert (
+        runtime.surface_navigation_id_from_intent({"surface_id": "home.active"})
+        == "home.active"
+    )
     assert runtime.surface_variant_intent_from_intent(
         {"surface_id": "home.active", "main": "home", 7: "bad", "active": 4}
     ) == {"main": "home"}
-    assert runtime.store_surface_intent_for_state(state, {"main": "home"}, context) is True
+    assert (
+        runtime.store_surface_intent_for_state(state, {"main": "home"}, context) is True
+    )
     assert runtime.stored_presentation_state_for_state(state, context) == {
         "surface_variants": {"main": "home"}
     }
@@ -245,7 +297,10 @@ def test_routedeck_runtime_base_adds_active_surface_to_product_base_location() -
     runtime = LocatedRuntime()
     state = ToyState(node="detail", active_surface_id="detail.logs")
 
-    assert runtime.location_for_state(state, {}) == "/workspace/detail?tab=summary&surface_id=detail.logs#top"
+    assert (
+        runtime.location_for_state(state, {})
+        == "/workspace/detail?tab=summary&surface_id=detail.logs#top"
+    )
 
 
 def test_routedeck_runtime_base_owns_projection_dispatch_and_surfaces() -> None:
@@ -290,10 +345,15 @@ def test_routedeck_runtime_base_owns_projection_dispatch_and_surfaces() -> None:
                 graph_state=switched.state.graph_state,
             )
         )
-        assert review.state.projection.navigation.current.surface_id == "operation_review.toy.configure"
+        assert (
+            review.state.projection.navigation.current.surface_id
+            == "operation_review.toy.configure"
+        )
         assert review.active_surface.component == "ToyReviewSurface"
         assert review.state.graph_state["pending_operation_id"] == "toy.configure"
-        assert review.state.graph_state["pending_operation_args"] == {"account_id": "acct_1"}
+        assert review.state.graph_state["pending_operation_args"] == {
+            "account_id": "acct_1"
+        }
 
         committed = await runtime.dispatch(
             RouteDeckDispatchInput(
@@ -304,7 +364,9 @@ def test_routedeck_runtime_base_owns_projection_dispatch_and_surfaces() -> None:
         )
         assert committed.state.graph_state["selected_account_id"] == "acct_1"
         assert committed.state.graph_state["pending_operation_id"] is None
-        assert committed.messages == [{"role": "assistant", "content": "Configured account."}]
+        assert committed.messages == [
+            {"role": "assistant", "content": "Configured account."}
+        ]
 
         finished = await runtime.dispatch(
             RouteDeckDispatchInput(
@@ -313,12 +375,17 @@ def test_routedeck_runtime_base_owns_projection_dispatch_and_surfaces() -> None:
             )
         )
         assert finished.state.projection.graph_node == "home"
-        assert finished.state.graph_state["navigation_back_stack"][-1]["node_id"] == "detail"
+        assert (
+            finished.state.graph_state["navigation_back_stack"][-1]["node_id"]
+            == "detail"
+        )
 
     asyncio.run(run())
 
 
-def test_routedeck_runtime_state_syncs_resolved_surface_from_custom_projection() -> None:
+def test_routedeck_runtime_state_syncs_resolved_surface_from_custom_projection() -> (
+    None
+):
     async def run() -> None:
         runtime = ProjectingRuntime()
 

@@ -23,7 +23,7 @@ def test_medusa_home_session_uses_compiled_buyer_graph(
     assert session.current.node_id == app.spec.entry_node.id
     assert session.current.node_id == "buyer.home"
     assert projection.surfaces["active"].component == "buyer.welcome"
-    assert set(projection.legal_operation_ids) == {"catalog.list"}
+    assert set(projection.legal_operation_ids) == {"catalog.list", "cart.create"}
     assert projection == generic_projection
     assert session.navgraph_version == projection.diagnostics.navgraph_version
 

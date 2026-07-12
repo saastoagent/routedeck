@@ -9,6 +9,9 @@ from routedeck_core.contracts.session import RouteDeckSession
 from routedeck_core.navigation.deep_links import DeepLinkEngine
 from routedeck_core.navigation.engine import NavigationEngine
 from routedeck_core.ports.session_store import RouteDeckSessionStore
+from routedeck_core.contracts.operations import OperationRequest
+from routedeck_core.ports.executor import OperationExecutor
+from routedeck_core.supervision import RouteDeckOperationRunner
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_core.state.reducer import reduce_session
 
@@ -35,3 +38,9 @@ def test_canonical_task4_apis_have_small_stable_package_exports() -> None:
 
 def test_legacy_root_event_identity_is_not_silently_replaced() -> None:
     assert routedeck_core.RouteDeckEvent is not CanonicalRouteDeckEvent
+
+
+def test_task5_supervision_contracts_have_intentional_package_exports() -> None:
+    assert contracts.OperationRequest is OperationRequest
+    assert ports.OperationExecutor is OperationExecutor
+    assert routedeck_core.RouteDeckOperationRunner is RouteDeckOperationRunner

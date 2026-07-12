@@ -1,186 +1,267 @@
 # Medusa Agent
 
-This example is the first usable Medusa reference-app slice. It proves a normal
-app-owned commerce chat agent in the visual shell expected by the RouteDeck
-vision, with a small read-only RouteDeck projection grounding layer.
+This is the standalone RouteDeck reference consumer: a full local guest-buyer
+application backed by a real Medusa Store API. RouteDeck supplies generic state,
+supervision, persistence, transport, navigation, and React primitives. This app
+supplies all commerce behavior, API calls, prompts, and buyer-facing surfaces.
 
-## Scope
+The example is source-complete inside this repository. Its Compose stack builds
+the pinned Medusa 2.13.6 server from `medusa/`; it does not require an
+`agent-core/test_targets` checkout, preinstalled `node_modules`, copied secrets,
+or external runtime data. `package-lock.json` and the digest-pinned Node image
+make the server build independently reproducible.
 
-Implemented scope includes:
+## Implemented Buyer Flow
 
-- FastAPI backend owned by this app.
-- React chat UI copied from the useful Foundation Agent shell pattern: avatar
-  rows, timestamped bubbles, prompt chips, textarea composer, and thinking state.
-- Product-owned read-only projection endpoint at
-  `GET /api/medusa-agent/projection`.
-- Projection-backed Route Map and Inspector that reflect product paths plus
-  optional `surface_id` query state while keeping chat as the only active
-  behavior.
-- Read-only Medusa Store API catalog/media projection through
-  `MEDUSA_BACKEND_URL` and `MEDUSA_PUBLISHABLE_API_KEY`.
-- True Server-Sent Events at `POST /api/medusa-agent/agent/stream`.
-- Minimal LangGraph commerce agent with a read-only `open_medusa_surface` tool
-  for browse projection.
-- Separate RouteDeck state SSE at `GET /api/medusa-agent/route-stream`.
-- Explicit error event when `OPENAI_API_KEY` is not configured.
-- Process-local conversation continuity with `conversation_id` mapped to
-  `configurable.thread_id`.
-- Temporary debug context view backed by
-  `GET /api/medusa-agent/debug/context-thread`; this is a short-lived
-  commit-readiness aid that exposes the full prompt/context/message thread and
-  should be removed before the public example is treated as final.
+The product-owned flow is:
 
-This usable slice intentionally excludes:
+1. create one real guest cart for the RouteDeck session;
+2. browse or search the Store catalog;
+3. open a shareable product route and select an exact in-stock variant;
+4. add, update, or remove real cart line items;
+5. enter session-bound guest checkout;
+6. save contact, shipping, and billing values through the encrypted private-form
+   channel;
+7. choose an authoritative Medusa shipping option;
+8. initialize the configured `pp_system_default` payment provider;
+9. review the current cart and explicitly accept or reject order placement;
+10. complete the cart once, independently re-read the order, and show a
+    session-bound confirmation;
+11. continue shopping without discarding the durable session history.
 
-- Public `/api/routedeck/*` routes.
-- Product action, inspect, dispatch, full diagnostics panels, product surface
-  events, and writes.
-- Clickable navgraph behavior, product surface dispatch, add-to-cart controls,
-  checkout, or Store API writes.
-- Variant selection, cart, checkout, payment, shipping, admin, seeded data,
-  Docker, reset automation, and order flows.
-- Deterministic phrase routers, command menus, fake product catalogs, or fallback
-  assistant text when the model cannot run.
+`pp_system_default` is Medusa's system/manual provider in this protected demo.
+It is explicit demo payment behavior, not a hidden mock or a fallback payment
+path.
 
-## Foundation-Agent Subset
+## Boundaries
 
-This app keeps only the small Foundation Agent shape needed for a polished chat
-shell and streaming:
-
-- SSE frame helpers.
-- FastAPI `StreamingResponse` route.
-- Async stream orchestration.
-- LangGraph commerce assistant.
-- XHR-based SSE parsing in React.
-- Foundation-style chat layout, prompt chips, message timestamps, and composer.
-
-Auth, database persistence, commerce writes, citations, memory, upload flows,
-full framework diagnostics, and write-capable product APIs are intentionally
-omitted.
-
-## Dependencies
-
-Backend pins:
+Backend business code is feature-local:
 
 ```text
-fastapi==0.136.3
-httpx==0.28.1
-langchain-openai==1.2.2
-langgraph==1.2.2
-pytest==9.0.3
-pytest-asyncio==1.4.0
-uvicorn==0.48.0
+backend/medusa_agent/
+  features/
+    catalog/             # product routes, handlers, providers, guards
+    cart/                # cart creation and mutation
+    checkout/            # private contact, shipping, payment, review
+    orders/              # confirmation and reconciliation
+  medusa/client/
+    protocol.py          # typed MedusaStoreClient port
+    http.py              # sole Store URL/header/HTTP owner
+    models.py            # strict wire and result models
+    errors.py            # product client contract errors
+  composition.py         # cross-feature composition and dependency injection
+  runtime.py             # live RouteDeck/Medusa assembly
+  agent.py               # prompt, model, and LangGraph agent composition
 ```
 
-Frontend pins:
+The adjacent `medusa/` directory is infrastructure for the real demo Store API,
+not RouteDeck framework code or buyer-agent business logic. It owns the pinned
+Medusa package graph, strict server configuration, and canonical protected demo
+seed. `infra/` owns the sentinel, seed fingerprint, manifest, and scoped
+provision/reset policy.
 
-```text
-@vitejs/plugin-react@6.0.2
-react@19.2.6
-react-dom@19.2.6
-typescript@6.0.3
-vite@8.0.14
-@testing-library/jest-dom@6.9.1
-@testing-library/react@16.3.2
-jsdom@26.1.0
-vitest@4.1.7
-```
+There are no Store URLs or HTTP calls in feature handlers. Handlers depend on
+the typed `MedusaStoreClient` protocol. `HttpMedusaStoreClient` validates wire
+shapes, returns sanitized typed failures, and preserves delivery evidence as
+`not_sent`, `possibly_sent`, or `response_received`. The browser calls only the
+product API and generic RouteDeck API; it never calls `/store/*` directly.
 
-The pinned frontend stack requires Node `^20.19.0 || >=22.12.0`.
+RouteDeck owns:
 
-## Environment
+- the canonical guest session and exact browser-history entry identities;
+- legal operations, version checks, idempotency, leases, review, and events;
+- stable/ephemeral surface state and default-deny public projection;
+- shareable versus session-bound routes and resume capabilities;
+- encrypted private-form persistence and generic HTTP/SSE transport.
 
-```powershell
-$env:OPENAI_API_KEY = "..."
-$env:MEDUSA_AGENT_MODEL = "gpt-5-mini"
-$env:MEDUSA_BACKEND_URL = "https://your-medusa.example"
-$env:MEDUSA_PUBLISHABLE_API_KEY = "pk_..."
-```
+The Medusa app owns:
 
-For this checkout, the backend also reads `examples/medusa-agent/backend/.env`.
-That file is gitignored.
+- catalog/cart/checkout/order feature declarations and business bindings;
+- Store API transport and all Medusa IDs behind opaque public handles;
+- region, country, sales-channel, and payment-provider configuration;
+- the buyer prompt, OpenAI model, product chat endpoint, and UI components;
+- recovery decisions such as order reconciliation after an uncertain write.
 
-`OPENAI_API_KEY` is required for agent responses. Without it, the backend emits
-an SSE `error` event with code `openai_api_key_missing`. Slice 1 intentionally
-does not include fallback assistant text.
+## Route And Surface Contract
 
-`MEDUSA_BACKEND_URL` and `MEDUSA_PUBLISHABLE_API_KEY` are required for product
-catalog and product media projection. Without them, the projected product
-surface renders a catalog-unavailable state instead of fabricating demo
-products or local product images.
-
-## Run
-
-Backend:
-
-```powershell
-cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\backend"
-python -m pip install -r requirements.txt
-python -m uvicorn main:app --host 127.0.0.1 --port 8098
-```
-
-Frontend:
-
-```powershell
-cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\frontend"
-npm install
-npm run dev
-```
-
-The frontend runs on `http://127.0.0.1:5198` and proxies
-`/api/medusa-agent/*` to the backend on `http://127.0.0.1:8098`.
-
-## Read-Only Projection
-
-The projection endpoint is product-owned:
-
-```text
-GET /api/medusa-agent/projection?path=/detail/t-shirt&surface_id=detail.product_detail
-```
-
-Canonical visible paths are product paths, not framework query routes:
+Shareable routes:
 
 - `/`
-- `/browse`
-- `/detail/t-shirt`
-- `/cart`
+- `/products`
+- `/products/{product_handle}`
 
-`surface_id` is optional query state for restoring the active surface. The path
-remains the canonical public location. The example must not expose `rd_node`,
-private Medusa IDs, operation payloads, or hidden dispatch state in the URL.
+The product detail route uses a declarative `RouteEntrySpec` that binds the
+exact `product_handle` segment to `catalog.open_product_by_route`. RouteDeck
+parses the route structurally; the product handler resolves the handle through
+the typed Store client.
 
-## Test
+Session-bound routes:
+
+- `/cart?resume_handle=...`
+- `/checkout/contact?resume_handle=...`
+- `/checkout/delivery?resume_handle=...`
+- `/checkout/payment?resume_handle=...`
+- `/checkout/review?resume_handle=...`
+- `/orders/{confirmation_handle}/confirmation?resume_handle=...`
+
+A session-bound link is accepted only when the guest cookie, route parameters,
+unexpired resume capability, and current RouteDeck session agree. Browser
+back/forward restores an exact server-owned history entry; it does not infer a
+new commerce action from the URL.
+
+Product components register against compiled `SurfaceSpec.component` names in
+`frontend/src/routedeck/surfaces.tsx`. Surface affordances dispatch declared
+RouteDeck operations. Checkout contact uses `PrivateFormBindingSpec` to
+authorize one projected form handle and an exact top-level field allowlist.
+Untouched authorized forms load as revision `0`; the first real save atomically
+stores revision `1` and an encrypted private blob. Private values never enter
+the frontend contract, public projection, event stream, inspection response, or
+model context.
+
+The order-review surface declares the same server-only binding so a true
+review-page reload can rehydrate the private delivery summary. That binding
+does not expose the form schema or values through the frontend contract.
+
+## LangGraph Agent
+
+The app owns a normal LangChain `create_agent(...)` graph. RouteDeck does not
+generate or replace that graph. `RouteDeckMiddleware` projects the current
+public state and only currently legal tools into each model call;
+`RouteDeckToolWrapper` sends tool calls through the same supervised runner used
+by surface affordances.
+
+Durable conversation turns live in the RouteDeck session and are reconstructed
+for each request. Product chat streams from `POST /api/medusa-agent/chat`.
+Canonical RouteDeck state events remain on `GET /api/routedeck/events`.
+Chat SSE responses are `private, no-store, no-transform`; if interruption
+persistence fails, the stream terminates as `outcome_unknown` and the browser
+retains the exact request for explicit retry/resync.
+
+There is no fallback model, phrase router, canned assistant reply, synthetic
+catalog, or browser-side commerce substitute.
+
+## Local Windows Quickstart
+
+Requirements:
+
+- local Docker Desktop/Engine with Compose;
+- PowerShell;
+- an `OPENAI_API_KEY` for the complete ready buyer-agent stack.
+
+No separate Medusa repository or starter checkout is required. The first
+provision builds `examples/medusa-agent/medusa` locally and installs exactly the
+dependency graph recorded in its lockfile.
+
+From the RouteDeck project directory:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services all
+```
+
+Open `http://127.0.0.1:5198`.
+
+| Service | URL |
+| --- | --- |
+| Buyer frontend | `http://127.0.0.1:5198` |
+| Agent API | `http://127.0.0.1:8098` |
+| Liveness | `http://127.0.0.1:8098/api/medusa-agent/health` |
+| Readiness | `http://127.0.0.1:8098/api/medusa-agent/ready` |
+| Medusa | `http://127.0.0.1:9100` |
+
+`Provision` creates the protected volumes, canonical seed, database sentinel,
+seed fingerprint, generated Store credentials, and local RouteDeck encryption
+configuration. On an already valid stack it verifies those identities and does
+not rerun the seed.
+
+Inspect or stop the stack with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Status
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
+```
+
+`Down` retains the protected volumes. Do not use `Reset` for ordinary startup.
+`Reset` is destructive: it validates the project identity, expected volume
+labels, database sentinel, generated manifest, and SQLite deletion scope before
+deleting and reprovisioning only this fixture.
+
+## Configuration
+
+Provisioning writes the required local values to
+`examples/medusa-agent/.env.local`. Product code has no defaults for Medusa
+resource IDs or secrets. Required runtime fields are:
+
+```text
+MEDUSA_BASE_URL
+MEDUSA_PUBLISHABLE_KEY
+MEDUSA_REGION_ID
+MEDUSA_COUNTRY_CODE
+MEDUSA_SALES_CHANNEL_ID
+MEDUSA_PAYMENT_PROVIDER_ID
+ROUTEDECK_DATABASE_PATH
+ROUTEDECK_STATE_ENCRYPTION_KEY
+OPENAI_MODEL
+```
+
+`OPENAI_API_KEY` is optional for API-process liveness but required for live
+chat and full application readiness. When it is absent,
+`POST /api/medusa-agent/chat` fails visibly with `503 dependency_unavailable`,
+`GET /api/medusa-agent/ready` returns `503`, and the Compose-gated frontend
+waits. Add the key to `.env.local` and recreate the application services to
+enable the complete buyer agent. Do not add a fallback credential or model.
+
+The live-model release smoke also requires this key. This README does not claim
+that smoke has passed.
+
+## APIs
+
+Product-owned endpoints:
+
+- `GET /api/medusa-agent/health`
+- `GET /api/medusa-agent/ready`
+- `POST /api/medusa-agent/chat` (`text/event-stream`)
+
+Generic RouteDeck endpoints mounted by the product:
+
+- `GET /api/routedeck/contract`
+- `POST /api/routedeck/sessions`
+- `GET /api/routedeck/session`
+- `POST /api/routedeck/navigation`
+- `POST /api/routedeck/dispatch`
+- `POST /api/routedeck/reviews/{review_id}/accept`
+- `POST /api/routedeck/reviews/{review_id}/reject`
+- `GET /api/routedeck/events`
+- `GET|PUT /api/routedeck/private-forms/{form_id}`
+- `GET /api/routedeck/inspect`
+
+The generic plane contains no Medusa route names or commerce behavior.
+
+Session creation is an idempotent mutation and requires
+`{"request_id":"<globally-unique-id>"}`. Dispatch, navigation, review,
+private-form, and chat writes likewise use caller-owned request identities.
+After an outcome-unknown transport failure, the frontend retains the exact
+request ID and payload for an explicit retry; it does not auto-retry or replace
+the ID. The same ID with different input is rejected.
+
+## Development Checks
 
 Backend:
 
 ```powershell
-cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\backend"
-python -m pytest tests -q
+python -m pytest examples/medusa-agent/backend/tests -q
 ```
 
 Frontend:
 
 ```powershell
-cd "D:\Dev\AI Projects\agent-core\agent-lab-powered-projects\routedeck\examples\medusa-agent\frontend"
-npm test
+pnpm --filter @routedeck/medusa-agent test
+pnpm --filter @routedeck/medusa-agent typecheck
+pnpm --filter @routedeck/medusa-agent build
 ```
 
-## Smoke Prompts
-
-- `hi`
-- `what can you help with?`
-- `show me products`
-- `I want to buy a t-shirt`
-- `not sure`
-
-Expected behavior: the assistant streams natural shopping help, asks focused
-clarifying questions, and keeps product chat free of implementation details.
-When the shopper asks for products, the browse projection must use the current
-Medusa Store API catalog snapshot or report that the catalog is unavailable.
-
-## Reset
-
-Reset is process-local: restart the backend to clear conversation memory. A
-readable Medusa Store API endpoint is required for catalog/media projection, but
-no cart, payment provider, write-capable credential, or admin credential is
-required.
+The real-Medusa integration tests require the provisioned local stack and its
+actual Store API configuration. See
+[`../../test_index/README.md`](../../test_index/README.md) for the release gates
+and [`../../docs/medusa-agent-reference-app.md`](../../docs/medusa-agent-reference-app.md)
+for the architecture contract.

@@ -6,6 +6,7 @@ from enum import StrEnum
 from jsonschema.exceptions import SchemaError
 from jsonschema.validators import validator_for
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
 from pydantic import model_validator
 
 from .operations import OperationRef
@@ -69,6 +70,23 @@ class SurfaceAffordanceSpec(_FrozenContract):
     operation: OperationRef | None = None
 
 
+class PrivateFormBindingSpec(_FrozenContract):
+    """Server-side authorization for one private form projected by a surface."""
+
+    form_id_prop: str = Field(min_length=1)
+    allowed_field_names: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _unique_allowed_fields(self) -> PrivateFormBindingSpec:
+        if len(self.allowed_field_names) != len(set(self.allowed_field_names)):
+            raise ValueError("private form allowed field names must be unique")
+        if any(not name for name in self.allowed_field_names):
+            raise ValueError("private form allowed field names must be non-empty")
+        if self.form_id_prop in self.allowed_field_names:
+            raise ValueError("private form ID prop cannot be a private field")
+        return self
+
+
 class SurfaceSpec(_FrozenContract):
     id: str = Field(min_length=1)
     component: str = Field(min_length=1)
@@ -77,17 +95,25 @@ class SurfaceSpec(_FrozenContract):
     public_props_schema: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
+    private_form_binding: SkipJsonSchema[PrivateFormBindingSpec | None] = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
     @model_validator(mode="after")
     def _validate_public_props_schema(self) -> SurfaceSpec:
         schema = self.public_props_schema.to_dict()
         if not schema:
+            if self.private_form_binding is not None:
+                raise ValueError("private form surfaces require a public props schema")
             return self
         try:
             validator_for(schema).check_schema(schema)
         except SchemaError as exc:
             raise ValueError("public_props_schema must be valid JSON Schema") from exc
         _require_default_deny_schema(schema, root=True)
+        if self.private_form_binding is not None:
+            _validate_private_form_binding(schema, self.private_form_binding)
         return self
 
     def public_props_schema_value(self) -> dict[str, object]:
@@ -170,7 +196,25 @@ def _require_default_deny_schema(
         _require_default_deny_schema(items)
 
 
+def _validate_private_form_binding(
+    schema: Mapping[str, object],
+    binding: PrivateFormBindingSpec,
+) -> None:
+    properties = schema.get("properties")
+    if not isinstance(properties, Mapping):
+        raise ValueError("private form surfaces require public properties")
+    form_id_schema = properties.get(binding.form_id_prop)
+    if not isinstance(form_id_schema, Mapping):
+        raise ValueError("private form ID prop must be declared as a public property")
+    if form_id_schema.get("type") != "string":
+        raise ValueError("private form ID prop must be a public string")
+    required = schema.get("required")
+    if not isinstance(required, (list, tuple)) or binding.form_id_prop not in required:
+        raise ValueError("private form ID prop must be required")
+
+
 __all__ = [
+    "PrivateFormBindingSpec",
     "SurfaceAffordanceSpec",
     "SurfaceLifecycle",
     "SurfaceRef",

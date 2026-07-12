@@ -18,6 +18,7 @@ class RouteDeckEventKind(StrEnum):
     PROJECTION_CHANGED = "projection_changed"
     NAVIGATION_CHANGED = "navigation_changed"
     OPERATION_CHANGED = "operation_changed"
+    PRIVATE_FORM_CHANGED = "private_form_changed"
     TURN_FINALIZED = "turn_finalized"
     TURN_INTERRUPTED = "turn_interrupted"
 
@@ -66,6 +67,19 @@ class EventPage(_FrozenContract):
     events: tuple[CanonicalRouteDeckEvent, ...]
     next_cursor: int = Field(ge=0)
     has_more: bool
+    reset_required: bool = False
+    retained_from_cursor: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _reset_contract(self) -> EventPage:
+        if self.reset_required:
+            if self.events or self.has_more or self.retained_from_cursor is None:
+                raise ValueError(
+                    "reset-required event pages contain only the retained cursor"
+                )
+        elif self.retained_from_cursor is not None:
+            raise ValueError("retained_from_cursor is valid only for reset pages")
+        return self
 
 
 __all__ = [

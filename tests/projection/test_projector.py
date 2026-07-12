@@ -15,6 +15,7 @@ from routedeck_core.contracts.session import (
     LocationParameter,
     PrivateEntityBinding,
     PublicSurfaceState,
+    RouteDeckSession,
 )
 from routedeck_core.navigation.routes import PublicRouteKeyValidator
 from routedeck_core.navigation.engine import NavigationEngine
@@ -41,6 +42,71 @@ def _product_route(handle: str) -> tuple[LocationParameter, ...]:
     return (LocationParameter(name="product_handle", value=handle),)
 
 
+def _product_surface_state(
+    handle: str,
+    *,
+    title: str = "Test product",
+    extra_values: tuple[ClassifiedValue, ...] = (),
+) -> PublicSurfaceState:
+    return PublicSurfaceState(
+        surface_id="catalog.product_detail",
+        values=(
+            ClassifiedValue(
+                name="product",
+                value={
+                    "interaction_handle": f"{handle}-interaction",
+                    "product_handle": handle,
+                    "title": title,
+                    "image_urls": [],
+                    "options": [],
+                    "variants": [
+                        {
+                            "interaction_handle": "variant-handle-1",
+                            "title": "Default",
+                            "price": {"amount": 1000, "currency_code": "usd"},
+                            "inventory_status": "in_stock",
+                            "option_values": [],
+                        }
+                    ],
+                },
+                classification=DataClassification.PUBLIC,
+            ),
+            *extra_values,
+        ),
+    )
+
+
+def _grid_surface_state() -> PublicSurfaceState:
+    return PublicSurfaceState(
+        surface_id="catalog.product_grid",
+        values=(
+            ClassifiedValue(
+                name="products",
+                value=[],
+                classification=DataClassification.PUBLIC,
+            ),
+            ClassifiedValue(
+                name="count",
+                value=0,
+                classification=DataClassification.PUBLIC,
+            ),
+        ),
+    )
+
+
+def _with_surface_state(
+    session: RouteDeckSession,
+    surface_state: PublicSurfaceState,
+) -> RouteDeckSession:
+    return session.model_copy(
+        update={
+            "public_state": session.public_state.model_copy(
+                update={"surface_state": (surface_state,)}
+            )
+        }
+    )
+
+
 def test_sensitive_values_and_private_ids_never_project() -> None:
     app = compile_medusa_app_spec()
     session = session_factory(
@@ -50,6 +116,16 @@ def test_sensitive_values_and_private_ids_never_project() -> None:
         contact_email="buyer@example.test",
         private_entity_id="prod_private_123",
         public_entity_handle="product-handle-1",
+        entity_kind="product",
+        allowed_operation_ids=(
+            "catalog.open_product",
+            "catalog.select_variant",
+            "cart.add_item",
+        ),
+    )
+    session = _with_surface_state(
+        session,
+        _product_surface_state("product-handle-1"),
     )
 
     projection = ProjectionProjector(
@@ -71,7 +147,7 @@ def test_projection_uses_current_node_legal_operations_and_rich_surfaces() -> No
 
     assert projection.current.node_id == "buyer.home"
     assert projection.surfaces["active"].component == "buyer.welcome"
-    assert set(projection.legal_operation_ids) == {"catalog.list"}
+    assert set(projection.legal_operation_ids) == {"catalog.list", "cart.create"}
     assert projection.session_version == session.session_version
     assert projection.projection_version == session.projection_version
 
@@ -88,6 +164,7 @@ def test_projection_preserves_rich_current_surfaces_navigation_and_status() -> N
                 update={
                     "status_code": "catalog_ready",
                     "status_message": "Products are current.",
+                    "surface_state": (_grid_surface_state(),),
                 }
             )
         }
@@ -120,6 +197,7 @@ def test_projection_preserves_rich_current_surfaces_navigation_and_status() -> N
     assert projection.status.code == "catalog_ready"
     assert projection.status.message == "Products are current."
     assert set(projection.diagnostics.declared_provider_ids) == {
+        "catalog.product",
         "catalog.products",
         "cart.current",
     }
@@ -134,15 +212,17 @@ def test_recursive_classification_redaction_is_default_deny() -> None:
         contact_email="buyer@example.test",
         private_entity_id="prod_private_123",
         public_entity_handle="product-handle-1",
+        entity_kind="product",
+        allowed_operation_ids=(
+            "catalog.open_product",
+            "catalog.select_variant",
+            "cart.add_item",
+        ),
     )
-    surface_state = PublicSurfaceState(
-        surface_id="catalog.product_detail",
-        values=(
-            ClassifiedValue(
-                name="display",
-                value={"nested": {"label": "visible-label"}},
-                classification=DataClassification.PUBLIC,
-            ),
+    surface_state = _product_surface_state(
+        "product-handle-1",
+        title="visible-label",
+        extra_values=(
             ClassifiedValue(
                 name="private",
                 value={"nested": {"value": "private-nested-value"}},
@@ -155,13 +235,7 @@ def test_recursive_classification_redaction_is_default_deny() -> None:
             ),
         ),
     )
-    session = session.model_copy(
-        update={
-            "public_state": session.public_state.model_copy(
-                update={"surface_state": (surface_state,)}
-            )
-        }
-    )
+    session = _with_surface_state(session, surface_state)
 
     rendered = (
         ProjectionProjector(
@@ -197,6 +271,17 @@ def test_projection_fails_loudly_for_unknown_nodes_and_surface_state() -> None:
     )
     with pytest.raises(RouteDeckValidationError):
         projector.project(session)
+
+
+def test_projection_rejects_current_location_without_history_identity() -> None:
+    app = compile_medusa_app_spec()
+    session = session_factory(app=app, node_id="buyer.home")
+    session = session.model_copy(
+        update={"current": session.current.model_copy(update={"entry_id": None})}
+    )
+
+    with pytest.raises(RouteDeckValidationError, match="history entry ID"):
+        ProjectionProjector(app).project(session)
 
 
 def test_surface_props_must_be_public_and_declared_by_schema() -> None:
@@ -308,9 +393,10 @@ def test_redacted_only_state_change_does_not_change_projection_version() -> None
         node_id="catalog.product",
         route_params=_product_route("t-shirt"),
     )
-    private_only_surface_state = PublicSurfaceState(
-        surface_id="catalog.product_detail",
-        values=(
+    initial = _with_surface_state(initial, _product_surface_state("t-shirt"))
+    private_only_surface_state = _product_surface_state(
+        "t-shirt",
+        extra_values=(
             ClassifiedValue(
                 name="private",
                 value="private-surface-sentinel",
@@ -343,6 +429,7 @@ def test_reordering_disabled_operations_does_not_change_projection_version() -> 
         node_id="catalog.product",
         route_params=_product_route("t-shirt"),
     )
+    initial = _with_surface_state(initial, _product_surface_state("t-shirt"))
     initial = initial.model_copy(
         update={
             "public_state": initial.public_state.model_copy(

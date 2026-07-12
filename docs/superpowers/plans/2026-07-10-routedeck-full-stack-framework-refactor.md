@@ -4,7 +4,8 @@
 > by `../../../decisions/ADR-003-agentic-interaction-state-governor.md`. The plan
 > expanded beyond proven Corpus behavior and changed RouteDeck's public dispatch
 > contract before migrating Corpus, breaking the active product path. It is
-> preserved only as historical design material.
+> preserved only as historical design material. Its Mac mini runtime instruction
+> is also obsolete; ADR-004 makes local Windows execution authoritative.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

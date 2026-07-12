@@ -6,6 +6,35 @@
 
 **Architecture:** RouteDeck is a product-neutral interaction-state framework with immutable feature specifications, runtime bindings, one supervised operation runner, durable SQLite session state, generic FastAPI/SSE transport, and headless/React frontend packages. The Medusa application is the first consumer: it owns typed Store API access, commerce handlers/providers/guards, LangGraph prompt/model behavior, and product surfaces. Work proceeds in consumer-driven vertical slices so a framework-only test never completes a task.
 
+## Current Execution Status (2026-07-12)
+
+The durable execution ledger is
+`../../../../../.superpowers/sdd/progress.md`. The unchecked step boxes below
+remain the original executable procedure; they are not the current completion
+record and have not been retroactively checked without step-level proof.
+
+- Tasks 1-4 are complete in the ledger with recorded review and focused test
+  evidence. Their authority, package boundary, compiler, and canonical-state
+  outputs are present in the shared working tree.
+- Tasks 5-17 are recorded as implemented in the shared working tree under the
+  approved feature-first correction. This status does not claim that every
+  historical step below was rerun or that consolidated release verification
+  passed. The buyer-flow milestone and RouteDeck deep-link/browser-history
+  desktop-plus-mobile E2E milestone have current local pass evidence; broader
+  Task 18 browser and release proof remains open.
+- Task 18 remains open. No release-complete claim exists. It still requires the
+  fail-loud consolidated harness, current complete-suite/coverage/build/browser
+  evidence, a reviewed protected reset, the configured real Medusa source of
+  truth, and `OPENAI_API_KEY` for the required live-model smoke. Missing access
+  is a blocker, not permission to use a scripted or synthetic fallback.
+- Post-plan Task 19 is recorded complete in the shared tree with focused backend,
+  frontend, and replay-race evidence; its final release closeout remains
+  coupled to Task 18.
+- The current completion-audit slice is Task 20A: public API, LangGraph guidance,
+  packaging ownership, and compatibility quarantine. Feature-authoring and
+  scaffolder migration is a separate remaining Task 20 slice. Neither audit
+  slice substitutes for Task 18 release proof.
+
 **Tech Stack:** Python 3.11.9, Pydantic 2, FastAPI, httpx, LangGraph/LangChain, SQLite, cryptography, pytest, mypy, Ruff, React 19, TypeScript, Vite, Vitest, Playwright, pnpm workspaces, Docker Compose, Medusa 2.13.6, PostgreSQL 16, Redis 7, and Medusa `pp_system_default` as the visibly labeled system/manual demo provider.
 
 ## Global Constraints
@@ -13,7 +42,7 @@
 - Execute on the local Windows machine only. Do not probe or fall back to the Mac mini.
 - Work on the existing `saastoagent` branch. Stage explicit paths only; the repository has extensive unrelated deletions and untracked research files.
 - Use a fresh `.venv` from the RouteDeck project root. Do not rely on globally installed LangGraph/FastAPI packages.
-- Use bundled Node `v24.14.0` and pnpm `11.7.0` for frontend work; declare Node `>=22.12.0` in package metadata.
+- Use bundled Node `v24.14.0` and pnpm `11.7.0` for frontend work; declare Node `>=22.13.0` in package metadata.
 - RouteDeck runtime product paths contain no fixtures, synthetic data, canned assistant responses, phrase routers, regex intent routing, hidden fallbacks, or default handlers.
 - Test doubles and deterministic scripted models live only under explicitly named test packages.
 - The only product data path is the real dedicated local Medusa demo stack. Missing Store API data or credentials fails visibly.
@@ -109,7 +138,7 @@ The existing flat modules remain temporary compatibility facades for Corpus impo
 package.json
 pnpm-workspace.yaml
 tsconfig.base.json
-vitest.workspace.ts
+vitest.config.ts plus package-owned Vitest project configs
 packages/core/src/{contracts,client,store,routing,private-forms}/
 packages/react/src/{provider,hooks,surfaces,navigation,private-forms,review,status,inspector}/
 packages/testing/src/
@@ -1290,7 +1319,9 @@ git push origin saastoagent
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.base.json`
-- Create: `vitest.workspace.ts`
+- Create: `vitest.config.ts`
+- Create: `packages/{core,react,testing}/vitest.config.ts`
+- Create: `examples/medusa-agent/frontend/vitest.config.ts`
 - Create: `packages/core/{package.json,tsconfig.json,src/index.ts}`
 - Create: `packages/core/src/contracts/{generated,decode}.ts`
 - Create: `packages/core/src/client/{client,http,sse,errors}.ts`
@@ -1321,7 +1352,7 @@ Root metadata:
   "name": "routedeck-workspace",
   "private": true,
   "packageManager": "pnpm@11.7.0",
-  "engines": { "node": ">=22.12.0" },
+  "engines": { "node": ">=22.13.0" },
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
@@ -1536,7 +1567,7 @@ git push origin saastoagent
 - Create: `examples/medusa-agent/infra/{compose.yaml,demo-manifest.json,medusa-setup.sh,medusa-sentinel.ts,seed-fingerprint.ts}`
 - Create: `examples/medusa-agent/scripts/demo-stack.ps1`
 - Modify: `.gitignore`
-- Modify: `test_targets/medusa-backend/src/scripts/seed.ts` only if deterministic manifest emission requires it
+- Modify: `examples/medusa-agent/medusa/src/scripts/seed.ts` only if the protected canonical demo seed changes
 
 **Interfaces:**
 - Consumes: current Medusa 2.13.6 backend/seed source and typed RouteDeck failures.

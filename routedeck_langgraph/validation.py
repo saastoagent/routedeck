@@ -39,18 +39,28 @@ def validate_langgraph_contract(
         }
     )
     for condition in missing_conditions:
-        errors.append(f"RouteDeck edge condition has no LangGraph resolver: {condition}")
+        errors.append(
+            f"RouteDeck edge condition has no LangGraph resolver: {condition}"
+        )
 
     normalized_groups = _normalized_groups(groups)
     if normalized_groups:
-        grouped_nodes = [node_id for nodes in normalized_groups.values() for node_id in nodes]
+        grouped_nodes = [
+            node_id for nodes in normalized_groups.values() for node_id in nodes
+        ]
         grouped_set = set(grouped_nodes)
         for node_id in sorted(grouped_set - node_ids):
-            errors.append(f"LangGraph group references unknown RouteDeck node: {node_id}")
+            errors.append(
+                f"LangGraph group references unknown RouteDeck node: {node_id}"
+            )
         for node_id in sorted(node_ids - grouped_set):
             errors.append(f"RouteDeck node is missing from LangGraph groups: {node_id}")
-        duplicate_nodes = sorted(node_id for node_id, count in Counter(grouped_nodes).items() if count > 1)
+        duplicate_nodes = sorted(
+            node_id for node_id, count in Counter(grouped_nodes).items() if count > 1
+        )
         for node_id in duplicate_nodes:
-            errors.append(f"RouteDeck node appears in multiple LangGraph groups: {node_id}")
+            errors.append(
+                f"RouteDeck node appears in multiple LangGraph groups: {node_id}"
+            )
 
     return errors

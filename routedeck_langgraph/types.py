@@ -7,8 +7,7 @@ from routedeck_core import RouteDeckEdgeSpec
 
 
 class RouteDeckState(Protocol):
-    def get(self, key: str, default: Any = None) -> Any:
-        ...
+    def get(self, key: str, default: Any = None) -> Any: ...
 
 
 ConditionResolver = Callable[[RouteDeckEdgeSpec, Mapping[str, Any]], bool]

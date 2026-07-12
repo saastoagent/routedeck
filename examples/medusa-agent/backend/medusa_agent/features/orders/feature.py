@@ -8,18 +8,50 @@ from routedeck_core.contracts.navigation import (
     RecoveryPolicySpec,
     RouteSpec,
 )
-from routedeck_core.contracts.operations import EntityProviderSpec
+from routedeck_core.contracts.operations import (
+    EntityInputSpec,
+    EntityProviderSpec,
+    OperationSpec,
+    SafetyClass,
+)
+from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import (
+    SurfaceAffordanceSpec,
     SurfaceLifecycle,
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
+
+from .models import ORDER_CONFIRMATION_SCHEMA, ORDER_RECOVERY_PROVIDER_SCHEMA
 
 
 ORDER_PROVIDER = EntityProviderSpec(
     id="orders.confirmed_order",
     entity_kind="order",
     description="Independently verified order facts for the completion result.",
+    output_schema=FrozenJsonObject(ORDER_RECOVERY_PROVIDER_SCHEMA),
+)
+RECONCILE_ORDER = OperationSpec(
+    id="orders.reconcile",
+    title="Verify submitted order",
+    description="Re-read an already submitted order without completing the cart again.",
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["order_ref"],
+            "properties": {"order_ref": {"type": "string", "minLength": 1}},
+            "additionalProperties": False,
+        }
+    ),
+    entity_inputs=(EntityInputSpec(argument_name="order_ref", entity_kind="order"),),
+    safety_class=SafetyClass.READ_EXTERNAL,
+    outcomes=("verified",),
+    provider_refs=(ORDER_PROVIDER.ref,),
+)
+RECONCILE_ORDER_AFFORDANCE = SurfaceAffordanceSpec(
+    id="reconcile_order",
+    event="retry",
+    operation=RECONCILE_ORDER.ref,
 )
 ORDERS_FRAME = SurfaceSpec(
     id="orders.frame",
@@ -30,6 +62,7 @@ ORDER_CONFIRMATION = SurfaceSpec(
     id="orders.confirmation",
     component="orders.confirmation",
     lifecycle=SurfaceLifecycle.STABLE,
+    public_props_schema=FrozenJsonObject(ORDER_CONFIRMATION_SCHEMA),
 )
 ORDERS_STATUS = SurfaceSpec(
     id="orders.status",
@@ -88,5 +121,8 @@ __all__ = [
     "CONFIRMATION_NODE",
     "FEATURE_SPEC",
     "ORDER_CONFIRMATION",
+    "ORDER_PROVIDER",
     "ORDERS_CAPABILITY",
+    "RECONCILE_ORDER",
+    "RECONCILE_ORDER_AFFORDANCE",
 ]

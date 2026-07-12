@@ -1,0 +1,4 @@
+packages:
+  - "packages/*"
+  - "examples/medusa-agent/frontend"
+  - "examples/medusa-agent/e2e"

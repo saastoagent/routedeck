@@ -10,7 +10,13 @@ from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, LocationParameter, RouteDeckSession
 from ..state.session import require_compatible_session
 from ..state.history import move_back, move_forward
-from ..state.reducer import HistoryReplaced, NodeEntered, reduce_session
+from ..state.reducer import (
+    HistoryReplaced,
+    NodeEntered,
+    PublicSessionStateStored,
+    reduce_session_batch,
+)
+from ..state.surfaces import surface_state_for_node
 from ..validation import RouteDeckValidationError
 from .deep_links import DeepLinkEngine
 from .routes import PublicRouteKeyValidator, RouteCapabilityMismatch
@@ -40,7 +46,7 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        self._node(node_id)
+        target_node = self._node(node_id)
         declared_names = self.app.routes.path_parameter_names(node_id)
         supplied = dict(route_params or {})
         if set(supplied) != set(declared_names):
@@ -73,7 +79,11 @@ class NavigationEngine:
                 for name in declared_names
             ),
         )
-        return reduce_session(session, NodeEntered(location=location))
+        return self._apply_location_change(
+            session,
+            NodeEntered(location=location),
+            target_node,
+        )
 
     def back(
         self,
@@ -108,13 +118,14 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        return reduce_session(
+        return self._apply_location_change(
             session,
             HistoryReplaced(
                 current=history.current,
                 back_stack=history.back_stack,
                 forward_stack=history.forward_stack,
             ),
+            self._node(history.current.node_id),
         )
 
     def forward(
@@ -150,13 +161,14 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        return reduce_session(
+        return self._apply_location_change(
             session,
             HistoryReplaced(
                 current=history.current,
                 back_stack=history.back_stack,
                 forward_stack=history.forward_stack,
             ),
+            self._node(history.current.node_id),
         )
 
     def cancel(
@@ -195,13 +207,14 @@ class NavigationEngine:
                 public_key_validator=public_key_validator,
                 now=now,
             )
-            return reduce_session(
+            return self._apply_location_change(
                 session,
                 HistoryReplaced(
                     current=history.current,
                     back_stack=history.back_stack,
                     forward_stack=history.forward_stack,
                 ),
+                self._node(history.current.node_id),
             )
         return self.open(
             session,
@@ -209,6 +222,89 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             resume_handle=resume_handle,
             now=now,
+        )
+
+    def restore_history_entry(
+        self,
+        session: RouteDeckSession,
+        entry_id: int,
+        *,
+        public_key_validator: PublicRouteKeyValidator | None = None,
+        now: datetime | None = None,
+    ) -> RouteDeckSession:
+        """Restore one exact canonical history entry without inferring direction."""
+
+        require_compatible_session(self.app, session)
+        validate_session_location(
+            self.app,
+            session,
+            public_key_validator=public_key_validator,
+            now=now,
+        )
+        if isinstance(entry_id, bool) or not isinstance(entry_id, int) or entry_id < 1:
+            raise RouteDeckValidationError("Canonical history entry ID is invalid")
+        timeline = (
+            *session.back_stack,
+            session.current,
+            *reversed(session.forward_stack),
+        )
+        entry_ids = tuple(location.entry_id for location in timeline)
+        if any(candidate is None for candidate in entry_ids) or len(entry_ids) != len(
+            set(entry_ids)
+        ):
+            raise RouteDeckValidationError(
+                "Canonical history contains missing or duplicate entry IDs"
+            )
+        matching_indices = tuple(
+            index
+            for index, location in enumerate(timeline)
+            if location.entry_id == entry_id
+        )
+        if len(matching_indices) != 1:
+            raise RouteDeckValidationError(
+                f"Canonical history entry {entry_id!r} does not exist"
+            )
+        target_index = matching_indices[0]
+        if timeline[target_index] == session.current:
+            return session
+        target = timeline[target_index]
+        validate_session_location(
+            self.app,
+            session,
+            location=target,
+            public_key_validator=public_key_validator,
+            now=now,
+        )
+        return self._apply_location_change(
+            session,
+            HistoryReplaced(
+                current=target,
+                back_stack=tuple(timeline[:target_index]),
+                forward_stack=tuple(reversed(timeline[target_index + 1 :])),
+            ),
+            self._node(target.node_id),
+        )
+
+    def _apply_location_change(
+        self,
+        session: RouteDeckSession,
+        event: NodeEntered | HistoryReplaced,
+        target_node: NodeSpec,
+    ) -> RouteDeckSession:
+        retained_surface_state = surface_state_for_node(
+            self.app,
+            session.public_state.surface_state,
+            target_node,
+        )
+        public_state = session.public_state.model_copy(
+            update={"surface_state": retained_surface_state}
+        )
+        return reduce_session_batch(
+            session,
+            (
+                event,
+                PublicSessionStateStored(state=public_state),
+            ),
         )
 
     def _node(self, node_id: str) -> NodeSpec:

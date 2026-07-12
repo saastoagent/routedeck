@@ -9,13 +9,13 @@ import pytest
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
 from routedeck_core.contracts.events import EventPage, RouteDeckEvent
 from routedeck_core.contracts.failures import RouteDeckFailure
+from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.session import (
-    AttemptTerminalState,
     JournaledExecutionResult,
-    OperationAttempt,
     PendingReview,
     RouteDeckSession,
     SessionSnapshot,
+    StoredOperationAttempt,
 )
 from routedeck_core.ports.session_store import RouteDeckSessionStore
 from routedeck_core.state.leases import ExecutionClaim, TurnClaim, TurnLease
@@ -24,18 +24,44 @@ from routedeck_testing.conformance import assert_session_store_conforms
 
 EXPECTED_PARAMETERS = {
     "create": ("self", "initial"),
+    "create_for_request": (
+        "self",
+        "initial",
+        "request_id",
+        "request_fingerprint",
+    ),
     "load": ("self", "session_id"),
     "find_attempt": ("self", "session_id", "request_id"),
+    "find_review": ("self", "session_id", "review_id"),
+    "find_mutation": ("self", "session_id", "request_id"),
     "acquire_turn": ("self", "claim"),
-    "stage_review": ("self", "lease", "review"),
-    "claim_execution": ("self", "lease", "attempt"),
-    "record_execution_result": ("self", "claim", "result"),
+    "claim_child_attempt": (
+        "self",
+        "lease",
+        "request_id",
+        "request_fingerprint",
+    ),
+    "release_child_attempt": ("self", "lease", "request_id"),
+    "stage_review": (
+        "self",
+        "lease",
+        "expected_session_version",
+        "record",
+        "next_state",
+        "events",
+        "parent_mutation",
+    ),
+    "claim_execution": ("self", "lease", "record"),
+    "recover_execution_claim": ("self", "lease", "attempt_id"),
+    "record_execution_started": ("self", "claim", "record"),
+    "record_execution_result": ("self", "claim", "result", "record"),
     "commit_state": (
         "self",
         "lease",
         "expected_session_version",
         "next_state",
         "events",
+        "mutation",
     ),
     "finalize_turn": (
         "self",
@@ -44,6 +70,7 @@ EXPECTED_PARAMETERS = {
         "next_state",
         "turns",
         "events",
+        "mutation",
     ),
     "interrupt_turn": (
         "self",
@@ -52,16 +79,32 @@ EXPECTED_PARAMETERS = {
         "next_state",
         "failure",
         "events",
+        "mutation",
     ),
     "commit_attempt": (
+        "self",
+        "claim",
+        "expected_session_version",
+        "next_state",
+        "events",
+        "record",
+    ),
+    "commit_supervision": (
         "self",
         "lease",
         "expected_session_version",
         "next_state",
         "events",
-        "terminal",
+        "record",
     ),
-    "mark_external_outcome_unknown": ("self", "claim", "failure"),
+    "mark_external_outcome_unknown": (
+        "self",
+        "claim",
+        "expected_session_version",
+        "record",
+        "next_state",
+        "events",
+    ),
     "release_turn": ("self", "lease"),
     "events_after": ("self", "session_id", "cursor", "limit"),
     "load_private_blob": ("self", "session_id", "form_id"),
@@ -72,21 +115,31 @@ EXPECTED_PARAMETERS = {
         "form_id",
         "encrypted_value",
         "next_state",
+        "events",
+        "mutation",
     ),
 }
 
 EXPECTED_RETURNS = {
     "create": SessionSnapshot,
+    "create_for_request": SessionSnapshot,
     "load": SessionSnapshot,
-    "find_attempt": OperationAttempt | None,
+    "find_attempt": StoredOperationAttempt | None,
+    "find_review": PendingReview | None,
+    "find_mutation": MutationRecord | None,
     "acquire_turn": TurnLease,
+    "claim_child_attempt": type(None),
+    "release_child_attempt": type(None),
     "stage_review": SessionSnapshot,
     "claim_execution": ExecutionClaim,
+    "recover_execution_claim": ExecutionClaim,
+    "record_execution_started": type(None),
     "record_execution_result": type(None),
     "commit_state": SessionSnapshot,
     "finalize_turn": SessionSnapshot,
     "interrupt_turn": SessionSnapshot,
     "commit_attempt": SessionSnapshot,
+    "commit_supervision": SessionSnapshot,
     "mark_external_outcome_unknown": SessionSnapshot,
     "release_turn": type(None),
     "events_after": EventPage,
@@ -99,29 +152,79 @@ class CompleteStoreDouble:
     async def create(self, initial: RouteDeckSession) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
+    async def create_for_request(
+        self,
+        initial: RouteDeckSession,
+        request_id: str,
+        request_fingerprint: str,
+    ) -> SessionSnapshot:
+        raise AssertionError("conformance must not execute store methods")
+
     async def load(self, session_id: str) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
     async def find_attempt(
         self, session_id: str, request_id: str
-    ) -> OperationAttempt | None:
+    ) -> StoredOperationAttempt | None:
+        raise AssertionError("conformance must not execute store methods")
+
+    async def find_review(
+        self, session_id: str, review_id: str
+    ) -> PendingReview | None:
+        raise AssertionError("conformance must not execute store methods")
+
+    async def find_mutation(
+        self,
+        session_id: str,
+        request_id: str,
+    ) -> MutationRecord | None:
         raise AssertionError("conformance must not execute store methods")
 
     async def acquire_turn(self, claim: TurnClaim) -> TurnLease:
         raise AssertionError("conformance must not execute store methods")
 
+    async def claim_child_attempt(
+        self,
+        lease: TurnLease,
+        request_id: str,
+        request_fingerprint: str,
+    ) -> None:
+        raise AssertionError("conformance must not execute store methods")
+
+    async def release_child_attempt(self, lease: TurnLease, request_id: str) -> None:
+        raise AssertionError("conformance must not execute store methods")
+
     async def stage_review(
-        self, lease: TurnLease, review: PendingReview
+        self,
+        lease: TurnLease,
+        expected_session_version: int,
+        record: StoredOperationAttempt,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+        parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
     async def claim_execution(
-        self, lease: TurnLease, attempt: OperationAttempt
+        self, lease: TurnLease, record: StoredOperationAttempt
     ) -> ExecutionClaim:
         raise AssertionError("conformance must not execute store methods")
 
+    async def recover_execution_claim(
+        self, lease: TurnLease, attempt_id: str
+    ) -> ExecutionClaim:
+        raise AssertionError("conformance must not execute store methods")
+
+    async def record_execution_started(
+        self, claim: ExecutionClaim, record: StoredOperationAttempt
+    ) -> None:
+        raise AssertionError("conformance must not execute store methods")
+
     async def record_execution_result(
-        self, claim: ExecutionClaim, result: JournaledExecutionResult
+        self,
+        claim: ExecutionClaim,
+        result: JournaledExecutionResult,
+        record: StoredOperationAttempt,
     ) -> None:
         raise AssertionError("conformance must not execute store methods")
 
@@ -131,6 +234,7 @@ class CompleteStoreDouble:
         expected_session_version: int,
         next_state: RouteDeckSession,
         events: Sequence[RouteDeckEvent],
+        mutation: MutationCommit,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
@@ -141,6 +245,7 @@ class CompleteStoreDouble:
         next_state: RouteDeckSession,
         turns: Sequence[FinalizedConversationTurn],
         events: Sequence[RouteDeckEvent],
+        mutation: MutationCommit,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
@@ -151,21 +256,37 @@ class CompleteStoreDouble:
         next_state: RouteDeckSession,
         failure: RouteDeckFailure,
         events: Sequence[RouteDeckEvent],
+        mutation: MutationCommit,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
     async def commit_attempt(
         self,
+        claim: ExecutionClaim,
+        expected_session_version: int,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+        record: StoredOperationAttempt,
+    ) -> SessionSnapshot:
+        raise AssertionError("conformance must not execute store methods")
+
+    async def commit_supervision(
+        self,
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
         events: Sequence[RouteDeckEvent],
-        terminal: AttemptTerminalState,
+        record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
     async def mark_external_outcome_unknown(
-        self, claim: ExecutionClaim, failure: RouteDeckFailure
+        self,
+        claim: ExecutionClaim,
+        expected_session_version: int,
+        record: StoredOperationAttempt,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 
@@ -185,6 +306,8 @@ class CompleteStoreDouble:
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+        mutation: MutationCommit,
     ) -> SessionSnapshot:
         raise AssertionError("conformance must not execute store methods")
 

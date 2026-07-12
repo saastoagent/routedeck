@@ -1,122 +1,185 @@
 # RouteDeck
 
-Start with `docs/agentic-ui-state-runtime.md` for the current architecture direction.
+RouteDeck is a state and interaction framework for agentic applications. A
+product declares its nodes, routes, operations, providers, guards, surfaces,
+and transitions; RouteDeck compiles those declarations into one authoritative
+backend contract and one typed frontend contract.
 
-RouteDeck is a full-stack framework for robust agentic applications, with an
-embeddable state and interaction runtime for existing agents.
+The framework owns session state, durable supervision, review, projection,
+events, private-form transport, deep links, exact history, and React state
+synchronization. The consuming application owns product behavior: prompts,
+models, API clients, domain validation, side effects, copy, and visual
+components.
 
-Full Flow applications import RouteDeck, declare domain state, flows,
-operations, guards, handlers, context, and surfaces, then let RouteDeck compile
-and run the LangGraph-backed backend plus typed event/SSE, projection,
-diagnostics, and React state path. Core Integration applications attach an
-existing agent or custom graph to the same state and interaction kernel through
-an executor adapter.
+The standalone app in [`examples/medusa-agent`](examples/medusa-agent/README.md)
+is the reference consumer. It implements a real local Medusa guest-buyer flow
+without putting commerce code in RouteDeck.
 
-RouteDeck defines how agent-centric platforms expose graph state, valid actions,
-blocked actions, recovery prompts, forms, runtime snapshots, surface state,
-streaming events, and debugger/authoring UI. RouteDeck can provide direct
-adapters for LangGraph, FastAPI, and React, but product behavior stays in the
-consuming application.
+## Packages
 
-Downstream applications import RouteDeck as their agentic app state layer. The
-product owns conversation behavior, domain APIs, surface copy, recovery wording,
-and public chat behavior. RouteDeck owns the generic state management contract
-that lets those product decisions travel from graph/backend execution into
-React.
+- `routedeck_core` - immutable application contracts, compilation, canonical
+  sessions, operation supervision, projection, navigation, and ports.
+- `routedeck_sqlite` - fenced single-host SQLite persistence, migrations,
+  durable events, private blobs, and sensitive-data encryption.
+- `routedeck_fastapi` - generic `/api/routedeck/*` session, dispatch,
+  navigation, review, private-form, inspection, and SSE transport.
+- `routedeck_langgraph` - optional middleware and tool wrapping for an
+  application-owned LangGraph agent.
+- `routedeck_testing` - Python conformance helpers and explicitly test-only
+  scripted models.
+- `@routedeck/core` - generated contracts, HTTP/SSE client, authoritative
+  client store, route codec, browser-history adapter, and private-form state.
+- `@routedeck/react` - provider, hooks, surface host, navigation, review,
+  private-form, status, and inspector primitives.
+- `@routedeck/testing` - frontend harnesses and factories for tests.
 
-It is split into:
+## Boundary
 
-- `routedeck_core`: Python contracts, projections, operations, events, surfaces, runtime state, and validation helpers for backend agentic state.
-- `routedeck_langgraph`: first-class Full Flow execution compiler and custom LangGraph adapter; the current implementation contains the validation and graph-wiring foundation.
-- planned `routedeck_sqlite`: durable single-host session, idempotency, event-log, replay, and transactional outbox backend.
-- planned `routedeck_fastapi`: product-neutral contract/session/dispatch/review/inspect routes and typed SSE channel transport.
-- planned `routedeck_testing`: shared Full Flow/Core Integration conformance harness.
-- `react`: React store, hooks, debugger, and type contracts for frontend agentic state consumers.
-- `architecture`: code-referenced subsystem ownership, component contracts, and maintenance coverage.
-- `docs`: framework-level architecture and packaging notes.
-- `examples/medusa-agent`: product reference integration used to prove RouteDeck can power a real product agent without absorbing product behavior.
-- planned `examples/full-flow-change-planner` and `examples/core-integration-document-review`, both independent of Corpus/Medusa.
-- `skills`: repo-local skills and scaffolding helpers for creating manifests and wiring RouteDeck into graph runtimes.
-- root context files: RouteDeck-local context, handoff, validation index, and lifecycle anchors populated from the sibling `context_architecture_bundle` starter.
+RouteDeck never calls Medusa and never knows about products, carts, shipping,
+payments, or orders. The Medusa app keeps those concerns in:
 
-`docs/medusa-agent-reference-app.md` is the active source-of-truth spec for a
-product-specific Medusa reference app. `examples/medusa-agent` is the active
-runnable example and must stay chat-first while RouteDeck behavior is
-introduced underneath it in disciplined slices.
-`docs/propertydesk-reference-app.md` is retained only as superseded planning
-context.
+- `medusa_agent/features/*` for feature declarations and business handlers;
+- `medusa_agent/medusa/client` for the typed Store API port, HTTP adapter, wire
+  models, delivery evidence, and sanitized failures;
+- `medusa_agent/composition.py` for dependency injection and cross-feature
+  composition;
+- product-owned React components under `frontend/src/features`.
 
-The framework is a sibling local package during development. Downstream
-applications should consume `routedeck-core`, `routedeck-langgraph`, and
-`@routedeck/react` from this folder instead of copying framework source.
+Every UI affordance and agent tool reaches the same
+`RouteDeckOperationRunner`. The browser never calls the Medusa Store API
+directly. External writes are journaled, reviewed where declared, and fail
+loudly when their outcome cannot be proven.
 
-## Developer Modes
+Session creation, navigation, private-form saves, and chat turns also use a
+durable mutation journal. An exact request-ID replay returns the committed
+result without repeating product work; the same ID with different input is a
+contract error. Clients retain outcome-unknown requests for explicit retry or
+abandonment and never silently substitute a new ID.
 
-- **Full Flow:** RouteDeck supplies the LangGraph-native full-stack golden path
-  for ordinary developers and agent-assisted/vibe coding.
-- **Core Integration:** RouteDeck supplies state and interaction management for
-  an existing agent or custom graph without requiring an execution rewrite.
+## Authoring Model
 
-Both modes share operations, guards, review, events, projections, surfaces,
-diagnostics, and React store semantics. See
-`decisions/ADR-002-two-adoption-modes-one-kernel.md`.
+Ordinary feature work is declarative and feature-local:
 
-One application specification drives public nodes, flows/outcomes, operations,
-surface identity/placement, declared event schemas, validation, and the exported
-frontend contract. RouteDeck atomically claims dispatch before execution and
-ships a durable SQLite reference backend; it does not silently claim exactly-once
-side effects across external systems.
+```python
+from routedeck_core.app import FeatureSpec
+from routedeck_core.contracts.application import (
+    NodeSpec,
+    RouteEntrySpec,
+    RouteParameterBinding,
+)
+from routedeck_core.contracts.navigation import (
+    DeepLinkPolicy,
+    NodeKind,
+    RouteSpec,
+)
 
-## LangGraph Runtime
+product_node = NodeSpec(
+    id="catalog.product",
+    title="Product",
+    kind=NodeKind.DETAIL,
+    route=RouteSpec(
+        template="/products/{product_handle}",
+        deep_link_policy=DeepLinkPolicy.SHAREABLE,
+    ),
+    entry=RouteEntrySpec(
+        operation=open_product_by_route.ref,
+        outcome="opened",
+        bindings=(
+            RouteParameterBinding(
+                parameter="product_handle",
+                argument="product_handle",
+            ),
+        ),
+    ),
+    operations=(open_product_by_route,),
+    surfaces=product_surface_slots,
+)
 
-`routedeck_core` keeps framework-neutral contracts dependency-light. LangGraph
-is the first-class Python execution foundation; install the LangGraph extra for
-Full Flow and custom LangGraph integrations:
+catalog = FeatureSpec(namespace="catalog", nodes=(product_node,))
+```
+
+`compile_app(...)` validates identifiers, route overlap, exact route-entry
+bindings, provider and guard scope, operation outcomes, transitions,
+reachability, surface affordances, and recovery declarations. `bind_app(...)`
+then requires an exact set of typed async handlers, providers, and guards.
+Missing, extra, or incorrectly shaped bindings are configuration errors.
+
+`SurfaceSpec` declares component identity, lifecycle, public JSON schema, and
+operation-backed affordances. Stable surfaces retain canonical public state
+across navigation; ephemeral surfaces retain state only while declared by the
+current node. A private-form surface adds a server-only
+`PrivateFormBindingSpec`; that authorization metadata is not exported to the
+browser contract.
+
+See [`docs/route-deck-reference.md`](docs/route-deck-reference.md) for the full
+contract and [`docs/using-routedeck.md`](docs/using-routedeck.md) for adoption
+guidance.
+
+## LangGraph Relationship
+
+RouteDeck does not turn its navgraph into a LangGraph `StateGraph`. The product
+keeps its own `create_agent(...)` or raw `StateGraph` topology.
+`RouteDeckMiddleware` supplies a default-deny snapshot of the current public
+state and legal operations to each model call, while `RouteDeckToolWrapper`
+routes tool calls through the supervised operation runner.
+
+RouteDeck remains the authority for durable conversation turns, session state,
+legal operations, review, and projection. LangGraph remains the product-owned
+model/tool orchestration layer. The legacy `build_route_deck_state_graph(...)`
+symbol deliberately raises a deprecation error instead of creating a second
+state authority.
+
+Install the optional integration with the other local framework packages:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[langgraph]"
+python -m pip install -e ".[fastapi,langgraph,sqlite,testing,dev]"
 ```
 
-The adapter exposes:
+## Local Medusa Quickstart
 
-- `validate_langgraph_contract(...)`
-- `assert_route_transition(...)`
-- `build_route_deck_state_graph(...)`
-
-Use it when LangGraph should execute the flow while RouteDeck remains the
-application state contract exposed to backend services and React.
-
-## Repo-Local Skills
-
-RouteDeck includes repo-local skills for repeatable integration work:
-
-- `skills/routedeck-manifest-authoring`: design or repair a RouteDeck manifest from real runtime stages.
-- `skills/routedeck-manifest-scaffolder`: generate a starter Python manifest module from a JSON flow spec.
-- `skills/routedeck-langgraph-integration`: wire RouteDeck snapshots and action submission around a LangGraph-style backend.
-
-The context architecture starter kit includes its own copyable skills:
-
-- `context_architecture_bundle/skills/create-context-architecture-bundle`: create a complete context architecture bundle from a project idea or spec.
-- `context_architecture_bundle/skills/populate-context-architecture`: populate or repair context architecture for an existing codebase.
-
-To scaffold a starter manifest module:
+Local Windows execution is authoritative. Run these commands from this project
+directory with the local Docker engine selected:
 
 ```powershell
-python skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py skills/routedeck-manifest-scaffolder/examples/basic-flow.json generated_manifest.py --force
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services all
 ```
 
-The generated module exposes `MANIFEST`, `MANIFEST_VALIDATION_ERRORS`, `manifest()`, and `manifest_json()`. Treat it as a starting contract, then add app-level parity tests that every visible node/action maps to executable runtime behavior.
+Open:
 
-## Architecture Coverage
+- frontend: `http://127.0.0.1:5198`
+- agent API: `http://127.0.0.1:8098`
+- Medusa: `http://127.0.0.1:9100`
 
-Use `architecture/code-map.md` before changing RouteDeck source, examples,
-packaging, or repo-local skills. It maps subsystems to source globs,
-architecture anchors, test anchors, and update triggers.
-
-Run the advisory checker before closeout:
+`Provision` creates or validates the protected local fixture and does not
+reseed an already valid stack. `Down` stops only this Compose project and
+retains its protected volumes:
 
 ```powershell
-python scripts/check_doc_coverage.py
+powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
 ```
+
+`Reset` is intentionally destructive and is not a normal startup step. It
+validates the protected project identity and deletion scope before deleting and
+reprovisioning the demo fixture.
+
+The API process can expose liveness and non-model RouteDeck endpoints without
+model credentials, but full application readiness and the Compose-gated buyer
+frontend require an explicit `OPENAI_API_KEY` in
+`examples/medusa-agent/.env.local`. There is no fallback model or canned
+assistant response. A live-model release smoke has not been claimed for this
+checkout unless a release report explicitly records it.
+
+## Validation
+
+Use [`test_index/README.md`](test_index/README.md) for the current commands and
+proof boundaries. Generated contracts live under `artifacts/contracts`; they
+are outputs of the contract exporter, not hand-authored application state.
+
+Architecture ownership is mapped in
+[`architecture/code-map.md`](architecture/code-map.md). The active decision
+chain is [ADR-004](decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
+to the approved
+[design](docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md).

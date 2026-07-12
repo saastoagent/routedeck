@@ -83,29 +83,21 @@ def _project_relative_git_path(path: str, git_root: Path) -> str | None:
         return None
 
 
-def _expand_if_directory(path: str) -> list[str]:
-    full_path = PROJECT_ROOT / path
-    if not full_path.is_dir():
-        return [path]
-    return sorted(
-        child.relative_to(PROJECT_ROOT).as_posix()
-        for child in full_path.rglob("*")
-        if child.is_file()
-    )
-
-
 def changed_files_from_git() -> list[str]:
     git_root = _git_root()
     files: list[str] = []
-    for raw_line in _run_git(["status", "--porcelain"]).splitlines():
-        if not raw_line.strip():
-            continue
-        path_text = raw_line[3:]
-        if " -> " in path_text:
-            path_text = path_text.split(" -> ", 1)[1]
-        path = _project_relative_git_path(path_text, git_root)
-        if path is not None:
-            files.extend(_expand_if_directory(path))
+    commands = (
+        ["diff", "--name-only"],
+        ["diff", "--cached", "--name-only"],
+        ["ls-files", "--others", "--exclude-standard"],
+    )
+    for command in commands:
+        for path_text in _run_git(command).splitlines():
+            if not path_text.strip():
+                continue
+            path = _project_relative_git_path(path_text, git_root)
+            if path is not None:
+                files.append(path)
     return sorted(set(files))
 
 
@@ -175,7 +167,10 @@ def print_report(files_to_check: list[str], changed_files: list[str]) -> None:
         print(f"\nOK: {path}")
         for row in owned_rows:
             print(f"  Subsystem: {row.subsystem}")
-            print("  Architecture anchors: " + (", ".join(row.architecture_anchors) or "(none)"))
+            print(
+                "  Architecture anchors: "
+                + (", ".join(row.architecture_anchors) or "(none)")
+            )
             print("  Test anchors: " + (", ".join(row.test_anchors) or "(none)"))
             touched = touched_anchors(row, changed_files)
             if touched:
@@ -205,7 +200,11 @@ def main() -> int:
     args = parser.parse_args()
 
     changed_files = changed_files_from_git()
-    files_to_check = [normalize_input_path(path) for path in args.files] if args.files else changed_files
+    files_to_check = (
+        [normalize_input_path(path) for path in args.files]
+        if args.files
+        else changed_files
+    )
     print_report(files_to_check, changed_files)
     return 0
 

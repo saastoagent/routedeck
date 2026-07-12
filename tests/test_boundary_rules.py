@@ -78,16 +78,21 @@ def test_import_scan_resolves_project_packages_outside_caller_working_directory(
 
     monkeypatch.chdir(tmp_path)
 
-    assert scan_python_imports(
-        package="routedeck_core",
-        forbidden=CORE_FORBIDDEN_IMPORTS,
-    ) == []
+    assert (
+        scan_python_imports(
+            package="routedeck_core",
+            forbidden=CORE_FORBIDDEN_IMPORTS,
+        )
+        == []
+    )
 
 
 def test_import_scan_fails_loudly_for_missing_package() -> None:
     from scripts.check_boundaries import scan_python_imports
 
-    with pytest.raises(FileNotFoundError, match="Python package directory does not exist"):
+    with pytest.raises(
+        FileNotFoundError, match="Python package directory does not exist"
+    ):
         scan_python_imports(
             package="missing_routedeck_package",
             forbidden=CORE_FORBIDDEN_IMPORTS,

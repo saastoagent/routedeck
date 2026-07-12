@@ -1,3 +1,15 @@
 """Explicitly test-only support package for RouteDeck consumers."""
 
-__all__: list[str] = []
+from .scripted_model import (
+    ScriptedModelCall,
+    ScriptedTextModel,
+    ScriptedToolModel,
+    tool_call,
+)
+
+__all__ = [
+    "ScriptedModelCall",
+    "ScriptedTextModel",
+    "ScriptedToolModel",
+    "tool_call",
+]

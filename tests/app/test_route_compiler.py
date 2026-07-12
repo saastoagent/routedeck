@@ -120,6 +120,39 @@ def test_product_handle_must_be_in_the_caller_supplied_public_binding() -> None:
         compile_medusa_app_spec().routes.decode("/products/unknown", _context())
 
 
+def test_structural_match_exposes_unseen_shareable_route_arguments() -> None:
+    match = compile_medusa_app_spec().routes.match("/products/unseen-handle")
+
+    assert match.node_id == "catalog.product"
+    assert match.params == {"product_handle": "unseen-handle"}
+    assert match.resume_handle is None
+
+
+def test_structural_match_exposes_an_unvalidated_session_resume_handle() -> None:
+    routes = compile_medusa_app_spec().routes
+
+    match = routes.match("/cart?resume_handle=unregistered%2Bhandle")
+
+    assert match.node_id == "cart.summary"
+    assert match.params == {}
+    assert match.resume_handle == "unregistered+handle"
+    with pytest.raises(RouteDeckValidationError):
+        routes.decode("/cart?resume_handle=unregistered%2Bhandle", None)
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        "/products/unseen?unexpected=value",
+        "/cart",
+        "/cart?resume_handle=one&resume_handle=two",
+    ),
+)
+def test_structural_match_rejects_malformed_route_queries(path: str) -> None:
+    with pytest.raises(RouteDeckValidationError):
+        compile_medusa_app_spec().routes.match(path)
+
+
 def test_route_matching_normalizes_repeated_and_trailing_slashes() -> None:
     decoded = compile_medusa_app_spec().routes.decode("/products//t-shirt/", _context())
 

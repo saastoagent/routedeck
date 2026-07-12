@@ -3,9 +3,69 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
-from .models import RouteDeckSurface
+from .models import RouteDeckSurface, RouteDeckSurfaceKind, RouteDeckSurfaceRole
+
+
+RouteDeckSurfaceLifecycle = Literal["ephemeral", "stable"]
+
+
+def _required_string_attribute(spec: object, name: str) -> str:
+    value = getattr(spec, name, None)
+    if not isinstance(value, str) or not value:
+        raise TypeError(f"surface spec {name} must be a non-empty string")
+    return value
+
+
+def _optional_string_attribute(
+    spec: object,
+    name: str,
+    *,
+    default: str | None = None,
+) -> str | None:
+    value = getattr(spec, name, default)
+    if value is None or isinstance(value, str):
+        return value
+    raise TypeError(f"surface spec {name} must be a string or None")
+
+
+def _surface_props(value: object) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise TypeError("surface props must be a mapping")
+    if any(not isinstance(key, str) for key in value):
+        raise TypeError("surface prop keys must be strings")
+    return {str(key): item for key, item in value.items()}
+
+
+def _surface_role(value: object) -> RouteDeckSurfaceRole:
+    if value == "frame":
+        return "frame"
+    if value == "active":
+        return "active"
+    if value == "diagnostic":
+        return "diagnostic"
+    raise ValueError("surface role must be frame, active, or diagnostic")
+
+
+def _surface_kind(value: object) -> RouteDeckSurfaceKind:
+    if value == "peer":
+        return "peer"
+    if value == "detail":
+        return "detail"
+    if value == "embedded":
+        return "embedded"
+    raise ValueError("surface kind must be peer, detail, or embedded")
+
+
+def _surface_lifecycle(value: object) -> RouteDeckSurfaceLifecycle:
+    if value == "ephemeral":
+        return "ephemeral"
+    if value == "stable":
+        return "stable"
+    raise ValueError("surface lifecycle must be ephemeral or stable")
 
 
 class RouteDeckSurfaceRegistry:
@@ -25,7 +85,9 @@ class RouteDeckSurfaceRegistry:
         self._default_surface_ids_by_node = dict(default_surface_ids_by_node or {})
         self._surface_hosted_operations_by_node = {
             node_id: set(operation_ids)
-            for node_id, operation_ids in (surface_hosted_operations_by_node or {}).items()
+            for node_id, operation_ids in (
+                surface_hosted_operations_by_node or {}
+            ).items()
         }
         self._operation_review_surface_prefix = operation_review_surface_prefix
 
@@ -36,15 +98,23 @@ class RouteDeckSurfaceRegistry:
         return f"{self._operation_review_surface_prefix}{operation_id}"
 
     def operation_id_from_surface_id(self, surface_id: str | None) -> str | None:
-        if not surface_id or not surface_id.startswith(self._operation_review_surface_prefix):
+        if not surface_id or not surface_id.startswith(
+            self._operation_review_surface_prefix
+        ):
             return None
-        operation_id = surface_id.removeprefix(self._operation_review_surface_prefix).strip()
+        operation_id = surface_id.removeprefix(
+            self._operation_review_surface_prefix
+        ).strip()
         return operation_id or None
 
-    def is_surface_hosted_operation(self, *, node_id: str | None, operation_id: str) -> bool:
+    def is_surface_hosted_operation(
+        self, *, node_id: str | None, operation_id: str
+    ) -> bool:
         if not node_id:
             return False
-        return operation_id in self._surface_hosted_operations_by_node.get(node_id, set())
+        return operation_id in self._surface_hosted_operations_by_node.get(
+            node_id, set()
+        )
 
     def default_surface_id_for(
         self,
@@ -66,14 +136,14 @@ class RouteDeckSurfaceRegistry:
         name: str,
         component: str,
         variant: str = "default",
-        role: str = "frame",
+        role: RouteDeckSurfaceRole = "frame",
         surface_id: str | None = None,
         slot: str | None = None,
-        surface_kind: str = "embedded",
+        surface_kind: RouteDeckSurfaceKind = "embedded",
         label: str | None = None,
         default: bool = False,
         props: Mapping[str, Any] | None = None,
-        lifecycle: str = "ephemeral",
+        lifecycle: RouteDeckSurfaceLifecycle = "ephemeral",
     ) -> RouteDeckSurface:
         return self.Surface(
             name=name,
@@ -91,7 +161,7 @@ class RouteDeckSurfaceRegistry:
 
     def build_surface_from_spec(
         self,
-        spec: Any,
+        spec: object,
         *,
         variant: str | None = None,
         label: str | None = None,
@@ -101,35 +171,42 @@ class RouteDeckSurfaceRegistry:
 
         resolved_props = props
         if resolved_props is None:
-            spec_props = getattr(spec, "props", None)
-            resolved_props = dict(spec_props or {})
+            resolved_props = _surface_props(getattr(spec, "props", None))
+        resolved_variant = variant or _optional_string_attribute(
+            spec, "variant", default="default"
+        )
+        if resolved_variant is None:
+            raise TypeError("surface spec variant must be a string")
+        resolved_label = label or _optional_string_attribute(spec, "label")
         return self.build_surface(
-            name=getattr(spec, "name"),
-            surface_id=getattr(spec, "surface_id", None),
-            component=getattr(spec, "component"),
-            variant=variant or getattr(spec, "variant", "default"),
-            role=getattr(spec, "role", "frame"),
-            slot=getattr(spec, "slot", None),
-            surface_kind=getattr(spec, "surface_kind", "embedded"),
-            label=label or getattr(spec, "label", None),
+            name=_required_string_attribute(spec, "name"),
+            surface_id=_optional_string_attribute(spec, "surface_id"),
+            component=_required_string_attribute(spec, "component"),
+            variant=resolved_variant,
+            role=_surface_role(getattr(spec, "role", "frame")),
+            slot=_optional_string_attribute(spec, "slot"),
+            surface_kind=_surface_kind(getattr(spec, "surface_kind", "embedded")),
+            label=resolved_label,
             props=resolved_props,
-            lifecycle=getattr(spec, "lifecycle", "ephemeral"),
+            lifecycle=_surface_lifecycle(getattr(spec, "lifecycle", "ephemeral")),
         )
 
-    def surface_props_for_spec(self, spec: Any, **context: Any) -> Mapping[str, Any]:
+    def surface_props_for_spec(self, spec: object, **context: Any) -> Mapping[str, Any]:
         resolve_props = getattr(spec, "resolve_props", None)
         if callable(resolve_props):
-            return dict(resolve_props(**context))
-        spec_props = getattr(spec, "props", None)
-        return dict(spec_props or {})
+            return _surface_props(resolve_props(**context))
+        return _surface_props(getattr(spec, "props", None))
 
-    def surface_label_for_spec(self, spec: Any, **context: Any) -> str | None:
-        return getattr(spec, "label", None)
+    def surface_label_for_spec(self, spec: object, **context: Any) -> str | None:
+        return _optional_string_attribute(spec, "label")
 
-    def surface_variant_for_spec(self, spec: Any, **context: Any) -> str:
-        return getattr(spec, "variant", "default")
+    def surface_variant_for_spec(self, spec: object, **context: Any) -> str:
+        variant = _optional_string_attribute(spec, "variant", default="default")
+        if variant is None:
+            raise TypeError("surface spec variant must be a string")
+        return variant
 
-    def surface_from_spec(self, spec: Any, **context: Any) -> RouteDeckSurface:
+    def surface_from_spec(self, spec: object, **context: Any) -> RouteDeckSurface:
         return self.build_surface_from_spec(
             spec,
             variant=self.surface_variant_for_spec(spec, **context),
@@ -137,7 +214,9 @@ class RouteDeckSurfaceRegistry:
             props=self.surface_props_for_spec(spec, **context),
         )
 
-    def surfaces_from_specs(self, specs: Iterable[Any], **context: Any) -> list[RouteDeckSurface]:
+    def surfaces_from_specs(
+        self, specs: Iterable[object], **context: Any
+    ) -> list[RouteDeckSurface]:
         return [self.surface_from_spec(spec, **context) for spec in specs]
 
     def operation_review_surface(
@@ -151,7 +230,7 @@ class RouteDeckSurfaceRegistry:
         label: str = "Review next step",
         title: str = "Review next step",
         variant: str = "operation_review",
-        surface_kind: str = "peer",
+        surface_kind: RouteDeckSurfaceKind = "peer",
     ) -> RouteDeckSurface:
         surface_props: dict[str, Any] = {
             "title": title,
@@ -187,7 +266,11 @@ class RouteDeckSurfaceRegistry:
             return default
         node = node_by_id.get(node_id or "")
         allowed_surfaces = getattr(node, "allowed_surfaces", None)
-        allowed = allowed_surfaces.get(surface_name) if isinstance(allowed_surfaces, Mapping) else None
+        allowed = (
+            allowed_surfaces.get(surface_name)
+            if isinstance(allowed_surfaces, Mapping)
+            else None
+        )
         return requested if not allowed or requested in allowed else default
 
     def store_surface_intent_for_node(
@@ -208,7 +291,11 @@ class RouteDeckSurfaceRegistry:
             if not isinstance(surface_name, str) or not isinstance(variant, str):
                 continue
             allowed_surfaces = getattr(node, "allowed_surfaces", None)
-            allowed = allowed_surfaces.get(surface_name) if isinstance(allowed_surfaces, Mapping) else None
+            allowed = (
+                allowed_surfaces.get(surface_name)
+                if isinstance(allowed_surfaces, Mapping)
+                else None
+            )
             if allowed and variant not in allowed:
                 continue
             accepted[surface_name] = variant

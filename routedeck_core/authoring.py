@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from .models import (
     RouteDeckActionCategory,
@@ -30,7 +30,9 @@ def _copy_mapping(value: Mapping[str, Any] | None) -> dict[str, Any]:
 def _copy_surface_map(
     value: Mapping[str, Sequence[str]] | None,
 ) -> dict[str, list[str]]:
-    return {surface_id: list(variants) for surface_id, variants in (value or {}).items()}
+    return {
+        surface_id: list(variants) for surface_id, variants in (value or {}).items()
+    }
 
 
 def route_deck_field(**kwargs: Any) -> RouteDeckFieldSpec:
@@ -97,7 +99,7 @@ def route_deck_action(
     placement: RouteDeckActionPlacement | None = None,
     capability_id: str | None = None,
     payload: Mapping[str, Any] | None = None,
-    visibility: str = "contextual",
+    visibility: Literal["contextual", "persistent", "dynamic"] = "contextual",
     recovery_prompt: str | None = None,
     sensitive: bool = False,
 ) -> RouteDeckActionSpec:
@@ -134,14 +136,16 @@ def route_deck_edge(
 ) -> RouteDeckEdgeSpec:
     """Create an edge spec with RouteDeck's action/runtime defaulting."""
 
-    return RouteDeckEdgeSpec(
-        from_stage=from_node,
-        to_stage=to_node,
-        action_id=action_id,
-        edge_type=edge_type or ("action" if action_id else "runtime"),
-        condition=condition,
-        explanation=explanation,
-        capability_id=capability_id,
+    return RouteDeckEdgeSpec.model_validate(
+        {
+            "from": from_node,
+            "to": to_node,
+            "type": edge_type or ("action" if action_id else "runtime"),
+            "action_id": action_id,
+            "condition": condition,
+            "explanation": explanation,
+            "capability_id": capability_id,
+        }
     )
 
 

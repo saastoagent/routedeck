@@ -1,0 +1,15 @@
+{
+  "name": "@routedeck/medusa-agent-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:scripted": "playwright test --config playwright.config.ts --grep @scripted",
+    "test:persistence": "playwright test --config playwright.config.ts --project=desktop-chromium --grep @persistence-restart",
+    "test:live-model": "playwright test --config playwright.config.ts --project=desktop-chromium --grep @live-model",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

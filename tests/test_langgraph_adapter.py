@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import sys
-import asyncio
 import subprocess
 from typing import Any, TypedDict
 
-from routedeck_core import RouteDeckActionSpec, RouteDeckEdgeSpec, RouteDeckManifest, RouteDeckNodeSpec
+from routedeck_core import (
+    RouteDeckActionSpec,
+    RouteDeckEdgeSpec,
+    RouteDeckManifest,
+    RouteDeckNodeSpec,
+)
 from routedeck_langgraph import (
+    RouteDeckTopologyBuilderDeprecatedError,
     assert_route_transition,
     build_route_deck_state_graph,
     validate_langgraph_contract,
@@ -124,26 +129,16 @@ def test_adapter_transition_diagnostics_and_invalid_transition():
         raise AssertionError("Expected invalid transition to fail.")
 
 
-def test_adapter_builds_grouped_state_graph():
-    manifest = _manifest()
-
-    async def intent_node(_state: AdapterState) -> dict[str, Any]:
-        return {"node": "done", "visited": True}
-
-    async def done_node(_state: AdapterState) -> dict[str, Any]:
-        return {"visited": True}
-
-    graph = build_route_deck_state_graph(
-        manifest=manifest,
-        state_schema=AdapterState,
-        handlers={"intent": intent_node, "done": done_node},
-        condition_resolvers={"confirmed": _resolver},
-        groups={"public": {"intent"}, "terminal": {"done"}},
-    ).compile()
-
-    result = asyncio.run(graph.ainvoke({"node": "intent"}))
-
-    assert result["node"] == "done"
-    assert result["visited"] is True
-    assert result["active_stage_id"] == "intent"
-    assert result["route_group"] == "public"
+def test_topology_builder_is_an_explicit_deprecation_facade():
+    try:
+        build_route_deck_state_graph(
+            manifest=_manifest(),
+            state_schema=AdapterState,
+            handlers={},
+            condition_resolvers={},
+        )
+    except RouteDeckTopologyBuilderDeprecatedError as exc:
+        assert "RouteDeckMiddleware" in str(exc)
+        assert "awrap_tool_call" in str(exc)
+    else:
+        raise AssertionError("Expected retired topology builder to fail loudly")

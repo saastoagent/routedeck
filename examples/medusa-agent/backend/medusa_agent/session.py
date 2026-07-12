@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pydantic import BaseModel, ConfigDict, Field
 
+from routedeck_core.app import CompiledRouteDeckApp
 from routedeck_core.contracts.projection import FrozenJson, PublicProjection
 from routedeck_core.contracts.session import (
     PrivateConfiguration,
@@ -10,9 +13,11 @@ from routedeck_core.contracts.session import (
     RouteDeckSession,
 )
 from routedeck_core.projection.projector import ProjectionProjector
+from routedeck_core.ports import Clock
 from routedeck_core.state.session import create_session
 
 from .composition import compile_medusa_app_spec
+from .features.catalog import CatalogRouteKeyValidator
 
 
 class BuyerMarket(BaseModel):
@@ -24,6 +29,21 @@ class BuyerMarket(BaseModel):
     country_code: str = Field(min_length=2, max_length=2)
     currency_code: str = Field(min_length=3, max_length=3)
     sales_channel_handle: str = Field(min_length=1)
+
+
+@dataclass(frozen=True)
+class MedusaSessionProjector:
+    """Project live sessions with product route keys and an injected clock."""
+
+    app: CompiledRouteDeckApp
+    clock: Clock
+
+    def project(self, session: RouteDeckSession) -> PublicProjection:
+        return ProjectionProjector(
+            self.app,
+            public_key_validator=CatalogRouteKeyValidator.from_session(session),
+            now=self.clock.now(),
+        ).project(session)
 
 
 def create_medusa_session(
@@ -63,9 +83,17 @@ def create_medusa_session(
 
 
 def project_medusa_session(session: RouteDeckSession) -> PublicProjection:
-    """Project through the generic framework projector, without product state."""
+    """Project with exact product handles observed by the catalog vertical."""
 
-    return ProjectionProjector(compile_medusa_app_spec()).project(session)
+    return ProjectionProjector(
+        compile_medusa_app_spec(),
+        public_key_validator=CatalogRouteKeyValidator.from_session(session),
+    ).project(session)
 
 
-__all__ = ["BuyerMarket", "create_medusa_session", "project_medusa_session"]
+__all__ = [
+    "BuyerMarket",
+    "MedusaSessionProjector",
+    "create_medusa_session",
+    "project_medusa_session",
+]

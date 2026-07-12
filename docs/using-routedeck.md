@@ -231,79 +231,120 @@ Agent rules:
 
 ### Full Flow
 
-Use Full Flow when RouteDeck should assemble the application runtime:
+Use Full Flow when RouteDeck should own the public interaction graph and
+supervision kernel. Features declare nodes and local transitions; the
+application composes cross-feature transitions once:
 
 ```python
-app = (
-    RouteDeckApp("support-agent")
-    .state(SupportState)
-    .nodes(SUPPORT_NODES)
-    .flows(SUPPORT_FLOWS)
-    .operations(SUPPORT_OPERATIONS)
-    .surfaces(SUPPORT_SURFACES)
-    .context(SupportContextProvider())
-    .guards(SupportGuardPolicy())
-    .handlers(SupportHandlers())
-    .backend(RouteDeckSqliteBackend("support-agent.db"))
+from routedeck_core.app import (
+    ApplicationSpec,
+    FeatureBindings,
+    bind_app,
+    compile_app,
 )
 
-compiled = app.compile()
-runtime = compiled.runtime
-router = compiled.create_router(prefix="/api/support")
+spec = ApplicationSpec(
+    name="support-agent",
+    entry_node=SUPPORT_HOME.ref,
+    features=(SUPPORT_FEATURE, ACCOUNT_FEATURE),
+    transitions=SUPPORT_CROSS_FEATURE_TRANSITIONS,
+)
+
+compiled = compile_app(spec)
+app = bind_app(
+    compiled,
+    FeatureBindings(
+        handlers=SUPPORT_HANDLERS,
+        providers=SUPPORT_PROVIDERS,
+        guards=SUPPORT_GUARDS,
+    ),
+)
 ```
 
-This is the target API; current implementation work is tracked by the full
-framework refactor plan.
+`compile_app` validates the complete declaration. `bind_app` then requires the
+exact async handler, provider, and guard references: missing and extra bindings
+are startup errors. The composition root injects the session store, executor,
+clock, notifier, and ID factory into `RouteDeckOperationRunner`, then mounts the
+generic FastAPI router. See the Medusa app's `composition.py` and `runtime.py`
+for the working end-to-end composition.
 
 ### Core Integration
 
-Use Core Integration when execution already exists:
+Use Core Integration when execution already exists. Keep the product graph,
+model, and tool topology; inject an `OperationExecutor` implementation into the
+same `RouteDeckOperationRunner`:
 
 ```python
-runtime = RouteDeckInteractionRuntime.attach(
-    spec=SUPPORT_INTERACTION_SPEC,
-    executor=ExistingAgentAdapter(existing_agent),
-    backend=RouteDeckSqliteBackend("support-agent.db"),
+runner = RouteDeckOperationRunner(
+    app=bound_app,
+    store=session_store,
+    executor=existing_operation_executor,
+    clock=clock,
+    notifier=notifier,
+    id_factory=id_factory,
+    review_ttl=review_ttl,
+    resume_capability_ttl=resume_ttl,
+    default_session_id=default_session_id,
 )
 ```
 
-The adapter supplies snapshot, dispatch, and streaming execution behavior. It
-does not redefine RouteDeck operations, guards, events, surfaces, projections,
-or store semantics.
+The executor receives only an already validated `OperationBinding`, typed
+arguments, and `ExecutionContext`. It does not redefine RouteDeck operations,
+guards, events, surfaces, projections, or store semantics. A LangGraph product
+normally keeps its own `create_agent(...)` graph and uses
+`RouteDeckMiddleware` plus `RouteDeckToolWrapper` to enter this runner.
 
 ### Runtime Contract
 
-Both modes expose the same backend runtime shape:
+Both modes use the same backend ports and supervised request shape:
 
 ```python
-class RouteDeckInteractionRuntime:
-    async def create_session(self, request) -> RouteDeckRuntimeState: ...
-    async def snapshot(self, session_id) -> RouteDeckRuntimeState: ...
-    async def dispatch(self, request: RouteDeckDispatchInput) -> RouteDeckDispatchResult: ...
-    async def inspect(self, session_id, query) -> RouteDeckIntrospection: ...
-    async def subscribe(self, session_id, channels, after_event_id=None) -> AsyncIterator[RouteDeckEvent]: ...
+result = await runner.run(
+    OperationRequest(
+        session_id=session_id,
+        request_id=request_id,
+        expected_session_version=session_version,
+        operation_id="support.open_ticket",
+        source=OperationSource.SURFACE,
+        arguments={"ticket_handle": ticket_handle},
+    )
+)
 ```
 
-RouteDeck can be exposed as a distinct generic API plane, or mounted under a
-product-selected prefix. Its target API is:
+The reference FastAPI adapter exposes a distinct generic API plane:
 
 ```text
-GET  /api/<product>/contract
-POST /api/<product>/sessions
-GET  /api/<product>/sessions/{session_id}/snapshot
-POST /api/<product>/sessions/{session_id}/turns
-POST /api/<product>/sessions/{session_id}/dispatch
-POST /api/<product>/sessions/{session_id}/inspect
-POST /api/<product>/sessions/{session_id}/reviews/{review_id}/approve
-POST /api/<product>/sessions/{session_id}/reviews/{review_id}/reject
-GET  /api/<product>/sessions/{session_id}/events/{channel}
-GET  /api/<product>/sessions/{session_id}/events?channels=assistant,runtime,surface
+GET  /api/routedeck/contract
+POST /api/routedeck/sessions
+GET  /api/routedeck/session
+POST /api/routedeck/navigation
+POST /api/routedeck/dispatch
+POST /api/routedeck/reviews/{review_id}/accept
+POST /api/routedeck/reviews/{review_id}/reject
+GET  /api/routedeck/events
+GET  /api/routedeck/private-forms/{form_id}
+PUT  /api/routedeck/private-forms/{form_id}
+GET  /api/routedeck/inspect
 ```
 
-The prefix and auth dependencies remain product-owned. RouteDeck owns route
-mechanics and schemas; product-specific checkout, tenancy, billing, or provider
-semantics remain in product handlers. Older product-specific state/action/stream
-routes are compatibility shapes during migration, not the Full Flow default.
+Product auth dependencies remain injected. RouteDeck owns route mechanics and
+schemas; product-specific checkout, tenancy, billing, or provider semantics
+remain in product handlers. Product-owned endpoints such as agent chat live on
+a separate product API plane.
+
+`POST /api/routedeck/sessions` takes `{"request_id":"..."}`. Dispatch,
+navigation, reviews, private-form saves, and product chat likewise carry a
+caller-owned globally unique request ID; versioned mutations also carry the
+current expected session version. If delivery becomes outcome-unknown, retain
+the exact ID and payload and require an explicit retry or abandon decision.
+Never auto-retry a state-changing request with a new identity.
+
+A session-create request ID is sensitive, ephemeral recovery material: exact
+replay can recover the original guest session and browser cookie. Keep it only
+inside private recovery storage. Never expose it, or a reversible fingerprint
+that contains it, through public store state, rendered UI, logs, or telemetry;
+public recovery surfaces should report generic status or a non-replayable
+fingerprint.
 
 React integration:
 

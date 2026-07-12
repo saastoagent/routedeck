@@ -1,0 +1,22 @@
+{
+  "name": "routedeck-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "contracts:generate": "python scripts/export_contracts.py --schema-output packages/core/schema/routedeck.schema.json && json2ts -i packages/core/schema/routedeck.schema.json -o packages/core/src/contracts/generated.ts",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm --filter @routedeck/core build && pnpm --filter @routedeck/react build && pnpm --filter @routedeck/testing build && pnpm -r typecheck",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "json-schema-to-typescript": "15.0.4",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

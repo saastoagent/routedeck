@@ -4,6 +4,7 @@ from .leases import ExecutionClaim, TurnClaim, TurnLease, TurnOwnerKind
 from .reducer import (
     NodeEntered,
     PrivateDraftStored,
+    PrivateSessionStateStored,
     PublicEventsRecorded,
     PublicSessionStateStored,
     reduce_session,
@@ -15,6 +16,7 @@ __all__ = [
     "ExecutionClaim",
     "NodeEntered",
     "PrivateDraftStored",
+    "PrivateSessionStateStored",
     "PublicEventsRecorded",
     "PublicSessionStateStored",
     "TurnClaim",

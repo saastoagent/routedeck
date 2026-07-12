@@ -1,62 +1,109 @@
+---
+name: routedeck-langgraph-integration
+description: Use when adding RouteDeck durable interaction state and supervised operations to a product-owned create_agent or raw StateGraph application.
+---
+
 # RouteDeck LangGraph Integration
 
-Use this skill when plugging RouteDeck into a LangGraph-style backend.
+Keep the product's LangGraph topology. RouteDeck integrates at model and tool
+boundaries; it does not generate, mirror, or mutate graph nodes and edges.
 
-## Goal
+## `create_agent(...)`
 
-Wire RouteDeck around the graph so the backend declares current state, valid controls, recovery paths, and diagnostics on every turn.
+Use runner-owned schema tools and the middleware together:
 
-## Flow Of Control
+```python
+from langchain.agents import create_agent
+from routedeck_langgraph import (
+    RouteDeckInvocationContext,
+    RouteDeckMiddleware,
+    RouteDeckToolWrapper,
+)
 
-1. Receive a turn from the client.
-   Inputs usually include `user_input`, `selected_action_id`, `action_payload`, and session ID.
+wrapper = RouteDeckToolWrapper(runtime)
+agent = create_agent(
+    model=model,
+    tools=wrapper.tools,
+    middleware=(RouteDeckMiddleware(runtime),),
+    context_schema=RouteDeckInvocationContext,
+)
 
-2. Resolve persisted runtime state.
-   The backend should decide the current executable graph node. Do not trust the client to choose arbitrary nodes.
+result = await agent.ainvoke(
+    {"messages": messages},
+    context={
+        "session_id": session_id,
+        "request_id_prefix": request_id,
+    },
+)
+```
 
-3. Run the graph or dispatcher.
-   Product handlers execute business behavior and produce the next runtime state.
+`runtime` must expose one `RouteDeckOperationRunner` as `.runner`, or be that
+runner. `RouteDeckMiddleware` loads the durable session, reconstructs finalized
+conversation turns, supplies the default-deny public model context, and limits
+the model to operations legal in that session.
 
-4. Build valid actions for the resulting state.
-   These should come from the product adapter and use IDs that exist in the RouteDeck manifest.
+## Raw `StateGraph` / `ToolNode`
 
-5. Build a RouteDeck runtime snapshot.
-   Use `build_runtime_snapshot(manifest, current_node=..., valid_actions=..., blocked_actions=..., executed_nodes=..., diagnostics=...)`.
+The bound wrapper is the simplest raw-graph shape:
 
-6. Return both the graph response and RouteDeck data.
-   The frontend needs the manifest and snapshot to render navigation and debugging.
+```python
+from langgraph.graph import MessagesState, StateGraph
+from routedeck_langgraph import RouteDeckInvocationContext, RouteDeckToolWrapper
 
-7. On action click, submit `selected_action_id` back to the backend.
-   The backend validates and executes it through the real runtime.
+wrapper = RouteDeckToolWrapper(runtime)
+graph = StateGraph(MessagesState, context_schema=RouteDeckInvocationContext)
+graph.add_node("tools", wrapper.tool_node())
+# Add the product-owned model node, routing, entry point, and edges here.
+compiled_graph = graph.compile(checkpointer=product_checkpointer)
+```
 
-## LangGraph Adapter Pattern
+When graph construction cannot close over the runtime, use the exported raw
+callback and pass the runtime in invocation context:
 
-Prefer the optional `routedeck_langgraph` package when it is available:
+```python
+from langgraph.prebuilt import ToolNode
+from routedeck_langgraph import awrap_tool_call
 
-- `validate_langgraph_contract(...)` for manifest, handler, resolver, and group parity.
-- `assert_route_transition(...)` for checking handler output against RouteDeck edges.
-- `build_route_deck_state_graph(...)` for common grouped graph wiring.
+graph.add_node(
+    "tools",
+    ToolNode(wrapper.tools, awrap_tool_call=awrap_tool_call),
+)
 
-Keep these pieces separate:
+context = {
+    "session_id": session_id,
+    "request_id_prefix": request_id,
+    "routedeck_runtime": runtime,
+}
+```
 
-- `manifest/catalog`: RouteDeck node, edge, action definitions.
-- `runtime handlers`: LangGraph nodes or dispatch handlers.
-- `action resolver`: maps selected action IDs to product behavior.
-- `snapshot builder`: packages current state and valid actions for the UI.
-- `contract tests`: validate manifest and runtime parity.
+The product still owns all conditional edges and orchestration state. A
+LangGraph checkpointer may persist that private orchestration data, but it is
+not the authority for RouteDeck session, navigation, review, conversation, or
+projection state.
 
-## Guardrails
+## Invocation And Execution Rules
 
-- Do not let the React graph mutate runtime state.
-- Do not put product-specific logic in `routedeck_core` or `@routedeck/react`.
-- Resolve navigation actions before field validation so cancel/back/switch actions never get blocked by stale input validation.
-- Empty resume/bootstrap turns should re-prompt or show controls; they should not validate missing user input as an error.
-- Mask passwords, tokens, API keys, and credentials in request logs and snapshots.
+- `session_id` and `request_id_prefix` are required non-empty strings.
+- `expected_session_version`, `turn`, and `review_turns` are optional typed
+  context values used for concurrency and parent-turn lifecycle.
+- Use only `RouteDeckToolWrapper.tools` in the supervised `ToolNode`.
+- Every UI, HTTP, and agent operation delegates to the same
+  `RouteDeckOperationRunner`.
+- Do not call product tool handlers directly from LangGraph. The continuation
+  passed to the wrapper is not a fallback executor and is deliberately not
+  invoked after the RouteDeck runner executes.
+- Fail on missing context or an unowned tool; never substitute a second state
+  source or execution path.
 
-## Verification
+## Retired APIs
 
-- `validate_manifest(...)` returns no errors.
-- Every manifest node has a runtime handler or is explicitly terminal/display-only.
-- Every visible action is executable or intentionally disabled with a reason.
-- Browser map shows current/reachable/executed state from the backend snapshot.
-- Clicking valid action controls sends action IDs to the backend and does not jump nodes locally.
+`build_route_deck_state_graph(...)` is a migration trap that deliberately
+raises `RouteDeckTopologyBuilderDeprecatedError`. It is not an integration API.
+The old handler/node parity helpers are compatibility-only and absent from the
+canonical package exports. Do not mirror RouteDeck nodes into LangGraph nodes.
+
+## Focused Verification
+
+```powershell
+python -m pytest tests/test_public_api.py tests/test_langgraph_adapter.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q
+```

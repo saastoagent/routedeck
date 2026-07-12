@@ -7,7 +7,9 @@ from pydantic import AliasChoices, BaseModel, Field
 RouteDeckLane = str
 RouteDeckActionKind = Literal["button", "chip", "form", "nav", "summary"]
 RouteDeckActionEmphasis = Literal["primary", "secondary"]
-RouteDeckActionCategory = Literal["auth", "setup", "navigation", "execution", "feedback", "learning", "deployment"]
+RouteDeckActionCategory = Literal[
+    "auth", "setup", "navigation", "execution", "feedback", "learning", "deployment"
+]
 RouteDeckActionPlacement = Literal["next_best", "rail", "inline", "evidence"]
 RouteDeckFieldType = Literal["text", "password", "select", "url", "textarea"]
 RouteDeckSafetyClass = Literal[
@@ -21,12 +23,16 @@ RouteDeckSafetyClass = Literal[
     "admin",
 ]
 RouteDeckExecutionMode = Literal["auto", "review", "blocked"]
-RouteDeckInvocationKind = Literal["direct", "form", "entity_selector", "surface", "hidden"]
+RouteDeckInvocationKind = Literal[
+    "direct", "form", "entity_selector", "surface", "hidden"
+]
 RouteDeckSurfaceRole = Literal["frame", "active", "diagnostic"]
 RouteDeckSurfaceKind = Literal["peer", "detail", "embedded"]
 RouteDeckNodeKind = Literal["workflow", "section", "detail", "transient"]
 RouteDeckDirtyPolicy = Literal["none", "confirm", "block"]
-RouteDeckRuntimeStatus = Literal["idle", "refreshing", "streaming", "dispatching", "recovering", "failed"]
+RouteDeckRuntimeStatus = Literal[
+    "idle", "refreshing", "streaming", "dispatching", "recovering", "failed"
+]
 RouteDeckEventType = Literal[
     "projection_update",
     "operation_started",
@@ -298,8 +304,12 @@ class RouteDeckGraphState(BaseModel):
     node: str = "home"
     active_surface_id: str | None = None
     route_params: dict[str, Any] = Field(default_factory=dict)
-    navigation_back_stack: list[RouteDeckGraphNavigationLocation] = Field(default_factory=list)
-    navigation_forward_stack: list[RouteDeckGraphNavigationLocation] = Field(default_factory=list)
+    navigation_back_stack: list[RouteDeckGraphNavigationLocation] = Field(
+        default_factory=list
+    )
+    navigation_forward_stack: list[RouteDeckGraphNavigationLocation] = Field(
+        default_factory=list
+    )
     pending_operation_id: str | None = None
     pending_operation_args: dict[str, Any] = Field(default_factory=dict)
     dirty_surfaces: dict[str, bool] = Field(default_factory=dict)
@@ -407,8 +417,14 @@ class RouteDeckNavGraphNode(BaseModel):
 
 
 class RouteDeckNavGraphEdge(BaseModel):
-    source: str = Field(validation_alias=AliasChoices("from", "source", "from_stage"), serialization_alias="from")
-    target: str = Field(validation_alias=AliasChoices("to", "target", "to_stage"), serialization_alias="to")
+    source: str = Field(
+        validation_alias=AliasChoices("from", "source", "from_stage"),
+        serialization_alias="from",
+    )
+    target: str = Field(
+        validation_alias=AliasChoices("to", "target", "to_stage"),
+        serialization_alias="to",
+    )
     action_id: str | None = None
     capability_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

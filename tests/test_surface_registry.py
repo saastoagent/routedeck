@@ -39,11 +39,25 @@ def test_surface_registry_maps_components_defaults_and_review_ids() -> None:
     assert registry.active_surface_component_for_node("browse") == "BrowseSurface"
     assert registry.default_surface_id_for("browse") == "browse.active"
     assert registry.default_surface_id_for("learning") == "learning.policy_gaps"
-    assert registry.default_surface_id_for("browse", pending_operation_id="product.open") == "operation_review.product.open"
-    assert registry.operation_id_from_surface_id("operation_review.product.open") == "product.open"
+    assert (
+        registry.default_surface_id_for("browse", pending_operation_id="product.open")
+        == "operation_review.product.open"
+    )
+    assert (
+        registry.operation_id_from_surface_id("operation_review.product.open")
+        == "product.open"
+    )
     assert registry.operation_id_from_surface_id("browse.active") is None
-    assert registry.is_surface_hosted_operation(node_id="browse", operation_id="product.open") is True
-    assert registry.is_surface_hosted_operation(node_id="browse", operation_id="cart.add") is False
+    assert (
+        registry.is_surface_hosted_operation(
+            node_id="browse", operation_id="product.open"
+        )
+        is True
+    )
+    assert (
+        registry.is_surface_hosted_operation(node_id="browse", operation_id="cart.add")
+        is False
+    )
 
 
 def test_surface_registry_builds_operation_review_surface() -> None:
@@ -96,7 +110,10 @@ def test_surface_registry_builds_surface_lists_from_product_specs() -> None:
         count=3,
     )
 
-    assert [surface.surface_id for surface in surfaces] == ["orders.active", "orders.active"]
+    assert [surface.surface_id for surface in surfaces] == [
+        "orders.active",
+        "orders.active",
+    ]
     assert all(isinstance(surface, ProductSurface) for surface in surfaces)
     assert surfaces[0].props == {"title": "Live orders", "count": 3}
     assert surfaces[1].props == {"title": "Orders"}
@@ -156,4 +173,7 @@ def test_surface_registry_stores_only_accepted_surface_intents() -> None:
     )
 
     assert stored is True
-    assert presentation_state["surface_variants"] == {"main": "guided", "active": "detail"}
+    assert presentation_state["surface_variants"] == {
+        "main": "guided",
+        "active": "detail",
+    }

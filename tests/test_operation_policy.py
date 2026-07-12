@@ -15,7 +15,9 @@ from routedeck_core import (
 
 def test_operation_policy_maps_navigation_action_to_surface_operation() -> None:
     action = route_deck_action("browse.open", "Browse", category="navigation")
-    operation = RouteDeckOperationPolicy(target_nodes_by_action={"browse.open": "browse"}).operation_for_action(action)
+    operation = RouteDeckOperationPolicy(
+        target_nodes_by_action={"browse.open": "browse"}
+    ).operation_for_action(action)
 
     assert operation.id == "browse.open"
     assert operation.invocation_kind == "surface"
@@ -47,7 +49,9 @@ def test_operation_policy_uses_payload_and_defaults_to_satisfy_required_args() -
         category="setup",
         fields=[
             route_deck_field(key="item_id", label="Item ID", required=True),
-            route_deck_field(key="view", label="View", required=True, default="summary"),
+            route_deck_field(
+                key="view", label="View", required=True, default="summary"
+            ),
         ],
         payload={"item_id": "public_1"},
     )
@@ -70,8 +74,12 @@ def test_operation_policy_applies_review_ids_and_category_safety() -> None:
     assert operation.safety_class == "write_external"
 
 
-def test_operation_request_policy_validates_navigation_and_builds_review_state() -> None:
-    registry = RouteDeckSurfaceRegistry(active_components_by_node={"home": "Home", "detail": "Detail"})
+def test_operation_request_policy_validates_navigation_and_builds_review_state() -> (
+    None
+):
+    registry = RouteDeckSurfaceRegistry(
+        active_components_by_node={"home": "Home", "detail": "Detail"}
+    )
     navigation = RouteDeckGraphNavigationController(surface_registry=registry)
     policy = RouteDeckOperationRequestPolicy(
         navigation=navigation,
@@ -104,7 +112,11 @@ def test_operation_request_policy_validates_navigation_and_builds_review_state()
                 role="active",
             )
         },
-        navigation={"current": {"node_id": "home"}, "back_stack": [], "forward_stack": []},
+        navigation={
+            "current": {"node_id": "home"},
+            "back_stack": [],
+            "forward_stack": [],
+        },
     )
 
     payload = policy.validated_payload(
@@ -118,7 +130,9 @@ def test_operation_request_policy_validates_navigation_and_builds_review_state()
 
     review_state = policy.review_state_for_operation(
         state=state,
-        operation=RouteDeckOperation(id="draft.publish", label="Publish", execution_mode="review"),
+        operation=RouteDeckOperation(
+            id="draft.publish", label="Publish", execution_mode="review"
+        ),
         args={"draft_id": "draft_1"},
     )
 

@@ -2,69 +2,65 @@
 
 ## Purpose
 
-This component owns RouteDeck's adoption examples. Medusa remains a
-product-owned reference integration, but RouteDeck framework readiness now also
-requires two self-contained examples independent of Corpus and Medusa.
+This component owns runnable adoption evidence. The standalone Medusa buyer
+agent is the current product-owned reference consumer; generic framework docs
+explain the same product-neutral contracts without moving Medusa behavior into
+RouteDeck.
 
-1. **Full Flow example:** an ordinary developer declares an application and
-   RouteDeck compiles/runs the LangGraph backend, typed event/SSE path,
-   projection, and React surfaces.
-2. **Core Integration example:** an advanced developer keeps an existing/custom
-   agent execution graph and attaches it to RouteDeck state and interaction
-   management through the executor adapter.
+A new application follows one current path:
 
-Product-specific examples must not move Medusa behavior into RouteDeck core,
-React, LangGraph adapter packages, or product-specific
-`/api/routedeck/<domain>/*` routes.
+1. Declare product-owned `FeatureSpec` modules and compose an
+   `ApplicationSpec`.
+2. Call `compile_app(...)`, then `bind_app(...)` with real product providers,
+   guards, context providers, and operation handlers.
+3. Create the durable store, one `RouteDeckOperationRunner`, and generic
+   FastAPI/SSE transport as required.
+4. If the product uses LangGraph, keep its `create_agent(...)` or raw
+   `StateGraph` topology and attach `RouteDeckMiddleware` plus supervised tool
+   wrapping. RouteDeck does not compile product graph topology.
+5. Consume the public contract through `@routedeck/core` and
+   `@routedeck/react`; use `@routedeck/testing` only in tests.
 
 ## Owner Files
 
 - `examples/medusa-agent/*`
-- `examples/full-flow-change-planner/*` (planned)
-- `examples/core-integration-document-review/*` (planned)
 - `docs/minimal-example.md`
 - `docs/using-routedeck.md`
+- `docs/medusa-agent-reference-app.md`
 
 ## Public Interfaces
 
-- Medusa Agent product reference example.
-- Full Flow and Core Integration runnable adoption contracts.
-- Product-specific Medusa example contract in
-  `docs/medusa-agent-reference-app.md`.
-- Example README files and adoption commands.
+- Feature-composed Python authoring and binding.
+- Shared runner, durable session, projection, event, and transport contracts.
+- Optional non-topology-owning LangGraph middleware/tool integration.
+- Headless and React packages from `packages/core` and `packages/react`.
+- Medusa as a product-owned reference, not a framework dependency or default.
 
 ## Dependent Flows
 
-- Product teams learning how RouteDeck sits underneath an agent-first product.
-- Clean-install smoke checks.
-- Conformance proof that both adoption modes share operations, guards, events,
-  projections, surfaces, and store behavior.
-- Public alpha readiness.
-- Regression checks that RouteDeck remains product-neutral while examples stay
-  product-owned.
+- Developers learning the framework/product ownership boundary.
+- Clean-install and package-import checks.
+- Conformance proof that HTTP, UI, and agent operations share one runner.
+- Regression checks that framework packages stay product-neutral while the
+  example owns prompts, domain APIs, models, handlers, and product surfaces.
 
 ## Tests And Evidence
 
-- `python -m pytest tests -q`
-- `cd react && npm test`
-- Medusa example README and tests for product/framework boundary wording.
-- Planned per-example backend pytest, frontend test/build, clean-install,
-  compose, browser, and shared two-mode conformance checks.
+- `python -m pytest tests/app tests/supervision tests/test_langgraph_adapter.py -q`
+- `python -m pytest examples/medusa-agent/backend/tests -q` with real-Medusa
+  lanes run only against the configured protected local stack.
+- `pnpm --filter @routedeck/medusa-agent test`
+- `pnpm --filter @routedeck/medusa-agent typecheck`
+- `pnpm --filter @routedeck/medusa-agent build`
+- protected local browser and release harnesses listed in `test_index/README.md`
 
 ## Update Triggers
 
-Update this doc and `architecture/code-map.md` when changing:
+Update this doc and `architecture/code-map.md` when feature composition,
+binding, runner ownership, optional LangGraph integration, example routes,
+frontend package consumption, or adoption instructions change.
 
-- example route shape
-- example manifest/runtime projection shape
-- example frontend consumption pattern
-- adoption instructions
-- public docs that describe examples
-
-The standalone examples must remain product-neutral and must not depend on
-private local credentials, SaaStoAgent/Corpus database models, or Medusa
-behavior. They must use real in-process domain behavior, fail loudly when a
-required real integration is unavailable, keep fixtures inside tests, and ship
-with README, backend tests, frontend tests, and smoke commands. Product-specific
-examples may demonstrate a domain only inside their own example folder, with
-product-owned routes for domain behavior and RouteDeck-derived state.
+Examples use real in-process behavior or an explicitly configured real
+integration and fail loudly when required data or credentials are unavailable.
+Fixtures and scripted models remain isolated under tests; no example product
+path silently substitutes canned data, handlers, or responses.

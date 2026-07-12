@@ -1,0 +1,1389 @@
+{
+  "$defs": {
+    "CanonicalRouteDeckEvent": {
+      "additionalProperties": false,
+      "description": "Canonical Task 4 event; the root legacy event remains a compatibility API.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "cursor": {
+          "minimum": 1,
+          "title": "Cursor",
+          "type": "integer"
+        },
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/RouteDeckEventKind"
+        },
+        "payload": {
+          "$ref": "#/$defs/PublicEventPayload"
+        },
+        "projection_version": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Projection Version"
+        },
+        "session_id": {
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "cursor",
+        "event_type",
+        "session_id",
+        "session_version",
+        "created_at",
+        "payload"
+      ],
+      "title": "CanonicalRouteDeckEvent",
+      "type": "object"
+    },
+    "DeepLinkPolicy": {
+      "enum": [
+        "shareable",
+        "session_bound"
+      ],
+      "title": "DeepLinkPolicy",
+      "type": "string"
+    },
+    "DeliveryPhase": {
+      "enum": [
+        "not_sent",
+        "possibly_sent",
+        "response_received"
+      ],
+      "title": "DeliveryPhase",
+      "type": "string"
+    },
+    "DispatchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        },
+        "expected_session_version": {
+          "minimum": 0,
+          "title": "Expected Session Version",
+          "type": "integer"
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "expected_session_version",
+        "operation_id"
+      ],
+      "title": "DispatchRequest",
+      "type": "object"
+    },
+    "FailureKind": {
+      "enum": [
+        "contract",
+        "state_conflict",
+        "context_provider",
+        "guard",
+        "review",
+        "transport",
+        "provider_protocol",
+        "business",
+        "persistence",
+        "external_outcome_unknown",
+        "internal"
+      ],
+      "title": "FailureKind",
+      "type": "string"
+    },
+    "FailureSafeDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_capability": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Affected Capability"
+        },
+        "delivery_phase": {
+          "anyOf": [
+            {
+              "enum": [
+                "not_sent",
+                "possibly_sent",
+                "response_received"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Phase"
+        },
+        "http_status": {
+          "anyOf": [
+            {
+              "maximum": 599,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Http Status"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "provider_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Code"
+        }
+      },
+      "title": "FailureSafeDetails",
+      "type": "object"
+    },
+    "FrontendContract": {
+      "additionalProperties": false,
+      "properties": {
+        "entry_node_id": {
+          "title": "Entry Node Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "nodes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FrontendNodeContract"
+          },
+          "title": "Nodes",
+          "type": "object"
+        },
+        "surfaces": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SurfaceSpec"
+          },
+          "title": "Surfaces",
+          "type": "object"
+        },
+        "transitions": {
+          "items": {
+            "$ref": "#/$defs/FrontendTransitionContract"
+          },
+          "title": "Transitions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "entry_node_id",
+        "nodes",
+        "transitions",
+        "surfaces"
+      ],
+      "title": "FrontendContract",
+      "type": "object"
+    },
+    "FrontendNodeContract": {
+      "additionalProperties": false,
+      "properties": {
+        "deep_link_policy": {
+          "$ref": "#/$defs/DeepLinkPolicy"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "operation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Ids",
+          "type": "array"
+        },
+        "route_template": {
+          "title": "Route Template",
+          "type": "string"
+        },
+        "surfaces": {
+          "$ref": "#/$defs/FrontendSurfaceSlots"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "route_template",
+        "deep_link_policy",
+        "surfaces",
+        "operation_ids"
+      ],
+      "title": "FrontendNodeContract",
+      "type": "object"
+    },
+    "FrontendSurfaceSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "string"
+        },
+        "detail": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Detail",
+          "type": "array"
+        },
+        "diagnostic": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Diagnostic",
+          "type": "array"
+        },
+        "error": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Error",
+          "type": "array"
+        },
+        "form": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Form",
+          "type": "array"
+        },
+        "frame": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Frame",
+          "type": "array"
+        },
+        "peer": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Peer",
+          "type": "array"
+        },
+        "review": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Review",
+          "type": "array"
+        },
+        "status": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Status",
+          "type": "array"
+        }
+      },
+      "required": [
+        "active"
+      ],
+      "title": "FrontendSurfaceSlots",
+      "type": "object"
+    },
+    "FrontendTransitionContract": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "operation_id",
+        "outcome",
+        "target"
+      ],
+      "title": "FrontendTransitionContract",
+      "type": "object"
+    },
+    "OperationDisposition": {
+      "enum": [
+        "completed",
+        "blocked",
+        "needs_input",
+        "requires_review",
+        "pending",
+        "failed",
+        "external_outcome_unknown"
+      ],
+      "title": "OperationDisposition",
+      "type": "string"
+    },
+    "OperationEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "delivery_phase": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeliveryPhase"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phases": {
+          "items": {
+            "$ref": "#/$defs/OperationPhase"
+          },
+          "title": "Phases",
+          "type": "array"
+        },
+        "request_fingerprint": {
+          "minLength": 1,
+          "title": "Request Fingerprint",
+          "type": "string"
+        },
+        "result_fingerprint": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result Fingerprint"
+        },
+        "result_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result Id"
+        },
+        "source": {
+          "$ref": "#/$defs/OperationSource"
+        }
+      },
+      "required": [
+        "source",
+        "phases",
+        "attempt_id",
+        "request_fingerprint"
+      ],
+      "title": "OperationEvidence",
+      "type": "object"
+    },
+    "OperationPhase": {
+      "enum": [
+        "received",
+        "lease_acquired",
+        "validated",
+        "context_refreshed",
+        "guards_passed",
+        "review_staged",
+        "execution_claimed",
+        "tool_started",
+        "tool_succeeded",
+        "tool_failed",
+        "tool_outcome_unknown",
+        "execution_result_recorded",
+        "state_committed",
+        "completed"
+      ],
+      "title": "OperationPhase",
+      "type": "string"
+    },
+    "OperationRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "OperationRef",
+      "type": "object"
+    },
+    "OperationResult": {
+      "additionalProperties": false,
+      "properties": {
+        "disposition": {
+          "$ref": "#/$defs/OperationDisposition"
+        },
+        "evidence": {
+          "$ref": "#/$defs/OperationEvidence"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "projection_version": {
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperationReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "session_id": {
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "disposition",
+        "session_id",
+        "request_id",
+        "operation_id",
+        "session_version",
+        "projection_version",
+        "evidence"
+      ],
+      "title": "OperationResult",
+      "type": "object"
+    },
+    "OperationReview": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "expires_at"
+      ],
+      "title": "OperationReview",
+      "type": "object"
+    },
+    "OperationSource": {
+      "enum": [
+        "surface",
+        "agent",
+        "system",
+        "route"
+      ],
+      "title": "OperationSource",
+      "type": "string"
+    },
+    "PrivateFormWriteRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "default": true,
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "expected_session_version": {
+          "minimum": 0,
+          "title": "Expected Session Version",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "value": {
+          "additionalProperties": true,
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "request_id",
+        "expected_session_version",
+        "value"
+      ],
+      "title": "PrivateFormWriteRequest",
+      "type": "object"
+    },
+    "ProjectedNavigation": {
+      "additionalProperties": false,
+      "properties": {
+        "back_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Back Node Id"
+        },
+        "can_back": {
+          "title": "Can Back",
+          "type": "boolean"
+        },
+        "can_cancel": {
+          "title": "Can Cancel",
+          "type": "boolean"
+        },
+        "can_forward": {
+          "title": "Can Forward",
+          "type": "boolean"
+        },
+        "cancel_target_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cancel Target Node Id"
+        },
+        "current": {
+          "$ref": "#/$defs/ProjectionLocation"
+        },
+        "current_entry_id": {
+          "minimum": 1,
+          "title": "Current Entry Id",
+          "type": "integer"
+        },
+        "forward_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forward Node Id"
+        },
+        "resume_handle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resume Handle"
+        },
+        "route_template": {
+          "title": "Route Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "current",
+        "current_entry_id",
+        "route_template",
+        "resume_handle",
+        "can_back",
+        "can_forward",
+        "can_cancel"
+      ],
+      "title": "ProjectedNavigation",
+      "type": "object"
+    },
+    "ProjectedOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "review_required": {
+          "default": false,
+          "title": "Review Required",
+          "type": "boolean"
+        },
+        "safety_class": {
+          "title": "Safety Class",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "title",
+        "safety_class"
+      ],
+      "title": "ProjectedOperation",
+      "type": "object"
+    },
+    "ProjectedSurface": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "props": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PublicValue"
+          },
+          "title": "Props",
+          "type": "array"
+        },
+        "surface_id": {
+          "minLength": 1,
+          "title": "Surface Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "surface_id",
+        "component"
+      ],
+      "title": "ProjectedSurface",
+      "type": "object"
+    },
+    "ProjectedSurfaceSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "$ref": "#/$defs/ProjectedSurface"
+        },
+        "detail": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Detail",
+          "type": "array"
+        },
+        "diagnostic": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Diagnostic",
+          "type": "array"
+        },
+        "error": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Error",
+          "type": "array"
+        },
+        "form": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Form",
+          "type": "array"
+        },
+        "frame": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Frame",
+          "type": "array"
+        },
+        "peer": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Peer",
+          "type": "array"
+        },
+        "review": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Review",
+          "type": "array"
+        },
+        "status": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProjectedSurface"
+          },
+          "title": "Status",
+          "type": "array"
+        }
+      },
+      "required": [
+        "active"
+      ],
+      "title": "ProjectedSurfaceSlots",
+      "type": "object"
+    },
+    "ProjectionDiagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "current_node_id": {
+          "minLength": 1,
+          "title": "Current Node Id",
+          "type": "string"
+        },
+        "declared_provider_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Declared Provider Ids",
+          "type": "array"
+        },
+        "navgraph_version": {
+          "minLength": 1,
+          "title": "Navgraph Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "navgraph_version",
+        "current_node_id"
+      ],
+      "title": "ProjectionDiagnostics",
+      "type": "object"
+    },
+    "ProjectionLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "route_params": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PublicValue"
+          },
+          "title": "Route Params",
+          "type": "array"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "ProjectionLocation",
+      "type": "object"
+    },
+    "ProjectionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "default": "ready",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "title": "ProjectionStatus",
+      "type": "object"
+    },
+    "PublicEntityHandle": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_kind": {
+          "minLength": 1,
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "handle": {
+          "minLength": 1,
+          "title": "Handle",
+          "type": "string"
+        },
+        "values": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PublicValue"
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_kind",
+        "handle"
+      ],
+      "title": "PublicEntityHandle",
+      "type": "object"
+    },
+    "PublicEventPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PublicValue"
+          },
+          "title": "Details",
+          "type": "array"
+        },
+        "entity_handles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PublicEntityHandle"
+          },
+          "title": "Entity Handles",
+          "type": "array"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node Id"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Id"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Id"
+        },
+        "status_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Code"
+        }
+      },
+      "title": "PublicEventPayload",
+      "type": "object"
+    },
+    "PublicProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "$ref": "#/$defs/ProjectionLocation"
+        },
+        "diagnostics": {
+          "$ref": "#/$defs/ProjectionDiagnostics"
+        },
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/PublicEntityHandle"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "event_cursor": {
+          "minimum": 0,
+          "title": "Event Cursor",
+          "type": "integer"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "legal_operations": {
+          "items": {
+            "$ref": "#/$defs/ProjectedOperation"
+          },
+          "title": "Legal Operations",
+          "type": "array"
+        },
+        "navigation": {
+          "$ref": "#/$defs/ProjectedNavigation"
+        },
+        "projection_version": {
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/ProjectionStatus"
+        },
+        "surfaces": {
+          "$ref": "#/$defs/ProjectedSurfaceSlots"
+        }
+      },
+      "required": [
+        "session_version",
+        "projection_version",
+        "event_cursor",
+        "current",
+        "navigation",
+        "legal_operations",
+        "entities",
+        "surfaces",
+        "status",
+        "diagnostics"
+      ],
+      "title": "PublicProjection",
+      "type": "object"
+    },
+    "PublicValue": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "PublicValue",
+      "type": "object"
+    },
+    "ReviewRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_session_version": {
+          "minimum": 0,
+          "title": "Expected Session Version",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "expected_session_version"
+      ],
+      "title": "ReviewRequest",
+      "type": "object"
+    },
+    "RouteDeckEventKind": {
+      "enum": [
+        "session_created",
+        "projection_changed",
+        "navigation_changed",
+        "operation_changed",
+        "private_form_changed",
+        "turn_finalized",
+        "turn_interrupted"
+      ],
+      "title": "RouteDeckEventKind",
+      "type": "string"
+    },
+    "RouteDeckFailure": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "correlation_id": {
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/FailureKind"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Id"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "public_message": {
+          "title": "Public Message",
+          "type": "string"
+        },
+        "recovery_directive": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recovery Directive"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Id"
+        },
+        "safe_details": {
+          "$ref": "#/$defs/FailureSafeDetails"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "phase",
+        "correlation_id",
+        "public_message"
+      ],
+      "title": "RouteDeckFailure",
+      "type": "object"
+    },
+    "SurfaceAffordanceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "minLength": 1,
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperationRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "event"
+      ],
+      "title": "SurfaceAffordanceSpec",
+      "type": "object"
+    },
+    "SurfaceLifecycle": {
+      "enum": [
+        "ephemeral",
+        "stable"
+      ],
+      "title": "SurfaceLifecycle",
+      "type": "string"
+    },
+    "SurfaceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "affordances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SurfaceAffordanceSpec"
+          },
+          "title": "Affordances",
+          "type": "array"
+        },
+        "component": {
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/SurfaceLifecycle",
+          "default": "ephemeral"
+        },
+        "public_props_schema": {
+          "title": "Public Props Schema"
+        }
+      },
+      "required": [
+        "id",
+        "component"
+      ],
+      "title": "SurfaceSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Schema catalog consumed by the headless TypeScript package.",
+  "properties": {
+    "dispatch_request": {
+      "$ref": "#/$defs/DispatchRequest"
+    },
+    "event": {
+      "$ref": "#/$defs/CanonicalRouteDeckEvent"
+    },
+    "failure": {
+      "$ref": "#/$defs/RouteDeckFailure"
+    },
+    "frontend_contract": {
+      "$ref": "#/$defs/FrontendContract"
+    },
+    "operation_result": {
+      "$ref": "#/$defs/OperationResult"
+    },
+    "private_form_write_request": {
+      "$ref": "#/$defs/PrivateFormWriteRequest"
+    },
+    "public_projection": {
+      "$ref": "#/$defs/PublicProjection"
+    },
+    "review_request": {
+      "$ref": "#/$defs/ReviewRequest"
+    }
+  },
+  "required": [
+    "public_projection",
+    "event",
+    "failure",
+    "operation_result",
+    "frontend_contract",
+    "dispatch_request",
+    "review_request",
+    "private_form_write_request"
+  ],
+  "title": "RouteDeckTransportContracts",
+  "type": "object"
+}

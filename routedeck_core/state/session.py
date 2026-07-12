@@ -12,7 +12,7 @@ from ..contracts.session import (
 from ..validation import RouteDeckValidationError
 
 
-SESSION_SCHEMA_VERSION = 1
+SESSION_SCHEMA_VERSION = 3
 
 
 def navgraph_version(app: CompiledRouteDeckApp) -> str:
@@ -34,7 +34,8 @@ def create_session(
         session_version=1,
         projection_version=1,
         event_cursor=0,
-        current=Location(node_id=app.spec.entry_node.id),
+        next_history_entry_id=2,
+        current=Location(node_id=app.spec.entry_node.id, entry_id=1),
         private_state=private_state,
         public_state=(
             public_state if public_state is not None else PublicSessionState()

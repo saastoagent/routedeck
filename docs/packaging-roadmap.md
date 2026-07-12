@@ -1,115 +1,107 @@
 # Packaging Roadmap
 
-RouteDeck is still a local alpha package. The package metadata is intentionally
-close to publishable, but the release switch stays off until the examples,
-public docs, and declaration/build output are repeatable.
+RouteDeck is a local alpha. Its current package boundaries are implemented, but
+public release remains open until clean-install, clean-pack, notices, and the
+consolidated release harness produce current evidence.
 
-## Python Package
+## Python Distribution
 
-Candidate package: `routedeck-core`
+Candidate distribution: `routedeck-core`
 
 Runtime dependency policy:
 
-- Keep `routedeck_core` dependency-light. `pydantic` is the only required
-  runtime dependency.
-- Keep LangGraph optional through the `langgraph` extra. LangGraph integrations
-  live behind `routedeck_langgraph` and must not leak into core imports.
-- Do not add product dependencies to the Python package.
+- Keep `routedeck_core` dependency-light and product-neutral. Pydantic and JSON
+  Schema validation are the required runtime dependencies.
+- Keep LangGraph, FastAPI, SQLite encryption, and test support behind their
+  explicit extras.
+- Importing `routedeck_core` must not import optional frameworks or product
+  modules.
 
-Current public import surface:
+Current golden authoring surface:
 
-- Manifest and static contract models: `RouteDeckManifest`,
-  `RouteDeckNodeSpec`, `RouteDeckEdgeSpec`, `RouteDeckActionSpec`,
-  `RouteDeckFieldSpec`, `RouteDeckCapabilitySpec`, `RouteDeckSensitivePolicy`
-- Runtime/projection models: `RouteDeckProjection`, `RouteDeckRuntimeState`,
-  `RouteDeckRuntimeSnapshot`, `RouteDeckOperation`, `RouteDeckSurface`,
-  `RouteDeckNavigationState`, `RouteDeckLocation`, `RouteDeckDeepLink`
-- Navgraph and surface binding models: `RouteDeckNavGraph`,
-  `RouteDeckNavGraphNode`, `RouteDeckNavGraphEdge`,
-  `RouteDeckAvailableEntity`, `RouteDeckEntityOperationBinding`,
-  `RouteDeckSurfaceAffordance`, `RouteDeckBindingExpression`,
-  `RouteDeckSurfaceInteractionEvent`
-- Event and diagnostics models: `RouteDeckEvent`, `RouteDeckDispatchInput`,
-  `RouteDeckDispatchResult`, `RouteDeckIntrospection`,
-  `RouteDeckSemanticObservation`
-- Helpers and protocols: `RouteDeckRuntime`, `validate_manifest()`,
-  `build_projection()`, `build_runtime_snapshot()`,
-  `build_dispatch_state_event()`, `reachable_nodes()`
+- `ApplicationSpec` composes product-owned `FeatureSpec` modules.
+- `compile_app(...)` produces a `CompiledRouteDeckApp` and fails on invalid
+  routes, references, outcomes, or contract branches.
+- `bind_app(...)` binds product providers, guards, context providers, and
+  operation handlers without moving product behavior into the framework.
+- `RouteDeckOperationRunner`, `RouteDeckSession`, `RouteDeckSessionStore`, and
+  public projection/event contracts define the runtime boundary.
 
-Smoke command:
+Smoke commands:
 
 ```powershell
 python -m pip install -e .
-python -c "from routedeck_core import RouteDeckManifest, RouteDeckProjection; print(RouteDeckManifest.__name__, RouteDeckProjection.__name__)"
+python -c "from routedeck_core import ApplicationSpec, FeatureSpec, CompiledRouteDeckApp, compile_app, bind_app, RouteDeckOperationRunner, RouteDeckSession, RouteDeckSessionStore; print(ApplicationSpec.__name__, FeatureSpec.__name__, CompiledRouteDeckApp.__name__, RouteDeckOperationRunner.__name__, RouteDeckSession.__name__, RouteDeckSessionStore.__name__)"
+python -m pytest tests/test_public_api.py tests/app -q
 ```
 
-## React Package
+The flat `RouteDeckManifest`, `RouteDeckManifestBuilder`, `RouteDeckApp`,
+decorator helpers, and `validate_manifest(...)` remain explicitly importable
+only for active Corpus compatibility. They are excluded from the root golden
+`__all__` surface and must not appear in a new-application or readiness
+workflow.
 
-Candidate package: `@routedeck/react`
+## TypeScript Workspace
 
-Current export policy:
+The authoritative workspace packages are:
 
-- Exports are source TypeScript files through `exports["."]`.
-- `types` points to `src/index.ts` for local source-consuming workspaces.
-- This is acceptable for the local alpha, but a public npm release should add a
-  build step that emits ESM JavaScript and declaration files.
+- `packages/core` -> `@routedeck/core`: generated contracts, strict HTTP/SSE
+  client, retained replay, authoritative store/reducer/selectors, routing and
+  exact history control, and private-form memory state.
+- `packages/react` -> `@routedeck/react`: provider/hooks, surface registry and
+  host, navigation, operation controller, private forms, review, status, and
+  lazy inspector primitives.
+- `packages/testing` -> private `@routedeck/testing`: factories and component,
+  store, and SSE harnesses that never enter product runtime paths.
 
-Current public import surface:
+`packages/core` and `packages/react` export ESM JavaScript plus declarations
+from `dist`. The root workspace and `@routedeck/testing` remain private.
 
-- Store APIs: `createRouteDeckStore`, `createStaticRouteDeckStore`
-- Provider and hooks: `RouteDeckProvider`, `useRouteDeckProjection`,
-  `useRouteDeckState`, `useRouteDeckStatus`, `useRouteDeckDispatch`,
-  `useRouteDeckInspect`, `useRouteDeckCapabilities`,
-  `useRouteDeckAvailableEntities`, `useRouteDeckSurfaceAffordances`,
-  `useRouteDeckNavigation`, and related hook exports
-- Surface and debugger utilities: `RouteDeckSurfaceHost`,
-  `resolveRouteDeckActiveSurface`, `RouteDeckDebugger`
-- Navigation helpers: `createBrowserRouteDeckHistoryAdapter`,
-  `readRouteDeckHistoryLocation`, `writeRouteDeckHistoryLocation`,
-  `routeDeckUrlString`
-- Operation readiness helpers: `isRouteDeckOperationDispatchable`,
-  `routeDeckAssistantActions`, `routeDeckOperationInteraction`
-- Type contracts from `src/types.ts`
-
-Peer dependency policy:
-
-- Keep `react`, `react-dom`, and `@xyflow/react` as peer dependencies.
-- Do not bundle React, React DOM, or debugger rendering peers into the package.
-- Do not add product-specific runtime dependencies.
-
-`private: true` can be removed only after all of these are true:
-
-- The package has a stable build/declaration output policy.
-- `npm pack --dry-run` contains only intended public package files.
-- React tests and product-neutral example tests pass from a clean install path.
-- README and package metadata describe source-export or build-output behavior
-  honestly.
-- `THIRD_PARTY_NOTICES.md` has been refreshed against the exact dependency set.
-
-Smoke command:
+Package checks:
 
 ```powershell
-cd react
-npm test
-npm pack --dry-run
+pnpm install --frozen-lockfile
+pnpm --filter @routedeck/core test
+pnpm --filter @routedeck/react test
+pnpm --filter @routedeck/testing test
+pnpm typecheck
+pnpm build
+pnpm --dir packages/core pack --dry-run
+pnpm --dir packages/react pack --dry-run
 ```
+
+## Legacy React Compatibility Quarantine
+
+Top-level `react/` is not the current React package even though it temporarily
+shares the npm name `@routedeck/react`. It is a deprecated, private,
+source-export compatibility tree used by Corpus only. New applications import
+the built packages from `packages/core` and `packages/react`.
+
+Do not publish, link, or use top-level `react/` in a readiness workflow. Its
+removal gate is explicit in `react/README.md`: Corpus must migrate and focused
+compatibility/parity proof must pass before that directory can be deleted.
 
 ## Release Checklist
 
 Before any public release:
 
-- Run the Python and React smoke commands above.
-- Run the product-neutral example commands in `docs/minimal-example.md`.
-- Run `python scripts/check_doc_coverage.py` and explain any advisory warning.
-- Confirm package files do not include product-specific examples unless they are
-  explicitly published as downstream product examples.
-- Confirm `LICENSE` and `THIRD_PARTY_NOTICES.md` match the published package
-  contents.
-- Add a changelog entry and semantic versioning note.
+- Run the Python smoke and focused compiler/public-API checks above.
+- Run workspace tests, typecheck, build, and dry-pack checks from a clean
+  install path.
+- Run `python scripts/check_doc_coverage.py` and explain every advisory.
+- Verify package archives contain only intended framework sources/build output
+  and no product credentials, runtime data, or unapproved product code.
+- Refresh `LICENSE`, `THIRD_PARTY_NOTICES.md`, changelog, and semantic version
+  notes against the exact package contents.
+- Complete the protected local release harness and review its sanitized proof
+  bundle. Absence of required real integration credentials is a blocker, not a
+  reason to substitute a fixture or fallback.
 
-## Contract Compatibility
+## Compatibility Policy
 
-RouteDeck preserves a stable JSON shape for manifests, projections, runtime
-state, events, navgraph, surface affordances, and dispatch envelopes. Products
-may add domain data inside sanctioned metadata, props, graph state, and context
-fields, but framework packages must remain product-neutral.
+Compatibility facades preserve current consumers while they migrate; they do
+not define the new authoring architecture. Removal requires an identified
+consumer migration, focused parity evidence, and an approved removal change.
+Current compiler, runner, durable session, event, projection, and frontend
+contracts remain product-neutral and fail loudly when required dependencies or
+invariants are unavailable.

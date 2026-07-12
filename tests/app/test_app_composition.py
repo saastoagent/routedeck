@@ -66,6 +66,7 @@ EXPECTED_OPERATION_IDS = {
     "catalog.list",
     "catalog.search",
     "catalog.open_product",
+    "catalog.open_product_by_route",
     "catalog.select_variant",
     "cart.create",
     "cart.add_item",
@@ -77,6 +78,7 @@ EXPECTED_OPERATION_IDS = {
     "checkout.select_shipping",
     "checkout.select_payment",
     "checkout.place_order",
+    "orders.reconcile",
     "catalog.continue_shopping",
 }
 
@@ -84,29 +86,37 @@ EXPECTED_OPERATION_IDS = {
 def test_composition_declares_exact_nodes_routes_surfaces_and_policies() -> None:
     app = compile_medusa_app_spec()
 
-    assert tuple(
-        (
-            node.id,
-            node.route.template,
-            node.surfaces.active.id,
-            node.route.deep_link_policy,
+    assert (
+        tuple(
+            (
+                node.id,
+                node.route.template,
+                node.surfaces.active.id,
+                node.route.deep_link_policy,
+            )
+            for node in app.spec.nodes
         )
-        for node in app.spec.nodes
-    ) == EXPECTED_NODES
+        == EXPECTED_NODES
+    )
 
 
 def test_composition_declares_each_product_operation_once() -> None:
     app = compile_medusa_app_spec()
 
     assert set(app.operations) == EXPECTED_OPERATION_IDS
-    assert sum(
-        operation.id == "checkout.place_order"
-        for node in app.spec.nodes
-        for operation in node.operations
-    ) == 1
+    assert (
+        sum(
+            operation.id == "checkout.place_order"
+            for node in app.spec.nodes
+            for operation in node.operations
+        )
+        == 1
+    )
 
 
-def test_feature_specs_are_data_only_and_cross_feature_edges_live_in_composition() -> None:
+def test_feature_specs_are_data_only_and_cross_feature_edges_live_in_composition() -> (
+    None
+):
     app = compile_medusa_app_spec()
 
     raw_values = tuple(_walk_model_fields(app.source_spec))
@@ -151,15 +161,18 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
     catalog_nodes = {node.id: node for node in catalog_feature.FEATURE_SPEC.nodes}
     cart_node = cart_feature.FEATURE_SPEC.nodes[0]
     orders_node = orders_feature.FEATURE_SPEC.nodes[0]
-    assert {operation.id for operation in catalog_nodes["catalog.browse"].operations} == {
+    assert {
+        operation.id for operation in catalog_nodes["catalog.browse"].operations
+    } == {
         "catalog.list",
         "catalog.search",
         "catalog.open_product",
     }
     assert {
         operation.id for operation in catalog_nodes["catalog.product"].operations
-    } == {"catalog.select_variant"}
+    } == {"catalog.open_product_by_route", "catalog.select_variant"}
     assert {operation.id for operation in cart_node.operations} == {
+        "cart.open",
         "cart.update_item",
         "cart.remove_item",
     }
@@ -191,9 +204,9 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
     assert {
         operation.id for operation in compiled_nodes["catalog.product"].operations
     } >= {"cart.create", "cart.add_item", "cart.open"}
-    assert {operation.id for operation in compiled_nodes["cart.summary"].operations} >= {
-        "checkout.start"
-    }
+    assert {
+        operation.id for operation in compiled_nodes["cart.summary"].operations
+    } >= {"checkout.start"}
     assert {
         operation.id for operation in compiled_nodes["orders.confirmation"].operations
     } == {"catalog.continue_shopping"}
@@ -215,6 +228,33 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
     assert _affordance_operation_ids(
         compiled_nodes["orders.confirmation"].surfaces.active
     ) == {"catalog.continue_shopping"}
+
+
+def test_medusa_entity_arguments_are_explicit_and_node_scoped() -> None:
+    app = compile_medusa_app_spec()
+    expected = {
+        "catalog.open_product": {"product_handle": "product"},
+        "catalog.select_variant": {"variant_ref": "variant"},
+        "cart.add_item": {"variant_ref": "variant"},
+        "cart.update_item": {"line_item_ref": "line_item"},
+        "cart.remove_item": {"line_item_ref": "line_item"},
+        "checkout.select_shipping": {"shipping_option_ref": "shipping_option"},
+        "checkout.select_payment": {"payment_provider_ref": "payment_provider"},
+    }
+
+    assert {
+        operation_id: {
+            entity.argument_name: entity.entity_kind
+            for entity in app.operations[operation_id].entity_inputs
+        }
+        for operation_id in expected
+    } == expected
+    for node in app.spec.nodes:
+        declared_kinds = {provider.entity_kind for provider in node.entity_providers}
+        for operation in node.operations:
+            assert {
+                entity.entity_kind for entity in operation.entity_inputs
+            } <= declared_kinds
 
 
 def _sibling_feature_imports(module: ModuleType) -> set[str]:

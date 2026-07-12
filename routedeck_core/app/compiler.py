@@ -15,6 +15,7 @@ from ..contracts.operations import (
     OperationSpec,
     ProviderSpec,
     ReviewPolicy,
+    SafetyClass,
 )
 from ..contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
 from ..navigation.routes import CompiledRoutes
@@ -25,6 +26,7 @@ from .compiled import (
     FrontendContract,
     FrontendNodeContract,
     FrontendSurfaceSlots,
+    FrontendTransitionContract,
 )
 from .feature import ApplicationSpec
 
@@ -40,7 +42,7 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
 
     _validate_feature_namespaces(source_spec)
     nodes = tuple(node for feature in source_spec.features for node in feature.nodes)
-    transitions = (
+    declared_transitions = (
         tuple(
             transition
             for feature in source_spec.features
@@ -62,8 +64,20 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         node_by_id[node.id] = node
         for operation in node.operations:
             _register_canonical("operation", operations, operation.id, operation)
-        for provider in (*node.context_providers, *node.entity_providers):
-            _register_canonical("provider", providers, provider.id, provider)
+        for context_provider in node.context_providers:
+            _register_canonical(
+                "provider",
+                providers,
+                context_provider.id,
+                context_provider,
+            )
+        for entity_provider in node.entity_providers:
+            _register_canonical(
+                "provider",
+                providers,
+                entity_provider.id,
+                entity_provider,
+            )
         for guard in node.guards:
             _register_canonical("guard", guards, guard.id, guard)
         for capability in node.capabilities:
@@ -76,9 +90,15 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
             f"Entry node is not declared: {source_spec.entry_node.id}"
         )
 
+    routes = CompiledRoutes.from_nodes(nodes)
     _validate_feature_transition_ownership(source_spec)
     _validate_node_references(nodes, node_by_id, surfaces)
     _validate_operation_references(nodes, operations, providers, guards)
+    transitions = _compile_route_entry_transitions(
+        nodes=nodes,
+        declared_transitions=declared_transitions,
+        routes=routes,
+    )
     _validate_capability_references(capabilities.values(), operations, surfaces)
     _validate_surface_affordances(surfaces.values(), operations)
     _validate_transitions(transitions, node_by_id, operations)
@@ -89,7 +109,6 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         transitions=transitions,
     )
 
-    routes = CompiledRoutes.from_nodes(nodes)
     compiled_spec = CompiledApplicationSpec(
         name=source_spec.name,
         entry_node=source_spec.entry_node,
@@ -99,6 +118,7 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
     frontend_contract = _build_frontend_contract(
         source_spec=source_spec,
         nodes=nodes,
+        transitions=transitions,
         surfaces=surfaces,
     )
     executable_paths = _derive_executable_test_paths(
@@ -116,6 +136,7 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         operations=operations,
         providers=providers,
         guards=guards,
+        surfaces=surfaces,
         routes=routes,
         frontend_contract=frontend_contract,
         executable_test_paths=executable_paths,
@@ -248,6 +269,186 @@ def _validate_operation_references(
             raise RouteDeckValidationError(
                 f"Node {node.id!r} declares an operation more than once"
             )
+        node_provider_ids = {provider.id for provider in node.context_providers}
+        node_provider_ids.update(provider.id for provider in node.entity_providers)
+        node_guard_ids = {guard.id for guard in node.guards}
+        entity_kinds = {provider.entity_kind for provider in node.entity_providers}
+        node_surface_ids = {surface.id for surface in node.surfaces.declared_surfaces()}
+        for operation in node.operations:
+            missing_provider_ids = sorted(
+                {
+                    provider_ref.id
+                    for provider_ref in operation.provider_refs
+                    if provider_ref.id not in node_provider_ids
+                }
+            )
+            if missing_provider_ids:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} operation {operation.id!r} requires "
+                    "providers outside the node scope "
+                    f"{missing_provider_ids!r}"
+                )
+            missing_guard_ids = sorted(
+                {
+                    guard_ref.id
+                    for guard_ref in operation.guard_refs
+                    if guard_ref.id not in node_guard_ids
+                }
+            )
+            if missing_guard_ids:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} operation {operation.id!r} requires "
+                    f"guards outside the node scope {missing_guard_ids!r}"
+                )
+            missing_entity_kinds = sorted(
+                {
+                    entity_input.entity_kind
+                    for entity_input in operation.entity_inputs
+                    if entity_input.entity_kind not in entity_kinds
+                }
+            )
+            if missing_entity_kinds:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} operation {operation.id!r} requires "
+                    "undeclared entity provider kinds "
+                    f"{missing_entity_kinds!r}"
+                )
+            if operation.safety_class is SafetyClass.WRITE_EXTERNAL:
+                _validate_write_recovery_contract(
+                    node=node,
+                    operation=operation,
+                    node_operation_ids=set(operation_ids),
+                    node_surface_ids=node_surface_ids,
+                )
+
+
+def _validate_write_recovery_contract(
+    *,
+    node: NodeSpec,
+    operation: OperationSpec,
+    node_operation_ids: set[str],
+    node_surface_ids: set[str],
+) -> None:
+    directive = operation.unknown_recovery_directive
+    if directive is None or directive not in node.recovery.directives:
+        raise RouteDeckValidationError(
+            f"Node {node.id!r} write operation {operation.id!r} requires "
+            f"recovery directive {directive!r}"
+        )
+
+    failure_surface = node.recovery.failure_surface
+    if failure_surface is None or failure_surface.id not in node_surface_ids:
+        raise RouteDeckValidationError(
+            f"Node {node.id!r} write operation {operation.id!r} requires a "
+            "failure surface declared on that node"
+        )
+
+    for recovery_ref in operation.unknown_recovery_operation_refs:
+        if recovery_ref.id == operation.id:
+            raise RouteDeckValidationError(
+                f"Write operation {operation.id!r} cannot use the affected operation "
+                "as its own recovery operation"
+            )
+        if recovery_ref.id not in node_operation_ids:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} write operation {operation.id!r} references "
+                f"recovery operation {recovery_ref.id!r} outside the node"
+            )
+
+
+def _compile_route_entry_transitions(
+    *,
+    nodes: tuple[NodeSpec, ...],
+    declared_transitions: tuple[TransitionSpec, ...],
+    routes: CompiledRoutes,
+) -> tuple[TransitionSpec, ...]:
+    """Validate declarative route entries and materialize exact self branches."""
+
+    transitions = list(declared_transitions)
+    for node in nodes:
+        entry = node.entry
+        if entry is None:
+            continue
+        operation = next(
+            (
+                candidate
+                for candidate in node.operations
+                if candidate.id == entry.operation.id
+            ),
+            None,
+        )
+        if operation is None:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry operation {entry.operation.id!r} "
+                "is not executable at that node"
+            )
+        if entry.outcome not in operation.outcomes:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry references undeclared outcome "
+                f"{entry.outcome!r} for {operation.id!r}"
+            )
+
+        declared_parameters = set(routes.path_parameter_names(node.id))
+        binding_parameters = tuple(binding.parameter for binding in entry.bindings)
+        if len(binding_parameters) != len(set(binding_parameters)):
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry binds a route parameter more than once"
+            )
+        unknown_parameters = sorted(set(binding_parameters) - declared_parameters)
+        if unknown_parameters:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry binds unknown route parameters "
+                f"{unknown_parameters!r}"
+            )
+        missing_parameters = sorted(declared_parameters - set(binding_parameters))
+        if missing_parameters:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry is missing route parameters "
+                f"{missing_parameters!r}"
+            )
+
+        binding_arguments = tuple(binding.argument for binding in entry.bindings)
+        if len(binding_arguments) != len(set(binding_arguments)):
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry binds an operation argument more "
+                "than once"
+            )
+        input_properties = operation.input_schema_value().get("properties", {})
+        if not isinstance(input_properties, dict):
+            input_properties = {}
+        unknown_arguments = sorted(set(binding_arguments) - set(input_properties))
+        if unknown_arguments:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry binds undeclared operation arguments "
+                f"{unknown_arguments!r}"
+            )
+
+        branch = (node.id, operation.id, entry.outcome)
+        declared_targets = {
+            transition.target.id
+            for transition in transitions
+            if (
+                transition.source.id,
+                transition.operation.id,
+                transition.outcome,
+            )
+            == branch
+        }
+        if declared_targets and declared_targets != {node.id}:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} has a conflicting route entry transition "
+                f"for {branch!r}: {sorted(declared_targets)!r}"
+            )
+        if not declared_targets:
+            transitions.append(
+                TransitionSpec(
+                    source=node.ref,
+                    operation=operation.ref,
+                    outcome=entry.outcome,
+                    target=node.ref,
+                )
+            )
+    return tuple(transitions)
 
 
 def _validate_capability_references(
@@ -338,6 +539,16 @@ def _validate_transitions(
             )
         branch_targets[branch] = transition.target.id
 
+    for node in node_by_id.values():
+        for operation in node.operations:
+            for outcome in operation.outcomes:
+                branch = (node.id, operation.id, outcome)
+                if branch not in branch_targets:
+                    raise RouteDeckValidationError(
+                        "Every declared operation outcome must have exactly one "
+                        f"compiled transition; missing {branch!r}"
+                    )
+
 
 def _validate_hierarchy(
     nodes: tuple[NodeSpec, ...],
@@ -379,6 +590,7 @@ def _build_frontend_contract(
     *,
     source_spec: ApplicationSpec,
     nodes: tuple[NodeSpec, ...],
+    transitions: tuple[TransitionSpec, ...],
     surfaces: dict[str, SurfaceSpec],
 ) -> FrontendContract:
     return FrontendContract(
@@ -395,6 +607,15 @@ def _build_frontend_contract(
             )
             for node in nodes
         },
+        transitions=tuple(
+            FrontendTransitionContract(
+                source=transition.source.id,
+                operation_id=transition.operation.id,
+                outcome=transition.outcome,
+                target=transition.target.id,
+            )
+            for transition in transitions
+        ),
         surfaces=surfaces,
     )
 

@@ -62,7 +62,11 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
     assert public.node_id == "catalog.product"
 
     with pytest.raises(SessionRequired):
-        engine.open("/cart", session=None, now=NOW)
+        engine.open(
+            "/cart?resume_handle=opaque-capability",
+            session=None,
+            now=NOW,
+        )
     valid_session = session_factory(app=app, session_id="session-1")
     cross_session_capability = _capability(session_id="other-session")
     malformed_session = valid_session.model_copy(
@@ -83,9 +87,9 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
 @pytest.mark.parametrize(
     "path",
     (
-        "/cart",
-        "/checkout/review",
-        "/orders/confirmation/confirmation",
+        "/cart?resume_handle=opaque-capability",
+        "/checkout/review?resume_handle=opaque-capability",
+        "/orders/confirmation/confirmation?resume_handle=opaque-capability",
     ),
 )
 def test_representative_session_bound_routes_require_a_session(path: str) -> None:

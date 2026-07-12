@@ -40,12 +40,28 @@ class CapabilitySpec(_FrozenContract):
         return CapabilityRef(id=self.id)
 
 
+class RouteParameterBinding(_FrozenContract):
+    """Bind one declared route parameter to one operation argument exactly."""
+
+    parameter: str = Field(min_length=1)
+    argument: str = Field(min_length=1)
+
+
+class RouteEntrySpec(_FrozenContract):
+    """Declare the operation and outcome that authoritatively enter one route."""
+
+    operation: OperationRef
+    outcome: str = Field(min_length=1)
+    bindings: tuple[RouteParameterBinding, ...] = ()
+
+
 class NodeSpec(_FrozenContract):
     id: str = Field(min_length=1)
     title: str
     kind: NodeKind
     parent: NodeRef | None = None
     route: RouteSpec
+    entry: RouteEntrySpec | None = None
     context_providers: tuple[ContextProviderSpec, ...] = ()
     entity_providers: tuple[EntityProviderSpec, ...] = ()
     guards: tuple[GuardSpec, ...] = ()
@@ -78,4 +94,6 @@ __all__ = [
     "CapabilitySpec",
     "CompiledApplicationSpec",
     "NodeSpec",
+    "RouteEntrySpec",
+    "RouteParameterBinding",
 ]

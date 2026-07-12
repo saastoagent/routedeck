@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from routedeck_core.app import FeatureSpec
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.contracts.application import (
+    CapabilitySpec,
+    NodeSpec,
+    RouteEntrySpec,
+    RouteParameterBinding,
+)
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
@@ -10,12 +15,13 @@ from routedeck_core.contracts.navigation import (
     TransitionSpec,
 )
 from routedeck_core.contracts.operations import (
-    ContextProviderSpec,
+    EntityInputSpec,
     EntityProviderSpec,
     GuardSpec,
     OperationSpec,
     SafetyClass,
 )
+from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import (
     SurfaceAffordanceSpec,
     SurfaceLifecycle,
@@ -23,14 +29,31 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-CATALOG_PRODUCTS_PROVIDER = ContextProviderSpec(
+from .models import (
+    CATALOG_COLLECTION_PROVIDER_SCHEMA,
+    CATALOG_COLLECTION_SCHEMA,
+    CATALOG_PRODUCT_PROVIDER_SCHEMA,
+    CATALOG_PRODUCT_SCHEMA,
+    CATALOG_SELECTION_SCHEMA,
+)
+
+CATALOG_PRODUCTS_PROVIDER = EntityProviderSpec(
     id="catalog.products",
+    entity_kind="product",
     description="Display-safe products and prices for the current buyer market.",
+    output_schema=FrozenJsonObject(CATALOG_COLLECTION_PROVIDER_SCHEMA),
 )
 CATALOG_PRODUCT_PROVIDER = EntityProviderSpec(
     id="catalog.product",
     entity_kind="product",
     description="One product, its variants, prices, and inventory facts.",
+    output_schema=FrozenJsonObject(CATALOG_PRODUCT_PROVIDER_SCHEMA),
+)
+CATALOG_VARIANTS_PROVIDER = EntityProviderSpec(
+    id="catalog.variants",
+    entity_kind="variant",
+    description="Opaque variant bindings for the current product.",
+    output_schema=FrozenJsonObject(CATALOG_PRODUCT_SCHEMA),
 )
 PUBLIC_PRODUCT_GUARD = GuardSpec(
     id="catalog.public_product",
@@ -45,48 +68,99 @@ CATALOG_LIST = OperationSpec(
     id="catalog.list",
     title="Browse products",
     description="Load the authoritative product collection for browsing.",
+    input_schema=FrozenJsonObject(
+        {"type": "object", "properties": {}, "additionalProperties": False}
+    ),
     safety_class=SafetyClass.READ_EXTERNAL,
     outcomes=("listed",),
+    outcome_schemas=FrozenJsonObject({"listed": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
 CATALOG_SEARCH = OperationSpec(
     id="catalog.search",
     title="Search products",
     description="Search the authoritative product collection.",
-    input_schema={
-        "type": "object",
-        "required": ["query"],
-        "properties": {"query": {"type": "string", "minLength": 1}},
-    },
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["query"],
+            "properties": {"query": {"type": "string", "minLength": 1}},
+            "additionalProperties": False,
+        }
+    ),
     safety_class=SafetyClass.READ_EXTERNAL,
     outcomes=("searched",),
+    outcome_schemas=FrozenJsonObject({"searched": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
 OPEN_PRODUCT = OperationSpec(
     id="catalog.open_product",
     title="Open product",
-    description="Open product detail using a validated public handle.",
-    input_schema={
-        "type": "object",
-        "required": ["product_handle"],
-        "properties": {"product_handle": {"type": "string"}},
-    },
+    description=(
+        "Open product detail using the exact opaque product entity handle from "
+        "RouteDeck visible_entities."
+    ),
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["product_ref"],
+            "properties": {
+                "product_ref": {
+                    "type": "string",
+                    "description": (
+                        "The opaque visible_entities product handle; never the "
+                        "product_handle route value."
+                    ),
+                }
+            },
+            "additionalProperties": False,
+        }
+    ),
+    entity_inputs=(
+        EntityInputSpec(argument_name="product_ref", entity_kind="product"),
+    ),
     safety_class=SafetyClass.NAVIGATION,
     outcomes=("opened",),
+    outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
+    provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
     guard_refs=(PUBLIC_PRODUCT_GUARD.ref,),
+)
+OPEN_PRODUCT_BY_ROUTE = OperationSpec(
+    id="catalog.open_product_by_route",
+    title="Open product route",
+    description="Resolve and open one product from its exact public route handle.",
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["product_handle"],
+            "properties": {"product_handle": {"type": "string", "minLength": 1}},
+            "additionalProperties": False,
+        }
+    ),
+    safety_class=SafetyClass.NAVIGATION,
+    outcomes=("opened",),
+    outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
+    provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
 )
 SELECT_VARIANT = OperationSpec(
     id="catalog.select_variant",
     title="Select variant",
     description="Bind one current allowlisted product variant.",
-    input_schema={
-        "type": "object",
-        "required": ["variant_ref"],
-        "properties": {"variant_ref": {"type": "string"}},
-    },
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["variant_ref"],
+            "properties": {"variant_ref": {"type": "string"}},
+            "additionalProperties": False,
+        }
+    ),
+    entity_inputs=(
+        EntityInputSpec(argument_name="variant_ref", entity_kind="variant"),
+    ),
     safety_class=SafetyClass.STATE_SELECTION,
     outcomes=("selected",),
-    provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
+    outcome_schemas=FrozenJsonObject({"selected": CATALOG_SELECTION_SCHEMA}),
+    provider_refs=(CATALOG_VARIANTS_PROVIDER.ref,),
     guard_refs=(VARIANT_ALLOWED_GUARD.ref,),
 )
 CONTINUE_SHOPPING = OperationSpec(
@@ -95,6 +169,8 @@ CONTINUE_SHOPPING = OperationSpec(
     description="Return to catalog browsing after confirmation.",
     safety_class=SafetyClass.NAVIGATION,
     outcomes=("continued",),
+    outcome_schemas=FrozenJsonObject({"continued": CATALOG_COLLECTION_SCHEMA}),
+    provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
 CONTINUE_SHOPPING_AFFORDANCE = SurfaceAffordanceSpec(
     id="continue_shopping",
@@ -128,9 +204,16 @@ PRODUCT_GRID = SurfaceSpec(
     lifecycle=SurfaceLifecycle.STABLE,
     affordances=(
         SurfaceAffordanceSpec(
+            id="search_products", event="submit", operation=CATALOG_SEARCH.ref
+        ),
+        SurfaceAffordanceSpec(
+            id="clear_search", event="clear", operation=CATALOG_LIST.ref
+        ),
+        SurfaceAffordanceSpec(
             id="open_product", event="open", operation=OPEN_PRODUCT.ref
         ),
     ),
+    public_props_schema=FrozenJsonObject(CATALOG_COLLECTION_SCHEMA),
 )
 PRODUCT_DETAIL = SurfaceSpec(
     id="catalog.product_detail",
@@ -141,25 +224,7 @@ PRODUCT_DETAIL = SurfaceSpec(
             id="select_variant", event="select", operation=SELECT_VARIANT.ref
         ),
     ),
-    public_props_schema={
-        "type": "object",
-        "properties": {
-            "display": {
-                "type": "object",
-                "properties": {
-                    "nested": {
-                        "type": "object",
-                        "properties": {"label": {"type": "string"}},
-                        "required": ["label"],
-                        "additionalProperties": False,
-                    }
-                },
-                "required": ["nested"],
-                "additionalProperties": False,
-            }
-        },
-        "additionalProperties": False,
-    },
+    public_props_schema=FrozenJsonObject(CATALOG_PRODUCT_SCHEMA),
 )
 CATALOG_STATUS = SurfaceSpec(
     id="catalog.status",
@@ -205,7 +270,7 @@ BUYER_HOME_NODE = NodeSpec(
     title="Welcome",
     kind=NodeKind.SECTION,
     route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-    context_providers=(CATALOG_PRODUCTS_PROVIDER,),
+    entity_providers=(CATALOG_PRODUCTS_PROVIDER,),
     operations=(CATALOG_LIST,),
     capabilities=(BUYER_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
@@ -224,7 +289,8 @@ CATALOG_BROWSE_NODE = NodeSpec(
     title="Products",
     kind=NodeKind.SECTION,
     route=RouteSpec(template="/products", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-    context_providers=(CATALOG_PRODUCTS_PROVIDER,),
+    entry=RouteEntrySpec(operation=CATALOG_LIST.ref, outcome="listed"),
+    entity_providers=(CATALOG_PRODUCTS_PROVIDER, CATALOG_PRODUCT_PROVIDER),
     guards=(PUBLIC_PRODUCT_GUARD,),
     operations=(CATALOG_LIST, CATALOG_SEARCH, OPEN_PRODUCT),
     capabilities=(CATALOG_CAPABILITY,),
@@ -249,9 +315,19 @@ CATALOG_PRODUCT_NODE = NodeSpec(
         template="/products/{product_handle}",
         deep_link_policy=DeepLinkPolicy.SHAREABLE,
     ),
-    entity_providers=(CATALOG_PRODUCT_PROVIDER,),
+    entry=RouteEntrySpec(
+        operation=OPEN_PRODUCT_BY_ROUTE.ref,
+        outcome="opened",
+        bindings=(
+            RouteParameterBinding(
+                parameter="product_handle",
+                argument="product_handle",
+            ),
+        ),
+    ),
+    entity_providers=(CATALOG_PRODUCT_PROVIDER, CATALOG_VARIANTS_PROVIDER),
     guards=(PUBLIC_PRODUCT_GUARD, VARIANT_ALLOWED_GUARD),
-    operations=(SELECT_VARIANT,),
+    operations=(OPEN_PRODUCT_BY_ROUTE, SELECT_VARIANT),
     capabilities=(CATALOG_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
         active=PRODUCT_DETAIL,
@@ -290,6 +366,12 @@ FEATURE_SPEC = FeatureSpec(
         ),
         TransitionSpec(
             source=CATALOG_PRODUCT_NODE.ref,
+            operation=OPEN_PRODUCT_BY_ROUTE.ref,
+            outcome="opened",
+            target=CATALOG_PRODUCT_NODE.ref,
+        ),
+        TransitionSpec(
+            source=CATALOG_PRODUCT_NODE.ref,
             operation=SELECT_VARIANT.ref,
             outcome="selected",
             target=CATALOG_PRODUCT_NODE.ref,
@@ -302,10 +384,19 @@ __all__ = [
     "BUYER_HOME_NODE",
     "CATALOG_BROWSE_NODE",
     "CATALOG_LIST",
+    "CATALOG_PRODUCTS_PROVIDER",
+    "CATALOG_PRODUCT_PROVIDER",
     "CATALOG_PRODUCT_NODE",
+    "CATALOG_SEARCH",
+    "CATALOG_VARIANTS_PROVIDER",
     "CONTINUE_SHOPPING",
     "CONTINUE_SHOPPING_AFFORDANCE",
     "FEATURE_SPEC",
+    "OPEN_PRODUCT",
+    "OPEN_PRODUCT_BY_ROUTE",
     "PRODUCT_DETAIL",
     "PRODUCT_GRID",
+    "PUBLIC_PRODUCT_GUARD",
+    "SELECT_VARIANT",
+    "VARIANT_ALLOWED_GUARD",
 ]

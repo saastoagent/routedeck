@@ -1,13 +1,14 @@
 # RouteDeck Framework Architecture
 
-Status: Target architecture accepted; implementation is transitional
-Date: 2026-07-10
+Status: Implemented reference architecture
+Date: 2026-07-12
 
 Read [`route-deck-reference.md`](./route-deck-reference.md),
-[`agentic-ui-state-runtime.md`](./agentic-ui-state-runtime.md),
-[`ADR-001`](../decisions/ADR-001-langgraph-native-routedeck.md), and
-[`ADR-002`](../decisions/ADR-002-two-adoption-modes-one-kernel.md) as the
-authorities for framework meaning.
+[`ADR-004`](../decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md),
+and the approved
+[buyer-agent design](./superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
+as the active authorities. `agentic-ui-state-runtime.md` and ADR-001 through
+ADR-003 remain historical rationale where they do not conflict with ADR-004.
 
 RouteDeck is a full-stack framework for robust agentic applications. It sits on
 top of LangGraph for its first-class Python execution path and provides the
@@ -76,11 +77,12 @@ The first-class Python execution implementation:
 - mapping between private execution nodes and public interaction outcomes
 - LangGraph callback/tool/assistant events mapped into typed RouteDeck events
 
-### `routedeck_fastapi` (planned)
+### `routedeck_fastapi`
 
 Product-neutral HTTP and SSE transport:
 
 - session, turn, dispatch, review, snapshot, and inspect routes
+- durable, idempotent session creation and mutation replay
 - filtered and multiplexed event-channel endpoints
 - SSE IDs, replay cursors, keepalive, bounded subscriptions, and disconnect
   cleanup
@@ -108,13 +110,27 @@ Product handlers receive the idempotency key for downstream APIs because no
 framework can promise exactly-once behavior across an uncoordinated external
 system.
 
+Navigation, private-form saves, chat turns, and session creation also carry a
+durable request identity. The SQLite adapter records the request fingerprint,
+public-safe terminal result, committed session/projection versions, and event
+cursor in the same transaction as canonical state. Replaying the exact request
+returns that recorded result; reusing its ID with different input fails with
+`request_id_reused`.
+
+The browser retains an exact request ID and payload when delivery may have
+succeeded but the response is unknown. It never invents a new ID or silently
+replays a state-changing request. The caller must explicitly retry that exact
+request or abandon it before issuing a conflicting payload.
+
 ## Current Implementation Reality
 
-The repository currently contains substantial core contracts,
-`RouteDeckRuntimeBase`, a builder foundation, LangGraph validation/common graph
-wiring, and the React store/debugger. It does not yet contain the complete
-server-authoritative kernel, Full Flow compiler, existing-agent executor,
-FastAPI/SSE package, or standalone two-mode examples described above.
+The repository implements the server-authoritative kernel and compiler,
+LangGraph middleware/tool seam, generic FastAPI/SSE transport, fenced SQLite
+persistence, generated TypeScript contracts, headless client store, React
+primitives, and the standalone Medusa reference consumer. The Medusa app uses
+Full Flow declarations while retaining a normal product-owned LangGraph agent.
 
-The implementation sequence is defined in
-[`2026-07-10-routedeck-full-stack-framework-refactor.md`](./superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md).
+The shipped SQLite adapter deliberately targets one fenced application process
+on one host. Multi-process or distributed deployments require a different
+`RouteDeckSessionStore` implementation with equivalent conformance and
+transaction semantics; they are not emulated by an in-process fallback.

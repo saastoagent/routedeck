@@ -25,7 +25,9 @@ class FailureSafeDetails(BaseModel):
     provider: str | None = None
     provider_code: str | None = None
     http_status: int | None = Field(default=None, ge=100, le=599)
-    delivery_phase: Literal["not_sent", "possibly_sent", "response_received"] | None = None
+    delivery_phase: Literal["not_sent", "possibly_sent", "response_received"] | None = (
+        None
+    )
 
 
 class RouteDeckFailure(BaseModel):

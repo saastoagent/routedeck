@@ -1,4 +1,4 @@
-"""Reusable async action dispatch mechanics for RouteDeck runtimes."""
+"""Legacy explicit-only action dispatch compatibility facade."""
 
 from __future__ import annotations
 
@@ -23,23 +23,20 @@ RouteDeckActionHandler = Callable[
     [StateT, Mapping[str, Any], ContextT],
     Awaitable[RouteDeckActionResult[StateT, MessageT]],
 ]
-RouteDeckDefaultActionHandler = Callable[
-    [str, StateT, Mapping[str, Any], ContextT],
-    Awaitable[RouteDeckActionResult[StateT, MessageT]],
-]
 
 
 class RouteDeckActionDispatcher(Generic[StateT, MessageT, ContextT]):
-    """Dispatches operation ids to explicit handlers with optional fallback."""
+    """Dispatch legacy action IDs only to explicitly registered handlers."""
 
     def __init__(
         self,
-        handlers: Mapping[str, RouteDeckActionHandler[StateT, MessageT, ContextT]] | None = None,
-        *,
-        default_handler: RouteDeckDefaultActionHandler[StateT, MessageT, ContextT] | None = None,
+        handlers: Mapping[
+            str,
+            RouteDeckActionHandler[StateT, ContextT, MessageT],
+        ]
+        | None = None,
     ) -> None:
         self._handlers = dict(handlers or {})
-        self._default_handler = default_handler
 
     def has_handler(self, action_id: str) -> bool:
         return action_id in self._handlers
@@ -53,8 +50,6 @@ class RouteDeckActionDispatcher(Generic[StateT, MessageT, ContextT]):
         context: ContextT,
     ) -> RouteDeckActionResult[StateT, MessageT]:
         handler = self._handlers.get(action_id)
-        if handler is not None:
-            return await handler(state, payload, context)
-        if self._default_handler is None:
+        if handler is None:
             raise KeyError(action_id)
-        return await self._default_handler(action_id, state, payload, context)
+        return await handler(state, payload, context)

@@ -1,17 +1,18 @@
 # RouteDeck Agentic UI State Runtime
 
-Status: historical architecture detail; ADR-003 controls current direction
-Date: 2026-07-10
+Status: historical architecture detail; ADR-004 controls current direction
+Last clarified: 2026-07-12
 
-`../decisions/ADR-003-agentic-interaction-state-governor.md` supersedes the
-LangGraph-required, compiler-first, durability-first, and multiple-adoption-mode
-portions of this document. RouteDeck's current identity is runtime-neutral
-agentic interaction/session state and before/after tool-call supervision, with
-the first extraction limited to behavior already demonstrated by Corpus.
+`../decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md` supersedes
+the sequencing, Corpus-first limitation, and LangGraph-ownership implications
+in this document. It is preserved for the state-management analogy and early
+interaction-governance rationale; the canonical reference and approved Medusa
+design describe the implemented runtime.
 
 RouteDeck is a full-stack framework for robust agentic applications and an
-embeddable state/interaction runtime for existing agents. Its default backend
-path is LangGraph-native.
+embeddable state/interaction runtime for existing agents. LangGraph is an
+optional product-owned orchestration layer connected through middleware and a
+supervised tool wrapper; it is not RouteDeck's state authority.
 
 For the canonical framework reference, read `docs/route-deck-reference.md`.
 For a practical operator, agent, and developer guide, read `docs/using-routedeck.md`.

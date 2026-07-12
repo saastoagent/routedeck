@@ -13,7 +13,14 @@ EXPECTED_FRAMEWORK_PACKAGES = (
 EXPECTED_PUBLIC_FRAMEWORK_IMPORTS = {
     *EXPECTED_FRAMEWORK_PACKAGES,
     "routedeck_core.app",
+    "routedeck_core.contracts.application",
     "routedeck_core.contracts.navigation",
+    "routedeck_core.contracts.operations",
+    "routedeck_core.contracts.retention",
+    "routedeck_core.navigation",
+    "routedeck_core.ports",
+    "routedeck_core.state.session",
+    "routedeck_core.supervision",
 }
 
 

@@ -58,7 +58,9 @@ def test_projection_exposes_legal_operations_and_hides_blocked_operations():
             ),
         ],
         surfaces=[
-            RouteDeckSurface(name="main", component="DashboardPanel", variant="default", role="frame"),
+            RouteDeckSurface(
+                name="main", component="DashboardPanel", variant="default", role="frame"
+            ),
         ],
         projection_version=3,
     )
@@ -66,7 +68,9 @@ def test_projection_exposes_legal_operations_and_hides_blocked_operations():
     assert projection.current_context == "dashboard"
     assert projection.graph_node == "dashboard"
     assert projection.projection_version == 3
-    assert [operation.id for operation in projection.legal_operations] == ["draft.create"]
+    assert [operation.id for operation in projection.legal_operations] == [
+        "draft.create"
+    ]
     assert projection.surfaces["main"].component == "DashboardPanel"
     assert projection.surfaces["main"].role == "frame"
 
@@ -92,7 +96,9 @@ def test_projection_falls_back_when_surface_variant_is_not_allowed():
         manifest,
         current_node="create",
         operations=[],
-        surfaces=[RouteDeckSurface(name="main", component="CreatePanel", variant="dense")],
+        surfaces=[
+            RouteDeckSurface(name="main", component="CreatePanel", variant="dense")
+        ],
     )
 
     assert projection.surfaces["main"].variant == "guided"
@@ -114,7 +120,11 @@ def test_projection_contract_exposes_capabilities_entities_and_affordances():
             ],
             edges=[],
             actions=[
-                RouteDeckActionSpec(id="draft.approve", label="Approve draft", capability_id="draft.approve"),
+                RouteDeckActionSpec(
+                    id="draft.approve",
+                    label="Approve draft",
+                    capability_id="draft.approve",
+                ),
             ],
             capabilities=[
                 RouteDeckCapabilitySpec(
@@ -164,7 +174,9 @@ def test_projection_contract_exposes_capabilities_entities_and_affordances():
                         source="entity",
                         path="operations.draft.approve.args.draft_ref",
                     ),
-                    "decision": RouteDeckBindingExpression(source="event", path="decision"),
+                    "decision": RouteDeckBindingExpression(
+                        source="event", path="decision"
+                    ),
                 },
             )
         ],
@@ -174,7 +186,10 @@ def test_projection_contract_exposes_capabilities_entities_and_affordances():
     assert payload["capabilities"][0]["capability_id"] == "draft.approve"
     assert payload["legal_operations"][0]["capability_id"] == "draft.approve"
     assert payload["available_entities"][0]["entity_key"] == "draft:alpha"
-    assert payload["surface_affordances"][0]["arg_bindings"]["decision"] == {"from": "event", "path": "decision"}
+    assert payload["surface_affordances"][0]["arg_bindings"]["decision"] == {
+        "from": "event",
+        "path": "decision",
+    }
 
 
 def test_projection_contract_exposes_context_lens_as_first_class_projection_context():
@@ -199,7 +214,13 @@ def test_projection_contract_exposes_context_lens_as_first_class_projection_cont
                 label="Refresh dashboard",
             )
         ],
-        navigation={"current": {"node_id": "dashboard", "surface_id": "dashboard.active", "params": {"tab": "overview"}}},
+        navigation={
+            "current": {
+                "node_id": "dashboard",
+                "surface_id": "dashboard.active",
+                "params": {"tab": "overview"},
+            }
+        },
         context_lens=RouteDeckContextLens(
             current_node="dashboard",
             working_on="Dashboard",
@@ -221,15 +242,28 @@ def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes(
         RouteDeckManifest(
             version="navgraph-contract",
             nodes=[
-                RouteDeckNodeSpec(id="queue", label="Queue", lane="review", description="Review draft queue."),
-                RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
+                RouteDeckNodeSpec(
+                    id="queue",
+                    label="Queue",
+                    lane="review",
+                    description="Review draft queue.",
+                ),
+                RouteDeckNodeSpec(
+                    id="detail",
+                    label="Detail",
+                    lane="review",
+                    description="Review detail.",
+                ),
             ],
             edges=[],
             actions=[RouteDeckActionSpec(id="review.open", label="Open review")],
         ),
         current_node="queue",
         navgraph=RouteDeckNavGraph(
-            current={"node_id": "queue", "deeplink": {"url": "/work/review", "resumable": True}},
+            current={
+                "node_id": "queue",
+                "deeplink": {"url": "/work/review", "resumable": True},
+            },
             nodes=[
                 RouteDeckNavGraphNode(
                     id="queue",
@@ -241,10 +275,16 @@ def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes(
                     id="detail",
                     label="Detail",
                     capability_ids=["review.detail"],
-                    deeplink=RouteDeckDeepLink(url="/work/review/draft-alpha", resumable=True),
+                    deeplink=RouteDeckDeepLink(
+                        url="/work/review/draft-alpha", resumable=True
+                    ),
                 ),
             ],
-            edges=[RouteDeckNavGraphEdge(from_stage="queue", to="detail", action_id="review.open")],
+            edges=[
+                RouteDeckNavGraphEdge(
+                    from_stage="queue", to="detail", action_id="review.open"
+                )
+            ],
             reachable=["detail"],
         ),
     )
@@ -255,7 +295,9 @@ def test_projection_contract_exposes_navgraph_without_treating_actions_as_nodes(
     assert payload["navgraph"]["edges"][0]["action_id"] == "review.open"
     assert payload["navgraph"]["edges"][0]["from"] == "queue"
     assert payload["navgraph"]["current"]["deeplink"]["url"] == "/work/review"
-    assert payload["navgraph"]["nodes"][1]["deeplink"]["url"] == "/work/review/draft-alpha"
+    assert (
+        payload["navgraph"]["nodes"][1]["deeplink"]["url"] == "/work/review/draft-alpha"
+    )
 
 
 def test_framework_runtime_sources_have_no_product_literals():
@@ -271,4 +313,6 @@ def test_framework_runtime_sources_have_no_product_literals():
                 continue
             source = path.read_text(encoding="utf-8")
             for needle in banned:
-                assert needle not in source, f"{needle} leaked into framework runtime source: {path}"
+                assert needle not in source, (
+                    f"{needle} leaked into framework runtime source: {path}"
+                )

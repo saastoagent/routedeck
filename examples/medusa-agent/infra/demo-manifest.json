@@ -1,0 +1,68 @@
+{
+  "contract_version": 1,
+  "sentinel": "routedeck-medusa-demo-v1",
+  "collections": {
+    "products": {
+      "fields": ["handle", "title", "status"],
+      "sort_by": ["handle"],
+      "expected_keys": ["shorts", "sweatpants", "sweatshirt", "t-shirt"]
+    },
+    "variants": {
+      "fields": ["product_handle", "sku", "title"],
+      "sort_by": ["product_handle", "sku"],
+      "expected_keys": [
+        "shorts::SHORTS-L",
+        "shorts::SHORTS-M",
+        "shorts::SHORTS-S",
+        "shorts::SHORTS-XL",
+        "sweatpants::SWEATPANTS-L",
+        "sweatpants::SWEATPANTS-M",
+        "sweatpants::SWEATPANTS-S",
+        "sweatpants::SWEATPANTS-XL",
+        "sweatshirt::SWEATSHIRT-L",
+        "sweatshirt::SWEATSHIRT-M",
+        "sweatshirt::SWEATSHIRT-S",
+        "sweatshirt::SWEATSHIRT-XL",
+        "t-shirt::SHIRT-L-BLACK",
+        "t-shirt::SHIRT-L-WHITE",
+        "t-shirt::SHIRT-M-BLACK",
+        "t-shirt::SHIRT-M-WHITE",
+        "t-shirt::SHIRT-S-BLACK",
+        "t-shirt::SHIRT-S-WHITE",
+        "t-shirt::SHIRT-XL-BLACK",
+        "t-shirt::SHIRT-XL-WHITE"
+      ]
+    },
+    "regions": {
+      "fields": ["name", "currency_code", "country_codes"],
+      "sort_by": ["name", "currency_code"],
+      "expected_keys": ["Europe::eur"]
+    },
+    "sales_channels": {
+      "fields": ["name"],
+      "sort_by": ["name"],
+      "expected_keys": ["Default Sales Channel"]
+    },
+    "shipping_options": {
+      "fields": ["name", "price_type", "provider_id", "type_code"],
+      "sort_by": ["name", "provider_id"],
+      "expected_keys": [
+        "Express Shipping::manual_manual",
+        "Standard Shipping::manual_manual"
+      ]
+    },
+    "enabled_payment_providers": {
+      "fields": ["id"],
+      "sort_by": ["id"],
+      "expected_keys": ["pp_system_default"]
+    }
+  },
+  "excluded_fields": [
+    "id",
+    "created_at",
+    "updated_at",
+    "deleted_at",
+    "metadata"
+  ],
+  "excluded_collections": ["carts", "orders"]
+}

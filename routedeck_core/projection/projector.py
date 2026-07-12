@@ -5,6 +5,7 @@ from datetime import datetime
 
 from ..app import CompiledRouteDeckApp
 from ..contracts.application import NodeSpec
+from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.projection import (
     FrozenJson,
     ProjectedNavigation,
@@ -14,16 +15,21 @@ from ..contracts.projection import (
     ProjectionDiagnostics,
     ProjectionLocation,
     ProjectionStatus,
-    PublicEntityHandle,
     PublicProjection,
     PublicValue,
 )
-from ..contracts.session import PublicSurfaceState, RouteDeckSession
+from ..contracts.session import (
+    PublicSurfaceState,
+    ReviewResolution,
+    RouteDeckSession,
+)
 from ..contracts.surfaces import SurfaceSpec
 from ..navigation.routes import PublicRouteKeyValidator
-from ..validation import RouteDeckValidationError
-from .redaction import project_public_values
 from ..navigation.session_location import validate_session_location
+from ..state.surfaces import validate_canonical_surface_state
+from ..validation import RouteDeckValidationError
+from .policy import resolve_projection_mode, visible_entity_handles
+from .redaction import project_public_values
 
 
 @dataclass(frozen=True)
@@ -50,13 +56,10 @@ class ProjectionProjector:
                 now=self.now,
             )
         node = self._current_node(session)
-        legal_operations = tuple(
-            operation
-            for operation in node.operations
-            if operation.id not in session.public_state.disabled_operation_ids
-        )
+        mode = resolve_projection_mode(self.app, node, session)
+        legal_operations = mode.legal_operations
         legal_operation_ids = {operation.id for operation in legal_operations}
-        visible_handles = self._visible_handles(
+        visible_handles = visible_entity_handles(
             session,
             legal_operation_ids,
             {provider.entity_kind for provider in node.entity_providers},
@@ -73,24 +76,17 @@ class ProjectionProjector:
                 if parameter.name in route_parameter_names
             ),
         )
-        surface_ids = tuple(
-            state.surface_id for state in session.public_state.surface_state
+        validate_canonical_surface_state(
+            self.app,
+            session.public_state.surface_state,
         )
         declared_surface_ids = {
             surface.id for surface in node.surfaces.declared_surfaces()
         }
-        if len(surface_ids) != len(set(surface_ids)):
-            raise RouteDeckValidationError(
-                f"Session contains duplicate surface state at node {node.id!r}"
-            )
-        undeclared_surface_ids = set(surface_ids) - declared_surface_ids
-        if undeclared_surface_ids:
-            raise RouteDeckValidationError(
-                f"Session contains undeclared surface state at node {node.id!r}: "
-                f"{sorted(undeclared_surface_ids)!r}"
-            )
         surface_state = {
-            state.surface_id: state for state in session.public_state.surface_state
+            state.surface_id: state
+            for state in session.public_state.surface_state
+            if state.surface_id in declared_surface_ids
         }
 
         return PublicProjection(
@@ -100,7 +96,9 @@ class ProjectionProjector:
             current=projection_location,
             navigation=ProjectedNavigation(
                 current=projection_location,
+                current_entry_id=self._current_entry_id(session),
                 route_template=node.route.template,
+                resume_handle=self._current_resume_handle(session, node),
                 can_back=node.navigation.can_back and bool(session.back_stack),
                 can_forward=(
                     node.navigation.can_forward and bool(session.forward_stack)
@@ -134,7 +132,17 @@ class ProjectionProjector:
                 for operation in legal_operations
             ),
             entities=visible_handles,
-            surfaces=self._surface_slots(node, surface_state),
+            surfaces=self._surface_slots(
+                node,
+                surface_state,
+                active_surface=mode.active_surface,
+                review_active=(
+                    session.operation is not None
+                    and session.operation.pending_review is not None
+                    and session.operation.pending_review.resolution
+                    is ReviewResolution.PENDING
+                ),
+            ),
             status=ProjectionStatus(
                 code=session.public_state.status_code,
                 message=session.public_state.status_message,
@@ -152,22 +160,37 @@ class ProjectionProjector:
         )
 
     @staticmethod
-    def _visible_handles(
+    def _current_entry_id(session: RouteDeckSession) -> int:
+        if session.current.entry_id is None:
+            raise RouteDeckValidationError(
+                "Canonical current location requires a history entry ID"
+            )
+        return session.current.entry_id
+
+    def _current_resume_handle(
+        self,
         session: RouteDeckSession,
-        legal_operation_ids: set[str],
-        declared_entity_kinds: set[str],
-    ) -> tuple[PublicEntityHandle, ...]:
-        allowed_bindings = {
-            (binding.public_handle, binding.entity_kind)
-            for binding in session.private_state.entity_bindings
-            if legal_operation_ids.intersection(binding.allowed_operation_ids)
-            and binding.entity_kind in declared_entity_kinds
-        }
-        return tuple(
-            entity
-            for entity in session.public_state.entity_handles
-            if (entity.handle, entity.entity_kind) in allowed_bindings
+        node: NodeSpec,
+    ) -> str | None:
+        if node.route.deep_link_policy is DeepLinkPolicy.SHAREABLE:
+            return None
+        if self.now is None or self.now.tzinfo is None:
+            raise RouteDeckValidationError(
+                "Session-bound projection requires an aware injected clock"
+            )
+        matches = tuple(
+            capability
+            for capability in session.private_state.resume_capabilities
+            if capability.session_id == session.session_id
+            and capability.node_id == session.current.node_id
+            and capability.route_params == session.current.route_params
+            and capability.expires_at > self.now
         )
+        if len(matches) != 1:
+            raise RouteDeckValidationError(
+                "Session-bound projection requires exactly one current resume capability"
+            )
+        return matches[0].handle
 
     @staticmethod
     def _project_surface(
@@ -187,18 +210,27 @@ class ProjectionProjector:
         self,
         node: NodeSpec,
         state: dict[str, PublicSurfaceState],
+        *,
+        active_surface: SurfaceSpec,
+        review_active: bool,
     ) -> ProjectedSurfaceSlots:
         def project(surface: SurfaceSpec) -> ProjectedSurface:
             return self._project_surface(surface, state.get(surface.id))
 
         surfaces = node.surfaces
         return ProjectedSurfaceSlots(
-            active=project(surfaces.active),
+            active=project(active_surface),
             frame=tuple(project(surface) for surface in surfaces.frame),
             peer=tuple(project(surface) for surface in surfaces.peer),
             detail=tuple(project(surface) for surface in surfaces.detail),
             form=tuple(project(surface) for surface in surfaces.form),
-            review=tuple(project(surface) for surface in surfaces.review),
+            review=tuple(
+                self._project_surface(
+                    surface,
+                    state.get(surface.id) if review_active else None,
+                )
+                for surface in surfaces.review
+            ),
             status=tuple(project(surface) for surface in surfaces.status),
             error=tuple(project(surface) for surface in surfaces.error),
             diagnostic=tuple(project(surface) for surface in surfaces.diagnostic),

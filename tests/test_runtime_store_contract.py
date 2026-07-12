@@ -32,9 +32,13 @@ def test_runtime_state_wraps_projection_without_product_fields():
         current_context="dashboard",
         graph_node="dashboard",
         projection_version=4,
-        legal_operations=[RouteDeckOperation(id="agent.create", label="Create", execution_mode="auto")],
+        legal_operations=[
+            RouteDeckOperation(id="agent.create", label="Create", execution_mode="auto")
+        ],
         surfaces={
-            "main": RouteDeckSurface(name="main", component="DashboardPanel", variant="default"),
+            "main": RouteDeckSurface(
+                name="main", component="DashboardPanel", variant="default"
+            ),
         },
         navigation={
             "current": {"node_id": "dashboard", "surface_id": "dashboard.main"},
@@ -71,7 +75,10 @@ def test_dispatch_result_carries_new_runtime_state_and_active_surface():
             )
         },
         navigation={
-            "current": {"node_id": "auth_register", "surface_id": "auth_register.active"},
+            "current": {
+                "node_id": "auth_register",
+                "surface_id": "auth_register.active",
+            },
             "back_stack": [],
             "forward_stack": [],
         },
@@ -128,7 +135,9 @@ def test_build_projection_update_event_carries_runtime_state_and_projection():
             "forward_stack": [],
         },
     )
-    state = build_runtime_state(projection=projection, graph_state={"node": "dashboard"})
+    state = build_runtime_state(
+        projection=projection, graph_state={"node": "dashboard"}
+    )
 
     event = build_projection_update_event(state=state, payload={"source": "test"})
     payload = event.model_dump(mode="json", by_alias=True)
@@ -158,7 +167,9 @@ def test_build_dispatch_result_defaults_to_operation_completed_event():
             )
         },
     )
-    state = build_runtime_state(projection=projection, graph_state={"node": "dashboard"})
+    state = build_runtime_state(
+        projection=projection, graph_state={"node": "dashboard"}
+    )
 
     result = build_dispatch_result(
         operation_id="dashboard.open",
@@ -178,8 +189,13 @@ def test_build_dispatch_result_defaults_to_operation_completed_event():
     assert payload["events"][0]["payload"]["operation_id"] == "dashboard.open"
     assert payload["events"][0]["payload"]["state"] == {"node": "dashboard"}
     assert payload["events"][0]["payload"]["projection"]["graph_node"] == "dashboard"
-    assert payload["events"][0]["payload"]["active_surface"]["component"] == "DashboardPanel"
-    assert payload["events"][0]["payload"]["messages"] == [{"content": "Opened dashboard."}]
+    assert (
+        payload["events"][0]["payload"]["active_surface"]["component"]
+        == "DashboardPanel"
+    )
+    assert payload["events"][0]["payload"]["messages"] == [
+        {"content": "Opened dashboard."}
+    ]
     assert payload["events"][0]["payload"]["replace_path"] == "/dashboard"
 
 
@@ -246,7 +262,9 @@ def test_build_projection_defaults_manifest_capabilities_and_empty_pools():
     manifest = RouteDeckManifest(
         version="runtime-helper",
         nodes=[
-            RouteDeckNodeSpec(id="queue", label="Queue", lane="review", description="Review queue."),
+            RouteDeckNodeSpec(
+                id="queue", label="Queue", lane="review", description="Review queue."
+            ),
         ],
         edges=[],
         actions=[],
@@ -263,7 +281,9 @@ def test_build_projection_defaults_manifest_capabilities_and_empty_pools():
 
     projection = build_projection(manifest, current_node="queue")
 
-    assert [capability.capability_id for capability in projection.capabilities] == ["review.queue"]
+    assert [capability.capability_id for capability in projection.capabilities] == [
+        "review.queue"
+    ]
     assert projection.available_entities == []
     assert projection.surface_affordances == []
     assert projection.legal_operations == []
@@ -322,7 +342,9 @@ def test_build_projection_filters_blocked_operations_at_runtime_boundary():
     manifest = RouteDeckManifest(
         version="runtime-operations",
         nodes=[
-            RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
+            RouteDeckNodeSpec(
+                id="detail", label="Detail", lane="review", description="Review detail."
+            ),
         ],
         edges=[],
         actions=[],
@@ -332,7 +354,9 @@ def test_build_projection_filters_blocked_operations_at_runtime_boundary():
         manifest,
         current_node="detail",
         operations=[
-            RouteDeckOperation(id="draft.approve", label="Approve draft", execution_mode="auto"),
+            RouteDeckOperation(
+                id="draft.approve", label="Approve draft", execution_mode="auto"
+            ),
             RouteDeckOperation(
                 id="draft.escalate",
                 label="Escalate draft",
@@ -342,19 +366,25 @@ def test_build_projection_filters_blocked_operations_at_runtime_boundary():
         ],
     )
 
-    assert [operation.id for operation in projection.legal_operations] == ["draft.approve"]
+    assert [operation.id for operation in projection.legal_operations] == [
+        "draft.approve"
+    ]
 
 
 def test_dispatch_state_events_include_runtime_state_projection_payload():
     manifest = RouteDeckManifest(
         version="runtime-event",
         nodes=[
-            RouteDeckNodeSpec(id="detail", label="Detail", lane="review", description="Review detail."),
+            RouteDeckNodeSpec(
+                id="detail", label="Detail", lane="review", description="Review detail."
+            ),
         ],
         edges=[],
         actions=[],
     )
-    projection = build_projection(manifest, current_node="detail", projection_version=12)
+    projection = build_projection(
+        manifest, current_node="detail", projection_version=12
+    )
     state = RouteDeckRuntimeState(
         projection=projection,
         status="dispatching",
@@ -373,10 +403,14 @@ def test_dispatch_state_events_include_runtime_state_projection_payload():
 
 def test_runtime_protocol_describes_agentic_state_manager_shape():
     class DemoRuntime:
-        async def snapshot(self, context: dict[str, Any] | None = None) -> RouteDeckRuntimeState:
+        async def snapshot(
+            self, context: dict[str, Any] | None = None
+        ) -> RouteDeckRuntimeState:
             raise NotImplementedError
 
-        async def projection(self, context: dict[str, Any] | None = None) -> RouteDeckProjection:
+        async def projection(
+            self, context: dict[str, Any] | None = None
+        ) -> RouteDeckProjection:
             raise NotImplementedError
 
         async def dispatch(
@@ -386,7 +420,11 @@ def test_runtime_protocol_describes_agentic_state_manager_shape():
         ) -> RouteDeckDispatchResult:
             raise NotImplementedError
 
-        async def inspect(self, query: dict[str, Any] | None = None, context: dict[str, Any] | None = None) -> RouteDeckIntrospection:
+        async def inspect(
+            self,
+            query: dict[str, Any] | None = None,
+            context: dict[str, Any] | None = None,
+        ) -> RouteDeckIntrospection:
             raise NotImplementedError
 
         def stream(self, context: dict[str, Any] | None = None):

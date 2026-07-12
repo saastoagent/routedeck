@@ -1,11 +1,18 @@
 from .authoring import (
-    RouteDeckManifestBuilder,
-    route_deck_action,
-    route_deck_edge,
-    route_deck_field,
-    route_deck_node,
+    RouteDeckManifestBuilder as RouteDeckManifestBuilder,
+    route_deck_action as route_deck_action,
+    route_deck_edge as route_deck_edge,
+    route_deck_field as route_deck_field,
+    route_deck_node as route_deck_node,
 )
-from .app import RouteDeckApp
+from .app import (
+    ApplicationSpec,
+    CompiledRouteDeckApp,
+    FeatureSpec,
+    RouteDeckApp as RouteDeckApp,
+    bind_app,
+    compile_app,
+)
 from .dispatch import RouteDeckActionDispatcher, RouteDeckActionResult
 from .errors import FailureKind, FailureSafeDetails, RouteDeckFailure
 from .models import (
@@ -33,7 +40,7 @@ from .models import (
     RouteDeckGraphResponse,
     RouteDeckGraphState,
     RouteDeckIntrospection,
-    RouteDeckManifest,
+    RouteDeckManifest as RouteDeckManifest,
     RouteDeckLocation,
     RouteDeckNavGraph,
     RouteDeckNavGraphEdge,
@@ -66,12 +73,16 @@ from .navigation import (
 )
 from .context import ContextScopeBuilder, OperationContextScope
 from .contracts.events import CanonicalRouteDeckEvent
+from .contracts.effects import SessionEffects
 from .contracts.projection import PublicProjection
+from .contracts.retention import RouteDeckRetentionPolicy
 from .contracts.session import RouteDeckSession, SessionSnapshot
 from .navigation.deep_links import DeepLinkEngine
 from .navigation.engine import NavigationEngine
 from .ports import RouteDeckNotifier, RouteDeckSessionStore
 from .projection import ProjectionProjector
+from .supervision import RouteDeckOperationRunner
+from .handles import new_opaque_handle
 from .runtime import (
     RouteDeckRuntime,
     build_dispatch_result_completed_event,
@@ -85,7 +96,10 @@ from .runtime import (
     reachable_nodes,
 )
 from .surfaces import RouteDeckSurfaceRegistry
-from .validation import RouteDeckValidationError, validate_manifest
+from .validation import (
+    RouteDeckValidationError,
+    validate_manifest as validate_manifest,
+)
 
 
 def __getattr__(name: str) -> object:
@@ -99,17 +113,19 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "ApplicationSpec",
     "CanonicalRouteDeckEvent",
+    "CompiledRouteDeckApp",
     "ContextScopeBuilder",
     "DeepLinkEngine",
     "FailureKind",
     "FailureSafeDetails",
+    "FeatureSpec",
     "NavigationEngine",
     "OperationContextScope",
     "ProjectionProjector",
     "PublicProjection",
     "RouteDeckActionDispatcher",
-    "RouteDeckApp",
     "RouteDeckActionResult",
     "RouteDeckActionCard",
     "RouteDeckActionField",
@@ -136,8 +152,6 @@ __all__ = [
     "RouteDeckGraphState",
     "RouteDeckGraphNavigationController",
     "RouteDeckIntrospection",
-    "RouteDeckManifest",
-    "RouteDeckManifestBuilder",
     "RouteDeckNavigationPolicy",
     "RouteDeckLocation",
     "RouteDeckNavigationTransition",
@@ -148,8 +162,10 @@ __all__ = [
     "RouteDeckNodeSpec",
     "RouteDeckOperation",
     "RouteDeckOperationPolicy",
+    "RouteDeckOperationRunner",
     "RouteDeckOperationRequestPolicy",
     "RouteDeckProjection",
+    "RouteDeckRetentionPolicy",
     "RouteDeckRouteActionIds",
     "RouteDeckStateProjector",
     "RouteDeckRuntime",
@@ -167,6 +183,7 @@ __all__ = [
     "RouteDeckSurfaceRegistry",
     "RouteDeckUIArtifact",
     "SessionSnapshot",
+    "SessionEffects",
     "RouteDeckValidationError",
     "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
     "ROUTEDECK_PENDING_OPERATION_ID_PARAM",
@@ -178,10 +195,8 @@ __all__ = [
     "build_projection_update_event",
     "build_runtime_snapshot",
     "build_runtime_state",
+    "bind_app",
+    "compile_app",
     "reachable_nodes",
-    "route_deck_action",
-    "route_deck_edge",
-    "route_deck_field",
-    "route_deck_node",
-    "validate_manifest",
+    "new_opaque_handle",
 ]

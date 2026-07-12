@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_serializer
 
 from ..contracts.application import CompiledApplicationSpec
 from ..contracts.navigation import DeepLinkPolicy
@@ -47,11 +47,40 @@ class FrontendNodeContract(_FrozenContract):
     operation_ids: tuple[str, ...]
 
 
+class FrontendTransitionContract(_FrozenContract):
+    source: str
+    operation_id: str
+    outcome: str
+    target: str
+
+
 class FrontendContract(_FrozenContract):
     name: str
     entry_node_id: str
     nodes: Mapping[str, FrontendNodeContract]
+    transitions: tuple[FrontendTransitionContract, ...]
     surfaces: Mapping[str, SurfaceSpec]
+
+    @model_serializer(mode="plain")
+    def _public_contract(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "entry_node_id": self.entry_node_id,
+            "nodes": {
+                node_id: node.model_dump(mode="json")
+                for node_id, node in self.nodes.items()
+            },
+            "transitions": [
+                transition.model_dump(mode="json") for transition in self.transitions
+            ],
+            "surfaces": {
+                surface_id: surface.model_dump(
+                    mode="json",
+                    exclude={"private_form_binding"},
+                )
+                for surface_id, surface in self.surfaces.items()
+            },
+        }
 
 
 class ExecutableTestPath(_FrozenContract):
@@ -73,6 +102,7 @@ class CompiledRouteDeckApp:
     operations: Mapping[str, OperationSpec]
     providers: Mapping[str, ProviderSpec]
     guards: Mapping[str, GuardSpec]
+    surfaces: Mapping[str, SurfaceSpec]
     routes: CompiledRoutes
     frontend_contract: FrontendContract
     executable_test_paths: tuple[ExecutableTestPath, ...]
@@ -108,4 +138,5 @@ __all__ = [
     "FrontendContract",
     "FrontendNodeContract",
     "FrontendSurfaceSlots",
+    "FrontendTransitionContract",
 ]

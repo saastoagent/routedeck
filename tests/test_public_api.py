@@ -50,6 +50,92 @@ def test_runtime_subclass_remains_compatibility_only() -> None:
     assert routedeck_core.RouteDeckRuntimeBase.__name__ == "RouteDeckRuntimeBase"
 
 
+def test_current_core_authoring_surface_is_canonical() -> None:
+    import routedeck_core
+    from routedeck_core.app import (
+        ApplicationSpec,
+        CompiledRouteDeckApp,
+        FeatureSpec,
+        bind_app,
+        compile_app,
+    )
+
+    current = {
+        "ApplicationSpec": ApplicationSpec,
+        "CompiledRouteDeckApp": CompiledRouteDeckApp,
+        "FeatureSpec": FeatureSpec,
+        "bind_app": bind_app,
+        "compile_app": compile_app,
+    }
+    for name, value in current.items():
+        assert name in routedeck_core.__all__
+        assert getattr(routedeck_core, name) is value
+
+
+def test_legacy_core_authoring_remains_explicitly_importable_only() -> None:
+    import routedeck_core
+    from routedeck_core import (
+        RouteDeckApp,
+        RouteDeckManifest,
+        RouteDeckManifestBuilder,
+        validate_manifest,
+    )
+
+    for name in (
+        "RouteDeckApp",
+        "RouteDeckManifest",
+        "RouteDeckManifestBuilder",
+        "route_deck_action",
+        "route_deck_edge",
+        "route_deck_field",
+        "route_deck_node",
+        "validate_manifest",
+    ):
+        assert name not in routedeck_core.__all__
+
+    assert RouteDeckApp is routedeck_core.RouteDeckApp
+    assert RouteDeckManifest is routedeck_core.RouteDeckManifest
+    assert RouteDeckManifestBuilder is routedeck_core.RouteDeckManifestBuilder
+    assert validate_manifest is routedeck_core.validate_manifest
+
+
+def test_retired_langgraph_topology_parity_is_compatibility_only() -> None:
+    import routedeck_langgraph
+    from routedeck_langgraph import (
+        RouteDeckTopologyBuilderDeprecatedError,
+        assert_route_transition,
+        build_route_deck_state_graph,
+        matching_route_deck_edge,
+        validate_langgraph_contract,
+    )
+
+    for name in (
+        "RouteDeckTopologyBuilderDeprecatedError",
+        "TransitionDiagnostics",
+        "assert_route_transition",
+        "build_route_deck_state_graph",
+        "matching_route_deck_edge",
+        "validate_langgraph_contract",
+    ):
+        assert name not in routedeck_langgraph.__all__
+
+    assert "RouteDeckMiddleware" in routedeck_langgraph.__all__
+    assert "RouteDeckToolWrapper" in routedeck_langgraph.__all__
+    assert "awrap_tool_call" in routedeck_langgraph.__all__
+    assert (
+        RouteDeckTopologyBuilderDeprecatedError
+        is routedeck_langgraph.RouteDeckTopologyBuilderDeprecatedError
+    )
+    assert assert_route_transition is routedeck_langgraph.assert_route_transition
+    assert (
+        build_route_deck_state_graph is routedeck_langgraph.build_route_deck_state_graph
+    )
+    assert matching_route_deck_edge is routedeck_langgraph.matching_route_deck_edge
+    assert (
+        validate_langgraph_contract is routedeck_langgraph.validate_langgraph_contract
+    )
+
+
 def test_failure_contract_has_one_public_model_definition() -> None:
     import routedeck_core
     from routedeck_core.contracts.failures import (

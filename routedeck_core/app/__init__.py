@@ -4,7 +4,11 @@ from typing import Generic, TypeVar
 
 from ..models import RouteDeckGraphMessage, RouteDeckGraphState, RouteDeckManifest
 from ..navigation import RouteDeckGraphNavigationController
-from ..operations import RouteDeckOperationPolicy, RouteDeckOperationRequestPolicy, RouteDeckRouteActionIds
+from ..operations import (
+    RouteDeckOperationPolicy,
+    RouteDeckOperationRequestPolicy,
+    RouteDeckRouteActionIds,
+)
 from ..runtime import RouteDeckRuntimeBase
 from ..surfaces import RouteDeckSurfaceRegistry
 from .bindings import (
@@ -36,7 +40,9 @@ class RouteDeckApp(Generic[StateT, MessageT]):
         self,
         state: type[StateT],
         *,
-        runtime_base: type[RouteDeckRuntimeBase[StateT, MessageT]] = RouteDeckRuntimeBase,
+        runtime_base: type[
+            RouteDeckRuntimeBase[StateT, MessageT]
+        ] = RouteDeckRuntimeBase,
         name: str | None = None,
     ) -> None:
         self._runtime_base = runtime_base

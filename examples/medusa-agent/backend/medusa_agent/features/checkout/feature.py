@@ -12,30 +12,57 @@ from routedeck_core.contracts.navigation import (
 )
 from routedeck_core.contracts.operations import (
     ContextProviderSpec,
+    EntityInputSpec,
+    EntityProviderSpec,
     GuardSpec,
+    OperationRef,
     OperationSpec,
     ReviewPolicy,
     SafetyClass,
 )
+from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.surfaces import (
+    PrivateFormBindingSpec,
     SurfaceAffordanceSpec,
     SurfaceLifecycle,
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
 
+from .models import (
+    CHECKOUT_FACTS_PROVIDER_SCHEMA,
+    CHECKOUT_STARTED_SCHEMA,
+    CONTACT_FORM_SCHEMA,
+    CONTACT_FIELD_NAMES,
+    CONTACT_SAVED_SCHEMA,
+    ORDER_REVIEW_SCHEMA,
+    PAYMENT_METHOD_SCHEMA,
+    PAYMENT_PROVIDER_SCHEMA,
+    PAYMENT_SELECTED_SCHEMA,
+    RECOVERY_SCHEMA,
+    REVIEW_PENDING_SCHEMA,
+    SHIPPING_OPTIONS_SCHEMA,
+    SHIPPING_PROVIDER_SCHEMA,
+    SHIPPING_SELECTED_SCHEMA,
+)
+
 
 CHECKOUT_FACTS_PROVIDER = ContextProviderSpec(
     id="checkout.facts",
     description="Authoritative cart, address, delivery, payment, and totals facts.",
+    output_schema=FrozenJsonObject(CHECKOUT_FACTS_PROVIDER_SCHEMA),
 )
-SHIPPING_OPTIONS_PROVIDER = ContextProviderSpec(
+SHIPPING_OPTIONS_PROVIDER = EntityProviderSpec(
     id="checkout.shipping_options",
+    entity_kind="shipping_option",
     description="Shipping options available for the current cart.",
+    output_schema=FrozenJsonObject(SHIPPING_PROVIDER_SCHEMA),
 )
-PAYMENT_PROVIDERS_PROVIDER = ContextProviderSpec(
+PAYMENT_PROVIDERS_PROVIDER = EntityProviderSpec(
     id="checkout.payment_providers",
+    entity_kind="payment_provider",
     description="Configured payment providers available for the current checkout.",
+    output_schema=FrozenJsonObject(PAYMENT_PROVIDER_SCHEMA),
 )
 
 CHECKOUT_READY_GUARD = GuardSpec(
@@ -63,8 +90,12 @@ CHECKOUT_START = OperationSpec(
     id="checkout.start",
     title="Start checkout",
     description="Enter guest checkout with the current cart.",
+    input_schema=FrozenJsonObject(
+        {"type": "object", "properties": {}, "additionalProperties": False}
+    ),
     safety_class=SafetyClass.NAVIGATION,
     outcomes=("started",),
+    outcome_schemas=FrozenJsonObject({"started": CHECKOUT_STARTED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(CHECKOUT_READY_GUARD.ref,),
 )
@@ -77,43 +108,70 @@ SAVE_CONTACT = OperationSpec(
     id="checkout.save_contact",
     title="Save guest contact",
     description="Validate and save guest contact and address values.",
-    input_schema={
-        "type": "object",
-        "required": ["contact"],
-        "properties": {"contact": {"type": "object", "sensitive": True}},
-    },
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["form_handle"],
+            "properties": {"form_handle": {"type": "string", "minLength": 1}},
+            "additionalProperties": False,
+        }
+    ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    unknown_recovery_directive="reconcile_unknown_contact",
     outcomes=("saved",),
+    outcome_schemas=FrozenJsonObject({"saved": CONTACT_SAVED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
-    guard_refs=(CONTACT_VALID_GUARD.ref,),
+    guard_refs=(CHECKOUT_READY_GUARD.ref, CONTACT_VALID_GUARD.ref),
 )
 SELECT_SHIPPING = OperationSpec(
     id="checkout.select_shipping",
     title="Select delivery",
     description="Select an offered shipping option for the current cart.",
-    input_schema={
-        "type": "object",
-        "required": ["shipping_option_ref"],
-        "properties": {"shipping_option_ref": {"type": "string"}},
-    },
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["shipping_option_ref"],
+            "properties": {"shipping_option_ref": {"type": "string"}},
+            "additionalProperties": False,
+        }
+    ),
+    entity_inputs=(
+        EntityInputSpec(
+            argument_name="shipping_option_ref",
+            entity_kind="shipping_option",
+        ),
+    ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    unknown_recovery_directive="reconcile_unknown_shipping_selection",
     outcomes=("selected",),
-    provider_refs=(SHIPPING_OPTIONS_PROVIDER.ref,),
-    guard_refs=(SHIPPING_VALID_GUARD.ref,),
+    outcome_schemas=FrozenJsonObject({"selected": SHIPPING_SELECTED_SCHEMA}),
+    provider_refs=(CHECKOUT_FACTS_PROVIDER.ref, SHIPPING_OPTIONS_PROVIDER.ref),
+    guard_refs=(CHECKOUT_READY_GUARD.ref, SHIPPING_VALID_GUARD.ref),
 )
 SELECT_PAYMENT = OperationSpec(
     id="checkout.select_payment",
     title="Select payment",
     description="Select and initialize the configured payment provider.",
-    input_schema={
-        "type": "object",
-        "required": ["payment_provider_ref"],
-        "properties": {"payment_provider_ref": {"type": "string"}},
-    },
+    input_schema=FrozenJsonObject(
+        {
+            "type": "object",
+            "required": ["payment_provider_ref"],
+            "properties": {"payment_provider_ref": {"type": "string"}},
+            "additionalProperties": False,
+        }
+    ),
+    entity_inputs=(
+        EntityInputSpec(
+            argument_name="payment_provider_ref",
+            entity_kind="payment_provider",
+        ),
+    ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    unknown_recovery_directive="reconcile_unknown_payment_selection",
     outcomes=("selected",),
-    provider_refs=(PAYMENT_PROVIDERS_PROVIDER.ref,),
-    guard_refs=(PAYMENT_VALID_GUARD.ref,),
+    outcome_schemas=FrozenJsonObject({"selected": PAYMENT_SELECTED_SCHEMA}),
+    provider_refs=(CHECKOUT_FACTS_PROVIDER.ref, PAYMENT_PROVIDERS_PROVIDER.ref),
+    guard_refs=(CHECKOUT_READY_GUARD.ref, PAYMENT_VALID_GUARD.ref),
 )
 PLACE_ORDER = OperationSpec(
     id="checkout.place_order",
@@ -121,15 +179,22 @@ PLACE_ORDER = OperationSpec(
     description="Complete the reviewed cart exactly once.",
     safety_class=SafetyClass.WRITE_EXTERNAL,
     review_policy=ReviewPolicy.REQUIRED,
-    outcomes=("order_created", "checkout_failed", "external_outcome_unknown"),
+    unknown_recovery_directive="reconcile_unknown_order",
+    unknown_recovery_operation_refs=(OperationRef(id="orders.reconcile"),),
+    outcomes=("order_created", "checkout_failed"),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(REVIEW_CURRENT_GUARD.ref,),
+    public_metadata=FrozenJsonObject({"review_surface_id": "checkout.review"}),
 )
 
 CHECKOUT_FRAME = SurfaceSpec(
     id="checkout.frame",
     component="checkout.frame",
     lifecycle=SurfaceLifecycle.STABLE,
+)
+CHECKOUT_PRIVATE_FORM_BINDING = PrivateFormBindingSpec(
+    form_id_prop="form_handle",
+    allowed_field_names=CONTACT_FIELD_NAMES,
 )
 CONTACT_FORM = SurfaceSpec(
     id="checkout.contact_form",
@@ -140,6 +205,8 @@ CONTACT_FORM = SurfaceSpec(
             id="save_contact", event="submit", operation=SAVE_CONTACT.ref
         ),
     ),
+    private_form_binding=CHECKOUT_PRIVATE_FORM_BINDING,
+    public_props_schema=FrozenJsonObject(CONTACT_FORM_SCHEMA),
 )
 SHIPPING_OPTIONS = SurfaceSpec(
     id="checkout.shipping_options",
@@ -150,6 +217,7 @@ SHIPPING_OPTIONS = SurfaceSpec(
             id="select_shipping", event="select", operation=SELECT_SHIPPING.ref
         ),
     ),
+    public_props_schema=FrozenJsonObject(SHIPPING_OPTIONS_SCHEMA),
 )
 PAYMENT_METHOD = SurfaceSpec(
     id="checkout.payment_method",
@@ -160,6 +228,7 @@ PAYMENT_METHOD = SurfaceSpec(
             id="select_payment", event="select", operation=SELECT_PAYMENT.ref
         ),
     ),
+    public_props_schema=FrozenJsonObject(PAYMENT_METHOD_SCHEMA),
 )
 ORDER_REVIEW = SurfaceSpec(
     id="checkout.order_review",
@@ -170,11 +239,14 @@ ORDER_REVIEW = SurfaceSpec(
             id="propose_order", event="submit", operation=PLACE_ORDER.ref
         ),
     ),
+    private_form_binding=CHECKOUT_PRIVATE_FORM_BINDING,
+    public_props_schema=FrozenJsonObject(ORDER_REVIEW_SCHEMA),
 )
 CHECKOUT_REVIEW = SurfaceSpec(
     id="checkout.review",
     component="checkout.review",
     lifecycle=SurfaceLifecycle.STABLE,
+    public_props_schema=FrozenJsonObject(REVIEW_PENDING_SCHEMA),
 )
 CHECKOUT_STATUS = SurfaceSpec(
     id="checkout.status",
@@ -190,6 +262,7 @@ CHECKOUT_RECOVERY = SurfaceSpec(
     id="checkout.recovery",
     component="checkout.recovery",
     lifecycle=SurfaceLifecycle.STABLE,
+    public_props_schema=FrozenJsonObject(RECOVERY_SCHEMA),
 )
 CHECKOUT_DIAGNOSTIC = SurfaceSpec(
     id="checkout.diagnostic",
@@ -227,7 +300,7 @@ CONTACT_NODE = NodeSpec(
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
     context_providers=(CHECKOUT_FACTS_PROVIDER,),
-    guards=(CONTACT_VALID_GUARD,),
+    guards=(CHECKOUT_READY_GUARD, CONTACT_VALID_GUARD),
     operations=(SAVE_CONTACT,),
     capabilities=(CHECKOUT_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
@@ -240,7 +313,8 @@ CONTACT_NODE = NodeSpec(
     ),
     navigation=NavigationPolicySpec(),
     recovery=RecoveryPolicySpec(
-        directives=("retry_contact",), failure_surface=CHECKOUT_ERROR.ref
+        directives=("retry_contact", "reconcile_unknown_contact"),
+        failure_surface=CHECKOUT_ERROR.ref,
     ),
 )
 DELIVERY_NODE = NodeSpec(
@@ -251,8 +325,9 @@ DELIVERY_NODE = NodeSpec(
         template="/checkout/delivery",
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
-    context_providers=(CHECKOUT_FACTS_PROVIDER, SHIPPING_OPTIONS_PROVIDER),
-    guards=(SHIPPING_VALID_GUARD,),
+    context_providers=(CHECKOUT_FACTS_PROVIDER,),
+    entity_providers=(SHIPPING_OPTIONS_PROVIDER,),
+    guards=(CHECKOUT_READY_GUARD, SHIPPING_VALID_GUARD),
     operations=(SELECT_SHIPPING,),
     capabilities=(CHECKOUT_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
@@ -264,7 +339,10 @@ DELIVERY_NODE = NodeSpec(
         diagnostic=(CHECKOUT_DIAGNOSTIC,),
     ),
     recovery=RecoveryPolicySpec(
-        directives=("refresh_shipping_options",),
+        directives=(
+            "refresh_shipping_options",
+            "reconcile_unknown_shipping_selection",
+        ),
         failure_surface=CHECKOUT_ERROR.ref,
     ),
 )
@@ -276,8 +354,9 @@ PAYMENT_NODE = NodeSpec(
         template="/checkout/payment",
         deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
     ),
-    context_providers=(CHECKOUT_FACTS_PROVIDER, PAYMENT_PROVIDERS_PROVIDER),
-    guards=(PAYMENT_VALID_GUARD,),
+    context_providers=(CHECKOUT_FACTS_PROVIDER,),
+    entity_providers=(SHIPPING_OPTIONS_PROVIDER, PAYMENT_PROVIDERS_PROVIDER),
+    guards=(CHECKOUT_READY_GUARD, PAYMENT_VALID_GUARD),
     operations=(SELECT_PAYMENT,),
     capabilities=(CHECKOUT_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
@@ -289,7 +368,10 @@ PAYMENT_NODE = NodeSpec(
         diagnostic=(CHECKOUT_DIAGNOSTIC,),
     ),
     recovery=RecoveryPolicySpec(
-        directives=("refresh_payment_providers",),
+        directives=(
+            "refresh_payment_providers",
+            "reconcile_unknown_payment_selection",
+        ),
         failure_surface=CHECKOUT_ERROR.ref,
     ),
 )
@@ -347,12 +429,6 @@ FEATURE_SPEC = FeatureSpec(
             outcome="checkout_failed",
             target=REVIEW_NODE.ref,
         ),
-        TransitionSpec(
-            source=REVIEW_NODE.ref,
-            operation=PLACE_ORDER.ref,
-            outcome="external_outcome_unknown",
-            target=REVIEW_NODE.ref,
-        ),
     ),
 )
 
@@ -362,9 +438,25 @@ __all__ = [
     "CHECKOUT_FACTS_PROVIDER",
     "CHECKOUT_READY_GUARD",
     "CHECKOUT_START",
+    "CONTACT_FORM",
     "CONTACT_NODE",
+    "CONTACT_VALID_GUARD",
+    "DELIVERY_NODE",
     "FEATURE_SPEC",
     "PLACE_ORDER",
+    "PAYMENT_METHOD",
+    "PAYMENT_PROVIDERS_PROVIDER",
+    "PAYMENT_VALID_GUARD",
+    "SAVE_CONTACT",
+    "SELECT_SHIPPING",
+    "SELECT_PAYMENT",
+    "SHIPPING_OPTIONS",
+    "SHIPPING_OPTIONS_PROVIDER",
+    "SHIPPING_VALID_GUARD",
+    "REVIEW_CURRENT_GUARD",
     "REVIEW_NODE",
+    "CHECKOUT_RECOVERY",
+    "CHECKOUT_REVIEW",
+    "ORDER_REVIEW",
     "START_CHECKOUT_AFFORDANCE",
 ]

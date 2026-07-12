@@ -6,8 +6,16 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .conversation import ConversationTurn
+from .effects import SessionEffects
 from .failures import RouteDeckFailure
+from .operations import (
+    DeliveryPhase,
+    OperationDisposition,
+    OperationEvidence,
+    OperationSource,
+)
 from .projection import ClassifiedValue, FrozenJson, PublicEntityHandle
+from .projection import FrozenJsonObject
 
 
 class _FrozenContract(BaseModel):
@@ -26,6 +34,7 @@ class LocationParameter(_FrozenContract):
 class Location(_FrozenContract):
     node_id: str = Field(min_length=1)
     route_params: tuple[LocationParameter, ...] = ()
+    entry_id: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def _unique_route_parameters(self) -> Location:
@@ -166,6 +175,7 @@ class OperationAttemptStatus(StrEnum):
     RECEIVED = "received"
     REVIEW_PENDING = "review_pending"
     EXECUTION_CLAIMED = "execution_claimed"
+    TOOL_STARTED = "tool_started"
     RESULT_RECORDED = "result_recorded"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -181,10 +191,17 @@ class AttemptTerminalState(StrEnum):
     EXTERNAL_OUTCOME_UNKNOWN = "external_outcome_unknown"
 
 
+class ReviewResolution(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    STALE = "stale"
+    EXPIRED = "expired"
+
+
 class OperationArgument(_FrozenContract):
     name: str = Field(min_length=1)
     value: FrozenJson
-    sensitive: bool = False
 
 
 class OperationAttempt(_FrozenContract):
@@ -192,10 +209,15 @@ class OperationAttempt(_FrozenContract):
     request_id: str = Field(min_length=1)
     request_fingerprint: str = Field(min_length=1)
     operation_id: str = Field(min_length=1)
+    source: OperationSource
     expected_session_version: int = Field(ge=0)
     arguments: tuple[OperationArgument, ...] = ()
     parent_turn_id: str | None = None
+    resumed_review_id: str | None = None
+    context_fingerprint: str | None = Field(default=None, min_length=1)
     status: OperationAttemptStatus = OperationAttemptStatus.RECEIVED
+    terminal: AttemptTerminalState | None = None
+    failure: RouteDeckFailure | None = None
 
     @model_validator(mode="after")
     def _unique_argument_names(self) -> OperationAttempt:
@@ -212,7 +234,10 @@ class PendingReview(_FrozenContract):
     operation_spec_version: str = Field(min_length=1)
     proposal_fingerprint: str = Field(min_length=1)
     projection_version: int = Field(ge=0)
+    authoritative_context_fingerprint: str = Field(min_length=1)
     expires_at: datetime
+    resolution: ReviewResolution = ReviewResolution.PENDING
+    resolved_request_id: str | None = None
 
     @model_validator(mode="after")
     def _aware_expiry(self) -> PendingReview:
@@ -223,10 +248,51 @@ class PendingReview(_FrozenContract):
 
 class JournaledExecutionResult(_FrozenContract):
     result_id: str = Field(min_length=1)
+    attempt_id: str = Field(min_length=1)
     request_id: str = Field(min_length=1)
     operation_id: str = Field(min_length=1)
-    outcome: str = Field(min_length=1)
-    observation: tuple[PrivateFieldValue, ...] = ()
+    outcome: str | None = Field(default=None, min_length=1)
+    delivery_phase: DeliveryPhase
+    result_fingerprint: str = Field(min_length=1)
+    observation: FrozenJsonObject = Field(default_factory=lambda: FrozenJsonObject({}))
+    effects: SessionEffects = Field(default_factory=SessionEffects)
+    failure: RouteDeckFailure | None = None
+
+    @model_validator(mode="after")
+    def _success_or_failure(self) -> JournaledExecutionResult:
+        if self.outcome is None and self.failure is None:
+            raise ValueError("journaled results require an outcome or failure")
+        if self.outcome is not None and self.failure is not None:
+            raise ValueError("journaled results require outcome or failure, not both")
+        if self.outcome is not None and self.delivery_phase is DeliveryPhase.NOT_SENT:
+            raise ValueError("successful outcomes cannot be not_sent")
+        if self.failure is not None and not self.effects.is_empty:
+            raise ValueError("failed journal results cannot contain session effects")
+        return self
+
+
+class StoredOperationAttempt(_FrozenContract):
+    attempt: OperationAttempt
+    review: PendingReview | None = None
+    journaled_result: JournaledExecutionResult | None = None
+    disposition: OperationDisposition | None = None
+    evidence: OperationEvidence | None = None
+    committed_session_version: int | None = Field(default=None, ge=0)
+    committed_projection_version: int | None = Field(default=None, ge=0)
+    failure: RouteDeckFailure | None = None
+
+    @model_validator(mode="after")
+    def _matching_attempt_identity(self) -> StoredOperationAttempt:
+        if self.review is not None and (
+            self.review.attempt.attempt_id != self.attempt.attempt_id
+            and self.attempt.resumed_review_id != self.review.review_id
+        ):
+            raise ValueError("stored review must belong to its operation attempt")
+        if self.journaled_result is not None and (
+            self.journaled_result.attempt_id != self.attempt.attempt_id
+        ):
+            raise ValueError("journaled result must belong to its operation attempt")
+        return self
 
 
 class OperationState(_FrozenContract):
@@ -242,6 +308,7 @@ class RouteDeckSession(_FrozenContract):
     session_version: int = Field(ge=0)
     projection_version: int = Field(ge=0)
     event_cursor: int = Field(ge=0)
+    next_history_entry_id: int = Field(ge=1)
     current: Location
     back_stack: tuple[Location, ...] = ()
     forward_stack: tuple[Location, ...] = ()
@@ -263,6 +330,18 @@ class RouteDeckSession(_FrozenContract):
             raise ValueError("resume capabilities must belong to their session")
         if self.projection_version > self.session_version:
             raise ValueError("projection_version cannot exceed session_version")
+        locations = (*self.back_stack, self.current, *self.forward_stack)
+        entry_ids = tuple(location.entry_id for location in locations)
+        if any(entry_id is None for entry_id in entry_ids):
+            raise ValueError("canonical navigation locations require history entry IDs")
+        if len(entry_ids) != len(set(entry_ids)):
+            raise ValueError("canonical history entry IDs must be unique")
+        if entry_ids and self.next_history_entry_id <= max(
+            entry_id for entry_id in entry_ids if entry_id is not None
+        ):
+            raise ValueError(
+                "next_history_entry_id must exceed every canonical history entry ID"
+            )
         return self
 
 
@@ -315,6 +394,8 @@ __all__ = [
     "PublicSessionState",
     "PublicSurfaceState",
     "ResumeCapabilityBinding",
+    "ReviewResolution",
     "RouteDeckSession",
     "SessionSnapshot",
+    "StoredOperationAttempt",
 ]

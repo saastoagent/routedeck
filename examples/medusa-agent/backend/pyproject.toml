@@ -6,7 +6,11 @@ build-backend = "hatchling.build"
 name = "routedeck-medusa-agent-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["routedeck-core"]
+dependencies = [
+    "email-validator>=2.1,<3",
+    "httpx==0.28.1",
+    "routedeck-core[fastapi,langgraph,sqlite]",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["medusa_agent"]

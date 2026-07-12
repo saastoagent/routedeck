@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from routedeck_core.app import ApplicationSpec, FeatureBindings, FeatureSpec
+from routedeck_core.app.bindings import ContextProvider, Guard
 from routedeck_core.app.compiled import CompiledRouteDeckApp
 from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
 from routedeck_core.contracts.navigation import (
@@ -15,9 +18,11 @@ from routedeck_core.contracts.navigation import (
 )
 from routedeck_core.contracts.operations import (
     ContextProviderSpec,
+    EntityInputSpec,
     GuardRef,
     GuardSpec,
     OperationRef,
+    OperationOutcome,
     OperationSpec,
     ProviderRef,
     ReviewPolicy,
@@ -40,7 +45,8 @@ from routedeck_core.contracts.session import (
     RouteDeckSession,
 )
 from routedeck_core.navigation.routes import RouteResumeCapability
-from routedeck_core.state.session import navgraph_version
+from routedeck_core.ports.executor import OperationHandler
+from routedeck_core.state.session import SESSION_SCHEMA_VERSION, navgraph_version
 
 
 _PROVIDER = ContextProviderSpec(
@@ -66,6 +72,7 @@ _FINISH = OperationSpec(
     description="Finish the test-only graph.",
     safety_class=SafetyClass.WRITE_EXTERNAL,
     review_policy=ReviewPolicy.REQUIRED,
+    unknown_recovery_directive="reconcile_finish",
     outcomes=("completed",),
     provider_refs=(_PROVIDER.ref,),
     guard_refs=(_GUARD.ref,),
@@ -117,6 +124,9 @@ _MIDDLE = NodeSpec(
         active=_MIDDLE_SURFACE,
         frame=(_FRAME,),
         error=(_ERROR_SURFACE,),
+    ),
+    recovery=RecoveryPolicySpec(
+        directives=("reconcile_finish",), failure_surface=_ERROR_SURFACE.ref
     ),
 )
 _END = NodeSpec(
@@ -212,6 +222,69 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             }
         )
         nodes = (_START.model_copy(update={"operations": (operation,)}), _MIDDLE, _END)
+    elif mutation == "missing_entity_provider":
+        operation = _ADVANCE.model_copy(
+            update={
+                "input_schema": _ADVANCE.input_schema.__class__(
+                    {
+                        "type": "object",
+                        "properties": {"item_ref": {"type": "string"}},
+                        "required": ["item_ref"],
+                        "additionalProperties": False,
+                    }
+                ),
+                "entity_inputs": (
+                    EntityInputSpec(
+                        argument_name="item_ref",
+                        entity_kind="item",
+                    ),
+                ),
+            }
+        )
+        nodes = (_START.model_copy(update={"operations": (operation,)}), _MIDDLE, _END)
+    elif mutation == "provider_not_on_node":
+        middle_only_provider = ContextProviderSpec(
+            id="test.middle_only",
+            description="Provider deliberately scoped to another test node.",
+        )
+        operation = _ADVANCE.model_copy(
+            update={
+                "provider_refs": (
+                    *_ADVANCE.provider_refs,
+                    middle_only_provider.ref,
+                )
+            }
+        )
+        nodes = (
+            _START.model_copy(update={"operations": (operation,)}),
+            _MIDDLE.model_copy(
+                update={
+                    "context_providers": (
+                        *_MIDDLE.context_providers,
+                        middle_only_provider,
+                    )
+                }
+            ),
+            _END,
+        )
+    elif mutation == "guard_not_on_node":
+        middle_only_guard = GuardSpec(
+            id="test.middle_only",
+            description="Guard deliberately scoped to another test node.",
+        )
+        operation = _ADVANCE.model_copy(
+            update={
+                "guard_refs": (
+                    *_ADVANCE.guard_refs,
+                    middle_only_guard.ref,
+                )
+            }
+        )
+        nodes = (
+            _START.model_copy(update={"operations": (operation,)}),
+            _MIDDLE.model_copy(update={"guards": (*_MIDDLE.guards, middle_only_guard)}),
+            _END,
+        )
     elif mutation == "unreachable_node":
         transitions = (_TO_MIDDLE,)
     elif mutation == "hierarchy_cycle":
@@ -276,7 +349,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _END,
         )
     elif mutation == "unexecutable_path":
-        operation = OperationSpec(
+        operation = OperationSpec.model_construct(
             id="test.unexecutable",
             title="Unexecutable",
             description="Test-only operation without an executable outcome.",
@@ -310,22 +383,49 @@ def invalid_bindings(
 ) -> FeatureBindings:
     """Return one deliberately inexact binding set using test doubles only."""
 
-    handlers = {operation.ref: _test_double for operation in app.operations.values()}
-    providers = {provider.ref: _test_double for provider in app.providers.values()}
-    guards = {guard.ref: _test_double for guard in app.guards.values()}
+    handlers: dict[OperationRef, OperationHandler] = {
+        operation.ref: cast(OperationHandler, _async_handler_test_double)
+        for operation in app.operations.values()
+    }
+    providers: dict[ProviderRef, ContextProvider] = {
+        provider.ref: cast(ContextProvider, _async_provider_test_double)
+        for provider in app.providers.values()
+    }
+    guards: dict[GuardRef, Guard] = {
+        guard.ref: cast(Guard, _async_guard_test_double)
+        for guard in app.guards.values()
+    }
 
     if mutation == "missing_handler":
         handlers.pop(min(handlers, key=lambda ref: ref.id))
     elif mutation == "extra_handler":
-        handlers[OperationRef(id="test.extra")] = _test_double
+        handlers[OperationRef(id="test.extra")] = cast(OperationHandler, _test_double)
     elif mutation == "missing_provider":
         providers.pop(min(providers, key=lambda ref: ref.id))
     elif mutation == "extra_provider":
-        providers[ProviderRef(id="test.extra")] = _test_double
+        providers[ProviderRef(id="test.extra")] = cast(ContextProvider, _test_double)
     elif mutation == "missing_guard":
         guards.pop(min(guards, key=lambda ref: ref.id))
     elif mutation == "extra_guard":
-        guards[GuardRef(id="test.extra")] = _test_double
+        guards[GuardRef(id="test.extra")] = cast(Guard, _test_double)
+    elif mutation == "sync_handler":
+        handlers[min(handlers, key=lambda ref: ref.id)] = cast(
+            OperationHandler, _test_double
+        )
+    elif mutation == "sync_provider":
+        providers[min(providers, key=lambda ref: ref.id)] = cast(
+            ContextProvider, _test_double
+        )
+    elif mutation == "sync_guard":
+        guards[min(guards, key=lambda ref: ref.id)] = cast(Guard, _test_double)
+    elif mutation == "wrong_handler_signature":
+        handlers[min(handlers, key=lambda ref: ref.id)] = cast(
+            OperationHandler, _wrong_handler_signature
+        )
+    elif mutation == "wrong_handler_return":
+        handlers[min(handlers, key=lambda ref: ref.id)] = cast(
+            OperationHandler, _wrong_handler_return
+        )
     else:
         raise ValueError(f"Unknown invalid binding mutation: {mutation}")
     return FeatureBindings(
@@ -340,6 +440,37 @@ def _test_double(*args: object, **kwargs: object) -> object:
     return object()
 
 
+async def _async_handler_test_double(
+    arguments: object,
+    context: object,
+) -> OperationOutcome:
+    del arguments, context
+    raise AssertionError("test-only handler must not execute")
+
+
+async def _async_provider_test_double(context: object) -> object:
+    del context
+    raise AssertionError("test-only provider must not execute")
+
+
+async def _async_guard_test_double(context: object) -> object:
+    del context
+    raise AssertionError("test-only guard must not execute")
+
+
+async def _wrong_handler_signature(payload: object) -> object:
+    del payload
+    raise AssertionError("invalid test-only handler must not execute")
+
+
+async def _wrong_handler_return(
+    arguments: object,
+    context: object,
+) -> str:
+    del arguments, context
+    return "invalid"
+
+
 def session_factory(
     *,
     app: CompiledRouteDeckApp | None = None,
@@ -349,6 +480,8 @@ def session_factory(
     contact_email: str | None = None,
     private_entity_id: str | None = None,
     public_entity_handle: str | None = None,
+    entity_kind: str = "test.entity",
+    allowed_operation_ids: tuple[str, ...] = (),
     private_drafts: tuple[PrivateDraft, ...] = (),
     resume_capabilities: tuple[RouteResumeCapability, ...] = (),
 ) -> RouteDeckSession:
@@ -375,19 +508,15 @@ def session_factory(
     if private_entity_id is not None and public_entity_handle is not None:
         private_bindings = (
             PrivateEntityBinding(
-                entity_kind="product",
+                entity_kind=entity_kind,
                 public_handle=public_entity_handle,
                 private_id=private_entity_id,
-                allowed_operation_ids=(
-                    "catalog.open_product",
-                    "catalog.select_variant",
-                    "cart.add_item",
-                ),
+                allowed_operation_ids=allowed_operation_ids,
             ),
         )
         public_entities = (
             PublicEntityHandle(
-                entity_kind="product",
+                entity_kind=entity_kind,
                 handle=public_entity_handle,
             ),
         )
@@ -404,14 +533,15 @@ def session_factory(
     )
     return RouteDeckSession(
         session_id=session_id,
-        schema_version=1,
+        schema_version=SESSION_SCHEMA_VERSION,
         navgraph_version=(
             navgraph_version(app) if app is not None else "test-navgraph-v1"
         ),
         session_version=1,
         projection_version=1,
         event_cursor=0,
-        current=Location(node_id=node_id, route_params=route_params),
+        next_history_entry_id=2,
+        current=Location(node_id=node_id, route_params=route_params, entry_id=1),
         private_state=PrivateSessionState(
             drafts=drafts,
             entity_bindings=private_bindings,

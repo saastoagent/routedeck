@@ -17,7 +17,9 @@ def test_navigation_policy_finds_active_surface_from_projection() -> None:
         current_context="workspace",
         graph_node="workspace",
         surfaces={
-            "frame": RouteDeckSurface(name="frame", surface_id="workspace.frame", component="Frame"),
+            "frame": RouteDeckSurface(
+                name="frame", surface_id="workspace.frame", component="Frame"
+            ),
             "detail": RouteDeckSurface(
                 name="detail",
                 surface_id="workspace.detail",
@@ -35,7 +37,10 @@ def test_navigation_policy_finds_active_surface_from_projection() -> None:
     policy = RouteDeckNavigationPolicy()
 
     assert policy.active_surface_ids(projection) == {"workspace.detail"}
-    assert policy.active_surface_from_projection(projection) == projection.surfaces["detail"]
+    assert (
+        policy.active_surface_from_projection(projection)
+        == projection.surfaces["detail"]
+    )
 
 
 def test_navigation_policy_derives_legal_targets_from_operations_and_history() -> None:
@@ -74,16 +79,22 @@ def test_navigation_policy_finds_known_location_from_history() -> None:
         node_id="detail",
         back_stack=[
             RouteDeckLocation(node_id="queue"),
-            RouteDeckLocation(node_id="detail", surface_id="detail.summary", params={"id": "123"}),
+            RouteDeckLocation(
+                node_id="detail", surface_id="detail.summary", params={"id": "123"}
+            ),
         ],
         forward_stack=[],
     )
 
-    assert location == RouteDeckLocation(node_id="detail", surface_id="detail.summary", params={"id": "123"})
+    assert location == RouteDeckLocation(
+        node_id="detail", surface_id="detail.summary", params={"id": "123"}
+    )
 
 
 def test_navigation_policy_builds_locations_from_payloads() -> None:
-    current = RouteDeckLocation(node_id="detail", surface_id="detail.summary", params={"id": "123"})
+    current = RouteDeckLocation(
+        node_id="detail", surface_id="detail.summary", params={"id": "123"}
+    )
 
     location = RouteDeckNavigationPolicy().location_from_payload(
         current=current,
@@ -91,7 +102,9 @@ def test_navigation_policy_builds_locations_from_payloads() -> None:
         preserve_current_params=True,
     )
 
-    assert location == RouteDeckLocation(node_id="detail", surface_id="detail.audit", params={"id": "123"})
+    assert location == RouteDeckLocation(
+        node_id="detail", surface_id="detail.audit", params={"id": "123"}
+    )
 
 
 def test_navigation_policy_moves_back_and_forward_without_product_state() -> None:
@@ -100,7 +113,9 @@ def test_navigation_policy_moves_back_and_forward_without_product_state() -> Non
     home = RouteDeckLocation(node_id="home")
     review = RouteDeckLocation(node_id="review")
 
-    back = policy.back_transition(current=current, back_stack=[home], forward_stack=[review])
+    back = policy.back_transition(
+        current=current, back_stack=[home], forward_stack=[review]
+    )
 
     assert back is not None
     assert back.target == home
@@ -151,7 +166,9 @@ def test_navigation_policy_open_transition_pushes_previous_location() -> None:
     assert transition.forward_stack == []
 
 
-def test_graph_navigation_controller_applies_route_state_without_product_adapter() -> None:
+def test_graph_navigation_controller_applies_route_state_without_product_adapter() -> (
+    None
+):
     registry = RouteDeckSurfaceRegistry(
         active_components_by_node={
             "home": "HomeSurface",
@@ -170,7 +187,9 @@ def test_graph_navigation_controller_applies_route_state_without_product_adapter
 
     assert current.surface_id == "operation_review.draft.publish"
     assert current.params[ROUTEDECK_PENDING_OPERATION_ID_PARAM] == "draft.publish"
-    assert current.params[ROUTEDECK_PENDING_OPERATION_ARGS_PARAM] == {"draft_id": "draft_1"}
+    assert current.params[ROUTEDECK_PENDING_OPERATION_ARGS_PARAM] == {
+        "draft_id": "draft_1"
+    }
 
     navigation.open_node(
         state,

@@ -36,6 +36,8 @@ class BuilderOperationRequestPolicy(RouteDeckOperationRequestPolicy):
 
 
 class BuilderRuntime(RouteDeckRuntimeBase[BuilderState, RouteDeckGraphMessage]):
+    State = BuilderState
+
     async def execute_action(self, operation_id, state, payload):
         raise AssertionError(f"Unexpected builder action: {operation_id}")
 
@@ -53,7 +55,14 @@ BUILDER_MANIFEST = (
             default_surfaces={"main": "home"},
         )
     )
-    .add_action(route_deck_action("route.open_node", "Open node", category="navigation", invocation_kind="hidden"))
+    .add_action(
+        route_deck_action(
+            "route.open_node",
+            "Open node",
+            category="navigation",
+            invocation_kind="hidden",
+        )
+    )
     .build()
 )
 
@@ -68,7 +77,9 @@ def test_route_deck_app_compiles_runtime_from_product_declarations() -> None:
     )
 
     runtime = (
-        RouteDeckApp(BuilderState, runtime_base=BuilderRuntime, name="BuilderCompiledRuntime")
+        RouteDeckApp(
+            BuilderState, runtime_base=BuilderRuntime, name="BuilderCompiledRuntime"
+        )
         .manifest(BUILDER_MANIFEST)
         .initial_node("home")
         .surfaces(BuilderSurfaceRegistry)
@@ -99,7 +110,9 @@ def test_route_deck_app_requires_manifest_before_compile() -> None:
     except TypeError as exc:
         assert "manifest" in str(exc)
     else:
-        raise AssertionError("RouteDeckApp.compile() should require a manifest declaration")
+        raise AssertionError(
+            "RouteDeckApp.compile() should require a manifest declaration"
+        )
 
 
 def test_route_deck_app_does_not_expose_projection_as_product_extension() -> None:

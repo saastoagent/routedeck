@@ -47,15 +47,15 @@ def test_context_is_scoped_to_current_node_and_requested_operation() -> None:
                 update={
                     "entity_bindings": (
                         PrivateEntityBinding(
-                            entity_kind="product",
-                            public_handle="allowed-product-handle",
-                            private_id="prod_private_allowed",
+                            entity_kind="variant",
+                            public_handle="allowed-variant-handle",
+                            private_id="variant_private_allowed",
                             allowed_operation_ids=("catalog.select_variant",),
                         ),
                         PrivateEntityBinding(
-                            entity_kind="product",
-                            public_handle="blocked-product-handle",
-                            private_id="prod_private_blocked",
+                            entity_kind="variant",
+                            public_handle="blocked-variant-handle",
+                            private_id="variant_private_blocked",
                             allowed_operation_ids=("cart.add_item",),
                         ),
                         PrivateEntityBinding(
@@ -71,13 +71,13 @@ def test_context_is_scoped_to_current_node_and_requested_operation() -> None:
                 update={
                     "entity_handles": (
                         PublicEntityHandle(
-                            entity_kind="product",
-                            handle="allowed-product-handle",
+                            entity_kind="variant",
+                            handle="allowed-variant-handle",
                             values=(PublicValue(name="title", value="Allowed"),),
                         ),
                         PublicEntityHandle(
-                            entity_kind="product",
-                            handle="blocked-product-handle",
+                            entity_kind="variant",
+                            handle="blocked-variant-handle",
                             values=(PublicValue(name="title", value="Blocked"),),
                         ),
                         PublicEntityHandle(
@@ -99,13 +99,13 @@ def test_context_is_scoped_to_current_node_and_requested_operation() -> None:
     )
     rendered = context.model_dump_json()
 
-    assert set(context.provider_ids) == {"catalog.product"}
-    assert "allowed-product-handle" in rendered
-    assert "blocked-product-handle" not in rendered
+    assert set(context.provider_ids) == {"catalog.variants"}
+    assert "allowed-variant-handle" in rendered
+    assert "blocked-variant-handle" not in rendered
     assert "unrelated-line-handle" not in rendered
     assert "buyer@example.test" not in rendered
-    assert "prod_private_allowed" not in rendered
-    assert "prod_private_blocked" not in rendered
+    assert "variant_private_allowed" not in rendered
+    assert "variant_private_blocked" not in rendered
     assert "line_private_123" not in rendered
 
 
@@ -126,6 +126,8 @@ def test_cross_feature_operation_receives_only_its_allowlisted_node_entity() -> 
         route_params=_product_route(),
         private_entity_id="variant_private_123",
         public_entity_handle="variant-handle-1",
+        entity_kind="variant",
+        allowed_operation_ids=("cart.add_item",),
     )
 
     context = ContextScopeBuilder(

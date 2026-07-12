@@ -1,0 +1,181 @@
+name: routedeck-medusa-demo
+
+x-demo-labels: &demo-labels
+  com.routedeck.demo: routedeck-medusa-demo-v1
+
+x-medusa-environment: &medusa-environment
+  DATABASE_URL: postgres://routedeck_medusa:${ROUTEDECK_DEMO_POSTGRES_PASSWORD:?run demo-stack.ps1 Provision}@postgres:5432/routedeck_medusa_demo
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${ROUTEDECK_DEMO_JWT_SECRET:?run demo-stack.ps1 Provision}
+  COOKIE_SECRET: ${ROUTEDECK_DEMO_COOKIE_SECRET:?run demo-stack.ps1 Provision}
+  STORE_CORS: http://127.0.0.1:5198,http://localhost:5198
+  ADMIN_CORS: http://127.0.0.1:9100,http://localhost:9100
+  AUTH_CORS: http://127.0.0.1:5198,http://localhost:5198,http://127.0.0.1:9100,http://localhost:9100
+  MEDUSA_DISABLE_ADMIN: "true"
+  NODE_ENV: development
+  ROUTEDECK_DEMO_SENTINEL: routedeck-medusa-demo-v1
+  ROUTEDECK_DEMO_GENERATED_MANIFEST: /demo/demo-manifest.generated.json
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    labels: *demo-labels
+    environment:
+      POSTGRES_USER: routedeck_medusa
+      POSTGRES_PASSWORD: ${ROUTEDECK_DEMO_POSTGRES_PASSWORD:?run demo-stack.ps1 Provision}
+      POSTGRES_DB: routedeck_medusa_demo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routedeck_medusa -d routedeck_medusa_demo"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    labels: *demo-labels
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  medusa-setup:
+    build:
+      context: ../medusa
+    restart: "no"
+    labels: *demo-labels
+    working_dir: /server
+    environment: *medusa-environment
+    volumes:
+      - ./:/demo
+      - ./medusa-sentinel.ts:/server/src/scripts/routedeck-demo/medusa-sentinel.ts:ro
+      - ./seed-fingerprint.ts:/server/src/scripts/routedeck-demo/seed-fingerprint.ts:ro
+      - ./demo-manifest.json:/server/src/scripts/routedeck-demo/demo-manifest.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "/demo/medusa-setup.sh"]
+
+  medusa:
+    build:
+      context: ../medusa
+    restart: unless-stopped
+    labels: *demo-labels
+    working_dir: /server
+    environment:
+      <<: *medusa-environment
+      MEDUSA_APP_MODE: development
+      MEDUSA_SEED_ON_START: "0"
+    ports:
+      - "127.0.0.1:9100:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:9000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  agent-api:
+    image: python:3.11-slim
+    profiles: ["application"]
+    restart: unless-stopped
+    labels: *demo-labels
+    working_dir: /workspace/examples/medusa-agent/backend
+    environment:
+      MEDUSA_BASE_URL: http://medusa:9000
+      MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?run demo-stack.ps1 Provision}
+      MEDUSA_REGION_ID: ${MEDUSA_REGION_ID:?run demo-stack.ps1 Provision}
+      MEDUSA_COUNTRY_CODE: ${MEDUSA_COUNTRY_CODE:?run demo-stack.ps1 Provision}
+      MEDUSA_SALES_CHANNEL_ID: ${MEDUSA_SALES_CHANNEL_ID:?run demo-stack.ps1 Provision}
+      MEDUSA_PAYMENT_PROVIDER_ID: ${MEDUSA_PAYMENT_PROVIDER_ID:?run demo-stack.ps1 Provision}
+      ROUTEDECK_DATABASE_PATH: /workspace/examples/medusa-agent/.demo-data/routedeck.sqlite
+      ROUTEDECK_STATE_ENCRYPTION_KEY: ${ROUTEDECK_STATE_ENCRYPTION_KEY:?run demo-stack.ps1 Provision}
+      OPENAI_MODEL: ${OPENAI_MODEL:?OPENAI_MODEL is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ROUTEDECK_MODEL_MODE: ${ROUTEDECK_MODEL_MODE:-live}
+      ROUTEDECK_TEST_ONLY: ${ROUTEDECK_TEST_ONLY:-0}
+      ROUTEDECK_RELEASE_BUNDLE: ${ROUTEDECK_RELEASE_BUNDLE:-}
+      PYTHONPATH: /workspace:/workspace/examples/medusa-agent/backend:/workspace/examples/medusa-agent/e2e/backend-support
+    volumes:
+      - ../../../:/workspace
+    ports:
+      - "127.0.0.1:8098:8098"
+    depends_on:
+      medusa:
+        condition: service_healthy
+    command:
+      - sh
+      - -ec
+      - >-
+        python -m pip install --no-cache-dir
+        -e /workspace
+        -e /workspace/examples/medusa-agent/backend &&
+        python -m uvicorn main:app --host 0.0.0.0 --port 8098
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/api/medusa-agent/ready', timeout=3)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 3m
+
+  frontend:
+    image: node:24-bookworm-slim
+    profiles: ["application"]
+    restart: unless-stopped
+    labels: *demo-labels
+    working_dir: /workspace
+    environment:
+      VITE_AGENT_API_PROXY_TARGET: http://agent-api:8098
+      VITE_USE_POLLING: "true"
+    volumes:
+      - ../../../:/workspace
+      - frontend-node-modules:/workspace/node_modules
+      - frontend-core-node-modules:/workspace/packages/core/node_modules
+      - frontend-react-node-modules:/workspace/packages/react/node_modules
+      - frontend-app-node-modules:/workspace/examples/medusa-agent/frontend/node_modules
+    ports:
+      - "127.0.0.1:5198:5198"
+    depends_on:
+      agent-api:
+        condition: service_healthy
+    command:
+      - sh
+      - /workspace/examples/medusa-agent/infra/frontend-start.sh
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:5198').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 3m
+
+volumes:
+  postgres-data:
+    name: routedeck-medusa-demo-postgres-v1
+    labels: *demo-labels
+  redis-data:
+    name: routedeck-medusa-demo-redis-v1
+    labels: *demo-labels
+  frontend-node-modules:
+    name: routedeck-medusa-demo-frontend-node-modules-v1
+    labels: *demo-labels
+  frontend-core-node-modules:
+    name: routedeck-medusa-demo-frontend-core-node-modules-v1
+    labels: *demo-labels
+  frontend-react-node-modules:
+    name: routedeck-medusa-demo-frontend-react-node-modules-v1
+    labels: *demo-labels
+  frontend-app-node-modules:
+    name: routedeck-medusa-demo-frontend-app-node-modules-v1
+    labels: *demo-labels

@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, ClassVar, Generic, Protocol, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    AsyncIterator,
+    ClassVar,
+    Generic,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .authoring import RouteDeckManifestBuilder
@@ -24,12 +32,17 @@ from .models import (
     RouteDeckNavigationState,
     RouteDeckOperation,
     RouteDeckProjection,
+    RouteDeckRuntimeStatus,
     RouteDeckRuntimeState,
     RouteDeckSurface,
     RouteDeckSurfaceAffordance,
 )
 from .navigation import RouteDeckGraphNavigationController
-from .operations import RouteDeckOperationPolicy, RouteDeckOperationRequestPolicy, RouteDeckRouteActionIds
+from .operations import (
+    RouteDeckOperationPolicy,
+    RouteDeckOperationRequestPolicy,
+    RouteDeckRouteActionIds,
+)
 from .surfaces import RouteDeckSurfaceRegistry
 
 
@@ -39,28 +52,29 @@ MessageT = TypeVar("MessageT", bound=RouteDeckGraphMessage)
 
 @runtime_checkable
 class RouteDeckRuntime(Protocol):
-    async def snapshot(self, context: dict[str, Any] | None = None) -> RouteDeckRuntimeState:
-        ...
+    async def snapshot(
+        self, context: dict[str, Any] | None = None
+    ) -> RouteDeckRuntimeState: ...
 
-    async def projection(self, context: dict[str, Any] | None = None) -> RouteDeckProjection:
-        ...
+    async def projection(
+        self, context: dict[str, Any] | None = None
+    ) -> RouteDeckProjection: ...
 
     async def dispatch(
         self,
         request: RouteDeckDispatchInput,
         context: dict[str, Any] | None = None,
-    ) -> RouteDeckDispatchResult:
-        ...
+    ) -> RouteDeckDispatchResult: ...
 
     async def inspect(
         self,
         query: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
-    ) -> RouteDeckIntrospection:
-        ...
+    ) -> RouteDeckIntrospection: ...
 
-    def stream(self, context: dict[str, Any] | None = None) -> AsyncIterator[RouteDeckEvent]:
-        ...
+    def stream(
+        self, context: dict[str, Any] | None = None
+    ) -> AsyncIterator[RouteDeckEvent]: ...
 
 
 class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
@@ -72,12 +86,16 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
     pending-operation state, active-surface resolution, and runtime events.
     """
 
-    State: ClassVar[type[StateT]] = RouteDeckGraphState
+    State: ClassVar[type[StateT]]
     Surface: ClassVar[type[RouteDeckSurface]] = RouteDeckSurface
     SurfaceRegistry: ClassVar[type[RouteDeckSurfaceRegistry]] = RouteDeckSurfaceRegistry
-    NavigationController: ClassVar[type[RouteDeckGraphNavigationController]] = RouteDeckGraphNavigationController
+    NavigationController: ClassVar[type[RouteDeckGraphNavigationController]] = (
+        RouteDeckGraphNavigationController
+    )
     OperationPolicy: ClassVar[type[RouteDeckOperationPolicy]] = RouteDeckOperationPolicy
-    OperationRequestPolicy: ClassVar[type[RouteDeckOperationRequestPolicy]] = RouteDeckOperationRequestPolicy
+    OperationRequestPolicy: ClassVar[type[RouteDeckOperationRequestPolicy]] = (
+        RouteDeckOperationRequestPolicy
+    )
     manifest: ClassVar[RouteDeckManifest]
     initial_node: ClassVar[str] = "home"
     route_action_ids: ClassVar[RouteDeckRouteActionIds] = RouteDeckRouteActionIds(
@@ -144,7 +162,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             **kwargs,
         )
 
-    async def snapshot(self, context: dict[str, Any] | None = None) -> RouteDeckRuntimeState:
+    async def snapshot(
+        self, context: dict[str, Any] | None = None
+    ) -> RouteDeckRuntimeState:
         ctx = context or {}
         state = await self.prepare_state(ctx)
         return await self.runtime_state_from_state(
@@ -153,7 +173,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             projection_version=self.projection_version_from_context(ctx),
         )
 
-    async def projection(self, context: dict[str, Any] | None = None) -> RouteDeckProjection:
+    async def projection(
+        self, context: dict[str, Any] | None = None
+    ) -> RouteDeckProjection:
         return (await self.snapshot(context)).projection
 
     async def dispatch(
@@ -166,9 +188,17 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         projection = await self.project_state(
             state,
             context=ctx,
-            projection_version=request.projection_version or self.projection_version_from_context(ctx),
+            projection_version=request.projection_version
+            or self.projection_version_from_context(ctx),
         )
-        operation = next((candidate for candidate in projection.legal_operations if candidate.id == request.operation_id), None)
+        operation = next(
+            (
+                candidate
+                for candidate in projection.legal_operations
+                if candidate.id == request.operation_id
+            ),
+            None,
+        )
         if operation is None:
             raise ValueError("Operation is not legal from the current RouteDeck state")
 
@@ -182,7 +212,11 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
 
         if operation.id == self.route_action_ids.open_node:
             self._navigation.open_node(state, payload)
-            runtime_state = await self.runtime_state_from_state(state=state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
@@ -190,7 +224,11 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
         if operation.id == self.route_action_ids.switch_surface:
             self._navigation.switch_surface(state, payload)
-            runtime_state = await self.runtime_state_from_state(state=state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
@@ -198,7 +236,11 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
         if operation.id == self.route_action_ids.back:
             self._navigation.move_back(state)
-            runtime_state = await self.runtime_state_from_state(state=state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
@@ -206,7 +248,11 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
         if operation.id == self.route_action_ids.forward:
             self._navigation.move_forward(state)
-            runtime_state = await self.runtime_state_from_state(state=state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
@@ -214,20 +260,30 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
         if operation.id == self.route_action_ids.cancel:
             self._navigation.cancel(state)
-            runtime_state = await self.runtime_state_from_state(state=state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
                 metadata=self.dispatch_metadata_for_state(state, ctx),
             )
 
-        if self.should_stage_operation_review(state=state, operation=operation, context=ctx):
+        if self.should_stage_operation_review(
+            state=state, operation=operation, context=ctx
+        ):
             review_state = self._operation_requests.review_state_for_operation(
                 state=state,
                 operation=operation,
                 args=payload,
             )
-            runtime_state = await self.runtime_state_from_state(state=review_state, context=ctx, projection_version=self._next_projection_version(request))
+            runtime_state = await self.runtime_state_from_state(
+                state=review_state,
+                context=ctx,
+                projection_version=self._next_projection_version(request),
+            )
             return self._dispatch_result(
                 operation_id=operation.id,
                 state=runtime_state,
@@ -235,13 +291,22 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
 
         previous_location = self._navigation.current_location(state)
-        result = await self.execute_action_with_context(operation.id, state, payload, ctx)
+        result = await self.execute_action_with_context(
+            operation.id, state, payload, ctx
+        )
         result.state.pending_operation_id = None
         result.state.pending_operation_args = {}
-        if result.state.node != previous_location.node_id and result.state.active_surface_id == previous_location.surface_id:
+        if (
+            result.state.node != previous_location.node_id
+            and result.state.active_surface_id == previous_location.surface_id
+        ):
             result.state.active_surface_id = None
         self._navigation.push_navigation(result.state, previous_location)
-        runtime_state = await self.runtime_state_from_state(state=result.state, context=ctx, projection_version=self._next_projection_version(request))
+        runtime_state = await self.runtime_state_from_state(
+            state=result.state,
+            context=ctx,
+            projection_version=self._next_projection_version(request),
+        )
         return self._dispatch_result(
             operation_id=operation.id,
             state=runtime_state,
@@ -264,13 +329,21 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         return RouteDeckIntrospection(
             current_node=projection.graph_node,
             reachable_nodes=reachable_nodes(self.manifest, projection.graph_node),
-            legal_operations=[operation.model_dump(mode="json") for operation in projection.legal_operations],
-            surfaces={key: surface.model_dump(mode="json") for key, surface in projection.surfaces.items()},
+            legal_operations=[
+                operation.model_dump(mode="json")
+                for operation in projection.legal_operations
+            ],
+            surfaces={
+                key: surface.model_dump(mode="json")
+                for key, surface in projection.surfaces.items()
+            },
             route_traces=[],
             diagnostics=projection.diagnostics,
         )
 
-    async def stream(self, context: dict[str, Any] | None = None) -> AsyncIterator[RouteDeckEvent]:
+    async def stream(
+        self, context: dict[str, Any] | None = None
+    ) -> AsyncIterator[RouteDeckEvent]:
         yield build_projection_update_event(state=await self.snapshot(context))
 
     def state_from_context(self, context: dict[str, Any]) -> StateT:
@@ -327,7 +400,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         raw = context.get("projection_version")
         return raw if isinstance(raw, int) and raw >= 1 else 1
 
-    def base_location_for_state(self, state: StateT, context: dict[str, Any]) -> str | None:
+    def base_location_for_state(
+        self, state: StateT, context: dict[str, Any]
+    ) -> str | None:
         return None
 
     def location_for_state(self, state: StateT, context: dict[str, Any]) -> str | None:
@@ -336,7 +411,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             self._navigation.resolved_surface_id(state),
         )
 
-    def location_with_surface_id(self, location: str | None, surface_id: str | None) -> str | None:
+    def location_with_surface_id(
+        self, location: str | None, surface_id: str | None
+    ) -> str | None:
         if not location or not surface_id:
             return location
         parts = urlsplit(location)
@@ -352,10 +429,14 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             )
         )
 
-    def runtime_metadata_for_state(self, state: StateT, context: dict[str, Any]) -> dict[str, Any]:
+    def runtime_metadata_for_state(
+        self, state: StateT, context: dict[str, Any]
+    ) -> dict[str, Any]:
         return {}
 
-    def dispatch_metadata_for_state(self, state: StateT, context: dict[str, Any]) -> dict[str, Any]:
+    def dispatch_metadata_for_state(
+        self, state: StateT, context: dict[str, Any]
+    ) -> dict[str, Any]:
         return {}
 
     def is_route_action_id(self, action_id: str) -> bool:
@@ -387,8 +468,12 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
     def presentation_state_key(self, state: StateT, context: dict[str, Any]) -> str:
         return state.node
 
-    def stored_presentation_state_for_state(self, state: StateT, context: dict[str, Any]) -> dict[str, Any]:
-        return self._presentation_state_by_key.get(self.presentation_state_key(state, context), {})
+    def stored_presentation_state_for_state(
+        self, state: StateT, context: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self._presentation_state_by_key.get(
+            self.presentation_state_key(state, context), {}
+        )
 
     def store_surface_intent_for_state(
         self,
@@ -422,7 +507,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             if key != "surface_id" and isinstance(key, str) and isinstance(value, str)
         }
 
-    def sync_state_from_projection(self, state: StateT, projection: RouteDeckProjection) -> None:
+    def sync_state_from_projection(
+        self, state: StateT, projection: RouteDeckProjection
+    ) -> None:
         state.active_surface_id = projection.navigation.current.surface_id
 
     def should_stage_operation_review(
@@ -432,7 +519,10 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         operation: RouteDeckOperation,
         context: dict[str, Any],
     ) -> bool:
-        return operation.execution_mode != "auto" and state.pending_operation_id != operation.id
+        return (
+            operation.execution_mode != "auto"
+            and state.pending_operation_id != operation.id
+        )
 
     def active_surfaces(self, state: StateT) -> list[RouteDeckSurface]:
         return []
@@ -460,7 +550,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
     ) -> RouteDeckActionResult[StateT, MessageT]:
         return await self.execute_action(operation_id, state, payload)
 
-    def _project(self, state: StateT, *, projection_version: int = 1) -> RouteDeckProjection:
+    def _project(
+        self, state: StateT, *, projection_version: int = 1
+    ) -> RouteDeckProjection:
         surfaces = [
             *self.frame_surfaces(state),
             *self._active_surfaces_with_review(state),
@@ -476,9 +568,17 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             operations=operations,
             surfaces=surfaces,
             navigation={
-                "current": self._navigation.current_location(state).model_dump(mode="json"),
-                "back_stack": [location.model_dump(mode="json") for location in state.navigation_back_stack],
-                "forward_stack": [location.model_dump(mode="json") for location in state.navigation_forward_stack],
+                "current": self._navigation.current_location(state).model_dump(
+                    mode="json"
+                ),
+                "back_stack": [
+                    location.model_dump(mode="json")
+                    for location in state.navigation_back_stack
+                ],
+                "forward_stack": [
+                    location.model_dump(mode="json")
+                    for location in state.navigation_forward_stack
+                ],
             },
             presentation_state={"context": state.node},
             projection_version=projection_version,
@@ -526,7 +626,9 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         )
         return [review_surface, *surfaces]
 
-    def _resolved_surface_id(self, state: StateT, surfaces: list[RouteDeckSurface]) -> str | None:
+    def _resolved_surface_id(
+        self, state: StateT, surfaces: list[RouteDeckSurface]
+    ) -> str | None:
         active_surface_ids = [
             surface.surface_id
             for surface in surfaces
@@ -535,12 +637,16 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
         if state.active_surface_id in active_surface_ids:
             return state.active_surface_id
         if state.pending_operation_id:
-            review_surface_id = self._surface_registry.operation_review_surface_id(state.pending_operation_id)
+            review_surface_id = self._surface_registry.operation_review_surface_id(
+                state.pending_operation_id
+            )
             if review_surface_id in active_surface_ids:
                 return review_surface_id
         return active_surface_ids[0] if active_surface_ids else None
 
-    def _active_surface_from_projection(self, projection: RouteDeckProjection) -> RouteDeckSurface | None:
+    def _active_surface_from_projection(
+        self, projection: RouteDeckProjection
+    ) -> RouteDeckSurface | None:
         return self._navigation.active_surface_from_projection(projection)
 
     def _actions_for_state(self, state: StateT) -> list[Any]:
@@ -552,9 +658,15 @@ class RouteDeckRuntimeBase(Generic[StateT, MessageT]):
             for action_id in node.allowed_actions
             if action_id in self._action_by_id
         ]
-        if state.navigation_forward_stack and self.route_action_ids.forward in self._action_by_id:
+        if (
+            state.navigation_forward_stack
+            and self.route_action_ids.forward in self._action_by_id
+        ):
             actions.append(self._action_by_id[self.route_action_ids.forward])
-        if self.route_action_ids.cancel in self._action_by_id and self._navigation.cancel_target_location(state):
+        if (
+            self.route_action_ids.cancel in self._action_by_id
+            and self._navigation.cancel_target_location(state)
+        ):
             actions.append(self._action_by_id[self.route_action_ids.cancel])
         return actions
 
@@ -585,7 +697,10 @@ def build_runtime_snapshot(
     diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     node_ids = [node.id for node in manifest.nodes]
-    node = next((candidate for candidate in manifest.nodes if candidate.id == current_node), None)
+    node = next(
+        (candidate for candidate in manifest.nodes if candidate.id == current_node),
+        None,
+    )
     return {
         "current_node": current_node,
         "reachable_nodes": reachable_nodes(manifest, current_node),
@@ -593,10 +708,14 @@ def build_runtime_snapshot(
         "blocked_actions": blocked_actions or [],
         "executed_nodes": executed_nodes or [],
         "progress": {
-            "node_index": node_ids.index(current_node) if current_node in node_ids else None,
+            "node_index": node_ids.index(current_node)
+            if current_node in node_ids
+            else None,
             "node_count": len(node_ids),
         },
-        "recovery_prompts": [node.recovery_prompt] if node and node.recovery_prompt else [],
+        "recovery_prompts": [node.recovery_prompt]
+        if node and node.recovery_prompt
+        else [],
         "diagnostics": diagnostics or {},
     }
 
@@ -617,14 +736,27 @@ def build_projection(
     projection_version: int = 1,
     diagnostics: dict[str, Any] | None = None,
 ) -> RouteDeckProjection:
-    node = next((candidate for candidate in manifest.nodes if candidate.id == current_node), None)
+    node = next(
+        (candidate for candidate in manifest.nodes if candidate.id == current_node),
+        None,
+    )
     surface_map: dict[str, RouteDeckSurface] = {}
     for surface in surfaces or []:
         coerced = _coerce_surface_variant(surface, node)
-        key = coerced.name if coerced.name not in surface_map else (coerced.surface_id or coerced.name)
+        key = (
+            coerced.name
+            if coerced.name not in surface_map
+            else (coerced.surface_id or coerced.name)
+        )
         surface_map[key] = coerced
-    navigation_state = _coerce_navigation(current_node=current_node, navigation=navigation)
-    legal_operations = [operation for operation in operations or [] if operation.execution_mode != "blocked"]
+    navigation_state = _coerce_navigation(
+        current_node=current_node, navigation=navigation
+    )
+    legal_operations = [
+        operation
+        for operation in operations or []
+        if operation.execution_mode != "blocked"
+    ]
     projection_context_lens = _coerce_context_lens(
         context_lens=context_lens,
         current_node=current_node,
@@ -641,8 +773,15 @@ def build_projection(
         presentation_state=presentation_state or {},
         navigation=navigation_state,
         context_lens=projection_context_lens,
-        capabilities=capabilities if capabilities is not None else list(manifest.capabilities),
-        navgraph=_coerce_navgraph(manifest=manifest, current_node=current_node, navigation=navigation_state, navgraph=navgraph),
+        capabilities=capabilities
+        if capabilities is not None
+        else list(manifest.capabilities),
+        navgraph=_coerce_navgraph(
+            manifest=manifest,
+            current_node=current_node,
+            navigation=navigation_state,
+            navgraph=navgraph,
+        ),
         available_entities=available_entities or [],
         surface_affordances=surface_affordances or [],
         diagnostics=diagnostics or {},
@@ -664,7 +803,9 @@ def build_dispatch_state_event(
     }
     return RouteDeckEvent(
         event_type=event_type,
-        projection_version=projection_version if projection_version is not None else state.projection.projection_version,
+        projection_version=projection_version
+        if projection_version is not None
+        else state.projection.projection_version,
         payload=event_payload,
     )
 
@@ -672,7 +813,7 @@ def build_dispatch_state_event(
 def build_runtime_state(
     *,
     projection: RouteDeckProjection,
-    status: str = "idle",
+    status: RouteDeckRuntimeStatus = "idle",
     graph_state: dict[str, Any] | None = None,
     location: str | None = None,
     diagnostics: dict[str, Any] | None = None,
@@ -683,7 +824,9 @@ def build_runtime_state(
         status=status,
         graph_state=dict(graph_state or {}),
         location=location,
-        diagnostics=dict(projection.diagnostics if diagnostics is None else diagnostics),
+        diagnostics=dict(
+            projection.diagnostics if diagnostics is None else diagnostics
+        ),
         metadata=dict(metadata or {}),
     )
 
@@ -696,7 +839,9 @@ def build_projection_update_event(
 ) -> RouteDeckEvent:
     return RouteDeckEvent(
         event_type="projection_update",
-        projection_version=projection_version if projection_version is not None else state.projection.projection_version,
+        projection_version=projection_version
+        if projection_version is not None
+        else state.projection.projection_version,
         payload={
             "projection": state.projection.model_dump(mode="json"),
             "state": state.model_dump(mode="json"),
@@ -714,7 +859,9 @@ def build_operation_completed_event(
 ) -> RouteDeckEvent:
     return RouteDeckEvent(
         event_type="operation_completed",
-        projection_version=projection_version if projection_version is not None else projection.projection_version,
+        projection_version=projection_version
+        if projection_version is not None
+        else projection.projection_version,
         payload={
             "operation_id": operation_id,
             "projection": projection.model_dump(mode="json"),
@@ -737,7 +884,9 @@ def build_dispatch_result_completed_event(
         projection=state.projection,
         payload={
             "state": dict(state.graph_state or {}),
-            "active_surface": active_surface.model_dump(mode="json") if active_surface else None,
+            "active_surface": active_surface.model_dump(mode="json")
+            if active_surface
+            else None,
             "messages": list(messages or []),
             "replace_path": state.location or metadata.get("replace_path"),
         },
@@ -760,7 +909,9 @@ def build_dispatch_result(
         state=state,
         active_surface=active_surface,
         messages=list(messages or []),
-        events=list(events) if events is not None else [
+        events=list(events)
+        if events is not None
+        else [
             build_dispatch_result_completed_event(
                 operation_id=operation_id,
                 state=state,
@@ -795,12 +946,16 @@ def _coerce_navigation(
         payload.setdefault("current", {"node_id": current_node})
         state = RouteDeckNavigationState.model_validate(payload)
     else:
-        state = RouteDeckNavigationState(current=RouteDeckLocation(node_id=current_node))
+        state = RouteDeckNavigationState(
+            current=RouteDeckLocation(node_id=current_node)
+        )
     return state.model_copy(
         update={
             "can_back": bool(state.back_stack),
             "can_forward": bool(state.forward_stack),
-            "can_cancel": bool(state.back_stack or state.current.node_id != current_node),
+            "can_cancel": bool(
+                state.back_stack or state.current.node_id != current_node
+            ),
         }
     )
 
@@ -856,8 +1011,8 @@ def _coerce_navgraph(
         ],
         edges=[
             RouteDeckNavGraphEdge(
-                from_stage=edge.from_stage,
-                to=edge.to_stage,
+                source=edge.from_stage,
+                target=edge.to_stage,
                 action_id=edge.action_id,
                 capability_id=edge.capability_id,
             )

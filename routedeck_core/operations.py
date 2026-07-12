@@ -4,15 +4,25 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
-from .models import RouteDeckGraphState, RouteDeckOperation, RouteDeckProjection
+from .models import (
+    RouteDeckExecutionMode,
+    RouteDeckGraphState,
+    RouteDeckInvocationKind,
+    RouteDeckOperation,
+    RouteDeckProjection,
+    RouteDeckSafetyClass,
+)
 from .navigation import (
     ROUTEDECK_PENDING_OPERATION_ARGS_PARAM,
     ROUTEDECK_PENDING_OPERATION_ID_PARAM,
     RouteDeckGraphNavigationController,
 )
 from .surfaces import RouteDeckSurfaceRegistry
+
+
+StateT = TypeVar("StateT", bound=RouteDeckGraphState)
 
 
 class RouteDeckOperationPolicy:
@@ -23,8 +33,8 @@ class RouteDeckOperationPolicy:
         *,
         target_nodes_by_action: Mapping[str, str] | None = None,
         review_action_ids: Sequence[str] | None = None,
-        safety_class_by_category: Mapping[str, str] | None = None,
-        default_safety_class: str = "navigation",
+        safety_class_by_category: Mapping[str, RouteDeckSafetyClass] | None = None,
+        default_safety_class: RouteDeckSafetyClass = "navigation",
         surface_categories: Sequence[str] = ("navigation",),
     ) -> None:
         self._target_nodes_by_action = dict(target_nodes_by_action or {})
@@ -42,9 +52,15 @@ class RouteDeckOperationPolicy:
         missing_args = [
             field.key
             for field in fields
-            if field.required and field.key not in payload and getattr(field, "default", None) is None
+            if field.required
+            and field.key not in payload
+            and getattr(field, "default", None) is None
         ]
-        can_dispatch_now = invocation_kind in {"direct", "surface"} and not missing_args and execution_mode != "blocked"
+        can_dispatch_now = (
+            invocation_kind in {"direct", "surface"}
+            and not missing_args
+            and execution_mode != "blocked"
+        )
 
         return RouteDeckOperation(
             id=action.id,
@@ -56,7 +72,9 @@ class RouteDeckOperationPolicy:
             emphasis=action.emphasis,
             safety_class=self.safety_class_for_action(action),
             execution_mode=execution_mode,
-            input_schema={"fields": [field.model_dump(mode="json") for field in fields]},
+            input_schema={
+                "fields": [field.model_dump(mode="json") for field in fields]
+            },
             payload=payload,
             invocation_kind=invocation_kind,
             can_dispatch_now=can_dispatch_now,
@@ -67,16 +85,30 @@ class RouteDeckOperationPolicy:
             capability_id=getattr(action, "capability_id", None),
         )
 
-    def execution_mode_for_action(self, action: Any) -> str:
-        return "review" if action.kind == "form" or action.id in self._review_action_ids else "auto"
+    def execution_mode_for_action(self, action: Any) -> RouteDeckExecutionMode:
+        return (
+            "review"
+            if action.kind == "form" or action.id in self._review_action_ids
+            else "auto"
+        )
 
-    def safety_class_for_action(self, action: Any) -> str:
-        return self._safety_class_by_category.get(getattr(action, "category", None) or "", self._default_safety_class)
+    def safety_class_for_action(self, action: Any) -> RouteDeckSafetyClass:
+        return self._safety_class_by_category.get(
+            getattr(action, "category", None) or "", self._default_safety_class
+        )
 
-    def invocation_kind_for_action(self, action: Any) -> str:
+    def invocation_kind_for_action(self, action: Any) -> RouteDeckInvocationKind:
         invocation_kind = getattr(action, "invocation_kind", None)
-        if invocation_kind is not None:
+        if invocation_kind in {
+            "direct",
+            "form",
+            "entity_selector",
+            "surface",
+            "hidden",
+        }:
             return invocation_kind
+        if invocation_kind is not None:
+            raise ValueError("action invocation_kind is invalid")
         if action.kind == "form":
             return "form"
         if action.category in self._surface_categories:
@@ -141,10 +173,10 @@ class RouteDeckOperationRequestPolicy:
     def review_state_for_operation(
         self,
         *,
-        state: RouteDeckGraphState,
+        state: StateT,
         operation: RouteDeckOperation,
         args: dict[str, Any],
-    ) -> RouteDeckGraphState:
+    ) -> StateT:
         review_state = state.model_copy(deep=True)
         current_location = self._navigation.current_location(review_state)
         review_params = dict(current_location.params)
@@ -171,7 +203,9 @@ class RouteDeckOperationRequestPolicy:
     ) -> dict[str, Any]:
         if not isinstance(args, dict):
             return {}
-        input_schema = operation.input_schema if isinstance(operation.input_schema, dict) else {}
+        input_schema = (
+            operation.input_schema if isinstance(operation.input_schema, dict) else {}
+        )
         fields = input_schema.get("fields")
         if not isinstance(fields, list):
             return {}
@@ -198,9 +232,13 @@ class RouteDeckOperationRequestPolicy:
         if not isinstance(node_id, str) or not node_id:
             raise ValueError("route.open_node requires a legal node_id")
 
-        allowed_node_ids = self._navigation.legal_target_node_ids_from_projection(projection, state)
+        allowed_node_ids = self._navigation.legal_target_node_ids_from_projection(
+            projection, state
+        )
         if node_id not in allowed_node_ids:
-            raise ValueError("route.open_node target is not legal from the current graph state")
+            raise ValueError(
+                "route.open_node target is not legal from the current graph state"
+            )
 
         normalized: dict[str, Any] = {"node_id": node_id}
         current_location = self._navigation.current_location(state)
@@ -211,8 +249,12 @@ class RouteDeckOperationRequestPolicy:
             normalized["params"] = dict(current_location.params)
             if surface_id is None:
                 return normalized
-            if not isinstance(surface_id, str) or surface_id not in self._navigation.active_surface_ids(projection):
-                raise ValueError("route.open_node surface_id is not legal on the current node")
+            if not isinstance(
+                surface_id, str
+            ) or surface_id not in self._navigation.active_surface_ids(projection):
+                raise ValueError(
+                    "route.open_node surface_id is not legal on the current node"
+                )
             normalized["surface_id"] = surface_id
             return normalized
 
@@ -224,9 +266,15 @@ class RouteDeckOperationRequestPolicy:
 
         if not isinstance(surface_id, str):
             raise ValueError("route.open_node surface_id must be a string")
-        expected_surface_id = known_location.surface_id if known_location else self._surface_registry.default_surface_id_for(node_id)
+        expected_surface_id = (
+            known_location.surface_id
+            if known_location
+            else self._surface_registry.default_surface_id_for(node_id)
+        )
         if not expected_surface_id or surface_id != expected_surface_id:
-            raise ValueError("route.open_node surface_id is not legal for the requested node")
+            raise ValueError(
+                "route.open_node surface_id is not legal for the requested node"
+            )
         normalized["surface_id"] = surface_id
         return normalized
 
@@ -239,8 +287,12 @@ class RouteDeckOperationRequestPolicy:
     ) -> dict[str, Any]:
         payload = args if isinstance(args, dict) else {}
         surface_id = payload.get("surface_id")
-        if not isinstance(surface_id, str) or surface_id not in self._navigation.active_surface_ids(projection):
-            raise ValueError("route.switch_surface requires a projected active surface_id")
+        if not isinstance(
+            surface_id, str
+        ) or surface_id not in self._navigation.active_surface_ids(projection):
+            raise ValueError(
+                "route.switch_surface requires a projected active surface_id"
+            )
         node_id = payload.get("node_id")
         if node_id is not None and node_id != state.node:
             raise ValueError("route.switch_surface must stay on the current node")

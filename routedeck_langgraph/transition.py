@@ -65,7 +65,9 @@ def assert_route_transition(
         condition_resolvers=condition_resolvers,
     )
     if edge is None:
-        raise ValueError(f"RouteDeck transition {from_node!r} -> {to_node!r} is not executable.")
+        raise ValueError(
+            f"RouteDeck transition {from_node!r} -> {to_node!r} is not executable."
+        )
 
     return TransitionDiagnostics(
         from_stage=from_node,

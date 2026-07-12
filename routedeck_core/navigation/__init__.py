@@ -4,7 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .deep_links import CapabilityMismatch, DeepLinkEngine, SessionRequired
+    from .engine import NavigationEngine
+    from .session_location import validate_session_location
+    from .transactions import (
+        NavigationIntent,
+        NavigationIntentKind,
+        NavigationRequest,
+        NavigationTransactionError,
+        RouteDeckNavigationRunner,
+    )
 
 from ..models import (
     RouteDeckGraphNavigationLocation,
@@ -501,6 +513,28 @@ def __getattr__(name: str) -> object:
         from .session_location import validate_session_location
 
         return validate_session_location
+    if name in {
+        "NavigationIntent",
+        "NavigationIntentKind",
+        "NavigationRequest",
+        "NavigationTransactionError",
+        "RouteDeckNavigationRunner",
+    }:
+        from .transactions import (
+            NavigationIntent,
+            NavigationIntentKind,
+            NavigationRequest,
+            NavigationTransactionError,
+            RouteDeckNavigationRunner,
+        )
+
+        return {
+            "NavigationIntent": NavigationIntent,
+            "NavigationIntentKind": NavigationIntentKind,
+            "NavigationRequest": NavigationRequest,
+            "NavigationTransactionError": NavigationTransactionError,
+            "RouteDeckNavigationRunner": RouteDeckNavigationRunner,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -510,12 +544,17 @@ __all__ = [
     "DecodedRoute",
     "DeepLinkEngine",
     "NavigationEngine",
+    "NavigationIntent",
+    "NavigationIntentKind",
+    "NavigationRequest",
+    "NavigationTransactionError",
     "PublicRouteKeyValidator",
     "ROUTEDECK_PENDING_OPERATION_ARGS_PARAM",
     "ROUTEDECK_PENDING_OPERATION_ID_PARAM",
     "RouteDeckGraphNavigationController",
     "RouteDeckNavigationPolicy",
     "RouteDeckNavigationTransition",
+    "RouteDeckNavigationRunner",
     "RouteResumeCapability",
     "RouteSessionContext",
     "SessionRequired",

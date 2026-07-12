@@ -106,6 +106,72 @@ def test_empty_history_navigation_is_an_identity_preserving_noop() -> None:
     assert engine.cancel(initial) is initial
 
 
+@pytest.mark.parametrize(
+    ("intent", "policy_field"),
+    (
+        ("back", "can_back"),
+        ("forward", "can_forward"),
+        ("cancel", "can_cancel"),
+    ),
+)
+def test_navigation_intents_fail_when_current_node_disables_them(
+    intent: str,
+    policy_field: str,
+) -> None:
+    app = compile_medusa_app_spec()
+    home = next(node for node in app.spec.nodes if node.id == "buyer.home")
+    disabled_home = home.model_copy(
+        update={"navigation": home.navigation.model_copy(update={policy_field: False})}
+    )
+    forged_app = replace(
+        app,
+        spec=app.spec.model_copy(
+            update={
+                "nodes": tuple(
+                    disabled_home if node.id == home.id else node
+                    for node in app.spec.nodes
+                )
+            }
+        ),
+    )
+    session = session_factory(app=forged_app, node_id=home.id)
+
+    with pytest.raises(RouteDeckValidationError):
+        getattr(NavigationEngine(forged_app), intent)(session)
+
+
+@pytest.mark.parametrize("entry_id", (True, 0, -1))
+def test_restore_history_rejects_invalid_entry_identity(entry_id: int) -> None:
+    app = compile_medusa_app_spec()
+
+    with pytest.raises(RouteDeckValidationError, match="entry ID is invalid"):
+        NavigationEngine(app).restore_history_entry(
+            session_factory(app=app, node_id="buyer.home"),
+            entry_id,
+        )
+
+
+def test_restore_history_rejects_duplicate_entry_identities() -> None:
+    app = compile_medusa_app_spec()
+    session = session_factory(app=app, node_id="catalog.browse")
+    forged = session.model_copy(
+        update={
+            "back_stack": (
+                Location(
+                    node_id="buyer.home",
+                    entry_id=session.current.entry_id,
+                ),
+            )
+        }
+    )
+
+    with pytest.raises(RouteDeckValidationError, match="duplicate entry IDs"):
+        NavigationEngine(app).restore_history_entry(
+            forged,
+            session.current.entry_id or 1,
+        )
+
+
 def test_navigation_rejects_unknown_nodes_and_invalid_route_parameters() -> None:
     app = compile_medusa_app_spec()
     initial = session_factory(app=app, node_id="buyer.home")

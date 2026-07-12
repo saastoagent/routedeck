@@ -79,6 +79,20 @@ class DecodedRoute(_FrozenContract):
         )
 
 
+class StructuralRouteMatch(_FrozenContract):
+    """One structurally valid route before product or capability authorization."""
+
+    node_id: str
+    route_params: tuple[LocationParameter, ...] = ()
+    resume_handle: str | None = None
+
+    @property
+    def params(self) -> Mapping[str, str]:
+        return MappingProxyType(
+            {parameter.name: parameter.value for parameter in self.route_params}
+        )
+
+
 @dataclass(frozen=True)
 class _RouteSegment:
     literal: str | None = None
@@ -138,6 +152,9 @@ class CompiledRoutes:
                 f"received {sorted(actual)!r}"
             )
 
+        path_bindings = {name: params[name] for name in route.parameter_names}
+        self.validate_path_bindings(node_id, path_bindings)
+
         encoded_segments: list[str] = []
         for segment in route.segments:
             if segment.literal is not None:
@@ -157,6 +174,26 @@ class CompiledRoutes:
                 )
             path += f"?resume_handle={quote(handle, safe='')}"
         return path
+
+    def validate_path_bindings(
+        self,
+        node_id: str,
+        params: Mapping[str, str],
+    ) -> None:
+        """Validate exact canonical path bindings without deep-link credentials."""
+
+        route = self._by_node.get(node_id)
+        if route is None:
+            raise RouteDeckValidationError(f"Unknown route node: {node_id}")
+        expected = set(route.parameter_names)
+        actual = set(params)
+        if actual != expected:
+            raise RouteDeckValidationError(
+                f"Route {node_id!r} requires path parameters {sorted(expected)!r}; "
+                f"received {sorted(actual)!r}"
+            )
+        for name in route.parameter_names:
+            _encode_segment(name, params[name])
 
     def path_parameter_names(self, node_id: str) -> tuple[str, ...]:
         """Return the declared path parameters for one compiled node route."""
@@ -215,6 +252,32 @@ class CompiledRoutes:
         path: str,
         session_context: RouteSessionContext | None,
     ) -> DecodedRoute:
+        matched = self.match(path)
+        route = self._by_node[matched.node_id]
+        params = dict(matched.params)
+
+        if route.deep_link_policy is DeepLinkPolicy.SHAREABLE:
+            validator = (
+                session_context.public_key_validator
+                if session_context is not None
+                else None
+            )
+            self.validate_public_bindings(route.node_id, params, validator)
+        else:
+            self._validate_resume_capability(
+                route=route,
+                route_params=matched.route_params,
+                resume_handle=matched.resume_handle,
+                session_context=session_context,
+            )
+        return DecodedRoute(
+            node_id=matched.node_id,
+            route_params=matched.route_params,
+        )
+
+    def match(self, path: str) -> StructuralRouteMatch:
+        """Parse one declared local route without semantic authorization."""
+
         split = urlsplit(path)
         if split.scheme or split.netloc or split.fragment:
             raise RouteDeckValidationError(
@@ -259,37 +322,17 @@ class CompiledRoutes:
                 raise RouteDeckValidationError(
                     "Shareable routes do not accept query bindings"
                 )
-            validator = (
-                session_context.public_key_validator
-                if session_context is not None
-                else None
-            )
-            self.validate_public_bindings(route.node_id, params, validator)
+            resume_handle = None
         else:
-            self._validate_resume_capability(
-                route=route,
-                route_params=route_params,
-                raw_query=split.query,
-                session_context=session_context,
-            )
-        return DecodedRoute(node_id=route.node_id, route_params=route_params)
+            resume_handle = self._decode_resume_handle(split.query)
+        return StructuralRouteMatch(
+            node_id=route.node_id,
+            route_params=route_params,
+            resume_handle=resume_handle,
+        )
 
     @staticmethod
-    def _validate_resume_capability(
-        *,
-        route: _CompiledRoute,
-        route_params: tuple[LocationParameter, ...],
-        raw_query: str,
-        session_context: RouteSessionContext | None,
-    ) -> None:
-        if session_context is None:
-            raise RouteSessionRequired(
-                "Session-bound route requires authenticated guest session context"
-            )
-        if session_context.guest_session_id is None:
-            raise RouteSessionRequired(
-                "Session-bound route requires authenticated guest session context"
-            )
+    def _decode_resume_handle(raw_query: str) -> str:
         query_parts = raw_query.split("&") if raw_query else []
         if len(query_parts) != 1:
             raise RouteCapabilityMismatch(
@@ -304,6 +347,29 @@ class CompiledRoutes:
             raise RouteCapabilityMismatch(
                 "Session-bound route requires exactly one resume_handle"
             )
+        return handle
+
+    @staticmethod
+    def _validate_resume_capability(
+        *,
+        route: _CompiledRoute,
+        route_params: tuple[LocationParameter, ...],
+        resume_handle: str | None,
+        session_context: RouteSessionContext | None,
+    ) -> None:
+        if session_context is None:
+            raise RouteSessionRequired(
+                "Session-bound route requires authenticated guest session context"
+            )
+        if session_context.guest_session_id is None:
+            raise RouteSessionRequired(
+                "Session-bound route requires authenticated guest session context"
+            )
+        if resume_handle is None:
+            raise RouteCapabilityMismatch(
+                "Session-bound route requires exactly one resume_handle"
+            )
+        handle = resume_handle
         capability = session_context.resume_capability(handle)
         if capability is None or capability.handle != handle:
             raise RouteCapabilityMismatch("Resume capability is unknown")
@@ -413,4 +479,5 @@ __all__ = [
     "RouteResumeCapability",
     "RouteSessionRequired",
     "RouteSessionContext",
+    "StructuralRouteMatch",
 ]

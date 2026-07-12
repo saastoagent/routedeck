@@ -12,13 +12,19 @@ from routedeck_core import (
 
 
 class HookedStateProjector(RouteDeckStateProjector):
-    def current_context_for_state(self, state: RouteDeckGraphState, **context: object) -> str:
+    def current_context_for_state(
+        self, state: RouteDeckGraphState, **context: object
+    ) -> str:
         return str(context["current_context"])
 
-    def actions_for_state(self, state: RouteDeckGraphState, **context: object) -> list[object]:
+    def actions_for_state(
+        self, state: RouteDeckGraphState, **context: object
+    ) -> list[object]:
         return [route_deck_action("browse.open", "Browse", category="navigation")]
 
-    def surfaces_for_state(self, state: RouteDeckGraphState, **context: object) -> list[RouteDeckSurface]:
+    def surfaces_for_state(
+        self, state: RouteDeckGraphState, **context: object
+    ) -> list[RouteDeckSurface]:
         return [
             RouteDeckSurface(
                 name="main",
@@ -29,10 +35,14 @@ class HookedStateProjector(RouteDeckStateProjector):
             )
         ]
 
-    def presentation_state_for_state(self, state: RouteDeckGraphState, **context: object) -> dict[str, object]:
+    def presentation_state_for_state(
+        self, state: RouteDeckGraphState, **context: object
+    ) -> dict[str, object]:
         return {"context": context["current_context"]}
 
-    def diagnostics_for_state(self, state: RouteDeckGraphState, **context: object) -> dict[str, object]:
+    def diagnostics_for_state(
+        self, state: RouteDeckGraphState, **context: object
+    ) -> dict[str, object]:
         return {"source": "hooked"}
 
 
@@ -99,16 +109,19 @@ def test_state_projector_resolves_default_surface_ids_from_graph_state() -> None
         ),
     )
 
-    assert projector.default_surface_id_for_state(RouteDeckGraphState(node="browse")) == "browse.active"
+    assert (
+        projector.default_surface_id_for_state(RouteDeckGraphState(node="browse"))
+        == "browse.active"
+    )
     assert (
         projector.default_surface_id_for_state(
             RouteDeckGraphState(node="browse", pending_operation_id="browse.open")
         )
         == "operation_review.browse.open"
     )
-    assert projector.default_surface_by_node_for_state(RouteDeckGraphState(node="home")) == {
-        "browse": "browse.active"
-    }
+    assert projector.default_surface_by_node_for_state(
+        RouteDeckGraphState(node="home")
+    ) == {"browse": "browse.active"}
 
 
 def test_state_projector_builds_navigation_from_graph_state() -> None:
@@ -209,8 +222,16 @@ def test_state_projector_projects_actions_surfaces_and_context() -> None:
         current_node="home",
         current_context="workspace",
         actions=[route_deck_action("browse.open", "Browse", category="navigation")],
-        surfaces=[RouteDeckSurface(name="main", component="HomeSurface", variant="home")],
-        navigation={"current": {"node_id": "home", "surface_id": "home.active", "params": {"tab": "overview"}}},
+        surfaces=[
+            RouteDeckSurface(name="main", component="HomeSurface", variant="home")
+        ],
+        navigation={
+            "current": {
+                "node_id": "home",
+                "surface_id": "home.active",
+                "params": {"tab": "overview"},
+            }
+        },
         context_lens=context_lens,
         presentation_state={"context": "workspace"},
         diagnostics={"source": "test"},

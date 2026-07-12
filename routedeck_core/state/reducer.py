@@ -10,6 +10,7 @@ from ..contracts.session import (
     Location,
     OperationState,
     PrivateDraft,
+    PrivateSessionState,
     PublicSessionState,
     RouteDeckSession,
 )
@@ -46,6 +47,10 @@ class PublicSessionStateStored(_ReducerEvent):
     state: PublicSessionState
 
 
+class PrivateSessionStateStored(_ReducerEvent):
+    state: PrivateSessionState
+
+
 class PublicEventsRecorded(_ReducerEvent):
     count: int = Field(ge=0)
 
@@ -56,6 +61,7 @@ SessionReducerEvent = (
     | HistoryReplaced
     | ConversationTurnsStored
     | OperationStateStored
+    | PrivateSessionStateStored
     | PublicSessionStateStored
     | PublicEventsRecorded
 )
@@ -77,6 +83,8 @@ def reduce_session(
         return _store_conversation_turns(session, event.turns)
     if type(event) is OperationStateStored:
         return _store_operation_state(session, event)
+    if type(event) is PrivateSessionStateStored:
+        return _store_private_state(session, event.state)
     if type(event) is PublicSessionStateStored:
         return _store_public_state(session, event.state)
     if type(event) is PublicEventsRecorded:
@@ -184,18 +192,25 @@ def _enter_node(
     session: RouteDeckSession,
     location: Location,
 ) -> RouteDeckSession:
-    if location == session.current:
+    if (
+        location.node_id == session.current.node_id
+        and location.route_params == session.current.route_params
+    ):
         return session
+    canonical_location = location.model_copy(
+        update={"entry_id": session.next_history_entry_id}
+    )
     history = enter_location(
         current=session.current,
         back_stack=session.back_stack,
-        location=location,
+        location=canonical_location,
     )
     return session.model_copy(
         update={
             "current": history.current,
             "back_stack": history.back_stack,
             "forward_stack": history.forward_stack,
+            "next_history_entry_id": session.next_history_entry_id + 1,
             "session_version": session.session_version + 1,
             "projection_version": session.projection_version + 1,
         }
@@ -272,6 +287,20 @@ def _store_public_state(
     )
 
 
+def _store_private_state(
+    session: RouteDeckSession,
+    state: PrivateSessionState,
+) -> RouteDeckSession:
+    if state == session.private_state:
+        return session
+    return session.model_copy(
+        update={
+            "private_state": state,
+            "session_version": session.session_version + 1,
+        }
+    )
+
+
 def _record_public_events(
     session: RouteDeckSession,
     count: int,
@@ -287,6 +316,7 @@ __all__ = [
     "NodeEntered",
     "OperationStateStored",
     "PrivateDraftStored",
+    "PrivateSessionStateStored",
     "PublicEventsRecorded",
     "PublicSessionStateStored",
     "SessionReducerEvent",
