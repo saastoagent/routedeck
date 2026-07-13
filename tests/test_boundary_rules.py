@@ -14,7 +14,9 @@ CORE_FORBIDDEN_IMPORTS = (
     "medusa_agent",
     "routedeck_fastapi",
     "routedeck_langgraph",
-    "routedeck_sqlite",
+    "routedeck_sqlalchemy",
+    "sqlalchemy",
+    "psycopg",
 )
 
 

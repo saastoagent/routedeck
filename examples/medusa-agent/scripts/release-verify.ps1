@@ -510,7 +510,7 @@ try {
         "-m", "pytest", "tests", "examples/medusa-agent/backend/tests",
         "--ignore=examples/medusa-agent/backend/tests/integration/real_medusa",
         "--cov=routedeck_core", "--cov=routedeck_fastapi", "--cov=routedeck_langgraph",
-        "--cov=routedeck_sqlite", "--cov=routedeck_testing", "--cov-branch",
+        "--cov=routedeck_sqlalchemy", "--cov=routedeck_testing", "--cov-branch",
         "--cov-config=.coveragerc", "--cov-report=json:$pythonCoverage",
         "--cov-report=xml:$BundleRoot\coverage\python.xml",
         "--junitxml=$BundleRoot\junit\python.xml", "-q"
@@ -520,16 +520,16 @@ try {
     Invoke-RecordedCommand -Name "framework.frontend_build" -FilePath $Pnpm -Arguments @("build")
     Invoke-RecordedCommand -Name "framework.python_lint" -FilePath $Python -Arguments @(
         "-m", "ruff", "check", "routedeck_core", "routedeck_langgraph", "routedeck_fastapi",
-        "routedeck_sqlite", "routedeck_testing", "examples/medusa-agent/backend", "tests"
+        "routedeck_sqlalchemy", "routedeck_testing", "examples/medusa-agent/backend", "tests"
     )
     Invoke-RecordedCommand -Name "framework.python_format" -FilePath $Python -Arguments @(
         "-m", "ruff", "format", "--check", "routedeck_core", "routedeck_langgraph",
-        "routedeck_fastapi", "routedeck_sqlite", "routedeck_testing",
+        "routedeck_fastapi", "routedeck_sqlalchemy", "routedeck_testing",
         "examples/medusa-agent/backend", "tests"
     )
     Invoke-RecordedCommand -Name "framework.python_typecheck" -FilePath $Python -Arguments @(
         "-m", "mypy", "--explicit-package-bases", "routedeck_core", "routedeck_langgraph", "routedeck_fastapi",
-        "routedeck_sqlite", "routedeck_testing", "examples/medusa-agent/backend/medusa_agent",
+        "routedeck_sqlalchemy", "routedeck_testing", "examples/medusa-agent/backend/medusa_agent",
         "examples/medusa-agent/backend/main.py"
     )
     Invoke-RecordedCommand -Name "framework.python_build" -FilePath $Python -Arguments @("-m", "build")
@@ -673,11 +673,11 @@ try {
         "-m", "venv", "$CleanRoot\venv"
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_python_install" -FilePath "$CleanRoot\venv\Scripts\python.exe" -Arguments @(
-        "-m", "pip", "install", ".[fastapi,langgraph,sqlite,testing]",
+        "-m", "pip", "install", ".[fastapi,langgraph,persistence,testing]",
         ".\examples\medusa-agent\backend"
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_python_import" -FilePath "$CleanRoot\venv\Scripts\python.exe" -Arguments @(
-        "-c", "import routedeck_core, routedeck_fastapi, routedeck_langgraph, routedeck_sqlite, medusa_agent"
+        "-c", "import routedeck_core, routedeck_fastapi, routedeck_langgraph, routedeck_sqlalchemy, medusa_agent"
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_pnpm_install" -FilePath $Pnpm -Arguments @(
         "install", "--frozen-lockfile", "--store-dir", "$CleanRoot\pnpm-store"

@@ -13,6 +13,7 @@ import {
   checkoutRecord,
   checkoutString,
 } from "../checkout/PaymentMethodSurface";
+import { OrderAffordanceId } from "./affordances";
 
 interface ConfirmedOrderLine {
   title: string;
@@ -48,7 +49,7 @@ export function OrderConfirmationSurface({
     if (pending) return;
     setPending(true);
     setError(null);
-    void dispatchAffordance("continue_shopping")
+    void dispatchAffordance(OrderAffordanceId.ContinueShopping)
       .catch((caught: unknown) => {
         setError(
           caught instanceof Error

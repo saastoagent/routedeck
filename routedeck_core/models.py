@@ -33,7 +33,7 @@ RouteDeckDirtyPolicy = Literal["none", "confirm", "block"]
 RouteDeckRuntimeStatus = Literal[
     "idle", "refreshing", "streaming", "dispatching", "recovering", "failed"
 ]
-RouteDeckEventType = Literal[
+RouteDeckRuntimeEventType = Literal[
     "projection_update",
     "operation_started",
     "operation_completed",
@@ -457,7 +457,7 @@ class RouteDeckProjection(BaseModel):
 
 
 class RouteDeckEvent(BaseModel):
-    event_type: RouteDeckEventType
+    event_type: RouteDeckRuntimeEventType
     turn_id: str | None = None
     projection_version: int | None = None
     payload: dict[str, Any] = Field(default_factory=dict)

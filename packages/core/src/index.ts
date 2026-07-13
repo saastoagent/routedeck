@@ -11,6 +11,6 @@ export * from "./routing/codec";
 export * from "./routing/history";
 export * from "./routing/controller";
 export * from "./store/state";
-export * from "./store/reducer";
+export * from "./store/observable";
 export * from "./store/store";
 export * from "./store/selectors";

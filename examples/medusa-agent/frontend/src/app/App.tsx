@@ -3,7 +3,7 @@ import { RouteDeckProvider } from "@routedeck/react";
 import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
 import { AgentShell } from "../ui/AgentShell";
 import { BuyerNavigation } from "../ui/BuyerNavigation";
-import { RouteDeckStatusRail } from "../ui/RouteDeckStatusRail";
+import { NavgraphSidebar } from "../ui/NavgraphSidebar";
 import type { MedusaRouteDeck } from "./createRouteDeck";
 import type { AgentChatClient, AgentHistoryTurn } from "./chatClient";
 
@@ -35,7 +35,7 @@ export function App({
             initialConversation={initialConversation}
             {...(chatClient === undefined ? {} : { client: chatClient })}
           />
-          <RouteDeckStatusRail />
+          <NavgraphSidebar />
         </div>
       </div>
     </RouteDeckProvider>

@@ -8,6 +8,7 @@ import {
   type RouteDeckPrivateFormBinding,
 } from "@routedeck/react";
 
+import { MedusaSurfaceType } from "../../routedeck/identifiers";
 import { checkoutRecord, checkoutString } from "./PaymentMethodSurface";
 
 export interface CheckoutDeliveryAddress {
@@ -37,14 +38,14 @@ export function CheckoutReviewAuthorityProvider({
   children: ReactNode;
 }) {
   const activeSurface = useRouteDeckSurface("active");
-  if (activeSurface?.surface_id !== "checkout.order_review") {
+  if (activeSurface?.surface_id !== MedusaSurfaceType.CHECKOUT_ORDER_REVIEW) {
     return (
       <CheckoutReviewAuthorityContext.Provider value={INACTIVE_AUTHORITY}>
         {children}
       </CheckoutReviewAuthorityContext.Provider>
     );
   }
-  if (activeSurface.component !== "checkout.order_review") {
+  if (activeSurface.component !== MedusaSurfaceType.CHECKOUT_ORDER_REVIEW) {
     throw new RouteDeckStateError(
       "checkout_review_surface_mismatch",
       "The checkout review authority requires the canonical order-review surface.",

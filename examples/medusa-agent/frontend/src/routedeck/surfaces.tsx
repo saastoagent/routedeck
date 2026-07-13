@@ -1,6 +1,5 @@
 import { defineRouteDeckSurfaceRegistry } from "@routedeck/react";
 
-import { BuyerWelcomeSurface } from "../app/BuyerWelcomeSurface";
 import { CartSummarySurface } from "../features/cart/CartSummarySurface";
 import { ProductDetailSurface } from "../features/catalog/ProductDetailSurface";
 import { ProductGridSurface } from "../features/catalog/ProductGridSurface";
@@ -12,7 +11,6 @@ import { ShippingOptionsSurface } from "../features/checkout/ShippingOptionsSurf
 import { OrderConfirmationSurface } from "../features/orders/OrderConfirmationSurface";
 
 export const medusaRouteDeckSurfaces = defineRouteDeckSurfaceRegistry({
-  "buyer.welcome": BuyerWelcomeSurface,
   "catalog.product_grid": ProductGridSurface,
   "catalog.product_detail": ProductDetailSurface,
   "cart.summary": CartSummarySurface,

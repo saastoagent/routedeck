@@ -46,7 +46,7 @@ workflow.
 The authoritative workspace packages are:
 
 - `packages/core` -> `@routedeck/core`: generated contracts, strict HTTP/SSE
-  client, retained replay, authoritative store/reducer/selectors, routing and
+  client, retained replay, observable state/actions/selectors, routing and
   exact history control, and private-form memory state.
 - `packages/react` -> `@routedeck/react`: provider/hooks, surface registry and
   host, navigation, operation controller, private forms, review, status, and

@@ -8,7 +8,7 @@ flow passed.
 ## Product Direction
 
 The buyer experience is conversation-led, with projected commerce surfaces in
-the main pane and RouteDeck status in a secondary rail. Product UI never calls
+the main pane and a collapsible full-sitemap Navgraph sidebar. Product UI never calls
 Medusa Store APIs directly. It renders the public RouteDeck projection and
 dispatches only currently legal RouteDeck operations.
 
@@ -23,8 +23,9 @@ The visual hierarchy keeps these responsibilities distinct:
 
 - the main pane owns buyer surfaces, conversation, and the composer;
 - the header owns buyer navigation and exact back/forward/cancel controls;
-- the status rail exposes the current RouteDeck node, versions, review, and
-  public-safe failure state;
+- the Navgraph opens as a large overlay or fullscreen map and exposes the
+  current node, reachable nodes, complete sitemap, surfaces, operations, and
+  transitions;
 - private checkout fields remain inside the dedicated private-form channel;
 - review acceptance remains disabled until the private delivery summary is
   authoritatively rehydrated.

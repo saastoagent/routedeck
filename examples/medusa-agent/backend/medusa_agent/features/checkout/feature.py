@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from routedeck_core.app import FeatureSpec
+from routedeck_core.contracts.agent import AgentPolicySpec
 from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
@@ -29,11 +30,13 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-from .models import (
+from ...identifiers import MedusaAgentPolicyType, MedusaOperationType
+
+from .models import CONTACT_FIELD_NAMES
+from .schemas import (
     CHECKOUT_FACTS_PROVIDER_SCHEMA,
     CHECKOUT_STARTED_SCHEMA,
     CONTACT_FORM_SCHEMA,
-    CONTACT_FIELD_NAMES,
     CONTACT_SAVED_SCHEMA,
     ORDER_REVIEW_SCHEMA,
     PAYMENT_METHOD_SCHEMA,
@@ -44,6 +47,21 @@ from .models import (
     SHIPPING_OPTIONS_SCHEMA,
     SHIPPING_PROVIDER_SCHEMA,
     SHIPPING_SELECTED_SCHEMA,
+)
+
+
+PROTECTED_CHECKOUT_INPUT_POLICY = AgentPolicySpec(
+    id=MedusaAgentPolicyType.PROTECTED_CHECKOUT_INPUT,
+    instruction=(
+        "Protected checkout input is surface-only. When the current node is "
+        "checkout.contact or contact input is required, stop the chat handoff. "
+        "Direct the buyer to the rendered protected contact form and wait for "
+        "that surface to complete. "
+        "Do not enumerate, request, restate, accept, or summarize email, phone, "
+        "shipping, or billing values in chat. If the buyer volunteers those "
+        "values, do not repeat them; direct the buyer back to the protected form. "
+        "Never infer private Medusa Store identifiers."
+    ),
 )
 
 
@@ -87,7 +105,7 @@ REVIEW_CURRENT_GUARD = GuardSpec(
 )
 
 CHECKOUT_START = OperationSpec(
-    id="checkout.start",
+    id=MedusaOperationType.CHECKOUT_START,
     title="Start checkout",
     description="Enter guest checkout with the current cart.",
     input_schema=FrozenJsonObject(
@@ -105,7 +123,7 @@ START_CHECKOUT_AFFORDANCE = SurfaceAffordanceSpec(
     operation=CHECKOUT_START.ref,
 )
 SAVE_CONTACT = OperationSpec(
-    id="checkout.save_contact",
+    id=MedusaOperationType.CHECKOUT_SAVE_CONTACT,
     title="Save guest contact",
     description="Validate and save guest contact and address values.",
     input_schema=FrozenJsonObject(
@@ -124,7 +142,7 @@ SAVE_CONTACT = OperationSpec(
     guard_refs=(CHECKOUT_READY_GUARD.ref, CONTACT_VALID_GUARD.ref),
 )
 SELECT_SHIPPING = OperationSpec(
-    id="checkout.select_shipping",
+    id=MedusaOperationType.CHECKOUT_SELECT_SHIPPING,
     title="Select delivery",
     description="Select an offered shipping option for the current cart.",
     input_schema=FrozenJsonObject(
@@ -149,7 +167,7 @@ SELECT_SHIPPING = OperationSpec(
     guard_refs=(CHECKOUT_READY_GUARD.ref, SHIPPING_VALID_GUARD.ref),
 )
 SELECT_PAYMENT = OperationSpec(
-    id="checkout.select_payment",
+    id=MedusaOperationType.CHECKOUT_SELECT_PAYMENT,
     title="Select payment",
     description="Select and initialize the configured payment provider.",
     input_schema=FrozenJsonObject(
@@ -174,13 +192,15 @@ SELECT_PAYMENT = OperationSpec(
     guard_refs=(CHECKOUT_READY_GUARD.ref, PAYMENT_VALID_GUARD.ref),
 )
 PLACE_ORDER = OperationSpec(
-    id="checkout.place_order",
+    id=MedusaOperationType.CHECKOUT_PLACE_ORDER,
     title="Place order",
     description="Complete the reviewed cart exactly once.",
     safety_class=SafetyClass.WRITE_EXTERNAL,
     review_policy=ReviewPolicy.REQUIRED,
     unknown_recovery_directive="reconcile_unknown_order",
-    unknown_recovery_operation_refs=(OperationRef(id="orders.reconcile"),),
+    unknown_recovery_operation_refs=(
+        OperationRef(id=MedusaOperationType.ORDERS_RECONCILE),
+    ),
     outcomes=("order_created", "checkout_failed"),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(REVIEW_CURRENT_GUARD.ref,),
@@ -403,6 +423,8 @@ REVIEW_NODE = NodeSpec(
 
 FEATURE_SPEC = FeatureSpec(
     namespace="checkout",
+    agent_policies=(PROTECTED_CHECKOUT_INPUT_POLICY,),
+    policy_refs=(PROTECTED_CHECKOUT_INPUT_POLICY.ref,),
     nodes=(CONTACT_NODE, DELIVERY_NODE, PAYMENT_NODE, REVIEW_NODE),
     transitions=(
         TransitionSpec(
@@ -447,6 +469,7 @@ __all__ = [
     "PAYMENT_METHOD",
     "PAYMENT_PROVIDERS_PROVIDER",
     "PAYMENT_VALID_GUARD",
+    "PROTECTED_CHECKOUT_INPUT_POLICY",
     "SAVE_CONTACT",
     "SELECT_SHIPPING",
     "SELECT_PAYMENT",

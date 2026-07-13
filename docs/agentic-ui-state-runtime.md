@@ -100,8 +100,8 @@ routedeck_core
 routedeck_langgraph
   first-class Full Flow compiler plus custom LangGraph adapter
 
-routedeck_sqlite
-  durable single-host session, idempotency, event log, replay, and outbox
+routedeck_sqlalchemy
+  portable SQLite/PostgreSQL session, idempotency, event log, replay, and outbox
 
 routedeck_fastapi
   product-neutral client-contract, session, dispatch, review, inspect, and SSE routes

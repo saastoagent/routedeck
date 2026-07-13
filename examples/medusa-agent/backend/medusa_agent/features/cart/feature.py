@@ -25,6 +25,8 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
+from ...identifiers import MedusaOperationType
+
 CART_CREATED_OUTCOME = "created"
 CART_CREATE_UNKNOWN_RECOVERY = "reconcile_unknown_cart_creation"
 CART_MUTATION_UNKNOWN_RECOVERY = "reconcile_unknown_cart"
@@ -125,7 +127,7 @@ CART_ABSENT_GUARD = GuardSpec(
 )
 
 CART_CREATE = OperationSpec(
-    id="cart.create",
+    id=MedusaOperationType.CART_CREATE,
     title="Create cart",
     description="Create one journaled cart for the current guest session.",
     input_schema=FrozenJsonObject(
@@ -159,7 +161,7 @@ CART_CREATE = OperationSpec(
     guard_refs=(CART_ABSENT_GUARD.ref,),
 )
 CART_ADD_ITEM = OperationSpec(
-    id="cart.add_item",
+    id=MedusaOperationType.CART_ADD_ITEM,
     title="Add item",
     description="Add a validated variant and quantity to the current cart.",
     input_schema=FrozenJsonObject(
@@ -183,7 +185,7 @@ CART_ADD_ITEM = OperationSpec(
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
 CART_OPEN = OperationSpec(
-    id="cart.open",
+    id=MedusaOperationType.CART_OPEN,
     title="Open cart",
     description="Navigate to the current cart summary.",
     safety_class=SafetyClass.NAVIGATION,
@@ -192,7 +194,7 @@ CART_OPEN = OperationSpec(
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
 CART_UPDATE_ITEM = OperationSpec(
-    id="cart.update_item",
+    id=MedusaOperationType.CART_UPDATE_ITEM,
     title="Update quantity",
     description="Update one allowlisted line-item quantity.",
     input_schema=FrozenJsonObject(
@@ -216,7 +218,7 @@ CART_UPDATE_ITEM = OperationSpec(
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
 CART_REMOVE_ITEM = OperationSpec(
-    id="cart.remove_item",
+    id=MedusaOperationType.CART_REMOVE_ITEM,
     title="Remove item",
     description="Remove one allowlisted line item from the current cart.",
     input_schema=FrozenJsonObject(

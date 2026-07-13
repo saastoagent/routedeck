@@ -9,14 +9,14 @@ from pathlib import Path
 
 from routedeck_fastapi import InProcessEventNotifier, RouteDeckDependencies
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
-from routedeck_sqlite import (
+from routedeck_sqlalchemy import (
     FernetSensitiveCodec,
     RouteDeckInstanceLeaseLost,
     UtcClock,
 )
 
-from .agent import create_live_medusa_agent
-from .composition import MedusaRuntime, open_persistent_medusa_runtime
+from .agent import create_live_medusa_agent, create_live_medusa_entry_agent
+from .runtime_factory import MedusaRuntime, open_persistent_medusa_runtime
 from .config import Settings
 from .medusa.client.http import HttpMedusaStoreClient
 from .medusa.client.models import Region
@@ -63,6 +63,7 @@ class LiveMedusaApplication:
     runtime: MedusaRuntime
     routedeck: RouteDeckDependencies
     agent: object | None
+    entry_agent: object | None
     readiness: LiveMedusaReadiness
 
     async def close(self) -> None:
@@ -90,7 +91,7 @@ async def open_live_medusa_application(
     notifier = InProcessEventNotifier()
     encryption_key = configured.routedeck_state_encryption_key.get_secret_value()
     runtime = await open_persistent_medusa_runtime(
-        database_path=configured.routedeck_database_path,
+        database_url=configured.routedeck_database_url,
         encryption_key=encryption_key,
         instance_id="medusa-agent-local",
         client=client,
@@ -124,10 +125,12 @@ async def open_live_medusa_application(
             session_initializer=runtime.initialize_session,
         )
         agent = _create_configured_agent(configured, runtime)
+        entry_agent = _create_configured_entry_agent(configured)
         return LiveMedusaApplication(
             runtime=runtime,
             routedeck=dependencies,
             agent=agent,
+            entry_agent=entry_agent,
             readiness=LiveMedusaReadiness(
                 runtime=runtime,
                 client=client,
@@ -163,6 +166,33 @@ def _create_configured_agent(
                 "scripted-test-only model support is not installed"
             )
         return factory(runtime=runtime)
+    raise LiveRuntimeConfigurationError(
+        "ROUTEDECK_MODEL_MODE must be 'live' or 'scripted-test-only'"
+    )
+
+
+def _create_configured_entry_agent(settings: Settings) -> object | None:
+    """Select the explicit entry-agent execution mode without a fallback path."""
+
+    mode = os.environ.get("ROUTEDECK_MODEL_MODE", "live")
+    if mode == "live":
+        return (
+            None
+            if settings.openai_api_key is None
+            else create_live_medusa_entry_agent(settings=settings)
+        )
+    if mode == "scripted-test-only":
+        if os.environ.get("ROUTEDECK_TEST_ONLY") != "1":
+            raise LiveRuntimeConfigurationError(
+                "scripted-test-only model mode requires ROUTEDECK_TEST_ONLY=1"
+            )
+        support = import_module("routedeck_release_scripted_agent")
+        factory = getattr(support, "create_scripted_test_entry_agent", None)
+        if factory is None or not callable(factory):
+            raise LiveRuntimeConfigurationError(
+                "scripted-test-only entry-agent support is not installed"
+            )
+        return factory()
     raise LiveRuntimeConfigurationError(
         "ROUTEDECK_MODEL_MODE must be 'live' or 'scripted-test-only'"
     )

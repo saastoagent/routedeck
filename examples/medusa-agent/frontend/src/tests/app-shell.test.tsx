@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type {
   FrontendContract,
@@ -13,8 +13,8 @@ import {
   RouteDeckLink,
   RouteDeckNavigationControls,
   RouteDeckReview,
+  RouteDeckSuggestedActions,
   RouteDeckStatus,
-  RouteDeckSurfaceHost,
 } from "@routedeck/react";
 import {
   renderRouteDeckComponent,
@@ -26,6 +26,7 @@ import {
 import type { AgentChatClient } from "../app/chatClient";
 import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
 import { AgentShell } from "../ui/AgentShell";
+import { NavgraphSidebar } from "../ui/NavgraphSidebar";
 
 const REVIEW_ID = "review_opaque_shell_82c4";
 const CONTACT_FORM_HANDLE = "form_opaque_shell_30f1";
@@ -33,24 +34,184 @@ const idleChatClient: AgentChatClient = Object.freeze({
   async *stream() {},
 });
 
-it("runs the provider, surface, dispatch, review, navigation, and read-only inspector flow", async () => {
+it("places the home suggestion after the model greeting without a welcome surface", async () => {
+  const projection = routeDeckProjectionFixture({
+    nodeId: "buyer.home",
+    routeTemplate: "/",
+  });
+  projection.surfaces.active = null;
+  projection.suggested_actions = [
+    {
+      action_id: "buyer.browse_products",
+      label: "Browse products",
+      operation_id: "catalog.list",
+      arguments: {},
+    },
+  ];
+
+  const harness = await renderRouteDeckComponent(
+    <AgentShell
+      registry={medusaRouteDeckSurfaces}
+      client={idleChatClient}
+      initialConversation={[
+        {
+          turn_id: "assistant-home",
+          request_id: "entry-home",
+          role: "assistant",
+          content: "Hi, what can I help you find today?",
+        },
+      ]}
+    />,
+    {
+      contract: frontendContract(),
+      projection,
+    },
+  );
+
+  expect(screen.getByText("Hi, what can I help you find today?")).toBeVisible();
+  const chip = screen.getByRole("button", { name: "Browse products" });
+  expect(chip.closest("[data-agent-input-dock]")).not.toBeNull();
+  expect(chip.closest("[data-agent-conversation]")).toBeNull();
+  expect(document.querySelector('[data-routedeck-surface="buyer.welcome"]')).toBeNull();
+
+  harness.dispose();
+});
+
+it("shows an animated thinking row immediately after the submitted user message", async () => {
+  let releaseDelta!: () => void;
+  let releaseCompletion!: () => void;
+  const waitForDelta = new Promise<void>((resolve) => {
+    releaseDelta = resolve;
+  });
+  const waitForCompletion = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  const client: AgentChatClient = {
+    async *stream(request) {
+      yield {
+        type: "stream_start",
+        request_id: request.request_id,
+        session_version: 1,
+      };
+      yield { type: "conversation_snapshot", turns: [] };
+      yield {
+        type: "user_message",
+        request_id: request.request_id,
+        turn_id: "user-thinking",
+        content: request.message,
+      };
+      await waitForDelta;
+      yield {
+        type: "assistant_delta",
+        request_id: request.request_id,
+        content: "I can help with that.",
+      };
+      await waitForCompletion;
+      yield {
+        type: "assistant_end",
+        request_id: request.request_id,
+        turn_id: "assistant-thinking",
+        session_version: 1,
+        projection_version: 1,
+      };
+      yield {
+        type: "stream_end",
+        request_id: request.request_id,
+        status: "completed",
+      };
+    },
+  };
+  const projection = routeDeckProjectionFixture({
+    nodeId: "buyer.home",
+    routeTemplate: "/",
+    sessionVersion: 1,
+    projectionVersion: 1,
+  });
+  projection.surfaces.active = null;
+  const harness = await renderRouteDeckComponent(
+    <AgentShell registry={medusaRouteDeckSurfaces} client={client} />,
+    { contract: frontendContract(), projection },
+  );
+
+  const composer = screen.getByRole("textbox", {
+    name: "Message the buyer assistant",
+  });
+  fireEvent.change(composer, { target: { value: "hello" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+  await screen.findByText("hello");
+  const thinking = screen.getByRole("status", {
+    name: "Buyer assistant is thinking",
+  });
+  const userRow = document.querySelector('[data-agent-message="user"]');
+  const thinkingRow = thinking.closest('[data-agent-message-status="thinking"]');
+  expect(userRow).not.toBeNull();
+  expect(userRow?.nextElementSibling).toBe(thinkingRow);
+
+  await act(async () => releaseDelta());
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("status", { name: "Buyer assistant is thinking" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole("status", { name: "Assistant is responding" }),
+  ).toBeVisible();
+
+  await act(async () => releaseCompletion());
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("status", { name: "Assistant is responding" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("I can help with that.")).toBeVisible();
+
+  harness.dispose();
+});
+
+it("keeps the full Navgraph collapsed until the buyer opens it", async () => {
+  const harness = await renderRouteDeckComponent(<NavgraphSidebar />, {
+    contract: frontendContract(),
+    projection: routeDeckProjectionFixture({ nodeId: "buyer.home" }),
+  });
+
+  const open = screen.getByRole("button", { name: "Open Navgraph" });
+  expect(open).toHaveAttribute("aria-expanded", "false");
+
+  fireEvent.click(open);
+
+  expect(screen.getByRole("heading", { name: "Navgraph" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Fullscreen" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Close Navgraph" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+
+  harness.dispose();
+});
+
+it("runs suggested action, dispatch, review, navigation, and read-only inspector flow", async () => {
   const contract = frontendContract();
   const projection = routeDeckProjectionFixture({
     nodeId: "buyer.home",
     routeTemplate: "/",
     sessionVersion: 1,
   });
-  projection.surfaces.active = {
-    surface_id: "buyer.welcome",
-    component: "buyer.welcome",
-    props: [],
-  };
+  projection.surfaces.active = null;
   projection.legal_operations = [
     {
       operation_id: "catalog.list",
       safety_class: "read_external",
       title: "Browse products",
       review_required: false,
+    },
+  ];
+  projection.suggested_actions = [
+    {
+      action_id: "buyer.browse_products",
+      label: "Browse products",
+      operation_id: "catalog.list",
+      arguments: {},
     },
   ];
   projection.navigation.can_back = true;
@@ -72,10 +233,7 @@ it("runs the provider, surface, dispatch, review, navigation, and read-only insp
   const back = vi.fn();
   const harness = await renderRouteDeckComponent(
     <>
-      <RouteDeckSurfaceHost
-        registry={medusaRouteDeckSurfaces}
-        slots={["active"]}
-      />
+      <RouteDeckSuggestedActions />
       <RouteDeckLink nodeId="catalog.browse">Open catalog route</RouteDeckLink>
       <RouteDeckNavigationControls />
       <RouteDeckReview reviewId="review-1" />
@@ -100,10 +258,6 @@ it("runs the provider, surface, dispatch, review, navigation, and read-only insp
       navigationActions: { back },
     },
   );
-
-  expect(
-    screen.getByRole("heading", { name: "Shop with Medusa" }),
-  ).toBeVisible();
 
   fireEvent.click(screen.getByRole("button", { name: "Browse products" }));
   await waitFor(() => expect(client.calls).toContain("dispatch"));
@@ -141,7 +295,14 @@ it("runs the provider, surface, dispatch, review, navigation, and read-only insp
     (call) => call === "dispatch",
   ).length;
   const historyBeforeInspector = harness.history.current();
-  fireEvent.click(await screen.findByRole("button", { name: "Catalog" }));
+  const catalogNode = await waitFor(() => {
+    const node = document.querySelector<HTMLButtonElement>(
+      '[data-routedeck-navgraph-node="catalog.browse"]',
+    );
+    expect(node).not.toBeNull();
+    return node!;
+  });
+  fireEvent.click(catalogNode);
   expect(screen.getByText("catalog.browse")).toBeVisible();
   expect(
     client.calls.filter((call) => call === "dispatch").length,
@@ -439,7 +600,7 @@ function frontendContract(): FrontendContract {
         route_template: "/",
         deep_link_policy: "shareable",
         operation_ids: ["catalog.list"],
-        surfaces: { active: "buyer.welcome", ...emptySlots },
+        surfaces: { active: null, ...emptySlots },
       },
       "catalog.browse": {
         id: "catalog.browse",
@@ -447,7 +608,7 @@ function frontendContract(): FrontendContract {
         route_template: "/products",
         deep_link_policy: "shareable",
         operation_ids: [],
-        surfaces: { active: "buyer.welcome", ...emptySlots },
+        surfaces: { active: null, ...emptySlots },
       },
     },
     transitions: [
@@ -458,20 +619,6 @@ function frontendContract(): FrontendContract {
         target: "catalog.browse",
       },
     ],
-    surfaces: {
-      "buyer.welcome": {
-        id: "buyer.welcome",
-        component: "buyer.welcome",
-        lifecycle: "stable",
-        public_props_schema: {},
-        affordances: [
-          {
-            id: "browse_products",
-            event: "open",
-            operation: { id: "catalog.list" },
-          },
-        ],
-      },
-    },
+    surfaces: {},
   };
 }

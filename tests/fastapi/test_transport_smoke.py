@@ -16,7 +16,7 @@ from routedeck_core.contracts.events import (
     CanonicalRouteDeckEvent,
     EventPage,
     PublicEventPayload,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from routedeck_core.contracts.operations import (
     OperationDisposition,
@@ -200,7 +200,7 @@ class SmokeStore:
             has_more=len(selected) > limit,
         )
 
-    def commit_public_event(self, event_type: RouteDeckEventKind) -> RouteDeckSession:
+    def commit_public_event(self, event_type: RouteDeckEventType) -> RouteDeckSession:
         if self.session is None:
             raise AssertionError("smoke session was not created")
         cursor = self.session.event_cursor + 1
@@ -240,7 +240,7 @@ class SmokeRunner:
         self.id_factory = lambda kind: f"{kind}-smoke-private-form"
 
     async def run(self, request: OperationRequest) -> OperationResult:
-        state = self.store.commit_public_event(RouteDeckEventKind.OPERATION_CHANGED)
+        state = self.store.commit_public_event(RouteDeckEventType.OPERATION_CHANGED)
         return OperationResult(
             disposition=OperationDisposition.REQUIRES_REVIEW,
             session_id=request.session_id,
@@ -273,7 +273,7 @@ class SmokeRunner:
         snapshot = await self.store.load(session_id)
         assert snapshot.session_version == expected_session_version
         self.review_session_id = session_id
-        state = self.store.commit_public_event(RouteDeckEventKind.OPERATION_CHANGED)
+        state = self.store.commit_public_event(RouteDeckEventType.OPERATION_CHANGED)
         return OperationResult(
             disposition=OperationDisposition.COMPLETED,
             session_id=session_id,
@@ -685,7 +685,7 @@ def test_first_private_form_save_persists_revision_one_then_reloads() -> None:
     assert b"buyer@example.com" not in store.private_blobs["form-public-1"]
     assert len(store.events) == 1
     private_event = store.events[0]
-    assert private_event.event_type is RouteDeckEventKind.PRIVATE_FORM_CHANGED
+    assert private_event.event_type is RouteDeckEventType.PRIVATE_FORM_CHANGED
     assert private_event.session_version == 2
     assert private_event.payload.entity_handles == ()
     assert private_event.payload.details == ()

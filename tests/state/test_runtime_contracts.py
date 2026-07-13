@@ -13,7 +13,7 @@ from routedeck_core.contracts.conversation import (
 from routedeck_core.contracts.events import (
     PublicEventPayload,
     RouteDeckEvent,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_testing.factories import session_factory
@@ -44,7 +44,7 @@ def test_conversation_and_event_contracts_are_frozen_and_serializable() -> None:
     event = RouteDeckEvent(
         event_id="event-1",
         cursor=1,
-        event_type=RouteDeckEventKind.TURN_FINALIZED,
+        event_type=RouteDeckEventType.TURN_FINALIZED,
         session_id="session-1",
         session_version=2,
         projection_version=1,
@@ -73,7 +73,7 @@ def test_event_contract_rejects_naive_time_and_undeclared_payload_fields() -> No
         RouteDeckEvent(
             event_id="event-1",
             cursor=1,
-            event_type=RouteDeckEventKind.SESSION_CREATED,
+            event_type=RouteDeckEventType.SESSION_CREATED,
             session_id="session-1",
             session_version=0,
             created_at=datetime(2026, 7, 11, 12, 0),

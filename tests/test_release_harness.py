@@ -47,7 +47,7 @@ def test_critical_coverage_groups_are_explicit() -> None:
         "supervision",
         "projection",
         "persistence",
-        "event_reducer",
+        "observable_store",
     }
     assert all(group.branch_threshold == 85 for group in config.groups.values())
     assert {group.source for group in config.groups.values()} == {
@@ -64,7 +64,7 @@ def test_critical_coverage_fails_each_group_independently(tmp_path: Path) -> Non
         json.dumps(
             {
                 "files": {
-                    "routedeck_core/state/reducer.py": {
+                    "routedeck_core/state/aggregate.py": {
                         "summary": {
                             "num_branches": 10,
                             "covered_branches": 8,

@@ -41,22 +41,28 @@ export function RouteDeckSurfaceHost({
 }: RouteDeckSurfaceHostProps) {
   const projection = useRouteDeckProjection();
   if (projection === null) return <>{empty}</>;
+  const entries = slots.flatMap((slot) => {
+    const projected = projection.surfaces[slot];
+    const surfaces = Array.isArray(projected)
+      ? projected
+      : projected === null
+        ? []
+        : [projected];
+    return surfaces.map((surface, index) => ({ index, slot, surface }));
+  });
+  if (entries.length === 0) return <>{empty}</>;
 
   return (
     <div className={className} data-routedeck-surface-host="">
-      {slots.flatMap((slot) => {
-        const projected = projection.surfaces[slot];
-        const surfaces = Array.isArray(projected) ? projected : [projected];
-        return surfaces.map((surface, index) => (
-          <SurfaceRenderer
-            key={`${slot}:${surface.surface_id}:${index}`}
-            surface={surface}
-            slot={slot}
-            registry={registry}
-            projectionVersion={projection.projection_version}
-          />
-        ));
-      })}
+      {entries.map(({ index, slot, surface }) => (
+        <SurfaceRenderer
+          key={`${slot}:${surface.surface_id}:${index}`}
+          surface={surface}
+          slot={slot}
+          registry={registry}
+          projectionVersion={projection.projection_version}
+        />
+      ))}
     </div>
   );
 }

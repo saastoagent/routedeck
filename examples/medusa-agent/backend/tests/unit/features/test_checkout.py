@@ -6,7 +6,7 @@ import pytest
 from pydantic import SecretStr
 
 from medusa_agent.features.checkout.feature import CHECKOUT_FACTS_PROVIDER
-from medusa_agent.features.checkout.handlers import (
+from medusa_agent.features.checkout.operations import (
     SaveContactHandler,
     StartCheckoutHandler,
 )

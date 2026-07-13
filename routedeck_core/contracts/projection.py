@@ -161,6 +161,15 @@ class ProjectedOperation(_FrozenContract):
     review_required: bool = False
 
 
+class ProjectedSuggestedAction(_FrozenContract):
+    action_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    operation_id: str = Field(min_length=1)
+    arguments: FrozenJsonObject = Field(
+        default_factory=lambda: FrozenJsonObject({})
+    )
+
+
 class ProjectedSurface(_FrozenContract):
     surface_id: str = Field(min_length=1)
     component: str = Field(min_length=1)
@@ -168,7 +177,7 @@ class ProjectedSurface(_FrozenContract):
 
 
 class ProjectedSurfaceSlots(_FrozenContract):
-    active: ProjectedSurface
+    active: ProjectedSurface | None
     frame: tuple[ProjectedSurface, ...] = ()
     peer: tuple[ProjectedSurface, ...] = ()
     detail: tuple[ProjectedSurface, ...] = ()
@@ -181,7 +190,7 @@ class ProjectedSurfaceSlots(_FrozenContract):
     def __getitem__(
         self,
         slot: str,
-    ) -> ProjectedSurface | tuple[ProjectedSurface, ...]:
+    ) -> ProjectedSurface | tuple[ProjectedSurface, ...] | None:
         if slot not in self.__class__.model_fields:
             raise KeyError(slot)
         return getattr(self, slot)
@@ -224,6 +233,7 @@ class PublicProjection(_FrozenContract):
     current: ProjectionLocation
     navigation: ProjectedNavigation
     legal_operations: tuple[ProjectedOperation, ...]
+    suggested_actions: tuple[ProjectedSuggestedAction, ...]
     entities: tuple[PublicEntityHandle, ...]
     surfaces: ProjectedSurfaceSlots
     status: ProjectionStatus
@@ -242,6 +252,7 @@ __all__ = [
     "FrozenJsonObject",
     "ProjectedNavigation",
     "ProjectedOperation",
+    "ProjectedSuggestedAction",
     "ProjectedSurface",
     "ProjectedSurfaceSlots",
     "ProjectionDiagnostics",

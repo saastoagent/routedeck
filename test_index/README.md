@@ -16,11 +16,11 @@ active:
 | --- | --- | --- |
 | Public API | `python -m pytest tests/test_public_api.py -q` | Root `ApplicationSpec`/`FeatureSpec` compiler publication, package type markers, and explicit-but-unadvertised compatibility imports. |
 | Application contracts | `python -m pytest tests/app -q` | Feature composition, exact route entries, transitions, frontend contract export, and fail-loud compilation. |
-| Canonical state | `python -m pytest tests/state -q` | Immutable session contracts, reducers, leases, ports, effects, and public exports. |
+| Canonical state | `python -m pytest tests/state -q` | Immutable session contracts, the transaction-scoped aggregate, leases, ports, effects, and public exports. |
 | Supervision | `python -m pytest tests/supervision -q` | One runner, idempotency, review, crash windows, external-outcome-unknown, recovery, and turn lifecycle. |
 | Navigation | `python -m pytest tests/navigation -q` | Shareable/session-bound routes, resume capabilities, stable/ephemeral surfaces, exact history entry identity, and navigation transactions. |
 | Projection | `python -m pytest tests/projection -q` | Default-deny public projection, context scope, and recovery projection. |
-| Persistence | `python -m pytest tests/sqlite -q` | SQLite reopen, fencing, durable operation/mutation journals, events/private blobs, and schema behavior. |
+| Persistence | `python -m pytest tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py -q` | SQLAlchemy SQLite/PostgreSQL portability, reopen, fencing, durable operation/mutation journals, events/private blobs, and schema behavior. |
 | HTTP/SSE | `python -m pytest tests/fastapi -q` | Generic idempotent session creation, dispatch, navigation, review, private-form, inspect, exact mutation replay, reset, and error transport. |
 | LangGraph boundary | `python -m pytest tests/test_langgraph_adapter.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q` | Product-owned graph topology, default-deny model context, durable conversation reconstruction, and supervised tools. |
 | Boundary rules | `python -m pytest tests/test_boundary_rules.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q` | Product-neutral framework packages and Medusa-owned commerce/API behavior. |
@@ -83,7 +83,7 @@ python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
 ```
 
 The Docker build installs only the repo-local locked Medusa source. The Python
-wheel metadata must require `routedeck-core[fastapi,langgraph,sqlite]`. The
+wheel metadata must require `routedeck-core[fastapi,langgraph,persistence]`. The
 boundary report verifies both Medusa Compose build contexts, required source
 files, exact runtime pins, lockfile version, and digest-pinned Node base. These
 commands do not start the server, migrate, seed, reset, or create an order.

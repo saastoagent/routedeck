@@ -8,7 +8,8 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from medusa_agent.composition import build_medusa_runtime, compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.runtime_factory import build_medusa_runtime
 from medusa_agent.features.cart import (
     BUYER_MARKET_PROVIDER,
     CART_ADD_ITEM,
@@ -313,8 +314,15 @@ class ExplicitTestSessionStore:
         events: Sequence[CanonicalRouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
-        del lease, expected_session_version, next_state, turns, events, mutation
-        raise AssertionError("cart.create is not a model turn")
+        del turns, mutation
+        self._require_lease(lease)
+        if self.session.session_version != expected_session_version:
+            raise AssertionError("test session version mismatch")
+        if len(events) != 1:
+            raise AssertionError("test turn must commit one public event")
+        self.session = next_state
+        self.lease = None
+        return SessionSnapshot(state=next_state)
 
     async def interrupt_turn(
         self,

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
+from ..contracts.agent import AgentPolicySpec
 from ..contracts.application import CompiledApplicationSpec
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.operations import (
@@ -15,7 +16,12 @@ from ..contracts.operations import (
     ProviderSpec,
     SafetyClass,
 )
-from ..contracts.surfaces import SurfaceSpec
+from ..contracts.projection import FrozenJsonObject
+from ..contracts.surfaces import (
+    SurfaceAffordanceSpec,
+    SurfaceLifecycle,
+    SurfaceSpec,
+)
 from .feature import ApplicationSpec
 
 if TYPE_CHECKING:
@@ -27,7 +33,7 @@ class _FrozenContract(BaseModel):
 
 
 class FrontendSurfaceSlots(_FrozenContract):
-    active: str
+    active: str | None
     frame: tuple[str, ...] = ()
     peer: tuple[str, ...] = ()
     detail: tuple[str, ...] = ()
@@ -54,12 +60,20 @@ class FrontendTransitionContract(_FrozenContract):
     target: str
 
 
+class FrontendSurfaceContract(_FrozenContract):
+    id: str
+    component: str
+    lifecycle: SurfaceLifecycle
+    affordances: tuple[SurfaceAffordanceSpec, ...] = ()
+    public_props_schema: FrozenJsonObject
+
+
 class FrontendContract(_FrozenContract):
     name: str
     entry_node_id: str
     nodes: Mapping[str, FrontendNodeContract]
     transitions: tuple[FrontendTransitionContract, ...]
-    surfaces: Mapping[str, SurfaceSpec]
+    surfaces: Mapping[str, FrontendSurfaceContract]
 
     @model_serializer(mode="plain")
     def _public_contract(self) -> dict[str, object]:
@@ -74,10 +88,7 @@ class FrontendContract(_FrozenContract):
                 transition.model_dump(mode="json") for transition in self.transitions
             ],
             "surfaces": {
-                surface_id: surface.model_dump(
-                    mode="json",
-                    exclude={"private_form_binding"},
-                )
+                surface_id: surface.model_dump(mode="json")
                 for surface_id, surface in self.surfaces.items()
             },
         }
@@ -102,6 +113,7 @@ class CompiledRouteDeckApp:
     operations: Mapping[str, OperationSpec]
     providers: Mapping[str, ProviderSpec]
     guards: Mapping[str, GuardSpec]
+    agent_policies: Mapping[str, AgentPolicySpec]
     surfaces: Mapping[str, SurfaceSpec]
     routes: CompiledRoutes
     frontend_contract: FrontendContract
@@ -137,6 +149,7 @@ __all__ = [
     "ExecutableTestPath",
     "FrontendContract",
     "FrontendNodeContract",
+    "FrontendSurfaceContract",
     "FrontendSurfaceSlots",
     "FrontendTransitionContract",
 ]

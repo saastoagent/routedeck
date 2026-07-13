@@ -19,7 +19,9 @@ CORE_FORBIDDEN_IMPORTS = (
     "medusa_agent",
     "routedeck_fastapi",
     "routedeck_langgraph",
-    "routedeck_sqlite",
+    "routedeck_sqlalchemy",
+    "sqlalchemy",
+    "psycopg",
 )
 REQUIRED_CHECK_NAMES = (
     "core_imports",
@@ -38,7 +40,7 @@ FRAMEWORK_PYTHON_ROOTS = (
     CORE_ROOT,
     Path("routedeck_fastapi"),
     Path("routedeck_langgraph"),
-    Path("routedeck_sqlite"),
+    Path("routedeck_sqlalchemy"),
 )
 PRODUCT_BACKEND_ROOT = Path("examples/medusa-agent/backend/medusa_agent")
 PRODUCT_MAIN = Path("examples/medusa-agent/backend/main.py")

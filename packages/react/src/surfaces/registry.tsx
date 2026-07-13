@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
 import {
   RouteDeckStateError,
+  type FrontendSurfaceContract,
   type JsonObject,
   type RouteDeckDispatchResult,
   type RouteDeckProjectedSurface,
   type SurfaceAffordanceSpec,
-  type SurfaceSpec,
 } from "@routedeck/core";
 
 export type RouteDeckSurfaceSlot =
@@ -23,7 +23,7 @@ export interface RouteDeckSurfaceComponentProps {
   surface: RouteDeckProjectedSurface;
   slot: RouteDeckSurfaceSlot;
   props: Readonly<JsonObject>;
-  spec: Readonly<SurfaceSpec>;
+  spec: Readonly<FrontendSurfaceContract>;
   dispatchAffordance(
     affordanceId: string,
     argumentsValue?: JsonObject,
@@ -58,7 +58,7 @@ export function projectedSurfaceProps(
 }
 
 export function findSurfaceAffordance(
-  spec: SurfaceSpec,
+  spec: FrontendSurfaceContract,
   affordanceId: string,
 ): SurfaceAffordanceSpec {
   const affordance = spec.affordances?.find((item) => item.id === affordanceId);

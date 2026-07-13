@@ -11,7 +11,7 @@ export type RequestId = string;
 export type CreatedAt = string;
 export type Cursor = number;
 export type EventId = string;
-export type RouteDeckEventKind =
+export type RouteDeckEventType =
   | "session_created"
   | "projection_changed"
   | "navigation_changed"
@@ -62,7 +62,7 @@ export type DeepLinkPolicy = "shareable" | "session_bound";
 export type Id = string;
 export type OperationIds = string[];
 export type RouteTemplate = string;
-export type Active = string;
+export type Active = string | null;
 export type Detail = string[];
 export type Diagnostic = string[];
 export type Error = string[];
@@ -145,6 +145,10 @@ export type ProjectionVersion2 = number;
 export type SessionVersion2 = number;
 export type Code1 = string;
 export type Message = string | null;
+export type ActionId = string;
+export type Label = string;
+export type OperationId6 = string;
+export type SuggestedActions = ProjectedSuggestedAction[];
 export type Component1 = string;
 export type Props = PublicValue[];
 export type SurfaceId = string;
@@ -188,7 +192,7 @@ export interface CanonicalRouteDeckEvent {
   created_at: CreatedAt;
   cursor: Cursor;
   event_id: EventId;
-  event_type: RouteDeckEventKind;
+  event_type: RouteDeckEventType;
   payload: PublicEventPayload;
   projection_version?: ProjectionVersion;
   session_id: SessionId;
@@ -263,14 +267,14 @@ export interface FrontendSurfaceSlots {
   status?: Status;
 }
 export interface Surfaces {
-  [k: string]: SurfaceSpec;
+  [k: string]: FrontendSurfaceContract;
 }
-export interface SurfaceSpec {
+export interface FrontendSurfaceContract {
   affordances?: Affordances;
   component: Component;
   id: Id3;
-  lifecycle?: SurfaceLifecycle;
-  public_props_schema?: PublicPropsSchema;
+  lifecycle: SurfaceLifecycle;
+  public_props_schema: PublicPropsSchema;
 }
 export interface SurfaceAffordanceSpec {
   event: Event;
@@ -334,6 +338,7 @@ export interface PublicProjection {
   projection_version: ProjectionVersion2;
   session_version: SessionVersion2;
   status: ProjectionStatus;
+  suggested_actions: SuggestedActions;
   surfaces: ProjectedSurfaceSlots;
 }
 export interface ProjectionLocation {
@@ -368,8 +373,17 @@ export interface ProjectionStatus {
   code?: Code1;
   message?: Message;
 }
+export interface ProjectedSuggestedAction {
+  action_id: ActionId;
+  arguments?: Arguments1;
+  label: Label;
+  operation_id: OperationId6;
+}
+export interface Arguments1 {
+  [k: string]: unknown;
+}
 export interface ProjectedSurfaceSlots {
-  active: ProjectedSurface;
+  active: ProjectedSurface | null;
   detail?: Detail1;
   diagnostic?: Diagnostic1;
   error?: Error1;

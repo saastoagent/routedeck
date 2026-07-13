@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import sqlite3
+import os
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -16,13 +16,13 @@ from langchain_core.callbacks import AsyncCallbackManagerForLLMRun
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.outputs import ChatGenerationChunk
 from pydantic import SecretStr
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import Session as OrmSession
 
 from main import create_medusa_app
 from medusa_agent.agent import create_medusa_agent
-from medusa_agent.composition import (
-    compile_medusa_app_spec,
-    open_persistent_medusa_runtime,
-)
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.medusa.client.models import (
     CalculatedPrice,
     Cart,
@@ -71,7 +71,8 @@ from routedeck_core.supervision.guards import (
 from routedeck_fastapi import RouteDeckDependencies, SseSettings
 from routedeck_fastapi.sse import encode_event
 from routedeck_langgraph import operation_tool_name
-from routedeck_sqlite import FernetSensitiveCodec
+from routedeck_sqlalchemy import FernetSensitiveCodec
+from routedeck_sqlalchemy.models import TurnLeaseRow
 from routedeck_testing import ScriptedToolModel, tool_call
 
 
@@ -314,6 +315,11 @@ class _StreamingScriptedToolModel(ScriptedToolModel):
         )
 
 
+class _ActionTurnPolicy:
+    async def decide(self, _messages) -> str:
+        return "action"
+
+
 @pytest.mark.asyncio
 async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
     tmp_path: Path,
@@ -347,8 +353,12 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
     fixture = _ScriptedStoreFixture()
     ids = count(1)
     database_path = tmp_path / "agent-chat.sqlite"
+    database_url = os.environ.get(
+        "ROUTEDECK_TEST_DATABASE_URL",
+        f"sqlite+pysqlite:///{database_path.as_posix()}",
+    )
     runtime = await open_persistent_medusa_runtime(
-        database_path=database_path,
+        database_url=database_url,
         encryption_key=encryption_key,
         instance_id="agent-chat-smoke",
         client=fixture,  # type: ignore[arg-type]
@@ -389,7 +399,11 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             ),
         ]
     )
-    agent = create_medusa_agent(model=model, runtime=runtime)
+    agent = create_medusa_agent(
+        model=model,
+        runtime=runtime,
+        turn_policy=_ActionTurnPolicy(),
+    )
     dependencies = RouteDeckDependencies(
         app=runtime.app.app,
         runner=runtime.runner,
@@ -678,12 +692,17 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             assert not any(
                 turn.role.value == "assistant" for turn in staged.state.conversation
             )
-            with sqlite3.connect(database_path) as connection:
-                lease_count = connection.execute(
-                    "SELECT COUNT(*) FROM turn_leases WHERE session_id = ?",
-                    (review_session_id,),
-                ).fetchone()
-            assert lease_count == (0,)
+            inspection_engine = create_engine(database_url)
+            try:
+                with OrmSession(inspection_engine) as database:
+                    lease_count = database.scalar(
+                        select(func.count())
+                        .select_from(TurnLeaseRow)
+                        .where(TurnLeaseRow.session_id == review_session_id)
+                    )
+            finally:
+                inspection_engine.dispose()
+            assert lease_count == 0
 
         completed = await runtime.store.load(session_id)
         assert completed.projection_version == projection_version

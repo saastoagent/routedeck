@@ -1,102 +1,59 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import inspect
-import json
-import logging
 import secrets
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any, Protocol
+from collections.abc import AsyncIterator, Mapping
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, StreamingResponse
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from routedeck_core.contracts.conversation import (
     ConversationRole,
-    ConversationTurnStatus,
     FinalizedConversationTurn,
 )
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
-from routedeck_core.contracts.mutations import (
-    MutationKind,
-    MutationRecord,
-    MutationStatus,
-)
+from routedeck_core.contracts.mutations import MutationKind
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
 from routedeck_core.state.leases import TurnClaim, TurnLease, TurnOwnerKind
 from routedeck_core.state.session import require_compatible_session
-from routedeck_fastapi import RouteDeckDependencies, RouteDeckDependencyUnavailable
+from routedeck_fastapi import RouteDeckDependencyUnavailable
 from routedeck_langgraph import (
     RouteDeckInvocationContext,
     extract_conversation_turns,
 )
 
+from ..turn_policy import TURN_POLICY_EVENT_TAG
+
+from .chat_contract import (
+    AgentEventStream,
+    ChatDependencyProvider,
+    ChatStreamRequest,
+    MedusaChatDependencies,
+)
+from .chat_events import (
+    ChatStreamFailure as _ChatStreamFailure,
+    CompletedModelRun as _CompletedModelRun,
+    close_event_stream as _close_event_stream,
+    final_assistant_message as _final_assistant_message,
+    final_assistant_was_streamed as _final_assistant_was_streamed,
+    log_chat_failure as _log_chat_failure,
+    message_text as _message_text,
+    messages_from_output as _messages_from_output,
+    model_run_id as _model_run_id,
+    review_event as _review_event,
+    sse as _sse,
+)
+from .chat_replay import (
+    chat_fingerprint as _chat_fingerprint,
+    chat_replay_frames as _chat_replay_frames,
+    chat_stream_headers as _chat_stream_headers,
+    guest_session_id as _guest_session_id,
+    problem_response as _problem_response,
+    resolve_dependencies as _resolve_dependencies,
+)
 from .conversation import public_conversation
-
-
-_LOGGER = logging.getLogger(__name__)
-
-
-class _ChatRequestModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class ChatStreamRequest(_ChatRequestModel):
-    request_id: str = Field(min_length=1, max_length=256)
-    expected_session_version: int = Field(ge=0)
-    message: str = Field(min_length=1, max_length=16_000)
-
-    @field_validator("request_id", "message")
-    @classmethod
-    def _not_whitespace(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("value must contain non-whitespace text")
-        return value
-
-
-class AgentEventStream(Protocol):
-    def astream_events(
-        self,
-        input: Mapping[str, Any],
-        config: Mapping[str, Any] | None = None,
-        *,
-        version: str = "v2",
-        **kwargs: Any,
-    ) -> AsyncIterator[Mapping[str, Any]]: ...
-
-
-@dataclass(frozen=True)
-class MedusaChatDependencies:
-    routedeck: RouteDeckDependencies
-    agent: AgentEventStream
-
-    def __post_init__(self) -> None:
-        if not callable(getattr(self.agent, "astream_events", None)):
-            raise TypeError("Medusa chat agent must expose astream_events")
-
-
-ChatDependencyProvider = Callable[
-    [Request],
-    MedusaChatDependencies | Awaitable[MedusaChatDependencies],
-]
-
-
-class _ChatStreamFailure(RuntimeError):
-    def __init__(self, code: str, public_message: str) -> None:
-        super().__init__(code)
-        self.code = code
-        self.public_message = public_message
-
-
-@dataclass(frozen=True)
-class _CompletedModelRun:
-    output: AIMessage
-    chunks: tuple[str, ...]
 
 
 def create_medusa_chat_router(provider: ChatDependencyProvider) -> APIRouter:
@@ -200,7 +157,11 @@ async def stream_agent_chat(
     """Run one durable parent turn and emit only product chat SSE frames."""
 
     runner = dependencies.routedeck.runner
-    snapshot = initial_snapshot or await dependencies.routedeck.store.load(session_id)
+    snapshot = (
+        initial_snapshot
+        if initial_snapshot is not None
+        else await dependencies.routedeck.store.load(session_id)
+    )
     turn: TurnLease | None = None
     turn_active = False
     finalized = False
@@ -249,6 +210,8 @@ async def stream_agent_chat(
         }
         final_messages: tuple[BaseMessage, ...] | None = None
         model_chunks: dict[str, list[str]] = {}
+        exposed_model_runs: set[str] = set()
+        tool_calling_model_runs: set[str] = set()
         completed_model_runs: list[_CompletedModelRun] = []
         event_stream = dependencies.agent.astream_events(
             {"messages": [HumanMessage(content=request.message, id=user_turn.turn_id)]},
@@ -256,10 +219,15 @@ async def stream_agent_chat(
             context=invocation_context,
         )
         async for event in event_stream:
+            if _is_internal_turn_policy_event(event):
+                continue
             event_name = event.get("event")
             data = event.get("data")
             if not isinstance(data, Mapping):
-                data = {}
+                raise _ChatStreamFailure(
+                    "agent_stream_contract_invalid",
+                    "The buyer agent returned an invalid streaming event.",
+                )
 
             if event_name == "on_chat_model_end":
                 output = data.get("output")
@@ -270,6 +238,12 @@ async def stream_agent_chat(
                     )
                 if isinstance(output, AIMessage):
                     run_id = _model_run_id(event)
+                    if output.tool_calls and run_id in exposed_model_runs:
+                        exposed_model_runs.remove(run_id)
+                        yield _sse(
+                            "assistant_reset",
+                            {"request_id": request.request_id},
+                        )
                     completed_model_runs.append(
                         _CompletedModelRun(
                             output=output,
@@ -278,9 +252,28 @@ async def stream_agent_chat(
                     )
 
             if event_name == "on_chat_model_stream":
-                chunk_text = _message_text(data.get("chunk"))
+                chunk = data.get("chunk")
+                run_id = _model_run_id(event)
+                if getattr(chunk, "tool_call_chunks", ()):
+                    tool_calling_model_runs.add(run_id)
+                    if run_id in exposed_model_runs:
+                        exposed_model_runs.remove(run_id)
+                        yield _sse(
+                            "assistant_reset",
+                            {"request_id": request.request_id},
+                        )
+                chunk_text = _message_text(chunk)
                 if chunk_text:
-                    model_chunks.setdefault(_model_run_id(event), []).append(chunk_text)
+                    model_chunks.setdefault(run_id, []).append(chunk_text)
+                    if run_id not in tool_calling_model_runs:
+                        exposed_model_runs.add(run_id)
+                        yield _sse(
+                            "assistant_delta",
+                            {
+                                "content": chunk_text,
+                                "request_id": request.request_id,
+                            },
+                        )
 
             event_output = data.get("output")
             candidate = _messages_from_output(event_output)
@@ -357,6 +350,14 @@ async def stream_agent_chat(
                 "The buyer agent returned invalid conversation history.",
             )
         assistant_turn = extracted.turns[-1]
+        if not _final_assistant_was_streamed(
+            assistant_message,
+            completed_model_runs,
+        ):
+            raise _ChatStreamFailure(
+                "assistant_stream_missing",
+                "The buyer agent did not stream its final response.",
+            )
         current = await dependencies.routedeck.store.load(session_id)
         completed = await runner.complete_turn(
             turn,
@@ -365,14 +366,6 @@ async def stream_agent_chat(
         )
         finalized = True
         turn_active = False
-        for chunk in _final_assistant_chunks(assistant_message, completed_model_runs):
-            yield _sse(
-                "assistant_delta",
-                {
-                    "content": chunk,
-                    "request_id": request.request_id,
-                },
-            )
         yield _sse(
             "assistant_end",
             {
@@ -436,6 +429,11 @@ async def stream_agent_chat(
         )
 
 
+def _is_internal_turn_policy_event(event: Mapping[str, object]) -> bool:
+    tags = event.get("tags")
+    return isinstance(tags, (list, tuple)) and TURN_POLICY_EVENT_TAG in tags
+
+
 async def _interrupt_turn(
     *,
     dependencies: MedusaChatDependencies,
@@ -454,252 +452,6 @@ async def _interrupt_turn(
             request_id=request_id,
             public_message="The buyer-agent turn was interrupted.",
         ),
-    )
-
-
-def _final_assistant_message(messages: Sequence[BaseMessage]) -> AIMessage | None:
-    for message in reversed(messages):
-        if isinstance(message, AIMessage) and not message.tool_calls:
-            return message
-    return None
-
-
-def _final_assistant_chunks(
-    assistant: AIMessage,
-    completed_runs: Sequence[_CompletedModelRun],
-) -> tuple[str, ...]:
-    assistant_text = _message_text(assistant)
-    for run in completed_runs:
-        if run.output.tool_calls or _message_text(run.output) != assistant_text:
-            continue
-        if run.chunks and "".join(run.chunks) == assistant_text:
-            return run.chunks
-    return (assistant_text,)
-
-
-def _model_run_id(event: Mapping[str, Any]) -> str:
-    run_id = event.get("run_id")
-    if not isinstance(run_id, str) or not run_id:
-        raise _ChatStreamFailure(
-            "agent_stream_contract_invalid",
-            "The buyer agent returned an invalid streaming event.",
-        )
-    return run_id
-
-
-def _message_text(message: object) -> str:
-    if isinstance(message, BaseMessage):
-        return message.text
-    return ""
-
-
-def _messages_from_output(output: object) -> tuple[BaseMessage, ...] | None:
-    if not isinstance(output, Mapping):
-        return None
-    messages = output.get("messages")
-    if not isinstance(messages, (list, tuple)) or any(
-        not isinstance(message, BaseMessage) for message in messages
-    ):
-        return None
-    return tuple(messages)
-
-
-def _review_event(value: object) -> dict[str, Any] | None:
-    if not isinstance(value, ToolMessage) or not isinstance(value.artifact, Mapping):
-        return None
-    if value.artifact.get("disposition") != "requires_review":
-        return None
-    review = value.artifact.get("review")
-    operation_id = value.artifact.get("operation_id")
-    if not isinstance(review, Mapping) or not isinstance(operation_id, str):
-        raise _ChatStreamFailure(
-            "review_result_invalid",
-            "The buyer agent returned an invalid review result.",
-        )
-    review_id = review.get("id")
-    expires_at = review.get("expires_at")
-    if not isinstance(review_id, str) or not isinstance(expires_at, str):
-        raise _ChatStreamFailure(
-            "review_result_invalid",
-            "The buyer agent returned an invalid review result.",
-        )
-    return {
-        "expires_at": expires_at,
-        "operation_id": operation_id,
-        "review_id": review_id,
-        "status": "requires_review",
-    }
-
-
-def _chat_fingerprint(request: ChatStreamRequest) -> str:
-    canonical = json.dumps(
-        {"message": request.message},
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(canonical).hexdigest()
-
-
-def _chat_replay_frames(
-    record: MutationRecord,
-    snapshot: SessionSnapshot,
-) -> tuple[str, ...]:
-    start = _sse(
-        "stream_start",
-        {
-            "request_id": record.request_id,
-            "session_version": snapshot.session_version,
-        },
-    )
-    history = _sse(
-        "conversation_snapshot",
-        {"turns": public_conversation(snapshot)},
-    )
-    if record.status is MutationStatus.COMPLETED:
-        assistant = next(
-            (
-                turn
-                for turn in reversed(snapshot.state.conversation)
-                if turn.status is ConversationTurnStatus.FINALIZED
-                and turn.role is ConversationRole.ASSISTANT
-                and turn.request_id == record.request_id
-            ),
-            None,
-        )
-        if assistant is None:
-            raise _ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
-        return (
-            start,
-            history,
-            _sse(
-                "assistant_end",
-                {
-                    "request_id": record.request_id,
-                    "session_version": snapshot.session_version,
-                    "projection_version": snapshot.projection_version,
-                    "turn_id": assistant.turn_id,
-                },
-            ),
-            _sse(
-                "stream_end",
-                {"request_id": record.request_id, "status": "completed"},
-            ),
-        )
-    result = record.result.to_dict()
-    if record.status is MutationStatus.REQUIRES_REVIEW:
-        if set(result) != {"expires_at", "operation_id", "review_id"} or any(
-            not isinstance(value, str) or not value for value in result.values()
-        ):
-            raise _ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
-        return (
-            start,
-            history,
-            _sse("review_required", {**result, "status": "requires_review"}),
-            _sse(
-                "stream_end",
-                {"request_id": record.request_id, "status": "requires_review"},
-            ),
-        )
-    if record.status is MutationStatus.TURN_INTERRUPTED:
-        if set(result) != {"code", "message"} or any(
-            not isinstance(value, str) or not value for value in result.values()
-        ):
-            raise _ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
-        return (
-            start,
-            history,
-            _sse("chat_error", result),
-            _sse(
-                "stream_end",
-                {"request_id": record.request_id, "status": "turn_interrupted"},
-            ),
-        )
-    raise _ChatStreamFailure(
-        "chat_replay_invalid",
-        "The saved buyer-agent turn could not be replayed.",
-    )
-
-
-def _chat_stream_headers() -> dict[str, str]:
-    return {
-        "Cache-Control": "private, no-store, no-transform",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no",
-    }
-
-
-def _log_chat_failure(
-    event: str,
-    *,
-    request_id: str,
-    error: BaseException,
-) -> None:
-    """Log only allowlisted failure metadata; exception text may contain PII."""
-
-    error_type = type(error).__name__
-    _LOGGER.error(
-        "%s error_type=%s",
-        event,
-        error_type,
-        extra={
-            "request_id": request_id,
-            "error_type": error_type,
-        },
-    )
-
-
-def _guest_session_id(request: Request, dependencies: RouteDeckDependencies) -> str:
-    session_id = request.cookies.get(dependencies.cookie.name)
-    if not session_id:
-        raise SessionStoreError(SessionStoreErrorCode.SESSION_NOT_FOUND)
-    if len(session_id) > 512:
-        raise SessionStoreError(SessionStoreErrorCode.SESSION_NOT_FOUND)
-    return session_id
-
-
-async def _resolve_dependencies(
-    provider: ChatDependencyProvider,
-    request: Request,
-) -> MedusaChatDependencies:
-    value = provider(request)
-    if inspect.isawaitable(value):
-        value = await value
-    if not isinstance(value, MedusaChatDependencies):
-        raise RouteDeckDependencyUnavailable("Medusa chat is not configured")
-    return value
-
-
-async def _close_event_stream(stream: object) -> None:
-    close = getattr(stream, "aclose", None)
-    if close is not None and callable(close):
-        await close()
-
-
-def _sse(event: str, data: Mapping[str, Any]) -> str:
-    payload = json.dumps(
-        dict(data),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    return f"event: {event}\ndata: {payload}\n\n"
-
-
-def _problem_response(status: int, *, code: str, message: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"failure": {"code": code, "message": message}},
-        headers={"Cache-Control": "no-store"},
     )
 
 

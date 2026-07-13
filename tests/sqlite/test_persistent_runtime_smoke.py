@@ -7,7 +7,7 @@ from datetime import timedelta
 import pytest
 from cryptography.fernet import Fernet
 
-from medusa_agent.composition import open_persistent_medusa_runtime
+from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.medusa.client.models import CreateCartRequest, CreateCartResult
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.conversation import (
@@ -17,7 +17,7 @@ from routedeck_core.contracts.conversation import (
 from routedeck_core.contracts.events import (
     CanonicalRouteDeckEvent,
     PublicEventPayload,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from routedeck_core.contracts.mutations import (
     MutationCommit,
@@ -40,21 +40,12 @@ from routedeck_core.contracts.session import (
     StoredOperationAttempt,
 )
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
+from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.state.leases import TurnClaim, TurnOwnerKind
-from routedeck_core.state.reducer import (
-    ConversationTurnsStored,
-    OperationStateStored,
-    PrivateSessionStateStored,
-    PrivateDraftStored,
-    PublicEventsRecorded,
-    PublicSessionStateStored,
-    reduce_session,
-    reduce_session_batch,
-)
-from routedeck_sqlite import (
+from routedeck_sqlalchemy import (
     FernetSensitiveCodec,
     RouteDeckInstanceAlreadyRunning,
-    SqliteSessionStore,
+    SqlAlchemySessionStore,
     UtcClock,
 )
 
@@ -101,7 +92,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
 
     async def open_runtime(instance_id: str):
         return await open_persistent_medusa_runtime(
-            database_path=database_path,
+            database_url=f"sqlite+pysqlite:///{database_path.as_posix()}",
             encryption_key=key,
             instance_id=instance_id,
             client=_UnusedMedusaClient(),
@@ -120,8 +111,8 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     first_runtime = await open_runtime("first")
     codec = first_runtime.store.codec
     with pytest.raises(RouteDeckInstanceAlreadyRunning):
-        await SqliteSessionStore.open(
-            database_path,
+        await SqlAlchemySessionStore.open(
+            f"sqlite+pysqlite:///{database_path.as_posix()}",
             instance_id="fenced-second",
             codec=FernetSensitiveCodec(key),
         )
@@ -179,14 +170,16 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             request_id="chat-1",
         ),
     )
-    chat_state = reduce_session_batch(
-        created.state,
-        (ConversationTurnsStored(turns=turns), PublicEventsRecorded(count=1)),
+    chat_state = (
+        RouteDeckSessionAggregate(created.state)
+        .append_conversation_turns(turns)
+        .record_public_events(1)
+        .commit()
     )
     chat_event = CanonicalRouteDeckEvent(
         event_id="event-chat-1",
         cursor=chat_state.event_cursor,
-        event_type=RouteDeckEventKind.TURN_FINALIZED,
+        event_type=RouteDeckEventType.TURN_FINALIZED,
         session_id=created.session_id,
         session_version=chat_state.session_version,
         projection_version=chat_state.projection_version,
@@ -218,16 +211,17 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             owner_kind=TurnOwnerKind.SURFACE,
         )
     )
-    draft_state = reduce_session(
-        chat_snapshot.state,
-        PrivateDraftStored(
-            draft=PrivateDraft(
+    draft_state = (
+        RouteDeckSessionAggregate(chat_snapshot.state)
+        .store_private_draft(
+            PrivateDraft(
                 form_id="contact",
                 field_names=("email",),
                 revision=1,
                 complete=True,
             )
-        ),
+        )
+        .commit()
     )
     draft_snapshot = await first_runtime.store.save_private_blob(
         draft_lease,
@@ -310,23 +304,22 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             "status_message": "Review the order before placement.",
         }
     )
-    review_state = reduce_session_batch(
-        draft_snapshot.state,
-        (
-            OperationStateStored(
-                operation=OperationState(
-                    active_attempt=attempt,
-                    pending_review=review,
-                )
-            ),
-            PublicSessionStateStored(state=public_state),
-            PublicEventsRecorded(count=1),
-        ),
+    review_state = (
+        RouteDeckSessionAggregate(draft_snapshot.state)
+        .set_operation_state(
+            OperationState(
+                active_attempt=attempt,
+                pending_review=review,
+            )
+        )
+        .set_public_state(public_state)
+        .record_public_events(1)
+        .commit()
     )
     review_event = CanonicalRouteDeckEvent(
         event_id="event-review-1",
         cursor=review_state.event_cursor,
-        event_type=RouteDeckEventKind.OPERATION_CHANGED,
+        event_type=RouteDeckEventType.OPERATION_CHANGED,
         session_id=created.session_id,
         session_version=review_state.session_version,
         projection_version=review_state.projection_version,
@@ -387,11 +380,12 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             owner_kind=TurnOwnerKind.SURFACE,
         )
     )
-    purged_state = reduce_session(
-        reopened.state,
-        PrivateSessionStateStored(
-            state=reopened.state.private_state.model_copy(update={"drafts": ()})
-        ),
+    purged_state = (
+        RouteDeckSessionAggregate(reopened.state)
+        .set_private_state(
+            reopened.state.private_state.model_copy(update={"drafts": ()})
+        )
+        .commit()
     )
     await second_runtime.store.commit_state(
         purge_lease,
@@ -412,9 +406,9 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         is None
     )
     assert [event.event_type for event in replay.events] == [
-        RouteDeckEventKind.TURN_FINALIZED,
-        RouteDeckEventKind.OPERATION_CHANGED,
-        RouteDeckEventKind.TURN_INTERRUPTED,
+        RouteDeckEventType.TURN_FINALIZED,
+        RouteDeckEventType.OPERATION_CHANGED,
+        RouteDeckEventType.TURN_INTERRUPTED,
     ]
     database_bytes = database_path.read_bytes()
     assert b"private buyer hello" not in database_bytes

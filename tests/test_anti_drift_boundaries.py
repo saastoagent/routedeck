@@ -43,7 +43,7 @@ def test_framework_packages_stay_product_neutral() -> None:
     framework_files = _production_files(
         "routedeck_core",
         "routedeck_fastapi",
-        "routedeck_sqlite",
+        "routedeck_sqlalchemy",
         "routedeck_langgraph",
         "packages/core/src",
         "packages/react/src",

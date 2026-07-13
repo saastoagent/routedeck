@@ -180,7 +180,7 @@ directly.
 
 ADR-004 authorizes immutable feature composition, one supervised operation
 runner, durable RouteDeck session/conversation/navigation/review/operation/
-projection/event state, the generic FastAPI/SSE and SQLite adapters, optional
+projection/event state, the generic FastAPI/SSE and SQLAlchemy persistence adapters, optional
 LangGraph middleware, headless/React packages, and the standalone Medusa buyer
 agent.
 

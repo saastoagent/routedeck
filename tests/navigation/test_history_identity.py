@@ -8,7 +8,7 @@ import pytest
 from routedeck_core.contracts.session import Location, RouteDeckSession
 from routedeck_core.navigation.engine import NavigationEngine
 from routedeck_core.projection.projector import ProjectionProjector
-from routedeck_core.state.reducer import NodeEntered, reduce_session
+from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
 
@@ -53,14 +53,15 @@ def test_node_entry_ids_are_server_owned_and_monotonic() -> None:
     assert reopened.current.entry_id == 4
     assert reopened.next_history_entry_id == 5
 
-    forged = reduce_session(
-        initial,
-        NodeEntered(
-            location=Location(
+    forged = (
+        RouteDeckSessionAggregate(initial)
+        .enter_node(
+            Location(
                 node_id="catalog.browse",
                 entry_id=999,
             )
-        ),
+        )
+        .commit()
     )
     assert forged.current.entry_id == 2
 

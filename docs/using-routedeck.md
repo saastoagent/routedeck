@@ -265,8 +265,8 @@ app = bind_app(
 exact async handler, provider, and guard references: missing and extra bindings
 are startup errors. The composition root injects the session store, executor,
 clock, notifier, and ID factory into `RouteDeckOperationRunner`, then mounts the
-generic FastAPI router. See the Medusa app's `composition.py` and `runtime.py`
-for the working end-to-end composition.
+generic FastAPI router. See the Medusa app's `composition.py`, `bindings.py`,
+`runtime_factory.py`, and `runtime.py` for the working end-to-end composition.
 
 ### Core Integration
 

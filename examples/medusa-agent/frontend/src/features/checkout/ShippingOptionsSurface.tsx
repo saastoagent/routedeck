@@ -8,6 +8,8 @@ import {
   type JsonValue,
 } from "@routedeck/core";
 
+import { CheckoutAffordanceId } from "./affordances";
+
 type ShippingState = "ready" | "empty" | "refresh_failed";
 
 interface ShippingOptionProjection {
@@ -36,7 +38,7 @@ export function ShippingOptionsSurface({
       setPendingHandle(shippingOptionRef);
       setError(null);
       try {
-        await dispatchAffordance("select_shipping", {
+        await dispatchAffordance(CheckoutAffordanceId.SelectShipping, {
           shipping_option_ref: shippingOptionRef,
         });
       } catch (caught) {

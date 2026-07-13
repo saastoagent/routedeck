@@ -10,6 +10,7 @@ export interface NavGraphInspectorEdge {
 export interface NavGraphLayoutNode {
   id: string;
   label: string;
+  familyLabel: string | null;
   x: number;
   y: number;
   depth: number;
@@ -24,8 +25,9 @@ export interface NavGraphTopology {
 
 const NODE_WIDTH = 184;
 const NODE_HEIGHT = 86;
-const COLUMN_GAP = 84;
-const ROW_GAP = 78;
+const FAMILY_COLUMN_GAP = 72;
+const FAMILY_ROW_GAP = 54;
+const ROOT_TO_FAMILIES_GAP = 104;
 const PADDING = 56;
 
 export function buildNavGraphTopology(
@@ -75,35 +77,130 @@ export function buildNavGraphTopology(
       orderedNodeIds.push(node.id);
     }
   }
-  const columns = Math.min(
-    4,
-    Math.max(1, Math.ceil(Math.sqrt(orderedNodeIds.length * 1.5))),
-  );
-  const positions = new Map<string, { x: number; y: number }>();
-  orderedNodeIds.forEach((nodeId, index) => {
-    const row = Math.floor(index / columns);
-    const positionInRow = index % columns;
-    const column = row % 2 === 0 ? positionInRow : columns - 1 - positionInRow;
-    positions.set(nodeId, {
-      x: PADDING + column * (NODE_WIDTH + COLUMN_GAP),
-      y: PADDING + row * (NODE_HEIGHT + ROW_GAP),
-    });
-  });
+  const layoutNodeIds = orderNodesWithinDepth(orderedNodeIds, depth, edges);
+  const sitemap = buildSitemapLayout(contract, layoutNodeIds, root);
   const shifted = sourceNodes.map((node) => ({
     id: node.id,
     label: node.title,
+    familyLabel: sitemap.familyLabels.get(node.id) ?? null,
     depth: depth.get(node.id)!,
-    ...positions.get(node.id)!,
+    ...sitemap.positions.get(node.id)!,
   }));
-  const rows = Math.ceil(orderedNodeIds.length / columns);
   return {
     nodes: shifted,
     edges: [...edges],
-    width:
-      PADDING * 2 + columns * NODE_WIDTH + Math.max(0, columns - 1) * COLUMN_GAP,
-    height:
-      PADDING * 2 + rows * NODE_HEIGHT + Math.max(0, rows - 1) * ROW_GAP,
+    width: sitemap.width,
+    height: sitemap.height,
   };
+}
+
+function buildSitemapLayout(
+  contract: FrontendContract,
+  orderedNodeIds: readonly string[],
+  root: string,
+) {
+  const families = new Map<string, string[]>();
+  for (const nodeId of orderedNodeIds) {
+    if (nodeId === root) continue;
+    const family = sitemapFamily(contract.nodes[nodeId]!.route_template);
+    families.set(family, [...(families.get(family) ?? []), nodeId]);
+  }
+  const familyEntries = [...families.entries()];
+  const columns = Math.max(1, familyEntries.length);
+  const contentWidth =
+    columns * NODE_WIDTH +
+    Math.max(0, columns - 1) * FAMILY_COLUMN_GAP;
+  const positions = new Map<string, { x: number; y: number }>([
+    [
+      root,
+      {
+        x: PADDING + (contentWidth - NODE_WIDTH) / 2,
+        y: PADDING,
+      },
+    ],
+  ]);
+  const familyLabels = new Map<string, string>();
+  const familyTop = PADDING + NODE_HEIGHT + ROOT_TO_FAMILIES_GAP;
+  let longestFamily = 0;
+  familyEntries.forEach(([family, nodeIds], column) => {
+    longestFamily = Math.max(longestFamily, nodeIds.length);
+    nodeIds.forEach((nodeId, row) => {
+      positions.set(nodeId, {
+        x: PADDING + column * (NODE_WIDTH + FAMILY_COLUMN_GAP),
+        y: familyTop + row * (NODE_HEIGHT + FAMILY_ROW_GAP),
+      });
+      if (row === 0) familyLabels.set(nodeId, family);
+    });
+  });
+  const familyHeight =
+    longestFamily === 0
+      ? 0
+      : longestFamily * NODE_HEIGHT +
+        Math.max(0, longestFamily - 1) * FAMILY_ROW_GAP;
+  return {
+    positions,
+    familyLabels,
+    width: PADDING * 2 + contentWidth,
+    height:
+      PADDING * 2 +
+      NODE_HEIGHT +
+      (familyHeight === 0 ? 0 : ROOT_TO_FAMILIES_GAP + familyHeight),
+  };
+}
+
+function sitemapFamily(routeTemplate: string): string {
+  const firstSegment = routeTemplate
+    .split("/")
+    .find((segment) => segment.length > 0);
+  return firstSegment === undefined ? "/" : `/${firstSegment}`;
+}
+
+function orderNodesWithinDepth(
+  nodeIds: readonly string[],
+  depth: ReadonlyMap<string, number>,
+  edges: readonly NavGraphInspectorEdge[],
+): string[] {
+  const layers = new Map<number, string[]>();
+  for (const nodeId of nodeIds) {
+    const nodeDepth = depth.get(nodeId)!;
+    layers.set(nodeDepth, [...(layers.get(nodeDepth) ?? []), nodeId]);
+  }
+  const ordered: string[] = [];
+  for (const [, layer] of [...layers.entries()].sort(
+    ([left], [right]) => left - right,
+  )) {
+    const layerIds = new Set(layer);
+    const outgoing = new Map(layer.map((nodeId) => [nodeId, new Set<string>()]));
+    const indegree = new Map(layer.map((nodeId) => [nodeId, 0]));
+    for (const edge of edges) {
+      if (
+        edge.from === edge.to ||
+        !layerIds.has(edge.from) ||
+        !layerIds.has(edge.to) ||
+        outgoing.get(edge.from)!.has(edge.to)
+      ) {
+        continue;
+      }
+      outgoing.get(edge.from)!.add(edge.to);
+      indegree.set(edge.to, indegree.get(edge.to)! + 1);
+    }
+    const remaining = new Set(layer);
+    while (remaining.size > 0) {
+      const next = layer.find(
+        (nodeId) => remaining.has(nodeId) && indegree.get(nodeId) === 0,
+      );
+      if (next === undefined) {
+        ordered.push(...layer.filter((nodeId) => remaining.has(nodeId)));
+        break;
+      }
+      ordered.push(next);
+      remaining.delete(next);
+      for (const target of outgoing.get(next)!) {
+        indegree.set(target, indegree.get(target)! - 1);
+      }
+    }
+  }
+  return ordered;
 }
 
 export function navGraphEdgesFromRouteTraces(
@@ -144,6 +241,37 @@ export function navGraphEdgesFromContract(
     to: transition.target,
     label: `${transition.operation_id} · ${transition.outcome}`,
   }));
+}
+
+export function bundleNavGraphEdges(
+  edges: readonly NavGraphInspectorEdge[],
+): NavGraphInspectorEdge[] {
+  const bundles = new Map<
+    string,
+    { from: string; to: string; edges: NavGraphInspectorEdge[] }
+  >();
+  for (const edge of edges) {
+    const key = JSON.stringify([edge.from, edge.to]);
+    const bundle = bundles.get(key);
+    if (bundle === undefined) {
+      bundles.set(key, { from: edge.from, to: edge.to, edges: [edge] });
+    } else {
+      bundle.edges.push(edge);
+    }
+  }
+  return [...bundles.values()].map((bundle) => {
+    const first = bundle.edges[0]!;
+    return {
+      id: `bundle:${first.id}`,
+      from: bundle.from,
+      to: bundle.to,
+      ...(bundle.edges.length === 1
+        ? first.label === undefined
+          ? {}
+          : { label: first.label }
+        : { label: `${bundle.edges.length} transitions` }),
+    };
+  });
 }
 
 function compareNodes(

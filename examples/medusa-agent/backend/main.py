@@ -13,6 +13,10 @@ from medusa_agent.api.chat import (
     create_medusa_chat_router,
 )
 from medusa_agent.api.conversation import create_medusa_conversation_router
+from medusa_agent.api.entry import (
+    MedusaEntryDependencies,
+    create_medusa_entry_router,
+)
 from medusa_agent.runtime import (
     LiveMedusaApplication,
     open_live_medusa_application,
@@ -46,10 +50,19 @@ async def _chat_dependencies(request: Request) -> MedusaChatDependencies:
     return MedusaChatDependencies(routedeck=routedeck, agent=agent)
 
 
+async def _entry_dependencies(request: Request) -> MedusaEntryDependencies:
+    routedeck = await _routedeck_dependencies(request)
+    agent = getattr(request.app.state, "medusa_entry_agent", None)
+    if agent is None or not callable(getattr(agent, "ainvoke", None)):
+        raise RouteDeckDependencyUnavailable("Medusa entry agent is not configured")
+    return MedusaEntryDependencies(routedeck=routedeck, agent=agent)
+
+
 def create_medusa_app(
     *,
     routedeck: RouteDeckDependencies | None = None,
     agent: AgentEventStream | None = None,
+    entry_agent: object | None = None,
     readiness: MedusaAgentReadinessProbe | None = None,
     live_runtime_factory: (
         Callable[[], Awaitable[LiveMedusaApplication]] | None
@@ -59,7 +72,10 @@ def create_medusa_app(
     """Compose product APIs with the generic RouteDeck transport exactly once."""
 
     if live_runtime_factory is not None and (
-        routedeck is not None or agent is not None or readiness is not None
+        routedeck is not None
+        or agent is not None
+        or entry_agent is not None
+        or readiness is not None
     ):
         raise ValueError(
             "Live runtime composition cannot be combined with injected ports"
@@ -74,6 +90,7 @@ def create_medusa_app(
     )
     application.state.routedeck_dependencies = routedeck
     application.state.medusa_chat_agent = agent
+    application.state.medusa_entry_agent = entry_agent
     application.state.medusa_readiness = readiness
     trusted_browser_origins = frozenset(browser_origins)
     mutation_policy = SameOriginMutationPolicy(trusted_origins=trusted_browser_origins)
@@ -91,6 +108,7 @@ def create_medusa_app(
         )
     )
     application.include_router(create_medusa_chat_router(_chat_dependencies))
+    application.include_router(create_medusa_entry_router(_entry_dependencies))
     application.include_router(
         create_medusa_conversation_router(_routedeck_dependencies)
     )
@@ -106,6 +124,7 @@ def _live_lifespan(
         live = await factory()
         application.state.routedeck_dependencies = live.routedeck
         application.state.medusa_chat_agent = live.agent
+        application.state.medusa_entry_agent = live.entry_agent
         application.state.medusa_readiness = live.readiness
         application.state.medusa_live_runtime = live
         try:
@@ -113,6 +132,7 @@ def _live_lifespan(
         finally:
             application.state.routedeck_dependencies = None
             application.state.medusa_chat_agent = None
+            application.state.medusa_entry_agent = None
             application.state.medusa_readiness = None
             application.state.medusa_live_runtime = None
             await live.close()

@@ -13,7 +13,7 @@ from routedeck_core.contracts.operations import OperationRequest
 from routedeck_core.ports.executor import OperationExecutor
 from routedeck_core.supervision import RouteDeckOperationRunner
 from routedeck_core.projection.projector import ProjectionProjector
-from routedeck_core.state.reducer import reduce_session
+from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 
 
 def test_canonical_task4_apis_have_small_stable_package_exports() -> None:
@@ -24,7 +24,7 @@ def test_canonical_task4_apis_have_small_stable_package_exports() -> None:
     assert navigation.DeepLinkEngine is DeepLinkEngine
     assert projection.ProjectionProjector is ProjectionProjector
     assert ports.RouteDeckSessionStore is RouteDeckSessionStore
-    assert state.reduce_session is reduce_session
+    assert state.RouteDeckSessionAggregate is RouteDeckSessionAggregate
 
     assert routedeck_core.RouteDeckSession is RouteDeckSession
     assert routedeck_core.PublicProjection is PublicProjection

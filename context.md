@@ -121,7 +121,7 @@ Known gaps relative to ADR-004:
 ## Approved Runtime Scope
 
 ADR-004 authorizes feature-composed authoring, durable RouteDeck session and
-event state, generic FastAPI/SSE and SQLite adapters, optional LangGraph
+event state, generic FastAPI/SSE and SQLAlchemy SQLite/PostgreSQL adapters, optional LangGraph
 middleware, headless/React packages, and the standalone Medusa buyer-agent
 portability proof.
 

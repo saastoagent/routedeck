@@ -6,5 +6,6 @@ export default defineProject({
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     pool: "threads",
+    setupFiles: ["src/tests/setup.ts"],
   },
 });

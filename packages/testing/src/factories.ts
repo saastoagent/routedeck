@@ -2,7 +2,7 @@ import type {
   FrontendContract,
   RouteDeckDispatchResult,
   RouteDeckEvent,
-  RouteDeckEventKind,
+  RouteDeckEventType,
   RouteDeckProjection,
 } from "@routedeck/core";
 
@@ -35,6 +35,7 @@ export function routeDeckProjectionFixture(options: {
     event_cursor: options.eventCursor ?? 0,
     failure: null,
     legal_operations: [],
+    suggested_actions: [],
     navigation: {
       current: location,
       current_entry_id: options.historyEntryId ?? 1,
@@ -68,7 +69,7 @@ export function routeDeckEventFixture(options: {
   cursor: number;
   sessionVersion?: number;
   projectionVersion?: number | null;
-  eventType?: RouteDeckEventKind;
+  eventType?: RouteDeckEventType;
 }): RouteDeckEvent {
   return {
     event_id: `event-${options.cursor}`,

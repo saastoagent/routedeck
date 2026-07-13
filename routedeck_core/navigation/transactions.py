@@ -10,7 +10,7 @@ from ..app import BoundRouteDeckApp
 from ..contracts.events import (
     CanonicalRouteDeckEvent,
     PublicEventPayload,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.mutations import MutationCommit, MutationKind, MutationStatus
@@ -24,7 +24,7 @@ from ..contracts.session import Location, RouteDeckSession, SessionSnapshot
 from ..ports import Clock, RouteDeckNotifier, RouteDeckSessionStore
 from ..ports.notifier import notify_event_wakeup
 from ..state.leases import TurnClaim, TurnOwnerKind
-from ..state.reducer import PublicEventsRecorded, reduce_session
+from ..state.aggregate import RouteDeckSessionAggregate
 from ..supervision import RouteDeckOperationRunner, RouteEntryInvocation
 from ..supervision.outcomes import canonical_json_fingerprint
 from ..validation import RouteDeckValidationError
@@ -253,11 +253,15 @@ class RouteDeckNavigationRunner:
                     (),
                     self._navigation_commit(),
                 )
-            next_state = reduce_session(next_state, PublicEventsRecorded(count=1))
+            next_state = (
+                RouteDeckSessionAggregate(next_state)
+                .record_public_events(1)
+                .commit()
+            )
             event = CanonicalRouteDeckEvent(
                 event_id=self.id_factory("event"),
                 cursor=next_state.event_cursor,
-                event_type=RouteDeckEventKind.NAVIGATION_CHANGED,
+                event_type=RouteDeckEventType.NAVIGATION_CHANGED,
                 session_id=next_state.session_id,
                 session_version=next_state.session_version,
                 projection_version=next_state.projection_version,

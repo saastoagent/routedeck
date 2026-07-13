@@ -9,13 +9,14 @@ import type {
   OperationPhase,
   OperationResult,
   OperationSource,
+  ProjectedSuggestedAction,
   PrivateFormWriteRequest,
   PublicEntityHandle,
   PublicEventPayload,
   PublicProjection,
   PublicValue,
   ReviewRequest,
-  RouteDeckEventKind,
+  RouteDeckEventType,
   RouteDeckFailure,
 } from "./generated";
 import { RouteDeckContractError } from "../client/errors";
@@ -45,7 +46,7 @@ export interface RouteDeckProjectedSurface {
 }
 
 export interface RouteDeckProjectedSurfaceSlots {
-  active: RouteDeckProjectedSurface;
+  active: RouteDeckProjectedSurface | null;
   detail: RouteDeckProjectedSurface[];
   diagnostic: RouteDeckProjectedSurface[];
   error: RouteDeckProjectedSurface[];
@@ -56,16 +57,22 @@ export interface RouteDeckProjectedSurfaceSlots {
   status: RouteDeckProjectedSurface[];
 }
 
+export interface RouteDeckProjectedSuggestedAction
+  extends Omit<ProjectedSuggestedAction, "arguments"> {
+  arguments: JsonObject;
+}
+
 export interface RouteDeckProjection
   extends Omit<
     PublicProjection,
-    "current" | "entities" | "navigation" | "surfaces"
+    "current" | "entities" | "navigation" | "suggested_actions" | "surfaces"
   > {
   current: RouteDeckProjectionLocation;
   entities: RouteDeckPublicEntityHandle[];
   navigation: Omit<PublicProjection["navigation"], "current"> & {
     current: RouteDeckProjectionLocation;
   };
+  suggested_actions: RouteDeckProjectedSuggestedAction[];
   surfaces: RouteDeckProjectedSurfaceSlots;
 }
 
@@ -129,7 +136,7 @@ export interface RouteDeckInspection {
   diagnostics: JsonObject;
 }
 
-const EVENT_KINDS = new Set<RouteDeckEventKind>([
+const EVENT_TYPES = new Set<RouteDeckEventType>([
   "session_created",
   "projection_changed",
   "navigation_changed",
@@ -215,6 +222,7 @@ export function decodeProjection(
       "projection_version",
       "session_version",
       "status",
+      "suggested_actions",
       "surfaces",
     ],
     ["graph_node"],
@@ -377,8 +385,16 @@ export function decodeProjection(
       code: expectString(statusRecord.code, `${path}.status.code`),
       message: decodeNullableString(statusRecord.message, `${path}.status.message`),
     },
+    suggested_actions: decodeArray(
+      record.suggested_actions,
+      `${path}.suggested_actions`,
+      decodeSuggestedAction,
+    ),
     surfaces: {
-      active: decodeSurface(surfacesRecord.active, `${path}.surfaces.active`),
+      active:
+        surfacesRecord.active === null
+          ? null
+          : decodeSurface(surfacesRecord.active, `${path}.surfaces.active`),
       detail: decodeSurfaceArray(surfacesRecord.detail, `${path}.surfaces.detail`),
       diagnostic: decodeSurfaceArray(
         surfacesRecord.diagnostic,
@@ -421,7 +437,7 @@ export function decodeEvent(value: unknown): RouteDeckEvent {
   const eventType = expectEnum(
     record.event_type,
     "$event.event_type",
-    EVENT_KINDS,
+    EVENT_TYPES,
   );
   const payloadRecord = expectRecord(
     record.payload,
@@ -610,7 +626,10 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
         ["shareable", "session_bound"] as const,
       ) as DeepLinkPolicy,
       surfaces: {
-        active: expectString(slots.active, `$contract.nodes.${key}.surfaces.active`),
+        active: decodeNullableString(
+          slots.active,
+          `$contract.nodes.${key}.surfaces.active`,
+        ),
         frame: decodeStringArray(slots.frame, `$contract.nodes.${key}.surfaces.frame`),
         peer: decodeStringArray(slots.peer, `$contract.nodes.${key}.surfaces.peer`),
         detail: decodeStringArray(slots.detail, `$contract.nodes.${key}.surfaces.detail`),
@@ -848,6 +867,23 @@ function decodeSurface(value: unknown, path: string): RouteDeckProjectedSurface 
     surface_id: expectString(record.surface_id, `${path}.surface_id`),
     component: expectString(record.component, `${path}.component`),
     props: decodeArray(record.props, `${path}.props`, decodePublicValue),
+  };
+}
+
+function decodeSuggestedAction(
+  value: unknown,
+  path: string,
+): RouteDeckProjectedSuggestedAction {
+  const record = expectRecord(
+    value,
+    path,
+    ["action_id", "label", "operation_id", "arguments"],
+  );
+  return {
+    action_id: expectString(record.action_id, `${path}.action_id`),
+    label: expectString(record.label, `${path}.label`),
+    operation_id: expectString(record.operation_id, `${path}.operation_id`),
+    arguments: expectJsonObject(record.arguments, `${path}.arguments`),
   };
 }
 

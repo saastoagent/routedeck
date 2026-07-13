@@ -70,7 +70,7 @@ def _settings() -> Settings:
         medusa_country_code="gb",
         medusa_sales_channel_id="channel-1",
         medusa_payment_provider_id="pp_system_default",
-        routedeck_database_path=Path("routedeck.sqlite"),
+        routedeck_database_url="sqlite+pysqlite:///routedeck.sqlite",
         routedeck_state_encryption_key=SecretStr("encryption-key"),
         openai_api_key=SecretStr("openai-key"),
         openai_model="model-1",

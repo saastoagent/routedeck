@@ -26,7 +26,7 @@ class ConversationTurnStatus(StrEnum):
 class ConversationToolCall(_FrozenContract):
     """Framework-neutral metadata needed to replay one observed tool call.
 
-    The SQLite adapter encrypts this metadata with the turn content because
+    The SQLAlchemy adapter encrypts this metadata with the turn content because
     model preambles and arguments may echo buyer data.
     """
 

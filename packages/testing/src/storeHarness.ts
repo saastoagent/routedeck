@@ -63,6 +63,7 @@ export class ScriptedRouteDeckClient implements RouteDeckClient {
   private readonly createQueue: RouteDeckProjection[] = [];
   private readonly dispatchQueue: RouteDeckDispatchResult[] = [];
   private readonly navigationQueue: RouteDeckProjection[] = [];
+  readonly dispatchRequests: RouteDeckDispatchRequest[] = [];
   private streamOptions: Omit<
     RouteDeckEventStreamOptions,
     "url" | "fetch" | "credentials"
@@ -112,8 +113,9 @@ export class ScriptedRouteDeckClient implements RouteDeckClient {
     return take(this.navigationQueue, "navigation projection");
   }
 
-  async dispatch(_request: RouteDeckDispatchRequest): Promise<RouteDeckDispatchResult> {
+  async dispatch(request: RouteDeckDispatchRequest): Promise<RouteDeckDispatchResult> {
     this.calls.push("dispatch");
+    this.dispatchRequests.push(structuredClone(request));
     return take(this.dispatchQueue, "dispatch result");
   }
 

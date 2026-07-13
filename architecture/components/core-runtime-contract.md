@@ -9,13 +9,12 @@ filtering, validation, and dispatch result models.
 
 ## Owner Files
 
-- `routedeck_core/models.py`
-- `routedeck_core/runtime.py`
 - `routedeck_core/app.py`
-- `routedeck_core/validation.py`
-- `routedeck_core/events/*.py` (planned/expanding)
-- `routedeck_sqlite/*.py` (planned)
-- `routedeck_fastapi/*.py` (planned)
+- `routedeck_core/contracts/*.py`
+- `routedeck_core/state/*.py`
+- `routedeck_core/supervision/*.py`
+- `routedeck_core/navigation/*.py`
+- `routedeck_core/projection/*.py`
 - `routedeck_core/__init__.py`
 
 ## Public Interfaces
@@ -29,9 +28,19 @@ filtering, validation, and dispatch result models.
 - Shared event identity, correlation, sequence, visibility, channel, terminal,
   and replay semantics.
 - Versioned client-contract export derived from the application specification.
+- `RouteDeckSessionAggregate` named actions for canonical state transitions and
+  invariant enforcement.
 - Coordinated backend semantics for atomic state/result/terminal-event commit.
-- Durable single-host SQLite reference storage and product-neutral FastAPI/SSE
-  transport.
+
+The public `RouteDeckOperationRunner` is one product-neutral contract, while
+its implementation is composed from focused lifecycle slices under
+`routedeck_core/supervision/`: request orchestration, recovery, review actions,
+review staging, execution, commits, and result validation. Runtime projection
+builders live in `routedeck_core/runtime_projection.py`; the extensible runtime
+base remains in `routedeck_core/runtime.py`.
+
+SQLAlchemy persistence and FastAPI/SSE transport are adjacent adapters with
+their own code-map rows; they do not own canonical state behavior.
 
 ## Dependent Flows
 
@@ -57,6 +66,6 @@ Update this doc and `architecture/code-map.md` when changing:
 - operation readiness metadata
 - projection shape
 - event or dispatch result contracts
-- runtime state lifecycle assumptions
+- aggregate action and runtime state lifecycle assumptions
 - Full Flow/Core Integration conformance
 - event envelope, channel filtering, ordering, terminal, or replay behavior

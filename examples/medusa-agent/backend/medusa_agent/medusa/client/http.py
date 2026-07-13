@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
@@ -11,6 +10,7 @@ from routedeck_core.contracts.operations import DeliveryPhase
 
 from ...config import Settings
 from .errors import MedusaClientContractError
+from .evidence import MedusaStoreEvidenceSink, StoreCallEvidence
 from .models import (
     Cart,
     CartCompletionRejected,
@@ -38,6 +38,22 @@ from .models import (
     RegionsResult,
     ShippingOption,
     ShippingOptionsResult,
+)
+from .transport import (
+    HttpOutcome as _HttpOutcome,
+    StoreApiTransport,
+    TransportFailureEvidence,
+    classify_transport_failure,
+    protocol_failure as _protocol_failure,
+)
+from .wire import (
+    cart_result as _cart_result,
+    parse_resource as _parse_resource,
+    promote_after_write as _promote_after_write,
+    require_identifier as _require_identifier,
+    required_body as _required_body,
+    required_int as _required_int,
+    required_list as _required_list,
 )
 
 
@@ -67,72 +83,6 @@ _ORDER_FIELDS = (
 )
 
 
-@dataclass(frozen=True)
-class TransportFailureEvidence:
-    delivery_phase: DeliveryPhase
-    failure: MedusaClientFailure
-
-
-@dataclass(frozen=True)
-class _HttpOutcome:
-    delivery_phase: DeliveryPhase
-    body: dict[str, Any] | None = None
-    failure: MedusaClientFailure | None = None
-
-
-@dataclass(frozen=True)
-class StoreCallEvidence:
-    """Sanitized adapter-owned coordinates for one measured Store call."""
-
-    operation: str
-    method: str
-    path_template: str
-    transport_kind: str
-
-
-class MedusaStoreEvidenceSink(Protocol):
-    async def record_complete_cart(
-        self,
-        call: StoreCallEvidence,
-        result: CompleteCartResult,
-    ) -> None: ...
-
-    async def record_get_order(
-        self,
-        call: StoreCallEvidence,
-        order_id: str,
-        result: OrderResult,
-    ) -> None: ...
-
-
-def classify_transport_failure(
-    error: httpx.TransportError,
-    *,
-    request_started: bool,
-) -> TransportFailureEvidence:
-    """Classify by transport type and send boundary, never exception text."""
-
-    not_sent_types = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
-    phase = (
-        DeliveryPhase.NOT_SENT
-        if isinstance(error, not_sent_types) or not request_started
-        else DeliveryPhase.POSSIBLY_SENT
-    )
-    code = (
-        "medusa_connection_failed"
-        if isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout))
-        else "medusa_transport_failed"
-    )
-    return TransportFailureEvidence(
-        delivery_phase=phase,
-        failure=MedusaClientFailure(
-            kind=MedusaClientFailureKind.TRANSPORT,
-            code=code,
-            public_message="The commerce service could not be reached.",
-        ),
-    )
-
-
 class HttpMedusaStoreClient:
     """The sole owner of Medusa Store URLs, headers, HTTP, and wire schemas."""
 
@@ -143,15 +93,9 @@ class HttpMedusaStoreClient:
         transport: httpx.AsyncBaseTransport | None = None,
         evidence_sink: MedusaStoreEvidenceSink | None = None,
     ) -> None:
-        self._settings = settings
         self._transport = transport
         self._evidence_sink = evidence_sink
-        self._base_url = str(settings.medusa_base_url).rstrip("/")
-        self._headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-publishable-api-key": settings.medusa_publishable_key.get_secret_value(),
-        }
+        self._http = StoreApiTransport(settings, transport)
 
     async def list_regions(self) -> RegionsResult:
         outcome = await self._request("GET", _REGIONS)
@@ -590,150 +534,12 @@ class HttpMedusaStoreClient:
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
     ) -> _HttpOutcome:
-        request_started = False
-        try:
-            async with httpx.AsyncClient(
-                base_url=self._base_url,
-                headers=self._headers,
-                timeout=self._settings.medusa_timeout_seconds,
-                transport=self._transport,
-            ) as client:
-                request_started = True
-                response = await client.request(
-                    method,
-                    path,
-                    params=params,
-                    json=dict(json_body) if json_body is not None else None,
-                )
-        except httpx.TransportError as error:
-            evidence = classify_transport_failure(
-                error,
-                request_started=request_started,
-            )
-            return _HttpOutcome(
-                delivery_phase=evidence.delivery_phase,
-                failure=evidence.failure,
-            )
-
-        parsed_body: dict[str, Any] | None = None
-        try:
-            candidate = response.json()
-            if isinstance(candidate, dict):
-                parsed_body = candidate
-        except ValueError:
-            parsed_body = None
-
-        if not 200 <= response.status_code < 300:
-            return _HttpOutcome(
-                delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-                failure=_status_failure(response.status_code, parsed_body),
-            )
-        if parsed_body is None:
-            return _HttpOutcome(
-                delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-                failure=_protocol_failure("response_json_invalid"),
-            )
-        return _HttpOutcome(
-            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-            body=parsed_body,
+        return await self._http.request(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
         )
-
-
-def _cart_result(outcome: _HttpOutcome, *, key: str) -> CartResult:
-    if outcome.failure is not None:
-        return CartResult.failed(
-            delivery_phase=outcome.delivery_phase,
-            failure=outcome.failure,
-        )
-    parsed = _parse_resource(outcome.body, key, Cart, "cart_schema_invalid")
-    if isinstance(parsed, MedusaClientFailure):
-        return CartResult.failed(
-            delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
-            failure=parsed,
-        )
-    return CartResult.succeeded(parsed)
-
-
-def _parse_resource(
-    body: dict[str, Any] | None,
-    key: str,
-    model: type[Any],
-    failure_code: str,
-) -> Any | MedusaClientFailure:
-    try:
-        value = _required_body(body).get(key)
-        if not isinstance(value, Mapping):
-            raise TypeError(key)
-        return model.model_validate(value)
-    except (ValidationError, TypeError, ValueError):
-        return _protocol_failure(failure_code)
-
-
-def _required_body(body: dict[str, Any] | None) -> dict[str, Any]:
-    if body is None:
-        raise TypeError("response body")
-    return body
-
-
-def _required_list(body: dict[str, Any] | None, key: str) -> list[Any]:
-    value = _required_body(body).get(key)
-    if not isinstance(value, list):
-        raise TypeError(key)
-    if any(not isinstance(item, Mapping) for item in value):
-        raise TypeError(key)
-    return value
-
-
-def _required_int(body: Mapping[str, Any], key: str) -> int:
-    value = body.get(key)
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(key)
-    return value
-
-
-def _require_identifier(value: str, name: str) -> None:
-    if not isinstance(value, str) or not value:
-        raise MedusaClientContractError(f"{name} must be a non-empty string")
-
-
-def _promote_after_write(
-    phase: DeliveryPhase,
-    *,
-    prior_write: bool,
-) -> DeliveryPhase:
-    if prior_write and phase is DeliveryPhase.NOT_SENT:
-        return DeliveryPhase.POSSIBLY_SENT
-    return phase
-
-
-def _protocol_failure(code: str) -> MedusaClientFailure:
-    return MedusaClientFailure(
-        kind=MedusaClientFailureKind.PROVIDER_PROTOCOL,
-        code=code,
-        public_message="The commerce service returned an invalid response.",
-    )
-
-
-def _status_failure(
-    status_code: int,
-    body: Mapping[str, Any] | None,
-) -> MedusaClientFailure:
-    structured_code = None
-    if body is not None:
-        candidate = body.get("type") or body.get("code")
-        if isinstance(candidate, str) and candidate:
-            structured_code = candidate
-    if status_code >= 500:
-        return MedusaClientFailure(
-            kind=MedusaClientFailureKind.TRANSPORT,
-            code=structured_code or "medusa_unavailable",
-            public_message="The commerce service is unavailable.",
-        )
-    return MedusaClientFailure(
-        kind=MedusaClientFailureKind.BUSINESS,
-        code=structured_code or f"medusa_http_{status_code}",
-        public_message="The commerce service rejected the request.",
-    )
 
 
 __all__ = [

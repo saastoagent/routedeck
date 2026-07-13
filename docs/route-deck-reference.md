@@ -195,7 +195,8 @@ inspection, or model context. Every private-form response requires
 - public state: opaque entities, surfaces, status, failure, disabled operations;
 - active operation, pending review, and journaled result state.
 
-Reducers apply explicit events and enforce invariants. UI state, a LangGraph
+`RouteDeckSessionAggregate` exposes named domain actions that apply explicit
+events and enforce invariants over the immutable session. UI state, a LangGraph
 checkpoint, or an external API response is not an alternate session authority.
 
 ### One operation path

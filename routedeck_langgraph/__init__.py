@@ -7,6 +7,8 @@ from .middleware import RouteDeckMiddleware
 from .model_context import (
     ModelContextEntity,
     ModelContextObservation,
+    ModelContextPolicy,
+    ModelContextSuggestedAction,
     ModelContextStatus,
     ModelContextSurface,
     ModelContextTool,
@@ -14,6 +16,11 @@ from .model_context import (
     RouteDeckModelContext,
     build_model_context,
     reconstruct_messages,
+)
+from .prompt import (
+    ROUTEDECK_CONTEXT_SECTION,
+    ROUTEDECK_POLICY_SECTION,
+    render_agent_system_message,
 )
 from .tool_wrapper import (
     RouteDeckInvocationContext,
@@ -61,6 +68,8 @@ __all__ = [
     "ExtractedConversation",
     "ModelContextEntity",
     "ModelContextObservation",
+    "ModelContextPolicy",
+    "ModelContextSuggestedAction",
     "ModelContextStatus",
     "ModelContextSurface",
     "ModelContextTool",
@@ -71,10 +80,13 @@ __all__ = [
     "RouteDeckRunnerRuntime",
     "RouteDeckToolConfigurationError",
     "RouteDeckToolWrapper",
+    "ROUTEDECK_CONTEXT_SECTION",
+    "ROUTEDECK_POLICY_SECTION",
     "awrap_tool_call",
     "build_model_context",
     "extract_conversation_turns",
     "messages_from_agent_state",
     "operation_tool_name",
     "reconstruct_messages",
+    "render_agent_system_message",
 ]

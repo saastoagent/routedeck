@@ -82,7 +82,9 @@ def _settings(tmp_path: Path) -> Settings:
             "medusa_country_code": "us",
             "medusa_sales_channel_id": "sc_private_1234567890123456",
             "medusa_payment_provider_id": "pp_system_default",
-            "routedeck_database_path": tmp_path / "routedeck.sqlite",
+            "routedeck_database_url": (
+                "sqlite+pysqlite:///" + (tmp_path / "routedeck.sqlite").as_posix()
+            ),
             "routedeck_state_encryption_key": "test-only-key",
             "openai_api_key": None,
             "openai_model": "test-only-model",

@@ -20,7 +20,7 @@
           "type": "string"
         },
         "event_type": {
-          "$ref": "#/$defs/RouteDeckEventKind"
+          "$ref": "#/$defs/RouteDeckEventType"
         },
         "payload": {
           "$ref": "#/$defs/PublicEventPayload"
@@ -221,7 +221,7 @@
         },
         "surfaces": {
           "additionalProperties": {
-            "$ref": "#/$defs/SurfaceSpec"
+            "$ref": "#/$defs/FrontendSurfaceContract"
           },
           "title": "Surfaces",
           "type": "object"
@@ -284,12 +284,54 @@
       "title": "FrontendNodeContract",
       "type": "object"
     },
+    "FrontendSurfaceContract": {
+      "additionalProperties": false,
+      "properties": {
+        "affordances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SurfaceAffordanceSpec"
+          },
+          "title": "Affordances",
+          "type": "array"
+        },
+        "component": {
+          "title": "Component",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/SurfaceLifecycle"
+        },
+        "public_props_schema": {
+          "title": "Public Props Schema"
+        }
+      },
+      "required": [
+        "id",
+        "component",
+        "lifecycle",
+        "public_props_schema"
+      ],
+      "title": "FrontendSurfaceContract",
+      "type": "object"
+    },
     "FrontendSurfaceSlots": {
       "additionalProperties": false,
       "properties": {
         "active": {
-          "title": "Active",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Active"
         },
         "detail": {
           "default": [],
@@ -771,6 +813,36 @@
       "title": "ProjectedOperation",
       "type": "object"
     },
+    "ProjectedSuggestedAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "arguments": {
+          "title": "Arguments"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "label",
+        "operation_id"
+      ],
+      "title": "ProjectedSuggestedAction",
+      "type": "object"
+    },
     "ProjectedSurface": {
       "additionalProperties": false,
       "properties": {
@@ -804,7 +876,14 @@
       "additionalProperties": false,
       "properties": {
         "active": {
-          "$ref": "#/$defs/ProjectedSurface"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectedSurface"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "detail": {
           "default": [],
@@ -1125,6 +1204,13 @@
         "status": {
           "$ref": "#/$defs/ProjectionStatus"
         },
+        "suggested_actions": {
+          "items": {
+            "$ref": "#/$defs/ProjectedSuggestedAction"
+          },
+          "title": "Suggested Actions",
+          "type": "array"
+        },
         "surfaces": {
           "$ref": "#/$defs/ProjectedSurfaceSlots"
         }
@@ -1136,6 +1222,7 @@
         "current",
         "navigation",
         "legal_operations",
+        "suggested_actions",
         "entities",
         "surfaces",
         "status",
@@ -1184,7 +1271,7 @@
       "title": "ReviewRequest",
       "type": "object"
     },
-    "RouteDeckEventKind": {
+    "RouteDeckEventType": {
       "enum": [
         "session_created",
         "projection_changed",
@@ -1194,7 +1281,7 @@
         "turn_finalized",
         "turn_interrupted"
       ],
-      "title": "RouteDeckEventKind",
+      "title": "RouteDeckEventType",
       "type": "string"
     },
     "RouteDeckFailure": {
@@ -1308,42 +1395,6 @@
       ],
       "title": "SurfaceLifecycle",
       "type": "string"
-    },
-    "SurfaceSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "affordances": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/SurfaceAffordanceSpec"
-          },
-          "title": "Affordances",
-          "type": "array"
-        },
-        "component": {
-          "minLength": 1,
-          "title": "Component",
-          "type": "string"
-        },
-        "id": {
-          "minLength": 1,
-          "title": "Id",
-          "type": "string"
-        },
-        "lifecycle": {
-          "$ref": "#/$defs/SurfaceLifecycle",
-          "default": "ephemeral"
-        },
-        "public_props_schema": {
-          "title": "Public Props Schema"
-        }
-      },
-      "required": [
-        "id",
-        "component"
-      ],
-      "title": "SurfaceSpec",
-      "type": "object"
     }
   },
   "additionalProperties": false,

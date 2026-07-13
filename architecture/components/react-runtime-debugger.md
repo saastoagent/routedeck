@@ -32,7 +32,8 @@ own the current package contract; see `react/README.md` for its removal gate.
 ## Public Interfaces
 
 - `@routedeck/core`: generated contract decoding, HTTP/SSE clients, replay and
-  resync, store/reducer/selectors, route/history control, and private-form state.
+  resync, observable state with named actions and selectors, route/history
+  control, and private-form state.
 - `@routedeck/react`: provider and hooks, surface registry/host, operation
   controller, navigation/history sync, private-form hooks/components, review,
   needs-input, status/error, and lazy navgraph inspector APIs.
@@ -42,10 +43,16 @@ own the current package contract; see `react/README.md` for its removal gate.
 ## Dependent Flows
 
 - Product React shells consuming public RouteDeck projections.
-- Cursor-aware SSE replay and authoritative store updates.
+- Cursor-aware SSE replay and authoritative observable-store actions.
 - Exact browser-history reconciliation and active-surface hydration.
 - Private-form lifecycle, review, needs-input, status, and recovery UI.
 - Lazy topology inspection without creating a second state authority.
+
+The headless store keeps its public facade in `store/store.ts`; observable
+state, navigation actions, route synchronization, event-stream lifecycle,
+errors, and public types live in separate modules. The React Navgraph similarly
+separates topology/orchestration, node rendering, shared inspector UI, and
+styles.
 
 ## Tests And Evidence
 

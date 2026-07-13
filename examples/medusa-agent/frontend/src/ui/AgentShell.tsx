@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { RouteDeckClientState } from "@routedeck/core";
 import {
+  RouteDeckSuggestedActions,
   RouteDeckSurfaceHost,
   useRouteDeckRuntime,
   useRouteDeckSelector,
@@ -91,17 +92,22 @@ export function AgentShell({
         </p>
       )}
 
-      <Composer
-        disabled={agent.status === "streaming"}
-        onSend={agent.send}
-        onCancel={agent.cancel}
-        {...(agent.pendingRequest === null
-          ? {}
-          : {
-              onRetry: agent.retry,
-              onDiscardPending: agent.discardPending,
-            })}
-      />
+      <div data-agent-input-dock="">
+        <div data-agent-quick-actions="">
+          <RouteDeckSuggestedActions disabled={agent.status === "streaming"} />
+        </div>
+        <Composer
+          disabled={agent.status === "streaming"}
+          onSend={agent.send}
+          onCancel={agent.cancel}
+          {...(agent.pendingRequest === null
+            ? {}
+            : {
+                onRetry: agent.retry,
+                onDiscardPending: agent.discardPending,
+              })}
+        />
+      </div>
     </main>
   );
 }

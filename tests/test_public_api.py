@@ -10,14 +10,14 @@ def test_public_packages_import_and_publish_type_markers() -> None:
     import routedeck_core
     import routedeck_fastapi
     import routedeck_langgraph
-    import routedeck_sqlite
+    import routedeck_sqlalchemy
     import routedeck_testing
 
     packages = (
         routedeck_core,
         routedeck_fastapi,
         routedeck_langgraph,
-        routedeck_sqlite,
+        routedeck_sqlalchemy,
         routedeck_testing,
     )
 

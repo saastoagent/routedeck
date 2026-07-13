@@ -1,0 +1,311 @@
+.navgraph-sidebar {
+  position: fixed;
+  z-index: 40;
+  top: 6.25rem;
+  right: clamp(0.75rem, 2vw, 1.5rem);
+  display: grid;
+  width: 3.75rem;
+  max-height: calc(100vh - 7.25rem);
+  max-height: calc(100dvh - 7.25rem);
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(110, 124, 116, 0.24);
+  border-radius: 1.1rem;
+  background: rgba(252, 253, 250, 0.94);
+  box-shadow: 0 0.8rem 2.5rem rgba(24, 40, 32, 0.13);
+  backdrop-filter: blur(18px) saturate(1.12);
+  transition: box-shadow 180ms ease;
+}
+
+.navgraph-sidebar[data-expanded="true"] {
+  width: min(44rem, calc(100vw - 2rem));
+  height: calc(100vh - 7.25rem);
+  height: calc(100dvh - 7.25rem);
+  box-shadow: 0 1.5rem 4rem rgba(24, 40, 32, 0.22);
+}
+
+.navgraph-sidebar-toggle {
+  display: flex;
+  min-width: 0;
+  min-height: 12rem;
+  align-items: center;
+  align-self: stretch;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 0;
+  border-right: 1px solid rgba(90, 105, 96, 0.14);
+  background: rgba(247, 249, 246, 0.94);
+  padding: 0.9rem 0.7rem;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.navgraph-sidebar-toggle:hover {
+  background: var(--paper);
+  color: var(--accent-strong);
+}
+
+.navgraph-sidebar-toggle span {
+  writing-mode: vertical-rl;
+}
+
+.navgraph-sidebar-toggle i {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: auto;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 0.25rem rgba(35, 113, 79, 0.13);
+}
+
+.navgraph-sidebar[data-status="idle"] .navgraph-sidebar-toggle i {
+  background: var(--muted);
+  box-shadow: 0 0 0 0.25rem rgba(104, 115, 109, 0.13);
+}
+
+.navgraph-sidebar[data-status="error"] .navgraph-sidebar-toggle i {
+  background: var(--danger);
+  box-shadow: 0 0 0 0.25rem rgba(168, 63, 49, 0.13);
+}
+
+.navgraph-sidebar-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.navgraph-sidebar-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  padding: 1.15rem;
+  scrollbar-color: rgba(74, 91, 82, 0.56) rgba(90, 105, 96, 0.08);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.navgraph-sidebar-panel::-webkit-scrollbar {
+  width: 0.65rem;
+}
+
+.navgraph-sidebar-panel::-webkit-scrollbar-track {
+  background: rgba(90, 105, 96, 0.08);
+}
+
+.navgraph-sidebar-panel::-webkit-scrollbar-thumb {
+  border: 0.15rem solid transparent;
+  border-radius: 999px;
+  background: rgba(74, 91, 82, 0.56);
+  background-clip: padding-box;
+}
+
+.navgraph-sidebar-panel[hidden] {
+  display: none;
+}
+
+.navgraph-sidebar-heading h2,
+.navgraph-sidebar-heading p {
+  margin: 0;
+}
+
+.navgraph-sidebar-heading h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.015em;
+}
+
+.navgraph-sidebar-heading p {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.navgraph-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+  border: 1px solid #e0e5e1;
+  border-radius: 0.85rem;
+  background: var(--paper-soft);
+  padding: 0.72rem;
+}
+
+.navgraph-status span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.navgraph-status small {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: capitalize;
+}
+
+.navgraph-session-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 0.65fr));
+  gap: 0.65rem;
+  margin: 0.8rem 0 0;
+}
+
+.navgraph-session-facts div {
+  min-width: 0;
+  border-left: 1px solid rgba(90, 105, 96, 0.14);
+  padding-left: 0.65rem;
+}
+
+.navgraph-session-facts dt {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.navgraph-session-facts dd {
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navgraph-map {
+  min-width: 0;
+  margin-top: 0.9rem;
+  border-top: 1px solid rgba(90, 105, 96, 0.12);
+  padding-top: 0.9rem;
+}
+
+.navgraph-map [data-routedeck-navgraph-canvas] {
+  height: min(33rem, calc(100dvh - 22rem)) !important;
+  min-height: 22rem !important;
+}
+
+.navgraph-map .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.navgraph-map .react-flow__controls-button {
+  border-bottom-color: var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.navgraph-map .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid rgba(90, 105, 96, 0.16);
+  border-radius: 0.65rem;
+  background: rgba(247, 249, 246, 0.92);
+}
+
+.navgraph-sidebar [data-routedeck-inspector-focus] dl > div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.navgraph-sidebar [data-routedeck-inspector-focus] dt {
+  color: var(--muted);
+  font-size: 0.67rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.navgraph-sidebar [data-routedeck-inspector-focus] dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.navgraph-error,
+.navgraph-recovery {
+  margin-top: 0.8rem;
+  border: 1px solid #efc6bb;
+  border-radius: 0.85rem;
+  background: var(--danger-soft);
+  padding: 0.8rem 0.9rem;
+  color: #852f24;
+  font-size: 0.8rem;
+}
+
+.navgraph-recovery {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.navgraph-recovery small {
+  overflow-wrap: anywhere;
+}
+
+.navgraph-recovery div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.navgraph-recovery button {
+  min-height: 2.2rem;
+  border: 1px solid #c98f82;
+  border-radius: 999px;
+  background: var(--paper);
+  padding: 0.4rem 0.65rem;
+  color: #6f2c22;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+@media (max-width: 760px) {
+  .navgraph-sidebar {
+    top: auto;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .navgraph-sidebar[data-expanded="true"] {
+    width: calc(100vw - 1.5rem);
+    height: calc(100vh - 1.5rem);
+    height: calc(100dvh - 1.5rem);
+  }
+
+  .navgraph-sidebar-panel {
+    padding: 0.9rem;
+  }
+
+  .navgraph-map [data-routedeck-navgraph-canvas] {
+    height: min(32rem, calc(100dvh - 19rem)) !important;
+    min-height: 18rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navgraph-sidebar {
+    transition: none;
+  }
+}

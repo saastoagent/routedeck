@@ -11,10 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from medusa_agent.composition import (
-    compile_medusa_app_spec,
-    open_persistent_medusa_runtime,
-)
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.config import Settings
 from medusa_agent.medusa.client import HttpMedusaStoreClient
 from medusa_agent.session import BuyerMarket
@@ -40,10 +38,9 @@ from routedeck_core.contracts.session import PrivateDraft
 from routedeck_core.navigation.routes import RouteSessionContext
 from routedeck_core.projection import ProjectionProjector
 from routedeck_core.state import (
-    PrivateDraftStored,
+    RouteDeckSessionAggregate,
     TurnClaim,
     TurnOwnerKind,
-    reduce_session,
 )
 from routedeck_core.supervision.guards import (
     GuardDecision,
@@ -52,7 +49,7 @@ from routedeck_core.supervision.guards import (
     ProviderResult,
 )
 from routedeck_langgraph import build_model_context
-from routedeck_sqlite import FernetSensitiveCodec
+from routedeck_sqlalchemy import FernetSensitiveCodec
 from medusa_agent.medusa.client.models import (
     MedusaClientFailure,
     MedusaClientFailureKind,
@@ -242,7 +239,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
     session_id = f"delivery-flow-{uuid4().hex}"
     database_path = tmp_path / "delivery-flow.sqlite"
     runtime = await open_persistent_medusa_runtime(
-        database_path=database_path,
+        database_url=f"sqlite+pysqlite:///{database_path.as_posix()}",
         encryption_key=settings.routedeck_state_encryption_key.get_secret_value(),
         instance_id=f"delivery-flow-instance-{uuid4().hex}",
         client=client,  # type: ignore[arg-type]
@@ -592,7 +589,11 @@ async def _save_private_form(
         revision=1,
         complete=True,
     )
-    next_state = reduce_session(snapshot.state, PrivateDraftStored(draft=draft))
+    next_state = (
+        RouteDeckSessionAggregate(snapshot.state)
+        .store_private_draft(draft)
+        .commit()
+    )
     serialized = json.dumps(
         value,
         allow_nan=False,

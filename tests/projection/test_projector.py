@@ -20,7 +20,7 @@ from routedeck_core.contracts.session import (
 from routedeck_core.navigation.routes import PublicRouteKeyValidator
 from routedeck_core.navigation.engine import NavigationEngine
 from routedeck_core.projection.projector import ProjectionProjector
-from routedeck_core.state.reducer import PublicSessionStateStored, reduce_session
+from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.contracts.surfaces import SurfaceSpec
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
@@ -405,13 +405,14 @@ def test_redacted_only_state_change_does_not_change_projection_version() -> None
         ),
     )
 
-    changed = reduce_session(
-        initial,
-        PublicSessionStateStored(
-            state=initial.public_state.model_copy(
+    changed = (
+        RouteDeckSessionAggregate(initial)
+        .set_public_state(
+            initial.public_state.model_copy(
                 update={"surface_state": (private_only_surface_state,)}
             )
-        ),
+        )
+        .commit()
     )
 
     assert changed.session_version == initial.session_version + 1
@@ -442,10 +443,10 @@ def test_reordering_disabled_operations_does_not_change_projection_version() -> 
             )
         }
     )
-    changed = reduce_session(
-        initial,
-        PublicSessionStateStored(
-            state=initial.public_state.model_copy(
+    changed = (
+        RouteDeckSessionAggregate(initial)
+        .set_public_state(
+            initial.public_state.model_copy(
                 update={
                     "disabled_operation_ids": (
                         "cart.add_item",
@@ -453,7 +454,8 @@ def test_reordering_disabled_operations_does_not_change_projection_version() -> 
                     )
                 }
             )
-        ),
+        )
+        .commit()
     )
 
     assert changed.session_version == initial.session_version + 1

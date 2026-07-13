@@ -92,7 +92,7 @@ Product-neutral HTTP and SSE transport:
 
 The frontend state and surface runtime:
 
-- typed event client and reducer
+- typed event client and observable store with named domain actions
 - ordering, deduplication, reconnect, and stale-projection rejection
 - server-authoritative dispatch/navigation behavior
 - surface component registry and visible missing-component errors
@@ -111,7 +111,7 @@ framework can promise exactly-once behavior across an uncoordinated external
 system.
 
 Navigation, private-form saves, chat turns, and session creation also carry a
-durable request identity. The SQLite adapter records the request fingerprint,
+durable request identity. The SQLAlchemy adapter records the request fingerprint,
 public-safe terminal result, committed session/projection versions, and event
 cursor in the same transaction as canonical state. Replaying the exact request
 returns that recorded result; reusing its ID with different input fails with
@@ -125,12 +125,13 @@ request or abandon it before issuing a conflicting payload.
 ## Current Implementation Reality
 
 The repository implements the server-authoritative kernel and compiler,
-LangGraph middleware/tool seam, generic FastAPI/SSE transport, fenced SQLite
+LangGraph middleware/tool seam, generic FastAPI/SSE transport, fenced SQLAlchemy
 persistence, generated TypeScript contracts, headless client store, React
 primitives, and the standalone Medusa reference consumer. The Medusa app uses
 Full Flow declarations while retaining a normal product-owned LangGraph agent.
 
-The shipped SQLite adapter deliberately targets one fenced application process
-on one host. Multi-process or distributed deployments require a different
-`RouteDeckSessionStore` implementation with equivalent conformance and
-transaction semantics; they are not emulated by an in-process fallback.
+The shipped SQLAlchemy adapter supports SQLite and PostgreSQL behind the same
+ORM repository contract. It deliberately targets one fenced application
+process. Multi-process or distributed deployments require an explicitly
+designed worker policy with equivalent fencing and transaction semantics; they
+are not emulated by an in-process fallback.

@@ -39,7 +39,9 @@ export function RouteDeckNavGraph({
   const activeSurfaceIds = useMemo(() => {
     if (projection === null) return [];
     return [
-      projection.surfaces.active,
+      ...(projection.surfaces.active === null
+        ? []
+        : [projection.surfaces.active]),
       ...projection.surfaces.frame,
       ...projection.surfaces.peer,
       ...projection.surfaces.detail,
@@ -85,12 +87,13 @@ export function RouteDeckNavGraph({
             onClick={() => setExpanded(true)}
             style={expandButtonStyle}
           >
-            Expand
+            Fullscreen
           </button>
         </div>
         <NavGraphInspector
           {...inspectorProps}
           canvasHeight="25rem"
+          showMiniMap={false}
         />
       </section>
 
@@ -99,7 +102,7 @@ export function RouteDeckNavGraph({
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="RouteDeck navgraph"
+              aria-label="Navgraph fullscreen view"
               data-routedeck-navgraph-dialog=""
               style={dialogBackdropStyle}
             >
@@ -107,10 +110,10 @@ export function RouteDeckNavGraph({
                 <header style={dialogHeaderStyle}>
                   <div>
                     <strong style={{ display: "block", fontSize: "1rem" }}>
-                      RouteDeck Navgraph
+                      Navgraph
                     </strong>
                     <small style={{ color: "#68736d" }}>
-                      Live nodes, transitions, legal operations, and surfaces
+                      Full sitemap with live operations and surfaces
                     </small>
                   </div>
                   <button

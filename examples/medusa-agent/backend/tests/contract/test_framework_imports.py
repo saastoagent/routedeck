@@ -8,7 +8,7 @@ EXPECTED_FRAMEWORK_PACKAGES = (
     "routedeck_core",
     "routedeck_fastapi",
     "routedeck_langgraph",
-    "routedeck_sqlite",
+    "routedeck_sqlalchemy",
 )
 EXPECTED_PUBLIC_FRAMEWORK_IMPORTS = {
     *EXPECTED_FRAMEWORK_PACKAGES,

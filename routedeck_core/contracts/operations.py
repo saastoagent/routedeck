@@ -263,6 +263,7 @@ class OperationSpec(_FrozenContract):
     entity_inputs: tuple[EntityInputSpec, ...] = ()
     provider_refs: tuple[ProviderRef, ...] = ()
     guard_refs: tuple[GuardRef, ...] = ()
+    policy_refs: tuple[AgentPolicyRef, ...] = ()
     unknown_recovery_directive: str | None = Field(default=None, min_length=1)
     unknown_recovery_operation_refs: tuple[OperationRef, ...] = ()
     public_metadata: FrozenJsonObject = Field(
@@ -390,3 +391,4 @@ __all__ = [
     "ReviewPolicy",
     "SafetyClass",
 ]
+from .agent import AgentPolicyRef

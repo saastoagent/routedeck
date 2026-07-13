@@ -1,26 +1,54 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   Background,
   BackgroundVariant,
   Controls,
-  Handle,
   MiniMap,
-  Position,
   ReactFlow,
-  type Edge,
-  type Node,
-  type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { FrontendContract } from "@routedeck/core";
 
 import {
   buildNavGraphTopology,
+  bundleNavGraphEdges,
   navGraphEdgesFromContract,
   NAVGRAPH_NODE_HEIGHT,
   NAVGRAPH_NODE_WIDTH,
   type NavGraphInspectorEdge,
 } from "./topology";
+import { InspectorSection, Legend } from "./components";
+import { edgeTypes, type InspectorFlowEdge } from "./edge";
+import { routeNavGraphEdges } from "./edgeRouting";
+import {
+  nodeTypes,
+  toneColor,
+  type InspectorFlowNode,
+  type InspectorNodeData,
+  type NodeTone,
+} from "./node";
+import {
+  activePillStyle,
+  canvasStyle,
+  codeStyle,
+  detailsHeaderStyle,
+  detailsStyle,
+  factsStyle,
+  headerStyle,
+  legalPillStyle,
+  legendStyle,
+  pillListStyle,
+  pillStyle,
+  transitionListStyle,
+} from "./styles";
 
 export interface NavGraphInspectorProps {
   contract: FrontendContract;
@@ -30,32 +58,12 @@ export interface NavGraphInspectorProps {
   reachableNodeIds?: readonly string[];
   activeSurfaceIds?: readonly string[];
   legalOperationIds?: readonly string[];
+  showMiniMap?: boolean;
   className?: string;
   onFocusChange?: (nodeId: string) => void;
 }
 
-type NodeTone = "current" | "reachable" | "idle";
-
-interface InspectorNodeData extends Record<string, unknown> {
-  id: string;
-  title: string;
-  route: string;
-  surfaceId: string;
-  tone: NodeTone;
-}
-
-type InspectorFlowNode = Node<InspectorNodeData, "routedeck">;
-
-const nodeTypes = { routedeck: InspectorNode };
-const HIDDEN_HANDLE_STYLE: CSSProperties = {
-  width: 1,
-  height: 1,
-  minWidth: 1,
-  minHeight: 1,
-  border: 0,
-  background: "transparent",
-  opacity: 0,
-};
+const FIT_VIEW_OPTIONS = { padding: 0.2 } as const;
 
 export function NavGraphInspectorView({
   contract,
@@ -65,6 +73,7 @@ export function NavGraphInspectorView({
   reachableNodeIds = [],
   activeSurfaceIds = [],
   legalOperationIds = [],
+  showMiniMap = true,
   className,
   onFocusChange,
 }: NavGraphInspectorProps) {
@@ -88,10 +97,46 @@ export function NavGraphInspectorView({
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(
     currentNodeId ?? contract.entry_node_id,
   );
+  const flowInstance = useRef<
+    ReactFlowInstance<InspectorFlowNode, InspectorFlowEdge> | null
+  >(null);
+  const canvasElement = useRef<HTMLDivElement | null>(null);
+  const fitFrame = useRef<number | null>(null);
 
   useEffect(() => {
     if (currentNodeId !== null) setFocusedNodeId(currentNodeId);
   }, [currentNodeId]);
+
+  const focusNode = useCallback(
+    (nodeId: string) => {
+      setFocusedNodeId(nodeId);
+      onFocusChange?.(nodeId);
+    },
+    [onFocusChange],
+  );
+  const fitGraph = useCallback(() => {
+    if (flowInstance.current === null) return;
+    if (fitFrame.current !== null) cancelAnimationFrame(fitFrame.current);
+    fitFrame.current = requestAnimationFrame(() => {
+      fitFrame.current = null;
+      void flowInstance.current?.fitView(FIT_VIEW_OPTIONS);
+    });
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasElement.current;
+    if (canvas === null || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const bounds = entries[0]?.contentRect;
+      if (bounds === undefined || bounds.width === 0 || bounds.height === 0) return;
+      fitGraph();
+    });
+    observer.observe(canvas);
+    return () => {
+      observer.disconnect();
+      if (fitFrame.current !== null) cancelAnimationFrame(fitFrame.current);
+    };
+  }, [fitGraph]);
 
   const flowNodes = useMemo<InspectorFlowNode[]>(
     () =>
@@ -117,6 +162,10 @@ export function NavGraphInspectorView({
             route: node.route_template,
             surfaceId,
             tone,
+            focus: focusNode,
+            ...(layoutNode.familyLabel === null
+              ? {}
+              : { familyLabel: layoutNode.familyLabel }),
           },
           draggable: false,
           selectable: true,
@@ -126,35 +175,49 @@ export function NavGraphInspectorView({
           },
         };
       }),
-    [activeSurfaceIds, contract.nodes, currentNodeId, reachable, topology.nodes],
+    [
+      activeSurfaceIds,
+      contract.nodes,
+      currentNodeId,
+      focusNode,
+      reachable,
+      topology.nodes,
+    ],
   );
-  const flowEdges = useMemo<Edge[]>(
-    () =>
-      topology.edges.map((edge) => {
+  const flowEdges = useMemo<InspectorFlowEdge[]>(
+    () => {
+      const visualEdges = bundleNavGraphEdges(topology.edges);
+      const routes = new Map(
+        routeNavGraphEdges(topology.nodes, visualEdges).map((route) => [
+          route.id,
+          route,
+        ]),
+      );
+      return visualEdges.map((edge) => {
         const active = edge.from === currentNodeId && reachable.has(edge.to);
+        const route = routes.get(edge.id);
+        if (route === undefined) {
+          throw new Error(`Navgraph edge ${edge.id} has no resolved route.`);
+        }
         return {
           id: edge.id,
           source: edge.from,
           target: edge.to,
-          type: "smoothstep",
+          type: "routedeck",
           animated: active,
-          ...(active && edge.label !== undefined ? { label: edge.label } : {}),
+          data: {
+            active,
+            route,
+            ...(edge.label === undefined ? {} : { label: edge.label }),
+          },
           style: {
             stroke: active ? "#e56545" : "#9aa49e",
             strokeWidth: active ? 2.5 : 1.25,
             opacity: active ? 0.95 : 0.48,
           },
-          labelStyle: {
-            fill: "#513226",
-            fontSize: 9,
-            fontWeight: 700,
-          },
-          labelBgStyle: {
-            fill: "#fcebe6",
-            fillOpacity: 0.96,
-          },
         };
-      }),
+      });
+    },
     [currentNodeId, reachable, topology.edges],
   );
   const focused = focusedNodeId ? contract.nodes[focusedNodeId] : undefined;
@@ -170,11 +233,6 @@ export function NavGraphInspectorView({
   const outgoing = focused
     ? contract.transitions.filter((transition) => transition.source === focused.id)
     : [];
-
-  const focusNode = (nodeId: string) => {
-    setFocusedNodeId(nodeId);
-    onFocusChange?.(nodeId);
-  };
 
   return (
     <section className={className} data-routedeck-inspector="read-only">
@@ -194,6 +252,7 @@ export function NavGraphInspectorView({
       </header>
 
       <div
+        ref={canvasElement}
         aria-label="RouteDeck navigation graph"
         data-routedeck-navgraph-canvas=""
         style={{ ...canvasStyle, height: canvasHeight }}
@@ -201,22 +260,30 @@ export function NavGraphInspectorView({
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
+          edgeTypes={edgeTypes}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
+          fitViewOptions={FIT_VIEW_OPTIONS}
           minZoom={0.18}
           maxZoom={1.75}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable
-          onNodeClick={(_event, node) => focusNode(node.id)}
+          onInit={(instance) => {
+            flowInstance.current = instance;
+            fitGraph();
+          }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
-          <MiniMap
-            pannable
-            zoomable
-            nodeColor={(node) => toneColor((node.data as InspectorNodeData).tone)}
-          />
+          {showMiniMap ? (
+            <MiniMap
+              pannable
+              zoomable
+              nodeColor={(node) =>
+                toneColor((node.data as InspectorNodeData).tone)
+              }
+            />
+          ) : null}
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
@@ -311,114 +378,16 @@ export function NavGraphInspectorView({
   );
 }
 
-function InspectorNode({ data, selected }: NodeProps<InspectorFlowNode>) {
-  const color = toneColor(data.tone);
-  return (
-    <div
-      data-routedeck-navgraph-node={data.id}
-      data-node-tone={data.tone}
-      style={{
-        width: NAVGRAPH_NODE_WIDTH,
-        minHeight: NAVGRAPH_NODE_HEIGHT,
-        border: `${data.tone === "current" ? 3 : 2}px solid ${color}`,
-        borderRadius: 14,
-        background: data.tone === "current" ? "#176b5b" : "#ffffff",
-        padding: "0.65rem 0.75rem",
-        boxShadow: selected
-          ? `0 0 0 4px ${color}2f, 0 12px 28px rgba(24, 40, 32, 0.18)`
-          : "0 8px 20px rgba(24, 40, 32, 0.1)",
-        color: data.tone === "current" ? "#ffffff" : "#17201c",
-      }}
-    >
-      <Handle type="target" position={Position.Top} style={HIDDEN_HANDLE_STYLE} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <strong style={{ minWidth: 0, fontSize: 13 }}>{data.title}</strong>
-        <span
-          style={{
-            flex: "0 0 auto",
-            borderRadius: 999,
-            background: data.tone === "current" ? "#ffffff" : `${color}18`,
-            padding: "0.1rem 0.35rem",
-            color: data.tone === "current" ? "#176b5b" : color,
-            fontSize: 8,
-            fontWeight: 800,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-          }}
-        >
-          {data.tone === "current"
-            ? "You are here"
-            : data.tone === "reachable"
-              ? "Available"
-              : "Node"}
-        </span>
-      </div>
-      <code
-        style={{
-          display: "block",
-          marginTop: 5,
-          overflow: "hidden",
-          fontSize: 9,
-          opacity: 0.72,
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {data.route}
-      </code>
-      <small
-        style={{
-          display: "block",
-          marginTop: 5,
-          overflow: "hidden",
-          fontSize: 9,
-          opacity: 0.82,
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Surface · {data.surfaceId}
-      </small>
-      <Handle type="source" position={Position.Bottom} style={HIDDEN_HANDLE_STYLE} />
-    </div>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span
-        aria-hidden="true"
-        style={{ width: 7, height: 7, borderRadius: "50%", background: color }}
-      />
-      {label}
-    </span>
-  );
-}
-
-function InspectorSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section style={{ marginTop: "0.85rem" }}>
-      <h4 style={sectionTitleStyle}>{title}</h4>
-      {children}
-    </section>
-  );
-}
-
 function surfaceEntries(
   contract: FrontendContract,
   nodeId: string,
   activeSurfaceIds: ReadonlySet<string>,
 ) {
   const node = contract.nodes[nodeId]!;
+  const activeSurfaceIdsForNode =
+    node.surfaces.active === null ? [] : [node.surfaces.active];
   const slots = [
-    ["active", [node.surfaces.active]],
+    ["active", activeSurfaceIdsForNode],
     ["frame", node.surfaces.frame ?? []],
     ["peer", node.surfaces.peer ?? []],
     ["detail", node.surfaces.detail ?? []],
@@ -441,110 +410,3 @@ function surfaceEntries(
     }),
   );
 }
-
-function toneColor(tone: NodeTone) {
-  if (tone === "current") return "#176b5b";
-  if (tone === "reachable") return "#e56545";
-  return "#8a958e";
-}
-
-const headerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  marginBottom: "0.7rem",
-};
-const legendStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-  gap: "0.4rem 0.65rem",
-  color: "#68736d",
-  fontSize: "0.65rem",
-};
-const canvasStyle: CSSProperties = {
-  width: "100%",
-  height: "26rem",
-  minHeight: 320,
-  overflow: "hidden",
-  border: "1px solid #d9dfda",
-  borderRadius: 14,
-  background: "#f7f9f6",
-};
-const detailsStyle: CSSProperties = {
-  marginTop: "0.75rem",
-  border: "1px solid #d9dfda",
-  borderRadius: 14,
-  background: "#ffffff",
-  padding: "0.85rem",
-};
-const detailsHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "start",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-};
-const codeStyle: CSSProperties = {
-  maxWidth: "52%",
-  overflow: "hidden",
-  borderRadius: 6,
-  background: "#eef1ed",
-  padding: "0.2rem 0.35rem",
-  color: "#34423b",
-  fontSize: "0.62rem",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-const factsStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  margin: "0.75rem 0 0",
-};
-const sectionTitleStyle: CSSProperties = {
-  margin: "0 0 0.4rem",
-  color: "#68736d",
-  fontSize: "0.64rem",
-  letterSpacing: "0.07em",
-  textTransform: "uppercase",
-};
-const pillListStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "0.35rem",
-};
-const pillStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.3rem",
-  maxWidth: "100%",
-  overflow: "hidden",
-  borderWidth: 1,
-  borderStyle: "solid",
-  borderColor: "#d9dfda",
-  borderRadius: 999,
-  background: "#f7f9f6",
-  padding: "0.22rem 0.45rem",
-  color: "#34423b",
-  fontSize: "0.62rem",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-const activePillStyle: CSSProperties = {
-  borderColor: "#82b6a6",
-  background: "#e4f2ed",
-  color: "#0f4f44",
-};
-const legalPillStyle: CSSProperties = {
-  borderColor: "#e5a28f",
-  background: "#fcebe6",
-  color: "#753423",
-};
-const transitionListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  margin: 0,
-  padding: 0,
-  listStyle: "none",
-  fontSize: "0.67rem",
-};

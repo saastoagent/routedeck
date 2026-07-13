@@ -22,6 +22,8 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
+from ...identifiers import MedusaOperationType
+
 from .models import ORDER_CONFIRMATION_SCHEMA, ORDER_RECOVERY_PROVIDER_SCHEMA
 
 
@@ -32,7 +34,7 @@ ORDER_PROVIDER = EntityProviderSpec(
     output_schema=FrozenJsonObject(ORDER_RECOVERY_PROVIDER_SCHEMA),
 )
 RECONCILE_ORDER = OperationSpec(
-    id="orders.reconcile",
+    id=MedusaOperationType.ORDERS_RECONCILE,
     title="Verify submitted order",
     description="Re-read an already submitted order without completing the cart again.",
     input_schema=FrozenJsonObject(

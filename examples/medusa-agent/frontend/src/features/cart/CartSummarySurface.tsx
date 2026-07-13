@@ -14,6 +14,8 @@ import {
   formatCartMoney,
   type CartLineItemProjection,
 } from "./CartLineItem";
+import { CartAffordanceId } from "./affordances";
+import { CheckoutAffordanceId } from "../checkout/affordances";
 
 interface CartSummaryProjection {
   cart_ref: string;
@@ -36,7 +38,7 @@ export function CartSummarySurface({
   const [checkoutError, setCheckoutError] = useState<Error | null>(null);
   const updateItem = useCallback(
     async (lineItemRef: string, quantity: number) => {
-      await dispatchAffordance("update_item", {
+      await dispatchAffordance(CartAffordanceId.UpdateItem, {
         line_item_ref: lineItemRef,
         quantity,
       });
@@ -45,7 +47,7 @@ export function CartSummarySurface({
   );
   const removeItem = useCallback(
     async (lineItemRef: string) => {
-      await dispatchAffordance("remove_item", {
+      await dispatchAffordance(CartAffordanceId.RemoveItem, {
         line_item_ref: lineItemRef,
       });
     },
@@ -57,7 +59,7 @@ export function CartSummarySurface({
     setCheckoutPending(true);
     setCheckoutError(null);
     try {
-      await dispatchAffordance("start_checkout");
+      await dispatchAffordance(CheckoutAffordanceId.Start);
     } catch (caught) {
       setCheckoutError(
         caught instanceof Error

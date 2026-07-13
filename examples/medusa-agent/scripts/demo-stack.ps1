@@ -32,6 +32,7 @@ $GeneratedCredentials = Join-Path $MedusaAgentRoot "infra\CREDS.generated.env"
 $EnvironmentFile = Join-Path $MedusaAgentRoot ".env.local"
 $DemoDataRoot = [IO.Path]::GetFullPath((Join-Path $MedusaAgentRoot ".demo-data"))
 $SqlitePath = [IO.Path]::GetFullPath((Join-Path $DemoDataRoot "routedeck.sqlite"))
+$SqliteUrl = "sqlite+pysqlite:///" + $SqlitePath.Replace("\", "/")
 $RequiredIgnoreEntries = @(
     "examples/medusa-agent/.demo-data/",
     "examples/medusa-agent/.env.local",
@@ -86,8 +87,8 @@ function Ensure-EnvironmentFile {
             "ROUTEDECK_DEMO_COOKIE_SECRET=$(New-Base64UrlSecret 48)",
             "ROUTEDECK_STATE_ENCRYPTION_KEY=$(New-Base64UrlSecret 32)",
             "MEDUSA_BASE_URL=http://127.0.0.1:9100",
-            "ROUTEDECK_DATABASE_PATH=$SqlitePath",
-            "OPENAI_MODEL=gpt-5-nano",
+            "ROUTEDECK_DATABASE_URL=$SqliteUrl",
+            "OPENAI_MODEL=gpt-5.4-mini",
             "OPENAI_API_KEY="
         )
         [IO.File]::WriteAllLines($EnvironmentFile, $lines, [Text.UTF8Encoding]::new($false))
@@ -167,10 +168,11 @@ function Merge-GeneratedEnvironment {
         }
         $allValues[$name] = $generatedValues[$name]
     }
-    $allValues["ROUTEDECK_DATABASE_PATH"] = $SqlitePath
+    $allValues.Remove("ROUTEDECK_DATABASE_PATH")
+    $allValues["ROUTEDECK_DATABASE_URL"] = $SqliteUrl
     $allValues["MEDUSA_BASE_URL"] = "http://127.0.0.1:9100"
     if (-not $allValues.Contains("OPENAI_MODEL") -or [string]::IsNullOrWhiteSpace($allValues["OPENAI_MODEL"])) {
-        $allValues["OPENAI_MODEL"] = "gpt-5-nano"
+        $allValues["OPENAI_MODEL"] = "gpt-5.4-mini"
     }
     if (-not $allValues.Contains("OPENAI_API_KEY")) {
         $allValues["OPENAI_API_KEY"] = ""
@@ -187,7 +189,7 @@ function Assert-RuntimeEnvironment {
         "MEDUSA_SALES_CHANNEL_ID",
         "MEDUSA_PAYMENT_PROVIDER_ID",
         "MEDUSA_BASE_URL",
-        "ROUTEDECK_DATABASE_PATH",
+        "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
         "OPENAI_MODEL"
     )
@@ -206,8 +208,8 @@ function Assert-RuntimeEnvironment {
             throw "Provisioned runtime environment still contains bootstrap marker: $name"
         }
     }
-    if ([IO.Path]::GetFullPath($values["ROUTEDECK_DATABASE_PATH"]) -ne $SqlitePath) {
-        throw "ROUTEDECK_DATABASE_PATH is outside the protected demo-data path"
+    if ($values["ROUTEDECK_DATABASE_URL"] -ne $SqliteUrl) {
+        throw "ROUTEDECK_DATABASE_URL must target the protected demo-data database"
     }
     if ($values["MEDUSA_BASE_URL"] -ne "http://127.0.0.1:9100") {
         throw "MEDUSA_BASE_URL must use the fixed protected local Medusa port"

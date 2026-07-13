@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from datetime import timedelta
-from typing import Any
 
 
 from ..app.bindings import BoundRouteDeckApp
@@ -12,46 +10,30 @@ from ..contracts.conversation import (
     ConversationToolCall,
     FinalizedConversationTurn,
 )
-from ..contracts.failures import FailureKind, FailureSafeDetails, RouteDeckFailure
+from ..contracts.failures import FailureKind
 from ..contracts.operations import (
-    DeliveryPhase,
     OperationDisposition,
-    OperationEvidence,
     OperationPhase,
     OperationRequest,
     OperationResult,
     OperationSource,
-    OperationSpec,
     ReviewPolicy,
 )
 from ..contracts.projection import FrozenJson
 from ..contracts.session import (
-    AttemptTerminalState,
-    JournaledExecutionResult,
-    Location,
     OperationArgument,
     OperationAttempt,
-    OperationAttemptStatus,
-    OperationState,
-    RouteDeckSession,
-    StoredOperationAttempt,
 )
 from ..ports.clock import Clock
 from ..ports.executor import (
     OperationExecutor,
 )
-from ..ports.notifier import RouteDeckNotifier, notify_event_wakeup
+from ..ports.notifier import RouteDeckNotifier
 from ..ports.session_store import (
     RouteDeckSessionStore,
     SessionStoreError,
 )
-from ..state.leases import TurnClaim, TurnLease, TurnOwnerKind
-from ..state.reducer import (
-    OperationStateStored,
-    PublicEventsRecorded,
-    PublicSessionStateStored,
-    reduce_session_batch,
-)
+from ..state.leases import TurnLease
 from .guards import (
     SupervisionPolicyMixin,
 )
@@ -61,17 +43,10 @@ from .outcomes import (
     canonical_request_fingerprint,
 )
 from .reviews import ReviewLifecycleMixin
+from .runner_contracts import IdFactory, RouteEntryInvocation
+from .runner_recovery import RunnerRecoveryMixin
+from .runner_support import RunnerSupportMixin
 from .turns import TurnLifecycleMixin
-
-
-IdFactory = Callable[[str], str]
-
-
-@dataclass(frozen=True)
-class RouteEntryInvocation:
-    """Structurally matched route entry passed to the supervised operation path."""
-
-    location: Location
 
 
 class RouteDeckOperationRunner(
@@ -79,6 +54,8 @@ class RouteDeckOperationRunner(
     OutcomeLifecycleMixin,
     TurnLifecycleMixin,
     SupervisionPolicyMixin,
+    RunnerRecoveryMixin,
+    RunnerSupportMixin,
 ):
     """Run every product operation through one product-neutral supervision path."""
 
@@ -411,452 +388,5 @@ class RouteDeckOperationRunner(
                 await self.store.release_child_attempt(lease, request.request_id)
             if owns_lease and not lease_released:
                 await self.store.release_turn(lease)
-
-    async def _recover_stored_attempt(
-        self,
-        *,
-        request: OperationRequest,
-        operation: OperationSpec | None,
-        stored: StoredOperationAttempt,
-        fingerprint: str,
-        route_entry: RouteEntryInvocation | None,
-    ) -> OperationResult:
-        current = (await self.store.load(request.session_id)).state
-        try:
-            lease = await self.store.acquire_turn(
-                TurnClaim(
-                    session_id=request.session_id,
-                    expected_session_version=current.session_version,
-                    request_id=request.request_id,
-                    request_fingerprint=fingerprint,
-                    owner_kind=TurnOwnerKind.SYSTEM,
-                )
-            )
-        except SessionStoreError as error:
-            if (
-                error.code.value == "operation_in_progress"
-                and stored.disposition is OperationDisposition.PENDING
-            ):
-                replay = self._result_from_stored(
-                    stored,
-                    session_id=request.session_id,
-                )
-                if replay is None:
-                    raise RuntimeError(
-                        "Pending attempts require observed durable versions"
-                    ) from error
-                return replay
-            return self._store_conflict_result(
-                request=request,
-                fingerprint=fingerprint,
-                error=error,
-            )
-        try:
-            claim = await self.store.recover_execution_claim(
-                lease, stored.attempt.attempt_id
-            )
-            commit_session = (await self.store.load(request.session_id)).state
-            session = (
-                self._route_entry_session(commit_session, request, route_entry)
-                if route_entry is not None
-                else commit_session
-            )
-            if stored.journaled_result is not None:
-                if operation is None:
-                    raise RuntimeError(
-                        "Stored execution cannot recover without its operation spec"
-                    )
-                if stored.journaled_result.failure is not None:
-                    return await self._commit_failure(
-                        request=request,
-                        attempt=stored.attempt,
-                        session=commit_session,
-                        claim=claim,
-                        result=stored.journaled_result,
-                        recorded_record=stored,
-                    )
-                return await self._commit_success(
-                    request=request,
-                    operation=operation,
-                    attempt=stored.attempt,
-                    session=session,
-                    commit_session=commit_session,
-                    claim=claim,
-                    result=stored.journaled_result,
-                    recorded_record=stored,
-                )
-            phases = stored.evidence.phases if stored.evidence is not None else ()
-            if (
-                stored.attempt.status is OperationAttemptStatus.TOOL_STARTED
-                or OperationPhase.TOOL_STARTED in phases
-            ):
-                if operation is None:
-                    raise RuntimeError(
-                        "Stored execution cannot recover without its operation spec"
-                    )
-                if not self._is_external_write(operation):
-                    return await self._recover_non_write_started(
-                        request=request,
-                        operation=operation,
-                        stored=stored,
-                        session=commit_session,
-                        claim=claim,
-                    )
-                return await self._mark_unknown(
-                    request=request,
-                    operation=operation,
-                    attempt=stored.attempt,
-                    claim=claim,
-                    reason_code="tool_started_without_journal",
-                    delivery_phase=DeliveryPhase.POSSIBLY_SENT,
-                )
-            return await self._commit_not_sent_recovery(
-                request=request,
-                stored=stored,
-                session=commit_session,
-                claim=claim,
-            )
-        finally:
-            await self.store.release_turn(lease)
-
-    async def _commit_not_sent_recovery(
-        self,
-        *,
-        request: OperationRequest,
-        stored: StoredOperationAttempt,
-        session: RouteDeckSession,
-        claim: Any,
-    ) -> OperationResult:
-        failure = self._failure(
-            request,
-            kind=FailureKind.PERSISTENCE,
-            code="execution_interrupted_not_sent",
-            phase="execution_recovery",
-            message="The operation was interrupted before it was sent.",
-            delivery_phase=DeliveryPhase.NOT_SENT,
-        )
-        attempt = stored.attempt.model_copy(
-            update={
-                "status": OperationAttemptStatus.INTERRUPTED,
-                "terminal": AttemptTerminalState.INTERRUPTED,
-                "failure": failure,
-            }
-        )
-        public_state = session.public_state.model_copy(
-            update={
-                "status_code": failure.code,
-                "status_message": failure.public_message,
-                "failure": failure,
-            }
-        )
-        next_state = reduce_session_batch(
-            session,
-            (
-                OperationStateStored(operation=OperationState(active_attempt=attempt)),
-                PublicSessionStateStored(state=public_state),
-                PublicEventsRecorded(count=1),
-            ),
-        )
-        event = self._operation_event(next_state, request, public_state)
-        phases = (
-            *self._supervised_phases(),
-            OperationPhase.EXECUTION_CLAIMED,
-            OperationPhase.STATE_COMMITTED,
-            OperationPhase.COMPLETED,
-        )
-        evidence = self._evidence(
-            attempt,
-            phases,
-            delivery_phase=DeliveryPhase.NOT_SENT,
-        )
-        record = stored.model_copy(
-            update={
-                "attempt": attempt,
-                "disposition": OperationDisposition.FAILED,
-                "evidence": evidence,
-                "committed_session_version": next_state.session_version,
-                "committed_projection_version": next_state.projection_version,
-                "failure": failure,
-            }
-        )
-        snapshot = await self.store.commit_attempt(
-            claim,
-            session.session_version,
-            next_state,
-            (event,),
-            record,
-        )
-        await notify_event_wakeup(self.notifier, session.session_id, (event,))
-        return self._failure_result(
-            request=request,
-            fingerprint=stored.attempt.request_fingerprint,
-            attempt_id=stored.attempt.attempt_id,
-            session_version=snapshot.session_version,
-            projection_version=snapshot.projection_version,
-            disposition=OperationDisposition.FAILED,
-            failure=failure,
-            phases=phases,
-            delivery_phase=DeliveryPhase.NOT_SENT,
-        )
-
-    async def _lease_for(
-        self,
-        *,
-        request: OperationRequest,
-        fingerprint: str,
-        turn: TurnLease | None,
-    ) -> tuple[TurnLease, bool]:
-        if turn is not None:
-            if turn.session_id != request.session_id:
-                raise ValueError("Turn lease does not belong to the request session")
-            await self.store.claim_child_attempt(
-                turn,
-                request.request_id,
-                fingerprint,
-            )
-            return turn, False
-        owner = {
-            OperationSource.SURFACE: TurnOwnerKind.SURFACE,
-            OperationSource.AGENT: TurnOwnerKind.CHAT,
-            OperationSource.SYSTEM: TurnOwnerKind.SYSTEM,
-            OperationSource.ROUTE: TurnOwnerKind.NAVIGATION,
-        }[request.source]
-        lease = await self.store.acquire_turn(
-            TurnClaim(
-                session_id=request.session_id,
-                expected_session_version=request.expected_session_version,
-                request_id=request.request_id,
-                request_fingerprint=fingerprint,
-                owner_kind=owner,
-            )
-        )
-        return lease, True
-
-    def _route_entry_session(
-        self,
-        session: RouteDeckSession,
-        request: OperationRequest,
-        invocation: RouteEntryInvocation,
-    ) -> RouteDeckSession:
-        location = invocation.location
-        if location.entry_id is not None:
-            raise ValueError(
-                "Route entry locations cannot supply canonical history IDs"
-            )
-        node = next(
-            (
-                candidate
-                for candidate in self.app.app.spec.nodes
-                if candidate.id == location.node_id
-            ),
-            None,
-        )
-        if node is None or node.entry is None:
-            raise ValueError("The matched route has no declared entry operation")
-        if node.entry.operation.id != request.operation_id:
-            raise ValueError("The route entry operation does not match the request")
-        operation = self.app.app.operations.get(request.operation_id)
-        if operation is None or self._is_external_write(operation):
-            raise ValueError(
-                "Route entry operations must be declared non-write operations"
-            )
-        if operation.review_policy is ReviewPolicy.REQUIRED:
-            raise ValueError("Route entry operations cannot require review")
-        route_params = {item.name: item.value for item in location.route_params}
-        arguments = {
-            binding.argument: route_params[binding.parameter]
-            for binding in node.entry.bindings
-        }
-        if request.arguments.to_dict() != arguments:
-            raise ValueError("Route entry arguments do not match their exact bindings")
-        canonical = location.model_copy(
-            update={"entry_id": session.next_history_entry_id}
-        )
-        return session.model_copy(
-            update={
-                "current": canonical,
-                "back_stack": (*session.back_stack, session.current),
-                "forward_stack": (),
-                "next_history_entry_id": session.next_history_entry_id + 1,
-            }
-        )
-
-    async def _commit_supervision_failure(
-        self,
-        *,
-        request: OperationRequest,
-        attempt: OperationAttempt,
-        session: RouteDeckSession,
-        lease: TurnLease,
-        disposition: OperationDisposition,
-        failure: RouteDeckFailure,
-        phases: tuple[OperationPhase, ...],
-        review: Any | None = None,
-    ) -> OperationResult:
-        if disposition not in {
-            OperationDisposition.BLOCKED,
-            OperationDisposition.NEEDS_INPUT,
-            OperationDisposition.FAILED,
-        }:
-            raise RuntimeError("Supervision failures require a failure disposition")
-        failed_attempt = attempt.model_copy(
-            update={
-                "status": OperationAttemptStatus.FAILED,
-                "terminal": AttemptTerminalState.FAILED,
-                "failure": failure,
-            }
-        )
-        public_state = session.public_state.model_copy(
-            update={
-                "status_code": failure.code,
-                "status_message": failure.public_message,
-                "failure": failure,
-            }
-        )
-        next_state = reduce_session_batch(
-            session,
-            (
-                OperationStateStored(
-                    operation=OperationState(
-                        active_attempt=failed_attempt,
-                        pending_review=review,
-                    )
-                ),
-                PublicSessionStateStored(state=public_state),
-                PublicEventsRecorded(count=1),
-            ),
-        )
-        event = self._operation_event(next_state, request, public_state)
-        final_phases = (
-            *phases,
-            OperationPhase.STATE_COMMITTED,
-            OperationPhase.COMPLETED,
-        )
-        record = StoredOperationAttempt(
-            attempt=failed_attempt,
-            review=review,
-            disposition=disposition,
-            evidence=self._evidence(failed_attempt, final_phases),
-            committed_session_version=next_state.session_version,
-            committed_projection_version=next_state.projection_version,
-            failure=failure,
-        )
-        snapshot = await self.store.commit_supervision(
-            lease,
-            session.session_version,
-            next_state,
-            (event,),
-            record,
-        )
-        await notify_event_wakeup(self.notifier, session.session_id, (event,))
-        return self._failure_result(
-            request=request,
-            fingerprint=attempt.request_fingerprint,
-            attempt_id=attempt.attempt_id,
-            session_version=snapshot.session_version,
-            projection_version=snapshot.projection_version,
-            disposition=disposition,
-            failure=failure,
-            phases=final_phases,
-        )
-
-    def _preflight_failure(
-        self,
-        request: OperationRequest,
-        fingerprint: str,
-        session: RouteDeckSession,
-        *,
-        code: str,
-        message: str,
-    ) -> OperationResult:
-        return self._failure_result(
-            request=request,
-            fingerprint=fingerprint,
-            attempt_id=self.id_factory("attempt"),
-            session_version=session.session_version,
-            projection_version=session.projection_version,
-            disposition=OperationDisposition.BLOCKED,
-            failure=self._failure(
-                request,
-                kind=FailureKind.CONTRACT,
-                code=code,
-                phase="operation_validation",
-                message=message,
-            ),
-            phases=(OperationPhase.RECEIVED,),
-        )
-
-    def _failure(
-        self,
-        request: OperationRequest,
-        *,
-        kind: FailureKind,
-        code: str,
-        phase: str,
-        message: str,
-        delivery_phase: DeliveryPhase | None = None,
-        recovery_directive: str | None = None,
-    ) -> RouteDeckFailure:
-        return RouteDeckFailure(
-            kind=kind,
-            code=code,
-            phase=phase,
-            correlation_id=self.id_factory("correlation"),
-            operation_id=request.operation_id,
-            request_id=request.request_id,
-            public_message=message,
-            recovery_directive=recovery_directive,
-            safe_details=FailureSafeDetails(
-                delivery_phase=(
-                    delivery_phase.value if delivery_phase is not None else None
-                )
-            ),
-        )
-
-    def _failure_result(
-        self,
-        *,
-        request: OperationRequest,
-        fingerprint: str,
-        attempt_id: str,
-        session_version: int,
-        projection_version: int,
-        disposition: OperationDisposition,
-        failure: RouteDeckFailure,
-        phases: tuple[OperationPhase, ...],
-        delivery_phase: DeliveryPhase | None = None,
-        result: JournaledExecutionResult | None = None,
-    ) -> OperationResult:
-        return OperationResult(
-            disposition=disposition,
-            session_id=request.session_id,
-            request_id=request.request_id,
-            operation_id=request.operation_id,
-            session_version=session_version,
-            projection_version=projection_version,
-            evidence=OperationEvidence(
-                source=request.source,
-                phases=phases,
-                attempt_id=attempt_id,
-                request_fingerprint=fingerprint,
-                delivery_phase=delivery_phase,
-                result_id=result.result_id if result is not None else None,
-                result_fingerprint=(
-                    result.result_fingerprint if result is not None else None
-                ),
-            ),
-            failure=failure,
-        )
-
-    @staticmethod
-    def _supervised_phases() -> tuple[OperationPhase, ...]:
-        return (
-            OperationPhase.RECEIVED,
-            OperationPhase.LEASE_ACQUIRED,
-            OperationPhase.VALIDATED,
-            OperationPhase.CONTEXT_REFRESHED,
-            OperationPhase.GUARDS_PASSED,
-        )
-
 
 __all__ = ["RouteDeckOperationRunner", "RouteEntryInvocation"]

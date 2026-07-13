@@ -10,6 +10,7 @@ from ..contracts.projection import (
     FrozenJson,
     ProjectedNavigation,
     ProjectedOperation,
+    ProjectedSuggestedAction,
     ProjectedSurface,
     ProjectedSurfaceSlots,
     ProjectionDiagnostics,
@@ -59,6 +60,9 @@ class ProjectionProjector:
         mode = resolve_projection_mode(self.app, node, session)
         legal_operations = mode.legal_operations
         legal_operation_ids = {operation.id for operation in legal_operations}
+        legal_operation_by_id = {
+            operation.id: operation for operation in legal_operations
+        }
         visible_handles = visible_entity_handles(
             session,
             legal_operation_ids,
@@ -130,6 +134,16 @@ class ProjectionProjector:
                     review_required=operation.review_policy.value == "required",
                 )
                 for operation in legal_operations
+            ),
+            suggested_actions=tuple(
+                ProjectedSuggestedAction(
+                    action_id=action.id,
+                    label=action.label or legal_operation_by_id[action.operation_id].title,
+                    operation_id=action.operation_id,
+                    arguments=action.arguments,
+                )
+                for action in node.suggested_actions
+                if action.operation_id in legal_operation_by_id
             ),
             entities=visible_handles,
             surfaces=self._surface_slots(
@@ -211,7 +225,7 @@ class ProjectionProjector:
         node: NodeSpec,
         state: dict[str, PublicSurfaceState],
         *,
-        active_surface: SurfaceSpec,
+        active_surface: SurfaceSpec | None,
         review_active: bool,
     ) -> ProjectedSurfaceSlots:
         def project(surface: SurfaceSpec) -> ProjectedSurface:
@@ -219,7 +233,7 @@ class ProjectionProjector:
 
         surfaces = node.surfaces
         return ProjectedSurfaceSlots(
-            active=project(active_surface),
+            active=project(active_surface) if active_surface is not None else None,
             frame=tuple(project(surface) for surface in surfaces.frame),
             peer=tuple(project(surface) for surface in surfaces.peer),
             detail=tuple(project(surface) for surface in surfaces.detail),

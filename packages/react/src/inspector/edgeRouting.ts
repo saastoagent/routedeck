@@ -9,6 +9,13 @@ export interface NavGraphEdgeRoute {
   target: { x: number; y: number };
   sourceSide: NavGraphNodeSide;
   targetSide: NavGraphNodeSide;
+  loopLane: number | null;
+}
+
+export interface NavGraphEdgeGeometry {
+  path: string;
+  labelX: number;
+  labelY: number;
 }
 
 export function routeNavGraphEdges(
@@ -26,34 +33,75 @@ export function routeNavGraphEdges(
   const resolved = base.filter((value): value is NonNullable<typeof value> => value !== null);
   const sourceGroups = groupOffsets(resolved, "source");
   const targetGroups = groupOffsets(resolved, "target");
+  const loopLanes = selfLoopLanes(resolved);
 
-  return resolved.map((entry) => ({
-    id: entry.edge.id,
-    sourceSide: entry.sourceSide,
-    targetSide: entry.targetSide,
-    source: anchor(
-      entry.source,
-      entry.sourceSide,
-      sourceGroups.get(entry.edge.id) ?? 0,
-    ),
-    target: anchor(
-      entry.target,
-      entry.targetSide,
-      targetGroups.get(entry.edge.id) ?? 0,
-    ),
-  }));
+  return resolved.map((entry) => {
+    const loopLane = loopLanes.get(entry.edge.id) ?? null;
+    if (loopLane !== null) {
+      return {
+        id: entry.edge.id,
+        sourceSide: "right" as const,
+        targetSide: "right" as const,
+        source: anchor(entry.source, "right", -16 - loopLane * 5),
+        target: anchor(entry.target, "right", 16 + loopLane * 5),
+        loopLane,
+      };
+    }
+    return {
+      id: entry.edge.id,
+      sourceSide: entry.sourceSide,
+      targetSide: entry.targetSide,
+      source: anchor(
+        entry.source,
+        entry.sourceSide,
+        sourceGroups.get(entry.edge.id) ?? 0,
+      ),
+      target: anchor(
+        entry.target,
+        entry.targetSide,
+        targetGroups.get(entry.edge.id) ?? 0,
+      ),
+      loopLane,
+    };
+  });
 }
 
 export function navGraphEdgePath(route: NavGraphEdgeRoute): string {
+  return navGraphEdgeGeometry(route).path;
+}
+
+export function navGraphEdgeGeometry(
+  route: NavGraphEdgeRoute,
+): NavGraphEdgeGeometry {
   const dx = route.target.x - route.source.x;
   const dy = route.target.y - route.source.y;
-  const bend = Math.max(48, Math.min(140, Math.hypot(dx, dy) * 0.35));
+  const bend =
+    route.loopLane === null
+      ? Math.max(48, Math.min(140, Math.hypot(dx, dy) * 0.35))
+      : 58 + route.loopLane * 24;
   const sourceControl = control(route.source, route.sourceSide, bend);
   const targetControl = control(route.target, route.targetSide, bend);
-  return `M ${route.source.x} ${route.source.y} C ${sourceControl.x} ${sourceControl.y}, ${targetControl.x} ${targetControl.y}, ${route.target.x} ${route.target.y}`;
+  return {
+    path: `M ${route.source.x} ${route.source.y} C ${sourceControl.x} ${sourceControl.y}, ${targetControl.x} ${targetControl.y}, ${route.target.x} ${route.target.y}`,
+    labelX: cubicMidpoint(
+      route.source.x,
+      sourceControl.x,
+      targetControl.x,
+      route.target.x,
+    ),
+    labelY: cubicMidpoint(
+      route.source.y,
+      sourceControl.y,
+      targetControl.y,
+      route.target.y,
+    ),
+  };
 }
 
 function determineSides(source: NavGraphLayoutNode, target: NavGraphLayoutNode) {
+  if (source.id === target.id) {
+    return { sourceSide: "right", targetSide: "right" } as const;
+  }
   const sourceCenter = center(source);
   const targetCenter = center(target);
   const dx = targetCenter.x - sourceCenter.x;
@@ -66,6 +114,27 @@ function determineSides(source: NavGraphLayoutNode, target: NavGraphLayoutNode) 
   return dy >= 0
     ? ({ sourceSide: "bottom", targetSide: "top" } as const)
     : ({ sourceSide: "top", targetSide: "bottom" } as const);
+}
+
+function selfLoopLanes(
+  entries: ReadonlyArray<{
+    edge: NavGraphInspectorEdge;
+    source: NavGraphLayoutNode;
+    target: NavGraphLayoutNode;
+  }>,
+) {
+  const groups = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    if (entry.source.id !== entry.target.id) continue;
+    groups.set(entry.source.id, [...(groups.get(entry.source.id) ?? []), entry]);
+  }
+  const lanes = new Map<string, number>();
+  for (const group of groups.values()) {
+    [...group]
+      .sort((left, right) => left.edge.id.localeCompare(right.edge.id))
+      .forEach((entry, index) => lanes.set(entry.edge.id, index));
+  }
+  return lanes;
 }
 
 function groupOffsets(
@@ -135,4 +204,8 @@ function control(
   if (side === "right") return { x: point.x + distance, y: point.y };
   if (side === "top") return { x: point.x, y: point.y - distance };
   return { x: point.x, y: point.y + distance };
+}
+
+function cubicMidpoint(start: number, first: number, second: number, end: number) {
+  return (start + 3 * first + 3 * second + end) / 8;
 }

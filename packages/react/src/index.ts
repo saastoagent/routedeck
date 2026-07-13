@@ -4,6 +4,7 @@ export * from "./hooks/projection";
 export * from "./hooks/navigation";
 export * from "./hooks/operations";
 export * from "./operations/controller";
+export * from "./actions/RouteDeckSuggestedActions";
 export * from "./hooks/status";
 export * from "./surfaces/registry";
 export * from "./surfaces/RouteDeckSurfaceHost";

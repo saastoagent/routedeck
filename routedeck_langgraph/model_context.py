@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.app import BoundRouteDeckApp, CompiledRouteDeckApp
+from routedeck_core.context import AgentContextLens
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationToolCall,
@@ -19,11 +20,6 @@ from routedeck_core.contracts.session import (
     RouteDeckSession,
     SessionSnapshot,
 )
-from routedeck_core.projection.policy import (
-    resolve_projection_mode,
-    visible_entity_handles,
-)
-from routedeck_core.validation import RouteDeckValidationError
 
 
 class _FrozenContract(BaseModel):
@@ -68,13 +64,27 @@ class ModelContextObservation(_FrozenContract):
     content: str
 
 
+class ModelContextPolicy(_FrozenContract):
+    policy_id: str = Field(min_length=1)
+    instruction: str = Field(min_length=1)
+
+
+class ModelContextSuggestedAction(_FrozenContract):
+    action_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    operation_id: str = Field(min_length=1)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
 class RouteDeckModelContext(_FrozenContract):
     """The default-deny RouteDeck state made visible to one model call."""
 
     current_node: str = Field(min_length=1)
-    active_surface: ModelContextSurface
+    active_surface: ModelContextSurface | None = None
     visible_entities: tuple[ModelContextEntity, ...] = ()
     legal_tools: tuple[ModelContextTool, ...] = ()
+    suggested_actions: tuple[ModelContextSuggestedAction, ...] = ()
+    policies: tuple[ModelContextPolicy, ...] = ()
     status: ModelContextStatus
     recent_observations: tuple[ModelContextObservation, ...] = ()
 
@@ -96,31 +106,22 @@ def build_model_context(
         raise ValueError("observation_limit must be non-negative")
     session = snapshot.state if isinstance(snapshot, SessionSnapshot) else snapshot
     compiled = app.app if isinstance(app, BoundRouteDeckApp) else app
-    node = next(
-        (
-            candidate
-            for candidate in compiled.spec.nodes
-            if candidate.id == session.current.node_id
-        ),
-        None,
-    )
-    if node is None:
-        raise RouteDeckValidationError(
-            f"Session references unknown node: {session.current.node_id}"
+    resolved = AgentContextLens(compiled).resolve(session)
+    node = resolved.node
+    legal_operations = resolved.legal_operations
+
+    surface_spec = resolved.active_surface
+    public_surface = (
+        next(
+            (
+                surface
+                for surface in session.public_state.surface_state
+                if surface.surface_id == surface_spec.id
+            ),
+            None,
         )
-
-    mode = resolve_projection_mode(compiled, node, session)
-    legal_operations = mode.legal_operations
-    legal_ids = frozenset(operation.id for operation in legal_operations)
-
-    surface_spec = mode.active_surface
-    public_surface = next(
-        (
-            surface
-            for surface in session.public_state.surface_state
-            if surface.surface_id == surface_spec.id
-        ),
-        None,
+        if surface_spec is not None
+        else None
     )
     surface_values: tuple[ModelContextValue, ...] = ()
     if public_surface is not None:
@@ -130,11 +131,8 @@ def build_model_context(
             if value.classification is DataClassification.PUBLIC
         )
 
-    declared_entity_kinds = frozenset(
-        provider.entity_kind for provider in node.entity_providers
-    )
     visible_entities: list[ModelContextEntity] = []
-    for entity in visible_entity_handles(session, legal_ids, declared_entity_kinds):
+    for entity in resolved.visible_entities:
         visible_entities.append(
             ModelContextEntity(
                 entity_kind=entity.entity_kind,
@@ -168,13 +166,40 @@ def build_model_context(
     status_code = session.public_state.status_code
     return RouteDeckModelContext(
         current_node=node.id,
-        active_surface=ModelContextSurface(
-            surface_id=surface_spec.id,
-            component=surface_spec.component,
-            values=surface_values,
+        active_surface=(
+            ModelContextSurface(
+                surface_id=surface_spec.id,
+                component=surface_spec.component,
+                values=surface_values,
+            )
+            if surface_spec is not None
+            else None
         ),
         visible_entities=tuple(visible_entities),
         legal_tools=tuple(_model_tool(operation) for operation in legal_operations),
+        suggested_actions=tuple(
+            ModelContextSuggestedAction(
+                action_id=action.id,
+                label=(
+                    action.label
+                    or next(
+                        operation.title
+                        for operation in legal_operations
+                        if operation.id == action.operation_id
+                    )
+                ),
+                operation_id=action.operation_id,
+                arguments=action.arguments_value(),
+            )
+            for action in resolved.suggested_actions
+        ),
+        policies=tuple(
+            ModelContextPolicy(
+                policy_id=policy.id,
+                instruction=policy.instruction,
+            )
+            for policy in resolved.policies
+        ),
         status=ModelContextStatus(
             code=status_code,
             message=session.public_state.status_message,
@@ -285,6 +310,8 @@ def _model_tool(operation: OperationSpec) -> ModelContextTool:
 __all__ = [
     "ModelContextEntity",
     "ModelContextObservation",
+    "ModelContextPolicy",
+    "ModelContextSuggestedAction",
     "ModelContextStatus",
     "ModelContextSurface",
     "ModelContextTool",

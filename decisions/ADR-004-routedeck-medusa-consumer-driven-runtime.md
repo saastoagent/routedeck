@@ -6,7 +6,7 @@ Date: 2026-07-11
 ADR-004 preserves ADR-003's interaction-governance identity and supersedes its
 Corpus-first sequencing and explicit deferrals. The approved Medusa buyer-agent
 design authorizes feature-composed authoring, durable RouteDeck state, generic
-FastAPI/SSE and SQLite adapters, optional LangGraph middleware, and the
+FastAPI/SSE and SQLAlchemy SQLite/PostgreSQL adapters, optional LangGraph middleware, and the
 standalone Medusa portability proof. Product handlers still execute through an
 injected host executor; RouteDeck contains no Medusa business logic.
 

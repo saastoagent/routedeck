@@ -17,7 +17,7 @@ from .events import (
     CanonicalRouteDeckEvent,
     EventPage,
     RouteDeckEvent,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from .effects import (
     EntityBindingEffect,
@@ -89,8 +89,11 @@ from .surfaces import (
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
+from .suggestions import SuggestedActionSpec
 
 __all__ = [
+    "AgentPolicyRef",
+    "AgentPolicySpec",
     "CapabilityRef",
     "CapabilitySpec",
     "CompiledApplicationSpec",
@@ -153,7 +156,7 @@ __all__ = [
     "ResumeCapabilityBinding",
     "RouteDeckFailure",
     "RouteDeckRetentionPolicy",
-    "RouteDeckEventKind",
+    "RouteDeckEventType",
     "RouteDeckEvent",
     "RouteDeckSession",
     "RouteEntrySpec",
@@ -165,8 +168,10 @@ __all__ = [
     "SurfaceRef",
     "SurfaceSlotsSpec",
     "SurfaceSpec",
+    "SuggestedActionSpec",
     "SessionSnapshot",
     "SessionEffects",
     "StoredOperationAttempt",
     "TransitionSpec",
 ]
+from .agent import AgentPolicyRef, AgentPolicySpec

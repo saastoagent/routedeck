@@ -9,6 +9,7 @@ import {
   CheckoutReviewAuthorityStatus,
   useCheckoutReviewAuthority,
 } from "./CheckoutReviewAuthority";
+import { CheckoutAffordanceId } from "./affordances";
 
 import {
   checkoutBoolean,
@@ -55,7 +56,7 @@ export function OrderReviewSurface({
     if (pending || authority.state !== "ready") return;
     setPending(true);
     setError(null);
-    void dispatchAffordance("propose_order")
+    void dispatchAffordance(CheckoutAffordanceId.ProposeOrder)
       .catch((caught: unknown) => {
         setError(
           caught instanceof Error

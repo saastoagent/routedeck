@@ -1,9 +1,6 @@
 import { useCallback } from "react";
 import type { JsonValue } from "@routedeck/core";
-import {
-  useRouteDeckProjection,
-  type RouteDeckSurfaceComponentProps,
-} from "@routedeck/react";
+import type { RouteDeckSurfaceComponentProps } from "@routedeck/react";
 
 import {
   catalogExactKeys,
@@ -14,6 +11,7 @@ import {
   formatCatalogPrice,
 } from "./ProductCard";
 import { AddToCartAffordance } from "./AddToCartAffordance";
+import { CatalogAffordanceId } from "./affordances";
 import {
   VariantSelector,
   decodeCatalogVariant,
@@ -42,13 +40,9 @@ export function ProductDetailSurface({
   dispatchAffordance,
 }: RouteDeckSurfaceComponentProps) {
   const product = decodeProductDetail(props);
-  const projection = useRouteDeckProjection();
-  const hasCart = projection?.entities.some(
-    (entity) => entity.entity_kind === "cart",
-  ) ?? false;
   const selectVariant = useCallback(
     async (interactionHandle: string) => {
-      await dispatchAffordance("select_variant", {
+      await dispatchAffordance(CatalogAffordanceId.SelectVariant, {
         variant_ref: interactionHandle,
       });
     },
@@ -56,15 +50,12 @@ export function ProductDetailSurface({
   );
   const addItem = useCallback(
     async (variantHandle: string, quantity: number) => {
-      if (!hasCart) {
-        await dispatchAffordance("create_cart", {});
-      }
-      await dispatchAffordance("add_item", {
+      await dispatchAffordance(CatalogAffordanceId.AddItem, {
         variant_ref: variantHandle,
         quantity,
       });
     },
-    [dispatchAffordance, hasCart],
+    [dispatchAffordance],
   );
   const selectedVariant = product.variants.find(
     (variant) => variant.interaction_handle === product.selected_variant_handle,

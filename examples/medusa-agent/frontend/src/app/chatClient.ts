@@ -11,6 +11,17 @@ export interface AgentHistoryTurn {
   content: string;
 }
 
+export interface AgentConversationEntryRequest {
+  request_id: string;
+  expected_session_version: number;
+}
+
+export interface AgentConversationEntry {
+  turns: readonly AgentHistoryTurn[];
+  sessionVersion: number;
+  projectionVersion: number;
+}
+
 export interface AgentReviewRequired {
   status: "requires_review";
   operation_id: string;
@@ -32,6 +43,7 @@ export type AgentStreamEvent =
       turn_id: string;
     }
   | { type: "assistant_delta"; content: string; request_id: string }
+  | { type: "assistant_reset"; request_id: string }
   | {
       type: "assistant_end";
       request_id: string;
@@ -60,6 +72,10 @@ export interface AgentChatClient {
 
 export interface AgentConversationClient {
   loadConversation(signal?: AbortSignal): Promise<readonly AgentHistoryTurn[]>;
+  startConversation(
+    request: AgentConversationEntryRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentConversationEntry>;
 }
 
 export interface MedusaAgentClient
@@ -126,6 +142,52 @@ export function createAgentChatClient(
           Object.freeze(decodeHistoryTurn(turn, `conversation.turns[${index}]`)),
         ),
       );
+    },
+    async startConversation(
+      request: AgentConversationEntryRequest,
+      signal?: AbortSignal,
+    ) {
+      validateEntryRequest(request);
+      const response = await fetcher(`${baseUrl}/conversation/entry`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+        ...(signal === undefined ? {} : { signal }),
+      });
+      if (!response.ok) throw await responseError(response);
+      const payload = record(await response.json(), "conversation.entry");
+      if (
+        !Array.isArray(payload.turns) ||
+        Object.keys(payload).some(
+          (key) =>
+            key !== "turns" &&
+            key !== "session_version" &&
+            key !== "projection_version",
+        )
+      ) {
+        invalid("conversation.entry");
+      }
+      return Object.freeze({
+        turns: Object.freeze(
+          payload.turns.map((turn, index) =>
+            Object.freeze(
+              decodeHistoryTurn(turn, `conversation.entry.turns[${index}]`),
+            ),
+          ),
+        ),
+        sessionVersion: integerValue(
+          payload.session_version,
+          "conversation.entry.session_version",
+        ),
+        projectionVersion: integerValue(
+          payload.projection_version,
+          "conversation.entry.projection_version",
+        ),
+      });
     },
     async *stream(request: AgentChatRequest, signal?: AbortSignal) {
       validateRequest(request);
@@ -254,6 +316,11 @@ function decodeEvent(event: string, value: unknown): AgentStreamEvent {
         content: stringValue(data.content, `${event}.content`),
         request_id: stringValue(data.request_id, `${event}.request_id`),
       };
+    case "assistant_reset":
+      return {
+        type: event,
+        request_id: stringValue(data.request_id, `${event}.request_id`),
+      };
     case "assistant_end":
       return {
         type: event,
@@ -322,6 +389,11 @@ function validateRequest(request: AgentChatRequest): void {
   stringValue(request.request_id, "request.request_id");
   stringValue(request.message, "request.message");
   integerValue(request.expected_session_version, "request.expected_session_version");
+}
+
+function validateEntryRequest(request: AgentConversationEntryRequest): void {
+  stringValue(request.request_id, "entry.request_id");
+  integerValue(request.expected_session_version, "entry.expected_session_version");
 }
 
 async function responseError(response: Response): Promise<AgentChatError> {

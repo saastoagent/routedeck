@@ -100,7 +100,7 @@ services:
       MEDUSA_COUNTRY_CODE: ${MEDUSA_COUNTRY_CODE:?run demo-stack.ps1 Provision}
       MEDUSA_SALES_CHANNEL_ID: ${MEDUSA_SALES_CHANNEL_ID:?run demo-stack.ps1 Provision}
       MEDUSA_PAYMENT_PROVIDER_ID: ${MEDUSA_PAYMENT_PROVIDER_ID:?run demo-stack.ps1 Provision}
-      ROUTEDECK_DATABASE_PATH: /workspace/examples/medusa-agent/.demo-data/routedeck.sqlite
+      ROUTEDECK_DATABASE_URL: sqlite+pysqlite:////workspace/examples/medusa-agent/.demo-data/routedeck.sqlite
       ROUTEDECK_STATE_ENCRYPTION_KEY: ${ROUTEDECK_STATE_ENCRYPTION_KEY:?run demo-stack.ps1 Provision}
       OPENAI_MODEL: ${OPENAI_MODEL:?OPENAI_MODEL is required}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

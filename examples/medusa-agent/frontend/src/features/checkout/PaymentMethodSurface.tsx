@@ -8,6 +8,8 @@ import {
   type JsonValue,
 } from "@routedeck/core";
 
+import { CheckoutAffordanceId } from "./affordances";
+
 type PaymentState = "ready" | "missing" | "refresh_failed";
 
 interface PaymentProviderProjection {
@@ -34,7 +36,7 @@ export function PaymentMethodSurface({
       setPendingHandle(paymentProviderRef);
       setError(null);
       try {
-        await dispatchAffordance("select_payment", {
+        await dispatchAffordance(CheckoutAffordanceId.SelectPayment, {
           payment_provider_ref: paymentProviderRef,
         });
       } catch (caught) {

@@ -19,8 +19,8 @@ without putting commerce code in RouteDeck.
 
 - `routedeck_core` - immutable application contracts, compilation, canonical
   sessions, operation supervision, projection, navigation, and ports.
-- `routedeck_sqlite` - fenced single-host SQLite persistence, migrations,
-  durable events, private blobs, and sensitive-data encryption.
+- `routedeck_sqlalchemy` - fenced SQLAlchemy ORM persistence for SQLite and
+  PostgreSQL, durable events, private blobs, and sensitive-data encryption.
 - `routedeck_fastapi` - generic `/api/routedeck/*` session, dispatch,
   navigation, review, private-form, inspection, and SSE transport.
 - `routedeck_langgraph` - optional middleware and tool wrapping for an
@@ -38,11 +38,14 @@ without putting commerce code in RouteDeck.
 RouteDeck never calls Medusa and never knows about products, carts, shipping,
 payments, or orders. The Medusa app keeps those concerns in:
 
-- `medusa_agent/features/*` for feature declarations and business handlers;
+- `medusa_agent/features/*` for feature declarations and operation-centric
+  business slices;
 - `medusa_agent/medusa/client` for the typed Store API port, HTTP adapter, wire
   models, delivery evidence, and sanitized failures;
-- `medusa_agent/composition.py` for dependency injection and cross-feature
-  composition;
+- `medusa_agent/composition.py` for the declarative cross-feature app spec;
+- `medusa_agent/bindings.py` for product dependency injection;
+- `medusa_agent/runtime_factory.py` for RouteDeck runner and persistence
+  assembly;
 - product-owned React components under `frontend/src/features`.
 
 Every UI affordance and agent tool reaches the same
@@ -134,7 +137,7 @@ Install the optional integration with the other local framework packages:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[fastapi,langgraph,sqlite,testing,dev]"
+python -m pip install -e ".[fastapi,langgraph,persistence,testing,dev]"
 ```
 
 ## Local Medusa Quickstart

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .agent import AgentPolicyRef
 from .navigation import (
     NavigationPolicySpec,
     NodeKind,
@@ -19,6 +20,7 @@ from .operations import (
 )
 from .projection import FrozenJsonObject
 from .surfaces import SurfaceRef, SurfaceSlotsSpec
+from .suggestions import SuggestedActionSpec
 
 
 class _FrozenContract(BaseModel):
@@ -34,6 +36,7 @@ class CapabilitySpec(_FrozenContract):
     title: str
     operations: tuple[OperationRef, ...] = ()
     surfaces: tuple[SurfaceRef, ...] = ()
+    policy_refs: tuple[AgentPolicyRef, ...] = ()
 
     @property
     def ref(self) -> CapabilityRef:
@@ -68,6 +71,8 @@ class NodeSpec(_FrozenContract):
     operations: tuple[OperationSpec, ...] = ()
     capabilities: tuple[CapabilitySpec, ...] = ()
     surfaces: SurfaceSlotsSpec
+    policy_refs: tuple[AgentPolicyRef, ...] = ()
+    suggested_actions: tuple[SuggestedActionSpec, ...] = ()
     navigation: NavigationPolicySpec = NavigationPolicySpec()
     recovery: RecoveryPolicySpec = RecoveryPolicySpec()
     public_metadata: FrozenJsonObject = Field(

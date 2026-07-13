@@ -4,6 +4,10 @@ from collections import deque
 from collections.abc import Iterable
 from typing import TypeVar
 
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
+from jsonschema.validators import validator_for
+
+from ..contracts.agent import AgentPolicyRef, AgentPolicySpec
 from ..contracts.application import (
     CapabilitySpec,
     CompiledApplicationSpec,
@@ -25,6 +29,7 @@ from .compiled import (
     ExecutableTestPath,
     FrontendContract,
     FrontendNodeContract,
+    FrontendSurfaceContract,
     FrontendSurfaceSlots,
     FrontendTransitionContract,
 )
@@ -56,7 +61,12 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
     providers: dict[str, ProviderSpec] = {}
     guards: dict[str, GuardSpec] = {}
     capabilities: dict[str, CapabilitySpec] = {}
+    agent_policies: dict[str, AgentPolicySpec] = {}
     surfaces: dict[str, SurfaceSpec] = {}
+
+    for feature in source_spec.features:
+        for policy in feature.agent_policies:
+            _register_canonical("agent policy", agent_policies, policy.id, policy)
 
     for node in nodes:
         if node.id in node_by_id:
@@ -94,6 +104,8 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
     _validate_feature_transition_ownership(source_spec)
     _validate_node_references(nodes, node_by_id, surfaces)
     _validate_operation_references(nodes, operations, providers, guards)
+    _validate_agent_policy_references(source_spec, nodes, agent_policies)
+    _validate_suggested_actions(nodes)
     transitions = _compile_route_entry_transitions(
         nodes=nodes,
         declared_transitions=declared_transitions,
@@ -119,7 +131,16 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         source_spec=source_spec,
         nodes=nodes,
         transitions=transitions,
-        surfaces=surfaces,
+        surfaces={
+            surface_id: FrontendSurfaceContract(
+                id=surface.id,
+                component=surface.component,
+                lifecycle=surface.lifecycle,
+                affordances=surface.affordances,
+                public_props_schema=surface.public_props_schema,
+            )
+            for surface_id, surface in surfaces.items()
+        },
     )
     executable_paths = _derive_executable_test_paths(
         nodes=nodes,
@@ -136,6 +157,7 @@ def compile_app(source_spec: ApplicationSpec) -> CompiledRouteDeckApp:
         operations=operations,
         providers=providers,
         guards=guards,
+        agent_policies=agent_policies,
         surfaces=surfaces,
         routes=routes,
         frontend_contract=frontend_contract,
@@ -166,17 +188,83 @@ def _register_canonical(
 
 
 def _all_surfaces(slots: SurfaceSlotsSpec) -> tuple[SurfaceSpec, ...]:
-    return (
-        slots.active,
-        *slots.frame,
-        *slots.peer,
-        *slots.detail,
-        *slots.form,
-        *slots.review,
-        *slots.status,
-        *slots.error,
-        *slots.diagnostic,
-    )
+    return slots.declared_surfaces()
+
+
+def _validate_agent_policy_references(
+    source_spec: ApplicationSpec,
+    nodes: tuple[NodeSpec, ...],
+    policies: dict[str, AgentPolicySpec],
+) -> None:
+    for feature in source_spec.features:
+        _validate_policy_refs(
+            f"Feature {feature.namespace!r}",
+            feature.policy_refs,
+            policies,
+        )
+    for node in nodes:
+        _validate_policy_refs(f"Node {node.id!r}", node.policy_refs, policies)
+        for operation in node.operations:
+            _validate_policy_refs(
+                f"Operation {operation.id!r}",
+                operation.policy_refs,
+                policies,
+            )
+        for capability in node.capabilities:
+            _validate_policy_refs(
+                f"Capability {capability.id!r}",
+                capability.policy_refs,
+                policies,
+            )
+        for surface in node.surfaces.declared_surfaces():
+            _validate_policy_refs(
+                f"Surface {surface.id!r}",
+                surface.policy_refs,
+                policies,
+            )
+
+
+def _validate_policy_refs(
+    owner: str,
+    refs: tuple[AgentPolicyRef, ...],
+    policies: dict[str, AgentPolicySpec],
+) -> None:
+    identifiers = tuple(ref.id for ref in refs)
+    if len(identifiers) != len(set(identifiers)):
+        raise RouteDeckValidationError(
+            f"{owner} declares the same agent policy more than once"
+        )
+    missing = tuple(identifier for identifier in identifiers if identifier not in policies)
+    if missing:
+        raise RouteDeckValidationError(
+            f"{owner} references missing agent policy {missing!r}"
+        )
+
+
+def _validate_suggested_actions(nodes: tuple[NodeSpec, ...]) -> None:
+    for node in nodes:
+        action_ids = tuple(action.id for action in node.suggested_actions)
+        if len(action_ids) != len(set(action_ids)):
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} declares a suggested action more than once"
+            )
+        operations = {operation.id: operation for operation in node.operations}
+        for action in node.suggested_actions:
+            operation = operations.get(action.operation_id)
+            if operation is None:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} suggested action {action.id!r} references "
+                    "an operation outside the node scope"
+                )
+            try:
+                validator_for(operation.input_schema_value())(
+                    operation.input_schema_value()
+                ).validate(action.arguments_value())
+            except JsonSchemaValidationError as exc:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} suggested action {action.id!r} has "
+                    "arguments outside the operation input contract"
+                ) from exc
 
 
 def _validate_feature_transition_ownership(source_spec: ApplicationSpec) -> None:
@@ -622,7 +710,7 @@ def _build_frontend_contract(
 
 def _frontend_surface_slots(slots: SurfaceSlotsSpec) -> FrontendSurfaceSlots:
     return FrontendSurfaceSlots(
-        active=slots.active.id,
+        active=slots.active.id if slots.active is not None else None,
         frame=tuple(surface.id for surface in slots.frame),
         peer=tuple(surface.id for surface in slots.peer),
         detail=tuple(surface.id for surface in slots.detail),

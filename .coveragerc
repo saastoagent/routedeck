@@ -4,7 +4,7 @@ source =
     routedeck_core
     routedeck_fastapi
     routedeck_langgraph
-    routedeck_sqlite
+    routedeck_sqlalchemy
     routedeck_testing
 
 [report]
@@ -44,11 +44,11 @@ branch_threshold = 85
 [routedeck:coverage_group:persistence]
 source = python
 include =
-    routedeck_sqlite/*.py
+    routedeck_sqlalchemy/*.py
 branch_threshold = 85
 
-[routedeck:coverage_group:event_reducer]
+[routedeck:coverage_group:observable_store]
 source = typescript
 include =
-    packages/core/src/store/reducer.ts
+    packages/core/src/store/observable.ts
 branch_threshold = 85

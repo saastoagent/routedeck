@@ -17,7 +17,7 @@ class ProjectionMode:
     """Canonical operation and surface policy for one session projection."""
 
     legal_operations: tuple[OperationSpec, ...]
-    active_surface: SurfaceSpec
+    active_surface: SurfaceSpec | None
 
 
 def resolve_projection_mode(

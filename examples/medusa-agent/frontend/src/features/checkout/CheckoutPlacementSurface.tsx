@@ -8,6 +8,7 @@ import {
   checkoutString,
 } from "./PaymentMethodSurface";
 import { useCheckoutReviewAuthority } from "./CheckoutReviewAuthority";
+import { CheckoutAffordanceId } from "./affordances";
 
 type CheckoutPlacementProjection =
   | {
@@ -120,7 +121,7 @@ function ReconcilableOrderRecovery({
     setPending(true);
     setError(null);
     void dispatchAffordance(
-      "reconcile_order",
+      CheckoutAffordanceId.ReconcileOrder,
       { order_ref: placement.order_ref },
     )
       .catch((caught: unknown) => {

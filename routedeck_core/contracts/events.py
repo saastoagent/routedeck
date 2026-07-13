@@ -13,7 +13,7 @@ class _FrozenContract(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
 
-class RouteDeckEventKind(StrEnum):
+class RouteDeckEventType(StrEnum):
     SESSION_CREATED = "session_created"
     PROJECTION_CHANGED = "projection_changed"
     NAVIGATION_CHANGED = "navigation_changed"
@@ -38,7 +38,7 @@ class CanonicalRouteDeckEvent(_FrozenContract):
 
     event_id: str = Field(min_length=1)
     cursor: int = Field(ge=1)
-    event_type: RouteDeckEventKind
+    event_type: RouteDeckEventType
     session_id: str = Field(min_length=1)
     session_version: int = Field(ge=0)
     projection_version: int | None = Field(default=None, ge=0)
@@ -56,7 +56,7 @@ class CanonicalRouteDeckEvent(_FrozenContract):
         return self.cursor
 
     @property
-    def type(self) -> RouteDeckEventKind:
+    def type(self) -> RouteDeckEventType:
         return self.event_type
 
 
@@ -87,5 +87,5 @@ __all__ = [
     "EventPage",
     "PublicEventPayload",
     "RouteDeckEvent",
-    "RouteDeckEventKind",
+    "RouteDeckEventType",
 ]

@@ -1,4 +1,9 @@
-import { useCallback, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 export interface ComposerProps {
   disabled: boolean;
@@ -64,16 +69,35 @@ export function Composer({
     }
   }, [onDiscardPending]);
 
+  const submitOnEnter = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        event.nativeEvent.isComposing
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    },
+    [],
+  );
+
   return (
     <form onSubmit={(event) => void submit(event)} data-agent-composer="">
-      <label htmlFor="medusa-agent-message">Message the buyer assistant</label>
+      <label className="visually-hidden" htmlFor="medusa-agent-message">
+        Message the buyer assistant
+      </label>
       <textarea
         id="medusa-agent-message"
         name="message"
         value={draft}
         disabled={disabled || onRetry !== undefined}
-        rows={3}
+        rows={1}
         onChange={(event) => setDraft(event.currentTarget.value)}
+        onKeyDown={submitOnEnter}
       />
       <div>
         {onRetry === undefined ? (

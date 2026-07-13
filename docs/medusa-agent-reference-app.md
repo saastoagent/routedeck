@@ -28,7 +28,7 @@ intent routing, or alternate payment behavior.
 | Immutable application/session/projection/event contracts. | Catalog, cart, checkout, payment, and order declarations. |
 | Compilation and exact binding validation. | Async handlers, providers, guards, and recovery policy. |
 | One supervised operation/review path for UI and agent. | Typed Store API port, HTTP adapter, wire models, and Medusa IDs. |
-| Durable SQLite state, fencing, events, replay, and private blobs. | Region, country, currency, sales channel, and payment-provider configuration. |
+| Durable SQLAlchemy state, fencing, events, replay, and private blobs. | Region, country, currency, sales channel, and payment-provider configuration. |
 | Shareable/session-bound routes, resume capabilities, and exact history. | Product route-entry resolution and public product-handle validation. |
 | Generic HTTP/SSE and headless/React primitives. | Prompt, OpenAI model, product chat SSE, copy, and React product components. |
 
@@ -44,15 +44,19 @@ examples/medusa-agent/
     medusa_agent/
       api/                 # health and product chat
       features/
-        catalog/           # FeatureSpec, models, providers, handlers, guards
-        cart/
-        checkout/
-        orders/
-      medusa/client/       # typed port, HTTP adapter, models, errors
+        catalog/           # declarations/providers/guards + operation slices
+        cart/              # declarations/providers + operation slices
+        checkout/          # models, schemas, providers, guards, operation slices
+        orders/            # confirmation/reconciliation operation slices
+      medusa/client/       # typed port plus endpoint/transport/wire/evidence modules
+      api/                 # chat orchestration, contracts, events, and replay
       agent.py             # product prompt/model/graph composition
-      composition.py       # cross-feature app and dependency composition
+      composition.py       # declarative cross-feature app composition
+      bindings.py          # typed product dependency injection
+      runtime_factory.py   # runner, navigation, and persistence assembly
       config.py            # strict environment contract
-      runtime.py           # live runtime assembly
+      runtime.py           # environment-specific live application assembly
+      identifiers.py       # canonical cross-feature product identifiers
       session.py           # buyer market and product projector
   frontend/src/
     app/                   # bootstrap, chat client, RouteDeck composition
@@ -72,14 +76,23 @@ part of the build context. The protected provisioner continues to own all
 seed/reset decisions and uses the real Store APIs plus `pp_system_default`.
 
 The Python backend declares
-`routedeck-core[fastapi,langgraph,sqlite]` in its own package metadata. Compose
+`routedeck-core[fastapi,langgraph,persistence]` in its own package metadata. Compose
 installs the local core distribution and backend together; root extras are not
 used to conceal backend runtime requirements.
 
 Adding a product feature normally means declaring its `FeatureSpec`, typed
-models, handlers/providers/guards, and React surfaces, then composing it once in
-`composition.py`. Cross-feature behavior is explicit in that composition root;
-no global regex router or hardcoded URL branch infers it.
+models/schemas, operation handlers, providers/guards, and React surfaces. The
+declarations are composed in `composition.py`, implementations are wired in
+`bindings.py`, and the RouteDeck runner is assembled in `runtime_factory.py`.
+Each feature keeps one operation module per buyer action, and `identifiers.py`
+owns repeated cross-feature product IDs. Cross-feature behavior is explicit; no
+global regex router or hardcoded URL branch infers it.
+
+The Store client is likewise layered: `http.py` exposes the typed endpoint
+facade, `transport.py` owns HTTP/authentication and delivery classification,
+`wire.py` owns strict response decoding, and `evidence.py` owns the sanitized
+measurement port. Product chat separates durable turn orchestration from
+request contracts, event/SSE decoding, and mutation replay under `api/`.
 
 ## Compiled Buyer Graph
 
@@ -160,12 +173,12 @@ The active and review slots render in the buyer conversation/workbench. Review
 accept/reject controls use RouteDeck's versioned review API; order placement is
 not treated as complete when the proposal is merely staged.
 
-The session rail mounts RouteDeck's generic `RouteDeckNavGraph`. Its default
-view keeps the current node and available next nodes visible while the full
-Navgraph renders all nine buyer nodes and every compiled transition. The
-expanded map exposes node routes, deep-link policy, surface slots, currently
-legal operations, and outgoing outcomes without adding Medusa-specific graph
-logic or hardcoded edges to the frontend.
+The collapsible right sidebar mounts RouteDeck's generic `RouteDeckNavGraph`.
+Opening it renders the complete sitemap: all nine buyer nodes and every
+compiled transition, with current and reachable nodes highlighted. The overlay
+can expand fullscreen and exposes node routes, deep-link policy, surface slots,
+currently legal operations, and outgoing outcomes without adding
+Medusa-specific graph logic or hardcoded edges to the frontend.
 
 ## Private Checkout
 

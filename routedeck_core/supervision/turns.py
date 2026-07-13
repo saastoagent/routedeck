@@ -12,7 +12,7 @@ from ..contracts.conversation import (
 from ..contracts.events import (
     CanonicalRouteDeckEvent,
     PublicEventPayload,
-    RouteDeckEventKind,
+    RouteDeckEventType,
 )
 from ..contracts.failures import RouteDeckFailure
 from ..contracts.mutations import MutationCommit, MutationKind, MutationStatus
@@ -20,13 +20,8 @@ from ..contracts.projection import FrozenJsonObject
 from ..contracts.session import RouteDeckSession, SessionSnapshot
 from ..ports.notifier import notify_event_wakeup
 from ..ports.session_store import SessionStoreError, SessionStoreErrorCode
+from ..state.aggregate import RouteDeckSessionAggregate
 from ..state.leases import TurnClaim, TurnLease, TurnOwnerKind
-from ..state.reducer import (
-    ConversationTurnsStored,
-    PublicEventsRecorded,
-    PublicSessionStateStored,
-    reduce_session_batch,
-)
 from ..state.session import require_compatible_session
 
 
@@ -60,16 +55,15 @@ class TurnLifecycleMixin:
         if any(item.request_id != turn.request_id for item in finalized):
             raise ValueError("finalized content belongs to another turn")
         session = (await self.store.load(turn.session_id)).state
-        next_state = reduce_session_batch(
-            session,
-            (
-                ConversationTurnsStored(turns=finalized),
-                PublicEventsRecorded(count=1),
-            ),
+        next_state = (
+            RouteDeckSessionAggregate(session)
+            .append_conversation_turns(finalized)
+            .record_public_events(1)
+            .commit()
         )
         event = self._turn_event(
             state=next_state,
-            event_type=RouteDeckEventKind.TURN_FINALIZED,
+            event_type=RouteDeckEventType.TURN_FINALIZED,
             request_id=turn.request_id,
             status_code=next_state.public_state.status_code,
         )
@@ -110,17 +104,16 @@ class TurnLifecycleMixin:
                 "failure": failure,
             }
         )
-        next_state = reduce_session_batch(
-            session,
-            (
-                ConversationTurnsStored(turns=(interrupted,)),
-                PublicSessionStateStored(state=public_state),
-                PublicEventsRecorded(count=1),
-            ),
+        next_state = (
+            RouteDeckSessionAggregate(session)
+            .append_conversation_turns((interrupted,))
+            .set_public_state(public_state)
+            .record_public_events(1)
+            .commit()
         )
         event = self._turn_event(
             state=next_state,
-            event_type=RouteDeckEventKind.TURN_INTERRUPTED,
+            event_type=RouteDeckEventType.TURN_INTERRUPTED,
             request_id=turn.request_id,
             status_code=public_state.status_code,
             failure=failure,
@@ -149,7 +142,7 @@ class TurnLifecycleMixin:
         self,
         *,
         state: RouteDeckSession,
-        event_type: RouteDeckEventKind,
+        event_type: RouteDeckEventType,
         request_id: str,
         status_code: str,
         failure: RouteDeckFailure | None = None,

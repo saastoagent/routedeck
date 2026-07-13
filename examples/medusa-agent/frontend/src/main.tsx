@@ -43,7 +43,10 @@ async function start(): Promise<void> {
   });
   const chatClient = createAgentChatClient();
   const renderApp = async () => {
-    const initialConversation = await chatClient.loadConversation();
+    const initialConversation = await loadInitialConversation(
+      routeDeck,
+      chatClient,
+    );
     root.render(
       <React.StrictMode>
         <App
@@ -100,6 +103,41 @@ async function start(): Promise<void> {
   } catch {
     renderRecovery();
   }
+}
+
+async function loadInitialConversation(
+  routeDeck: MedusaRouteDeck,
+  chatClient: ReturnType<typeof createAgentChatClient>,
+) {
+  const existing = await chatClient.loadConversation();
+  if (existing.length > 0) return existing;
+  const sessionVersion = routeDeck.store.getState().sessionVersion;
+  if (sessionVersion === null) {
+    throw new AgentChatError(
+      "routedeck_session_unavailable",
+      "The RouteDeck session is unavailable for the buyer greeting.",
+    );
+  }
+  const entry = await chatClient.startConversation({
+    request_id: entryRequestId(),
+    expected_session_version: sessionVersion,
+  });
+  await routeDeck.store.synchronizeTo({
+    sessionVersion: entry.sessionVersion,
+    projectionVersion: entry.projectionVersion,
+  });
+  return entry.turns;
+}
+
+function entryRequestId(): string {
+  const identifier = globalThis.crypto.randomUUID();
+  if (!identifier) {
+    throw new AgentChatError(
+      "entry_request_id_unavailable",
+      "The browser could not create a buyer greeting request ID.",
+    );
+  }
+  return `entry_${identifier}`;
 }
 
 function isMissingOrExpiredSession(error: unknown): boolean {

@@ -24,7 +24,7 @@ class Settings(BaseModel):
     medusa_country_code: str = Field(min_length=2, max_length=2)
     medusa_sales_channel_id: str = Field(min_length=1)
     medusa_payment_provider_id: str = Field(min_length=1)
-    routedeck_database_path: Path
+    routedeck_database_url: str = Field(min_length=1)
     routedeck_state_encryption_key: SecretStr
     openai_api_key: SecretStr | None
     openai_model: str = Field(min_length=1)
@@ -53,7 +53,7 @@ _ENV_FIELDS = frozenset(
         "MEDUSA_COUNTRY_CODE",
         "MEDUSA_SALES_CHANNEL_ID",
         "MEDUSA_PAYMENT_PROVIDER_ID",
-        "ROUTEDECK_DATABASE_PATH",
+        "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
         "OPENAI_API_KEY",
         "OPENAI_MODEL",
@@ -68,7 +68,7 @@ _FIELD_BY_ENV = {
     "MEDUSA_COUNTRY_CODE": "medusa_country_code",
     "MEDUSA_SALES_CHANNEL_ID": "medusa_sales_channel_id",
     "MEDUSA_PAYMENT_PROVIDER_ID": "medusa_payment_provider_id",
-    "ROUTEDECK_DATABASE_PATH": "routedeck_database_path",
+    "ROUTEDECK_DATABASE_URL": "routedeck_database_url",
     "ROUTEDECK_STATE_ENCRYPTION_KEY": "routedeck_state_encryption_key",
     "OPENAI_MODEL": "openai_model",
     "MEDUSA_TIMEOUT_SECONDS": "medusa_timeout_seconds",

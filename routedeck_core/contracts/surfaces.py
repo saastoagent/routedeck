@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 from pydantic import model_validator
 
+from .agent import AgentPolicyRef
 from .operations import OperationRef
 from .projection import FrozenJsonObject
 
@@ -92,6 +93,7 @@ class SurfaceSpec(_FrozenContract):
     component: str = Field(min_length=1)
     lifecycle: SurfaceLifecycle = SurfaceLifecycle.EPHEMERAL
     affordances: tuple[SurfaceAffordanceSpec, ...] = ()
+    policy_refs: tuple[AgentPolicyRef, ...] = ()
     public_props_schema: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
@@ -125,7 +127,7 @@ class SurfaceSpec(_FrozenContract):
 
 
 class SurfaceSlotsSpec(_FrozenContract):
-    active: SurfaceSpec
+    active: SurfaceSpec | None = None
     frame: tuple[SurfaceSpec, ...] = ()
     peer: tuple[SurfaceSpec, ...] = ()
     detail: tuple[SurfaceSpec, ...] = ()
@@ -137,7 +139,7 @@ class SurfaceSlotsSpec(_FrozenContract):
 
     def declared_surfaces(self) -> tuple[SurfaceSpec, ...]:
         ordered = (
-            self.active,
+            *((self.active,) if self.active is not None else ()),
             *self.frame,
             *self.peer,
             *self.detail,

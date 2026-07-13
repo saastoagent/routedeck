@@ -28,6 +28,9 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
+from routedeck_core.contracts.suggestions import SuggestedActionSpec
+
+from ...identifiers import MedusaOperationType, MedusaSuggestedActionType
 
 from .models import (
     CATALOG_COLLECTION_PROVIDER_SCHEMA,
@@ -65,7 +68,7 @@ VARIANT_ALLOWED_GUARD = GuardSpec(
 )
 
 CATALOG_LIST = OperationSpec(
-    id="catalog.list",
+    id=MedusaOperationType.CATALOG_LIST,
     title="Browse products",
     description="Load the authoritative product collection for browsing.",
     input_schema=FrozenJsonObject(
@@ -77,7 +80,7 @@ CATALOG_LIST = OperationSpec(
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
 CATALOG_SEARCH = OperationSpec(
-    id="catalog.search",
+    id=MedusaOperationType.CATALOG_SEARCH,
     title="Search products",
     description="Search the authoritative product collection.",
     input_schema=FrozenJsonObject(
@@ -94,7 +97,7 @@ CATALOG_SEARCH = OperationSpec(
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
 OPEN_PRODUCT = OperationSpec(
-    id="catalog.open_product",
+    id=MedusaOperationType.CATALOG_OPEN_PRODUCT,
     title="Open product",
     description=(
         "Open product detail using the exact opaque product entity handle from "
@@ -126,7 +129,7 @@ OPEN_PRODUCT = OperationSpec(
     guard_refs=(PUBLIC_PRODUCT_GUARD.ref,),
 )
 OPEN_PRODUCT_BY_ROUTE = OperationSpec(
-    id="catalog.open_product_by_route",
+    id=MedusaOperationType.CATALOG_OPEN_PRODUCT_BY_ROUTE,
     title="Open product route",
     description="Resolve and open one product from its exact public route handle.",
     input_schema=FrozenJsonObject(
@@ -143,7 +146,7 @@ OPEN_PRODUCT_BY_ROUTE = OperationSpec(
     provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
 )
 SELECT_VARIANT = OperationSpec(
-    id="catalog.select_variant",
+    id=MedusaOperationType.CATALOG_SELECT_VARIANT,
     title="Select variant",
     description="Bind one current allowlisted product variant.",
     input_schema=FrozenJsonObject(
@@ -164,7 +167,7 @@ SELECT_VARIANT = OperationSpec(
     guard_refs=(VARIANT_ALLOWED_GUARD.ref,),
 )
 CONTINUE_SHOPPING = OperationSpec(
-    id="catalog.continue_shopping",
+    id=MedusaOperationType.CATALOG_CONTINUE_SHOPPING,
     title="Continue shopping",
     description="Return to catalog browsing after confirmation.",
     safety_class=SafetyClass.NAVIGATION,
@@ -183,15 +186,9 @@ BUYER_FRAME = SurfaceSpec(
     component="buyer.frame",
     lifecycle=SurfaceLifecycle.STABLE,
 )
-BUYER_WELCOME = SurfaceSpec(
-    id="buyer.welcome",
-    component="buyer.welcome",
-    lifecycle=SurfaceLifecycle.STABLE,
-    affordances=(
-        SurfaceAffordanceSpec(
-            id="browse_products", event="open", operation=CATALOG_LIST.ref
-        ),
-    ),
+BROWSE_PRODUCTS_ACTION = SuggestedActionSpec(
+    id=MedusaSuggestedActionType.BROWSE_PRODUCTS,
+    operation_id=CATALOG_LIST.id,
 )
 CATALOG_FRAME = SurfaceSpec(
     id="catalog.frame",
@@ -245,7 +242,6 @@ BUYER_CAPABILITY = CapabilitySpec(
     id="buyer.start",
     title="Start buyer journey",
     operations=(CATALOG_LIST.ref,),
-    surfaces=(BUYER_WELCOME.ref,),
 )
 CATALOG_CAPABILITY = CapabilitySpec(
     id="catalog.browse",
@@ -274,12 +270,13 @@ BUYER_HOME_NODE = NodeSpec(
     operations=(CATALOG_LIST,),
     capabilities=(BUYER_CAPABILITY,),
     surfaces=SurfaceSlotsSpec(
-        active=BUYER_WELCOME,
+        active=None,
         frame=(BUYER_FRAME,),
         status=(CATALOG_STATUS,),
         error=(CATALOG_ERROR,),
         diagnostic=(CATALOG_DIAGNOSTIC,),
     ),
+    suggested_actions=(BROWSE_PRODUCTS_ACTION,),
     recovery=RecoveryPolicySpec(
         directives=("retry_catalog",), failure_surface=CATALOG_ERROR.ref
     ),
@@ -381,6 +378,7 @@ FEATURE_SPEC = FeatureSpec(
 
 
 __all__ = [
+    "BROWSE_PRODUCTS_ACTION",
     "BUYER_HOME_NODE",
     "CATALOG_BROWSE_NODE",
     "CATALOG_LIST",

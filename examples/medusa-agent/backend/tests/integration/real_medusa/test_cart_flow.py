@@ -9,10 +9,8 @@ from uuid import uuid4
 
 import pytest
 
-from medusa_agent.composition import (
-    compile_medusa_app_spec,
-    open_persistent_medusa_runtime,
-)
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.config import Settings
 from medusa_agent.features.cart.feature import CART_SUMMARY
 from medusa_agent.medusa.client import HttpMedusaStoreClient
@@ -199,7 +197,10 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
     notifier = _RecordingNotifier()
     session_id = f"cart-flow-{uuid4().hex}"
     runtime = await open_persistent_medusa_runtime(
-        database_path=tmp_path / "cart-flow.sqlite",
+        database_url=(
+            "sqlite+pysqlite:///"
+            + (tmp_path / "cart-flow.sqlite").as_posix()
+        ),
         encryption_key=settings.routedeck_state_encryption_key.get_secret_value(),
         instance_id=f"cart-flow-instance-{uuid4().hex}",
         client=client,  # type: ignore[arg-type]

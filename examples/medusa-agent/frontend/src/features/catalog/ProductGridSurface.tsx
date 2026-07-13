@@ -16,6 +16,7 @@ import {
   decodeCatalogProductCard,
   type CatalogProductCardProjection,
 } from "./ProductCard";
+import { CatalogAffordanceId } from "./affordances";
 
 interface CatalogGridProjection {
   products: CatalogProductCardProjection[];
@@ -38,16 +39,18 @@ export function ProductGridSurface({
       event.preventDefault();
       const submittedQuery = query.trim();
       if (!submittedQuery) return;
-      await dispatchAffordance("search_products", { query: submittedQuery });
+      await dispatchAffordance(CatalogAffordanceId.SearchProducts, {
+        query: submittedQuery,
+      });
     },
     [dispatchAffordance, query],
   );
   const clearSearch = useCallback(async () => {
-    await dispatchAffordance("clear_search", {});
+    await dispatchAffordance(CatalogAffordanceId.ClearSearch, {});
   }, [dispatchAffordance]);
   const openProduct = useCallback(
     async (interactionHandle: string) => {
-      await dispatchAffordance("open_product", {
+      await dispatchAffordance(CatalogAffordanceId.OpenProduct, {
         product_ref: interactionHandle,
       });
     },

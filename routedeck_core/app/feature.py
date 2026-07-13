@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..contracts.agent import AgentPolicyRef, AgentPolicySpec
 from ..contracts.application import NodeSpec
 from ..contracts.navigation import NodeRef, TransitionSpec
 
@@ -14,6 +15,8 @@ class FeatureSpec(_FrozenContract):
     namespace: str = Field(min_length=1)
     nodes: tuple[NodeSpec, ...]
     transitions: tuple[TransitionSpec, ...] = ()
+    agent_policies: tuple[AgentPolicySpec, ...] = ()
+    policy_refs: tuple[AgentPolicyRef, ...] = ()
 
 
 class ApplicationSpec(_FrozenContract):

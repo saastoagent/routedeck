@@ -40,19 +40,37 @@ Backend business code is feature-local:
 ```text
 backend/medusa_agent/
   features/
-    catalog/             # product routes, handlers, providers, guards
-    cart/                # cart creation and mutation
-    checkout/            # private contact, shipping, payment, review
-    orders/              # confirmation and reconciliation
+    catalog/             # declarations/providers/guards + operation slices
+    cart/                # cart declarations/providers + operation slices
+    checkout/            # models/schemas/guards/providers + operation slices
+    orders/              # confirmation/reconciliation operation slices
   medusa/client/
     protocol.py          # typed MedusaStoreClient port
-    http.py              # sole Store URL/header/HTTP owner
+    http.py              # endpoint-oriented Store API facade
+    transport.py         # HTTP/auth and delivery classification
+    wire.py              # strict response decoding helpers
+    evidence.py          # sanitized measured-call evidence port
     models.py            # strict wire and result models
     errors.py            # product client contract errors
-  composition.py         # cross-feature composition and dependency injection
-  runtime.py             # live RouteDeck/Medusa assembly
+  api/
+    chat.py              # durable chat-turn orchestration
+    chat_contract.py     # request and dependency contracts
+    chat_events.py       # model-event decoding and SSE frames
+    chat_replay.py       # mutation replay and HTTP boundary
+  composition.py         # declarative cross-feature app composition
+  bindings.py            # typed product dependency injection
+  runtime_factory.py     # runner, navigation, and persistence assembly
+  runtime.py             # environment-specific live assembly
   agent.py               # prompt, model, and LangGraph agent composition
+  identifiers.py         # canonical cross-feature product identifiers
 ```
+
+Feature declarations are composed once in `composition.py`, implementations
+are wired once in `bindings.py`, and framework runtime construction lives in
+`runtime_factory.py`. Product behavior is organized under each feature's
+`operations/` package, one module per buyer operation; cross-feature IDs live in
+`identifiers.py`. No global regex router or hardcoded URL branch infers product
+behavior.
 
 The adjacent `medusa/` directory is infrastructure for the real demo Store API,
 not RouteDeck framework code or buyer-agent business logic. It owns the pinned
@@ -60,9 +78,11 @@ Medusa package graph, strict server configuration, and canonical protected demo
 seed. `infra/` owns the sentinel, seed fingerprint, manifest, and scoped
 provision/reset policy.
 
-There are no Store URLs or HTTP calls in feature handlers. Handlers depend on
-the typed `MedusaStoreClient` protocol. `HttpMedusaStoreClient` validates wire
-shapes, returns sanitized typed failures, and preserves delivery evidence as
+There are no Store URLs or HTTP calls in feature operations. Operations depend
+on the typed `MedusaStoreClient` protocol. `HttpMedusaStoreClient` is the
+endpoint facade; its transport, wire decoding, and evidence responsibilities
+are separate modules. Together they return sanitized typed failures and
+preserve delivery evidence as
 `not_sent`, `possibly_sent`, or `response_received`. The browser calls only the
 product API and generic RouteDeck API; it never calls `/store/*` directly.
 
@@ -199,7 +219,7 @@ MEDUSA_REGION_ID
 MEDUSA_COUNTRY_CODE
 MEDUSA_SALES_CHANNEL_ID
 MEDUSA_PAYMENT_PROVIDER_ID
-ROUTEDECK_DATABASE_PATH
+ROUTEDECK_DATABASE_URL
 ROUTEDECK_STATE_ENCRYPTION_KEY
 OPENAI_MODEL
 ```

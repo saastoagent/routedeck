@@ -17,9 +17,9 @@ routedeck/
     navigation/          # routes, deep links, exact history transactions
     ports/               # executor, store, notifier, clock protocols
     projection/          # default-deny public projection
-    state/               # canonical session reducers and lifecycle rules
+    state/               # canonical session aggregate and lifecycle rules
     supervision/         # turns, guards, review, outcomes, operation runner
-  routedeck_sqlite/      # durable single-host store and sensitive codec
+  routedeck_sqlalchemy/  # SQLite/PostgreSQL ORM store and sensitive codec
   routedeck_fastapi/     # generic HTTP and SSE transport
   routedeck_langgraph/   # optional middleware and supervised tool adapter
   routedeck_testing/     # Python conformance and test-only support
@@ -58,7 +58,7 @@ routedeck/
 | Path | Owns | Must not own |
 | --- | --- | --- |
 | `routedeck_core/` | Generic contracts, canonical state, supervision, projection, navigation, and ports. | Product prompts, domain APIs, commerce rules, or React product components. |
-| `routedeck_sqlite/` | Durable sessions, attempts, reviews, events, leases, private blobs, migrations, and encryption. | Product recovery policy or alternate execution paths. |
+| `routedeck_sqlalchemy/` | Portable ORM models and operation-centric repositories for sessions, attempts, reviews, events, leases, private blobs, migrations, and encryption. | Product recovery policy or alternate execution paths. |
 | `routedeck_fastapi/` | Generic `/api/routedeck/*` transport and typed SSE. | Medusa routes or product response schemas. |
 | `routedeck_langgraph/` | Model-context filtering and supervised tool-call integration. | Product graph topology, prompts, model selection, or state authority. |
 | `packages/core/` | Typed browser client, store, route/history synchronization, and private-form state. | React rendering or product-specific route inference. |

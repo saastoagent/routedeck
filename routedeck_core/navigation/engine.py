@@ -8,14 +8,9 @@ from ..app import CompiledRouteDeckApp
 from ..contracts.application import NodeSpec
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, LocationParameter, RouteDeckSession
-from ..state.session import require_compatible_session
+from ..state.aggregate import RouteDeckSessionAggregate
 from ..state.history import move_back, move_forward
-from ..state.reducer import (
-    HistoryReplaced,
-    NodeEntered,
-    PublicSessionStateStored,
-    reduce_session_batch,
-)
+from ..state.session import require_compatible_session
 from ..state.surfaces import surface_state_for_node
 from ..validation import RouteDeckValidationError
 from .deep_links import DeepLinkEngine
@@ -79,11 +74,7 @@ class NavigationEngine:
                 for name in declared_names
             ),
         )
-        return self._apply_location_change(
-            session,
-            NodeEntered(location=location),
-            target_node,
-        )
+        return self._enter_location(session, location, target_node)
 
     def back(
         self,
@@ -118,14 +109,12 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        return self._apply_location_change(
+        return self._replace_history(
             session,
-            HistoryReplaced(
-                current=history.current,
-                back_stack=history.back_stack,
-                forward_stack=history.forward_stack,
-            ),
-            self._node(history.current.node_id),
+            current=history.current,
+            back_stack=history.back_stack,
+            forward_stack=history.forward_stack,
+            target_node=self._node(history.current.node_id),
         )
 
     def forward(
@@ -161,14 +150,12 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        return self._apply_location_change(
+        return self._replace_history(
             session,
-            HistoryReplaced(
-                current=history.current,
-                back_stack=history.back_stack,
-                forward_stack=history.forward_stack,
-            ),
-            self._node(history.current.node_id),
+            current=history.current,
+            back_stack=history.back_stack,
+            forward_stack=history.forward_stack,
+            target_node=self._node(history.current.node_id),
         )
 
     def cancel(
@@ -207,14 +194,12 @@ class NavigationEngine:
                 public_key_validator=public_key_validator,
                 now=now,
             )
-            return self._apply_location_change(
+            return self._replace_history(
                 session,
-                HistoryReplaced(
-                    current=history.current,
-                    back_stack=history.back_stack,
-                    forward_stack=history.forward_stack,
-                ),
-                self._node(history.current.node_id),
+                current=history.current,
+                back_stack=history.back_stack,
+                forward_stack=history.forward_stack,
+                target_node=self._node(history.current.node_id),
             )
         return self.open(
             session,
@@ -275,20 +260,43 @@ class NavigationEngine:
             public_key_validator=public_key_validator,
             now=now,
         )
-        return self._apply_location_change(
+        return self._replace_history(
             session,
-            HistoryReplaced(
-                current=target,
-                back_stack=tuple(timeline[:target_index]),
-                forward_stack=tuple(reversed(timeline[target_index + 1 :])),
-            ),
-            self._node(target.node_id),
+            current=target,
+            back_stack=tuple(timeline[:target_index]),
+            forward_stack=tuple(reversed(timeline[target_index + 1 :])),
+            target_node=self._node(target.node_id),
         )
 
-    def _apply_location_change(
+    def _enter_location(
         self,
         session: RouteDeckSession,
-        event: NodeEntered | HistoryReplaced,
+        location: Location,
+        target_node: NodeSpec,
+    ) -> RouteDeckSession:
+        aggregate = RouteDeckSessionAggregate(session).enter_node(location)
+        return self._retain_surface_state(aggregate, session, target_node)
+
+    def _replace_history(
+        self,
+        session: RouteDeckSession,
+        *,
+        current: Location,
+        back_stack: tuple[Location, ...],
+        forward_stack: tuple[Location, ...],
+        target_node: NodeSpec,
+    ) -> RouteDeckSession:
+        aggregate = RouteDeckSessionAggregate(session).replace_history(
+            current=current,
+            back_stack=back_stack,
+            forward_stack=forward_stack,
+        )
+        return self._retain_surface_state(aggregate, session, target_node)
+
+    def _retain_surface_state(
+        self,
+        aggregate: RouteDeckSessionAggregate,
+        session: RouteDeckSession,
         target_node: NodeSpec,
     ) -> RouteDeckSession:
         retained_surface_state = surface_state_for_node(
@@ -299,13 +307,7 @@ class NavigationEngine:
         public_state = session.public_state.model_copy(
             update={"surface_state": retained_surface_state}
         )
-        return reduce_session_batch(
-            session,
-            (
-                event,
-                PublicSessionStateStored(state=public_state),
-            ),
-        )
+        return aggregate.set_public_state(public_state).commit()
 
     def _node(self, node_id: str) -> NodeSpec:
         node = next(
