@@ -8,12 +8,13 @@ import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk
 from pydantic import SecretStr
 
-from medusa_agent.api.chat import (
+from medusa_agent.agent_driver import MedusaLangGraphAgentDriver
+from routedeck_fastapi import (
     ChatStreamRequest,
-    MedusaChatDependencies,
-    _log_chat_failure,
+    RouteDeckConversationDependencies,
     stream_agent_chat,
 )
+from routedeck_fastapi.conversation_stream import _log_failure
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.state.leases import TurnLease
@@ -145,9 +146,9 @@ class _StreamingAgent:
 def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -> None:
     secret = "private-cart-id-must-not-enter-logs"
 
-    with caplog.at_level(logging.ERROR, logger="medusa_agent.api.chat"):
-        _log_chat_failure(
-            "medusa_chat_stream_failed",
+    with caplog.at_level(logging.ERROR, logger="routedeck_fastapi.conversation"):
+        _log_failure(
+            "routedeck_chat_stream_failed",
             request_id="chat-safe-log",
             error=RuntimeError(secret),
         )
@@ -155,7 +156,8 @@ def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -
     records = [
         record
         for record in caplog.records
-        if record.getMessage() == "medusa_chat_stream_failed error_type=RuntimeError"
+        if record.getMessage()
+        == "routedeck_chat_stream_failed error_type=RuntimeError"
     ]
     assert len(records) == 1
     record = records[0]
@@ -176,9 +178,9 @@ async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
     snapshot = SessionSnapshot(state=session)
     store = _StreamingStore(snapshot)
     runner = _StreamingRunner(store)
-    dependencies = MedusaChatDependencies(
+    dependencies = RouteDeckConversationDependencies(
         routedeck=SimpleNamespace(runner=runner, store=store),  # type: ignore[arg-type]
-        agent=_StreamingAgent(),
+        agent=MedusaLangGraphAgentDriver(agent=_StreamingAgent(), runner=runner),  # type: ignore[arg-type]
     )
     stream = stream_agent_chat(
         dependencies=dependencies,
@@ -213,9 +215,9 @@ async def test_interrupt_persistence_failure_is_reported_as_outcome_unknown(
     snapshot = SessionSnapshot(state=session)
     store = _FailingInterruptStore(snapshot)
     runner = _FailingInterruptRunner(store)
-    dependencies = MedusaChatDependencies(
+    dependencies = RouteDeckConversationDependencies(
         routedeck=SimpleNamespace(runner=runner, store=store),  # type: ignore[arg-type]
-        agent=_FailingAgent(),
+        agent=MedusaLangGraphAgentDriver(agent=_FailingAgent(), runner=runner),  # type: ignore[arg-type]
     )
 
     frames = [

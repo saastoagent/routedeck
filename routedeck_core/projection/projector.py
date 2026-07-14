@@ -107,6 +107,7 @@ class ProjectionProjector:
             projection_version=session.projection_version,
             event_cursor=session.event_cursor,
             current=projection_location,
+            interaction=session.interaction,
             navigation=ProjectedNavigation(
                 current=projection_location,
                 current_entry_id=self._current_entry_id(session),

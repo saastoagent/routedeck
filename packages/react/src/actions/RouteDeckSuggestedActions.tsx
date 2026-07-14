@@ -26,6 +26,7 @@ export function RouteDeckSuggestedActions({
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const actions = projection?.suggested_actions ?? [];
+  const interactionBusy = projection?.interaction.phase === "active";
 
   const activate = useCallback(
     async (action: RouteDeckProjectedSuggestedAction) => {
@@ -48,7 +49,7 @@ export function RouteDeckSuggestedActions({
   return (
     <div
       aria-label="Suggested actions"
-      aria-busy={mutation.inFlight}
+      aria-busy={mutation.inFlight || interactionBusy}
       className={className}
       data-routedeck-suggested-actions=""
     >
@@ -57,7 +58,7 @@ export function RouteDeckSuggestedActions({
           <button
             key={action.action_id}
             type="button"
-            disabled={disabled || mutation.inFlight}
+            disabled={disabled || mutation.inFlight || interactionBusy}
             data-routedeck-suggested-action={action.action_id}
             onClick={() => void activate(action)}
           >

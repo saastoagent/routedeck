@@ -17,6 +17,7 @@ export type RouteDeckEventType =
   | "navigation_changed"
   | "operation_changed"
   | "private_form_changed"
+  | "turn_started"
   | "turn_finalized"
   | "turn_interrupted";
 export type Name = string;
@@ -126,6 +127,8 @@ export type NavgraphVersion = string;
 export type SchemaVersion = number;
 export type Entities = PublicEntityHandle[];
 export type EventCursor = number;
+export type RouteDeckInteractionOwnerType = "chat" | "surface" | "review" | "system" | "navigation";
+export type RouteDeckInteractionPhase = "idle" | "active";
 export type OperationId5 = string;
 export type ReviewRequired = boolean;
 export type SafetyClass = string;
@@ -331,6 +334,7 @@ export interface PublicProjection {
   entities: Entities;
   event_cursor: EventCursor;
   failure?: RouteDeckFailure | null;
+  interaction: RouteDeckInteractionState;
   legal_operations: LegalOperations;
   navigation: ProjectedNavigation;
   projection_version: ProjectionVersion2;
@@ -348,6 +352,10 @@ export interface ProjectionDiagnostics {
   declared_provider_ids?: DeclaredProviderIds;
   navgraph_version: NavgraphVersion;
   schema_version: SchemaVersion;
+}
+export interface RouteDeckInteractionState {
+  owner?: RouteDeckInteractionOwnerType | null;
+  phase?: RouteDeckInteractionPhase;
 }
 export interface ProjectedOperation {
   operation_id: OperationId5;

@@ -22,6 +22,11 @@ from .effects import (
     SessionEffects,
 )
 from .failures import FailureKind, FailureSafeDetails, RouteDeckFailure
+from .interactions import (
+    RouteDeckInteractionOwnerType,
+    RouteDeckInteractionPhase,
+    RouteDeckInteractionState,
+)
 from .navigation import (
     DeepLinkPolicy,
     DirtyStatePolicy,
@@ -150,6 +155,9 @@ __all__ = [
     "ReviewResolution",
     "ResumeCapabilityBinding",
     "RouteDeckFailure",
+    "RouteDeckInteractionOwnerType",
+    "RouteDeckInteractionPhase",
+    "RouteDeckInteractionState",
     "RouteDeckRetentionPolicy",
     "RouteDeckEventType",
     "RouteDeckEvent",

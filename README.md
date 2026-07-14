@@ -132,6 +132,13 @@ model/tool orchestration layer. RouteDeck exports no topology builder because
 creating a second graph from the navgraph would introduce a second state
 authority.
 
+RouteDeck also owns the conversation controller and browser lifecycle:
+`POST /api/routedeck/chat` wraps an injected product agent driver with the
+durable turn lease, replay, persistence, SSE protocol, and authoritative
+interaction handshake. A product driver translates its model runtime into
+typed text/reset/review/completion events; it does not own HTTP or session
+commits.
+
 Install the optional integration with the other local framework packages:
 
 ```powershell

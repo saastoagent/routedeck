@@ -34,6 +34,7 @@ export function routeDeckProjectionFixture(options: {
     entities: [],
     event_cursor: options.eventCursor ?? 0,
     failure: null,
+    interaction: { phase: "idle", owner: null },
     legal_operations: [],
     suggested_actions: [],
     navigation: {

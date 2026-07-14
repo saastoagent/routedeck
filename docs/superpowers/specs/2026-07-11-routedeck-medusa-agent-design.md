@@ -1,6 +1,6 @@
 # RouteDeck And Medusa Buyer Agent Design
 
-Status: Approved; implementation plan active
+Status: Approved; amended by ADR-005; implementation in architecture-cleanup closeout
 Date: 2026-07-11
 Scope: Replace the existing `examples/medusa-agent` implementation with a clean standalone RouteDeck-backed Medusa buyer agent.
 
@@ -34,7 +34,7 @@ The existing Medusa example is replaced in place. Its code is not the architectu
 - active, frame, peer, detail, form, review, and diagnostic surface mechanics
 - surface lifecycle, affordance resolution, and deep-link primitives
 - scoped agent context and legal-tool exposure
-- visible entity bindings and operation-specific real-ID allowlists
+- classified private entity bindings, scoped public handles, and operation-specific allowlists
 - guard evaluation, blocked feedback, needs-input state, and review lifecycle
 - pending-operation and tool-execution status
 - state needed across turns, navigation, reconnects, or reloads
@@ -151,10 +151,16 @@ routedeck_fastapi/
   sse.py
   dependencies.py
 
-routedeck_sqlite/
+routedeck_sqlalchemy/
   store.py
-  schema.py
-  migrations.py
+  models.py
+  database.py
+  runtime.py
+  sessions.py
+  turns.py
+  operations.py
+  commits.py
+  recovery.py
   codec.py
 
 routedeck_testing/
@@ -168,8 +174,8 @@ routedeck_testing/
 
 ```text
 @routedeck/core
-  store
-  event reducer
+  observable state and named store actions
+  event coordinator
   client
   route and deep-link codec
   selectors
@@ -209,8 +215,10 @@ examples/medusa-agent/
         checkout/
         orders/
       api/
-        chat.py
+        entry.py
         health.py
+      agent_driver.py
+      entry_conversation.py
 
   frontend/
     src/
@@ -354,7 +362,7 @@ A rejected review stays on `checkout.review`. A failed completion also stays on 
 
 ### Durable Authority
 
-`routedeck_core` defines a transactional `RouteDeckSessionStore` port. The standalone release supplies `routedeck_sqlite` as a reusable reference adapter rather than putting generic persistence inside the Medusa application.
+`routedeck_core` defines a transactional `RouteDeckSessionStore` port. The standalone release supplies `routedeck_sqlalchemy` as a reusable ORM adapter with explicit SQLite and PostgreSQL URL support rather than putting generic persistence inside the Medusa application.
 
 The store persists:
 
@@ -368,9 +376,9 @@ The store persists:
 
 This is snapshot-plus-event-log persistence, not full event sourcing. Each accepted state mutation atomically updates the canonical snapshot and appends the corresponding public outbox events. The event table is the source for SSE replay; an in-process notifier may wake waiting streams but is never the durable source of truth.
 
-The reference SQLite adapter runs in WAL mode and supports one application worker. Configuration that attempts multiple workers fails startup. Horizontal or multi-worker deployment is outside v1 and requires a different `RouteDeckSessionStore` adapter; it must not be simulated with in-memory coordination.
+The SQLAlchemy adapter supports SQLite and PostgreSQL explicitly and currently supports one application worker. Configuration that attempts multiple workers fails startup. SQLite is configured in WAL mode; both dialect paths use the same ORM-backed store contract. Horizontal or multi-worker deployment is outside v1 and requires an explicitly upgraded persistence/runtime contract; it must not be simulated with in-memory coordination.
 
-The adapter enforces that limit with a database-backed application-instance lease acquired through an atomic SQLite write; a second live RouteDeck process fails startup. The lease has an explicit heartbeat, stale-owner policy, and monotonically increasing fencing token checked by every state write and execution claim so an old paused process cannot resume after replacement. Write paths use short `BEGIN IMMEDIATE` transactions, compare-and-swap predicates, persisted execution claims, a typed `busy_timeout` setting with a five-second standalone default, and bounded cleanup batches. Concurrent browser tabs, SSE readers, and cleanup never bypass the session lease or mutation CAS rules.
+The adapter enforces that limit with a database-backed application-instance lease; a second live RouteDeck process fails startup. The lease has an explicit heartbeat, stale-owner policy, and monotonically increasing fencing token checked by every state write and execution claim so an old paused process cannot resume after replacement. Write paths use ORM transactions, compare-and-swap predicates, persisted execution claims, and bounded cleanup batches. The SQLite dialect additionally uses short write transactions and a typed `busy_timeout` setting with a five-second standalone default. Concurrent browser tabs, SSE readers, and cleanup never bypass the session lease or mutation CAS rules.
 
 The shipped application does not use LangGraph `InMemorySaver` or another independent state authority. Each LangGraph turn is request-scoped and is reconstructed from RouteDeck-owned conversation and tool history. An eventual resumable LangGraph checkpointer must adapt to the RouteDeck store rather than owning a competing session record.
 
@@ -409,11 +417,11 @@ The frontend synchronizes deterministically:
 2. connect to the session event stream after that cursor
 3. replay every later durable event before following live events
 
-SSE frames contain an event cursor, type, session version, optional projection version, and an allowlisted public payload. Browser reconnect uses `Last-Event-ID`, and the frontend reducer ignores duplicate cursors. A detected cursor gap puts the store into `resync_required` and performs the declared snapshot-resynchronization protocol without replaying any product operation. If the cursor is outside retention, the server emits `stream_reset_required` and closes the stream. Heartbeats are cursor-free SSE comments.
+SSE frames contain an event cursor, type, session version, optional projection version, and an allowlisted public payload. Browser reconnect uses `Last-Event-ID`, and the observable store's named event action ignores duplicate cursors. A detected cursor gap puts the store into `resync_required` and performs the declared snapshot-resynchronization protocol without replaying any product operation. If the cursor is outside retention, the server emits `stream_reset_required` and closes the stream. Heartbeats are cursor-free SSE comments.
 
 ### Sensitive State
 
-Checkout email and address values are collected through a RouteDeck private form surface and stored in a separately classified encrypted blob. The SQLite adapter requires an injected encryption codec and runtime key; missing encryption configuration fails startup without a plaintext fallback.
+Checkout email and address values are collected through a RouteDeck private form surface and stored in a separately classified encrypted blob. The SQLAlchemy adapter requires an injected encryption codec and runtime key for both supported dialects; missing encryption configuration fails startup without a plaintext fallback.
 
 Sensitive classification is declared by schema rather than regex. Structured checkout values never enter the public projection, ordinary SSE payloads, model context, URLs, diagnostics, logs, traces, or exception messages. A session-authenticated, `Cache-Control: no-store` private-form channel may hydrate RouteDeck React form state in memory. The supported checkout flow does not ask the model to handle address fields. RouteDeck does not claim heuristic PII detection for arbitrary text a user independently types into chat.
 
@@ -518,7 +526,7 @@ All four gates are mandatory.
 
 | Gate | Exact pass criteria |
 | --- | --- |
-| Framework correctness | Unit and conformance tests cover feature compilation, route round-trips, transitions and history, review, supervision, projection redaction, persistence, SQLite instance locking/CAS, SSE sequencing, and the frontend reducer/store. Invalid manifests are rejected. Python and TypeScript contracts generated from one compiled definition have zero schema drift. Version-controlled coverage configuration enumerates critical state, navigation, supervision, projection, persistence, and reducer module globs; each group independently achieves at least 85% branch coverage. Overall coverage is advisory. |
+| Framework correctness | Focused unit and conformance tests cover feature compilation, route round-trips, transitions and history, review, supervision, projection redaction, SQLite and PostgreSQL persistence paths, instance locking/CAS, SSE sequencing, and observable-store actions. Invalid manifests are rejected. Python and TypeScript contracts generated from one compiled definition have zero schema drift. Coverage is used to find unexercised critical paths; a large undifferentiated test count or fixed global coverage target is not a substitute for the product gates below. |
 | Boundary and adapter integrity | Executable import rules prove `routedeck_core` imports no LangGraph, FastAPI, React, or Medusa code. An endpoint-template inventory proves Medusa Store paths and HTTP transport exist only in `medusa/client/http.py`; handlers depend on `MedusaStoreClient`; browser network tests assert zero direct `/store/*` requests; product-specific APIs do not hide under the generic RouteDeck router; agent and surface operations pass through the same runner; and scan allowlists report zero phrase routers, keyword maps, regex intent routing, private-ID bypasses, canned responses, or hidden fallbacks. `boundary-report.json` records dependency, AST, endpoint, and network checks plus an explicit architectural-review result for semantic rules such as absence of commerce behavior. |
 | Real commerce source of truth | From a clean, explicitly labeled and protected demo database, the typed client uses actual Medusa Store APIs to browse products, create and mutate a cart, set guest contact/address data, select a returned shipping option, initialize exactly `pp_system`, and complete the cart. Review staging and rejection produce zero complete-cart calls; one valid approval produces exactly one. Success requires `type: "order"` plus an independent Store API re-read whose items, quantities, totals, email, shipping method, and payment-provider evidence match the confirmation. A final protected reset removes test-created records and restores the normalized seed fingerprint. |
 | Browser, agent, and developer experience | Chromium completes the entire guest flow against real Medusa and separately proves shareable catalog deep links and session-bound cart/checkout/confirmation resume links, history, cancel, reload at cart/review/confirmation, durable session recovery, SSE replay, monotonic versions, duplicate-event handling, explicit gap resynchronization, session isolation, surfaces, and the inspector. A deterministic full-flow suite may use an explicitly test-only scripted tool model. A separate configured-real-model smoke is mandatory and asserts structured state changes rather than exact prose; release is blocked when real-model access is unavailable. Clean install/import, builds, type checks, quickstart, reset, feature-authoring example, LangGraph examples, and documented failures all work locally. |
@@ -527,7 +535,7 @@ Mandatory negative cases include missing configuration, unavailable or unauthori
 
 Unknown-completion tests assert zero second complete-cart calls, disabled placement before and after restart, a visible recovery surface, and no confirmation without a real independently re-read Medusa order. LangGraph crash-window tests cover failure after result journaling but before RouteDeck state application, and failure after state commit but before the assistant turn finalizes; both reconstruct from RouteDeck-owned history and make zero additional product-handler calls.
 
-The browser may call the generic RouteDeck session, projection, event, and dispatch transport plus Medusa product-owned application APIs such as chat. It must never call Medusa Store APIs directly. No Medusa commerce endpoint or product business logic may be implemented inside the generic RouteDeck transport.
+The browser may call the generic RouteDeck session, projection, event, dispatch, private-form, and chat transport plus narrow Medusa-owned application APIs such as the initial conversation-entry trigger and health/readiness. It must never call Medusa Store APIs directly. No Medusa commerce endpoint or product business logic may be implemented inside the generic RouteDeck transport.
 
 ### Release Proof Bundle
 

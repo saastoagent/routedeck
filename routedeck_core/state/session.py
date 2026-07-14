@@ -12,7 +12,7 @@ from ..contracts.session import (
 from ..validation import RouteDeckValidationError
 
 
-SESSION_SCHEMA_VERSION = 3
+SESSION_SCHEMA_VERSION = 4
 
 
 def navgraph_version(app: CompiledRouteDeckApp) -> str:

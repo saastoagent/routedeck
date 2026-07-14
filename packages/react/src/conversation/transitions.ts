@@ -3,12 +3,12 @@ import {
   type AgentHistoryTurn,
   type AgentReviewRequired,
   type AgentStreamEvent,
-} from "./chatClient";
+} from "@routedeck/core";
 import {
   historyMessage,
   type AgentConversationMessage,
   type AgentStreamStatus,
-} from "./agentStreamState";
+} from "./state";
 
 type MessageTransition = (
   current: readonly AgentConversationMessage[],

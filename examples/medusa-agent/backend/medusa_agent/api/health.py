@@ -5,6 +5,7 @@ from typing import Protocol, runtime_checkable
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from routedeck_core.ports import RouteDeckAgentDriver
 from routedeck_fastapi import RouteDeckDependencies
 
 
@@ -28,11 +29,11 @@ async def health() -> dict[str, str]:
 @router.get("/ready", response_model=None)
 async def ready(request: Request) -> JSONResponse:
     routedeck = getattr(request.app.state, "routedeck_dependencies", None)
-    agent = getattr(request.app.state, "medusa_chat_agent", None)
+    agent = getattr(request.app.state, "routedeck_agent_driver", None)
     readiness = getattr(request.app.state, "medusa_readiness", None)
     if (
         not isinstance(routedeck, RouteDeckDependencies)
-        or not callable(getattr(agent, "astream_events", None))
+        or not isinstance(agent, RouteDeckAgentDriver)
         or not isinstance(readiness, MedusaAgentReadinessProbe)
     ):
         return _readiness_response(ready=False)

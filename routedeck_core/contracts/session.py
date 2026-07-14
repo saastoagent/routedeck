@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .conversation import ConversationTurn
 from .effects import SessionEffects
 from .failures import RouteDeckFailure
+from .interactions import RouteDeckInteractionState
 from .operations import (
     DeliveryPhase,
     OperationDisposition,
@@ -313,6 +314,9 @@ class RouteDeckSession(_FrozenContract):
     back_stack: tuple[Location, ...] = ()
     forward_stack: tuple[Location, ...] = ()
     conversation: tuple[ConversationTurn, ...] = ()
+    interaction: RouteDeckInteractionState = Field(
+        default_factory=RouteDeckInteractionState
+    )
     private_state: PrivateSessionState
     public_state: PublicSessionState = Field(default_factory=PublicSessionState)
     operation: OperationState | None = None

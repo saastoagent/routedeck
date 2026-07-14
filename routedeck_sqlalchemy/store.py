@@ -269,6 +269,32 @@ class SqlAlchemySessionStore:
             )
         )
 
+    async def start_turn(
+        self,
+        claim: TurnClaim,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+    ) -> TurnLease:
+        def start(database: Session, now: datetime) -> TurnLease:
+            lease = self.turns.acquire(
+                database,
+                claim,
+                now=now,
+                application_lease=self._runtime.application_lease,
+            )
+            self.sessions.commit(
+                database,
+                session_id=claim.session_id,
+                expected_session_version=claim.expected_session_version,
+                next_state=next_state,
+                events=events,
+                now=now,
+                lease=self._runtime.application_lease,
+            )
+            return lease
+
+        return await self._write(start)
+
     async def claim_child_attempt(
         self,
         lease: TurnLease,

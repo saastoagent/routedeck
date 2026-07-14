@@ -30,7 +30,7 @@ intent routing, or alternate payment behavior.
 | One supervised operation/review path for UI and agent. | Typed Store API port, HTTP adapter, wire models, and Medusa IDs. |
 | Durable SQLAlchemy state, fencing, events, replay, and private blobs. | Region, country, currency, sales channel, and payment-provider configuration. |
 | Shareable/session-bound routes, resume capabilities, and exact history. | Product route-entry resolution and public product-handle validation. |
-| Generic HTTP/SSE and headless/React primitives. | Prompt, OpenAI model, product chat SSE, copy, and React product components. |
+| Generic chat/session/dispatch HTTP and SSE plus headless/React primitives. | Prompt, OpenAI model, system-prompt-authored entry trigger, copy, and React product components. |
 
 The browser calls `/api/routedeck/*` and `/api/medusa-agent/*`. It does not call
 Medusa `/store/*`. RouteDeck does not import `medusa_agent` and contains no
@@ -42,15 +42,16 @@ commerce operation IDs, URL paths, or wire schemas.
 examples/medusa-agent/
   backend/
     medusa_agent/
-      api/                 # health and product chat
+      api/                 # product entry trigger and health/readiness
       features/
         catalog/           # declarations/providers/guards + operation slices
         cart/              # declarations/providers + operation slices
         checkout/          # models, schemas, providers, guards, operation slices
         orders/            # confirmation/reconciliation operation slices
       medusa/client/       # typed port plus endpoint/transport/wire/evidence modules
-      api/                 # chat orchestration, contracts, events, and replay
       agent.py             # product prompt/model/graph composition
+      agent_driver.py      # product graph execution behind RouteDeck's driver port
+      entry_conversation.py # product-owned initial assistant-turn trigger
       composition.py       # declarative cross-feature app composition
       bindings.py          # typed product dependency injection
       runtime_factory.py   # runner, navigation, and persistence assembly
@@ -91,8 +92,10 @@ global regex router or hardcoded URL branch infers it.
 The Store client is likewise layered: `http.py` exposes the typed endpoint
 facade, `transport.py` owns HTTP/authentication and delivery classification,
 `wire.py` owns strict response decoding, and `evidence.py` owns the sanitized
-measurement port. Product chat separates durable turn orchestration from
-request contracts, event/SSE decoding, and mutation replay under `api/`.
+measurement port. RouteDeck's generic FastAPI adapter owns chat request
+contracts, durable turn orchestration, replay, and SSE framing. The Medusa app
+supplies the agent driver and a narrow entry endpoint that requests the initial
+system-prompt-authored assistant turn through the same RouteDeck lifecycle.
 
 ## Compiled Buyer Graph
 
@@ -248,11 +251,16 @@ current default-deny public context, and filters tools to legal operations.
 `RouteDeckToolWrapper` executes each tool through the same runner as UI
 affordances. Parallel tool calls are disabled and rejected.
 
-`POST /api/medusa-agent/chat` streams product-owned events such as
+`MedusaLangGraphAgentDriver` translates LangGraph model/tool events into the
+small `RouteDeckAgentDriver` contract. It owns no HTTP route, turn lease,
+conversation persistence, replay, or SSE envelope. `POST /api/routedeck/chat`
+streams RouteDeck-owned events such as
 `stream_start`, `conversation_snapshot`, `assistant_delta`, `review_required`,
-`assistant_end`, `chat_error`, and `stream_end`. The generic state stream remains
-`GET /api/routedeck/events`. Assistant prose without a completed tool result and
-matching RouteDeck projection is not a commerce state change.
+`assistant_end`, `chat_error`, and `stream_end`. The authoritative interaction
+handshake remains `GET /api/routedeck/events`; `turn_started` makes projected
+surfaces inert before the driver can expose a tool-produced surface. Assistant
+prose without a completed tool result and matching RouteDeck projection is not
+a commerce state change.
 
 `OPENAI_API_KEY` plus the required `OPENAI_BUYER_MODEL`, `OPENAI_ENTRY_MODEL`,
 and `OPENAI_TURN_POLICY_MODEL` settings select the live OpenAI path. No key means no
@@ -268,13 +276,15 @@ Product-owned:
 
 - `GET /api/medusa-agent/health`
 - `GET /api/medusa-agent/ready`
-- `POST /api/medusa-agent/chat`
+- `POST /api/medusa-agent/conversation/entry`
 
 Generic RouteDeck:
 
 - `GET /api/routedeck/contract`
 - `POST /api/routedeck/sessions`
 - `GET /api/routedeck/session`
+- `GET /api/routedeck/conversation`
+- `POST /api/routedeck/chat`
 - `POST /api/routedeck/navigation`
 - `POST /api/routedeck/dispatch`
 - `POST /api/routedeck/reviews/{review_id}/accept`
@@ -283,8 +293,9 @@ Generic RouteDeck:
 - `GET|PUT /api/routedeck/private-forms/{form_id}`
 - `GET /api/routedeck/inspect`
 
-Generic routes contain no product names or Medusa behavior. Product chat is not
-served through RouteDeck's generic namespace.
+Generic routes contain no product names or Medusa behavior. Medusa supplies the
+agent driver and explicitly triggers its system-prompt-authored entry greeting;
+RouteDeck owns ordinary chat and durable conversation state.
 
 `health` is process liveness. `ready` verifies the RouteDeck store and real
 Medusa dependency and returns `503` until the buyer application can serve real

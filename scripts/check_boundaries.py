@@ -555,12 +555,16 @@ def _included_router_factories(tree: ast.AST) -> frozenset[str]:
 def check_product_transport_separation(
     project_root: Path = PROJECT_ROOT,
 ) -> BoundaryCheck:
-    generic_path = _project_path(
-        project_root, Path("routedeck_fastapi/router.py"), kind="file"
+    generic_paths = tuple(
+        _project_path(project_root, path, kind="file")
+        for path in (
+            Path("routedeck_fastapi/router.py"),
+            Path("routedeck_fastapi/conversation.py"),
+        )
     )
     api_root = _project_path(project_root, PRODUCT_API_ROOT, kind="directory")
     main_path = _project_path(project_root, PRODUCT_MAIN, kind="file")
-    generic = _router_inventory(generic_path, project_root)
+    generic = [_router_inventory(path, project_root) for path in generic_paths]
     product = [
         _router_inventory(path, project_root)
         for path in _python_files(api_root)
@@ -568,23 +572,27 @@ def check_product_transport_separation(
     ]
     violations: list[str] = []
     generic_prefixes = {
-        item["prefix"] for item in generic["prefixes"] if item["prefix"] is not None
+        item["prefix"]
+        for inventory in generic
+        for item in inventory["prefixes"]
+        if item["prefix"] is not None
     }
     if generic_prefixes != {"/api/routedeck"}:
         violations.append(
             "routedeck_fastapi/router.py:generic router prefix must be exactly /api/routedeck"
         )
-    generic_tree = _parse_python(generic_path)
-    for line, module in _imported_modules(generic_tree):
-        if _is_forbidden(module, ("medusa_agent",)):
-            violations.append(
-                f"{_relative(generic_path, project_root)}:{line}:generic router imports product:{module}"
-            )
-    for line, value in _string_literals(generic_tree):
-        if value.startswith("/api/medusa-agent") or _is_store_path(value):
-            violations.append(
-                f"{_relative(generic_path, project_root)}:{line}:product path in generic router:{value}"
-            )
+    for generic_path in generic_paths:
+        generic_tree = _parse_python(generic_path)
+        for line, module in _imported_modules(generic_tree):
+            if _is_forbidden(module, ("medusa_agent",)):
+                violations.append(
+                    f"{_relative(generic_path, project_root)}:{line}:generic router imports product:{module}"
+                )
+        for line, value in _string_literals(generic_tree):
+            if value.startswith("/api/medusa-agent") or _is_store_path(value):
+                violations.append(
+                    f"{_relative(generic_path, project_root)}:{line}:product path in generic router:{value}"
+                )
     product_prefixes = {
         item["prefix"]
         for inventory in product
@@ -605,7 +613,7 @@ def check_product_transport_separation(
     included = _included_router_factories(_parse_python(main_path))
     required_includes = {
         "create_routedeck_router_from_provider",
-        "create_medusa_chat_router",
+        "create_routedeck_conversation_router",
         "health_router",
     }
     missing_includes = sorted(required_includes.difference(included))
@@ -616,7 +624,7 @@ def check_product_transport_separation(
     return BoundaryCheck(
         name="product_transport_separation",
         evidence={
-            "generic_router": generic,
+            "generic_routers": generic,
             "product_routers": product,
             "application_router_includes": sorted(included),
         },
@@ -669,8 +677,13 @@ def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
     runtime_path = _project_path(
         project_root, PRODUCT_BACKEND_ROOT / "runtime.py", kind="file"
     )
-    chat_path = _project_path(
-        project_root, PRODUCT_BACKEND_ROOT / "api/chat.py", kind="file"
+    conversation_path = _project_path(
+        project_root, Path("routedeck_fastapi/conversation.py"), kind="file"
+    )
+    conversation_stream_path = _project_path(
+        project_root,
+        Path("routedeck_fastapi/conversation_stream.py"),
+        kind="file",
     )
     generic_router_path = _project_path(
         project_root, Path("routedeck_fastapi/router.py"), kind="file"
@@ -705,7 +718,10 @@ def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
         if isinstance(node, ast.Call)
         and _call_name(node.func) == "RouteDeckDependencies"
     ]
-    chat_chains = _tree_attribute_chains(_parse_python(chat_path))
+    conversation_chains = _tree_attribute_chains(_parse_python(conversation_path))
+    conversation_stream_chains = _tree_attribute_chains(
+        _parse_python(conversation_stream_path)
+    )
     generic_chains = _tree_attribute_chains(_parse_python(generic_router_path))
     main_calls = {
         _call_name(node.func)
@@ -722,11 +738,15 @@ def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
         and _keyword_expression(runtime_calls[0], "runner") == "runner",
         "transport_dependencies_use_runtime_runner": len(route_dependencies) == 1
         and _keyword_expression(route_dependencies[0], "runner") == "runtime.runner",
-        "chat_uses_transport_runner": "dependencies.routedeck.runner" in chat_chains,
+        "conversation_uses_transport_runner": (
+            "dependencies.routedeck" in conversation_chains
+            and "dependencies.routedeck" in conversation_stream_chains
+            and "routedeck.runner" in conversation_stream_chains
+        ),
         "generic_dispatch_uses_dependency_runner": any(
             chain.startswith("dependencies.runner.") for chain in generic_chains
         ),
-        "chat_dependency_reuses_routedeck_dependency": "_routedeck_dependencies"
+        "conversation_dependency_reuses_routedeck_dependency": "_routedeck_dependencies"
         in main_calls,
     }
     violations = [

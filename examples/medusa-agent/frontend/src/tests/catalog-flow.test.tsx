@@ -23,6 +23,41 @@ const VARIANT_TWO_HANDLE = "var_opaque_buyer_9bd2";
 const PRIVATE_PRODUCT_ID = "prod_private_must_never_reach_browser";
 const PRIVATE_VARIANT_ID = "variant_private_must_never_reach_browser";
 
+it("keeps projected surfaces inert while RouteDeck reports an active chat turn", async () => {
+  const client = new ScriptedRouteDeckClient();
+  const dispatchSpy = vi.spyOn(client, "dispatch");
+  const projection = catalogGridProjection() as RouteDeckProjection & {
+    interaction: {
+      phase: "active";
+      owner: "chat";
+    };
+  };
+  projection.interaction = { phase: "active", owner: "chat" };
+
+  const harness = await renderRouteDeckComponent(
+    <RouteDeckSurfaceHost
+      registry={medusaRouteDeckSurfaces}
+      slots={["active"]}
+    />,
+    {
+      contract: catalogContract(),
+      projection,
+      client,
+    },
+  );
+
+  const surface = screen
+    .getByRole("link", { name: "Medusa T-Shirt" })
+    .closest("[data-routedeck-surface]");
+  expect(surface).not.toBeNull();
+  expect(surface).toHaveAttribute("aria-busy", "true");
+  expect(surface).toHaveAttribute("inert");
+  fireEvent.click(screen.getByRole("link", { name: "Medusa T-Shirt" }));
+  expect(dispatchSpy).not.toHaveBeenCalled();
+
+  harness.dispose();
+});
+
 it("searches and clears the catalog through declared RouteDeck affordances", async () => {
   const client = new ScriptedRouteDeckClient();
   const dispatchSpy = vi.spyOn(client, "dispatch");

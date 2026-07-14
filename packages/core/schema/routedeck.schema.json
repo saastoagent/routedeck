@@ -1120,6 +1120,9 @@
           ],
           "default": null
         },
+        "interaction": {
+          "$ref": "#/$defs/RouteDeckInteractionState"
+        },
         "legal_operations": {
           "items": {
             "$ref": "#/$defs/ProjectedOperation"
@@ -1159,6 +1162,7 @@
         "projection_version",
         "event_cursor",
         "current",
+        "interaction",
         "navigation",
         "legal_operations",
         "suggested_actions",
@@ -1272,6 +1276,7 @@
         "navigation_changed",
         "operation_changed",
         "private_form_changed",
+        "turn_started",
         "turn_finalized",
         "turn_interrupted"
       ],
@@ -1348,6 +1353,47 @@
         "public_message"
       ],
       "title": "RouteDeckFailure",
+      "type": "object"
+    },
+    "RouteDeckInteractionOwnerType": {
+      "enum": [
+        "chat",
+        "surface",
+        "review",
+        "system",
+        "navigation"
+      ],
+      "title": "RouteDeckInteractionOwnerType",
+      "type": "string"
+    },
+    "RouteDeckInteractionPhase": {
+      "enum": [
+        "idle",
+        "active"
+      ],
+      "title": "RouteDeckInteractionPhase",
+      "type": "string"
+    },
+    "RouteDeckInteractionState": {
+      "additionalProperties": false,
+      "properties": {
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckInteractionOwnerType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phase": {
+          "$ref": "#/$defs/RouteDeckInteractionPhase",
+          "default": "idle"
+        }
+      },
+      "title": "RouteDeckInteractionState",
       "type": "object"
     },
     "SurfaceAffordanceSpec": {

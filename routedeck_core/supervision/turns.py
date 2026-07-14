@@ -15,6 +15,10 @@ from ..contracts.events import (
     RouteDeckEventType,
 )
 from ..contracts.failures import RouteDeckFailure
+from ..contracts.interactions import (
+    RouteDeckInteractionOwnerType,
+    RouteDeckInteractionState,
+)
 from ..contracts.mutations import MutationCommit, MutationKind, MutationStatus
 from ..contracts.projection import FrozenJsonObject
 from ..contracts.session import RouteDeckSession, SessionSnapshot
@@ -39,7 +43,25 @@ class TurnLifecycleMixin:
         require_current_session(self.app.app, session)
         if session.session_version != claim.expected_session_version:
             raise SessionStoreError(SessionStoreErrorCode.VERSION_CONFLICT)
-        return await self.store.acquire_turn(claim)
+        next_state = (
+            RouteDeckSessionAggregate(session)
+            .set_interaction(
+                RouteDeckInteractionState.active(
+                    RouteDeckInteractionOwnerType.CHAT
+                )
+            )
+            .record_public_events(1)
+            .commit()
+        )
+        event = self._turn_event(
+            state=next_state,
+            event_type=RouteDeckEventType.TURN_STARTED,
+            request_id=claim.request_id,
+            status_code=next_state.public_state.status_code,
+        )
+        lease = await self.store.start_turn(claim, next_state, (event,))
+        await notify_event_wakeup(self.notifier, claim.session_id, (event,))
+        return lease
 
     async def complete_turn(
         self,
@@ -58,6 +80,7 @@ class TurnLifecycleMixin:
         next_state = (
             RouteDeckSessionAggregate(session)
             .append_conversation_turns(finalized)
+            .set_interaction(RouteDeckInteractionState())
             .record_public_events(1)
             .commit()
         )
@@ -107,6 +130,7 @@ class TurnLifecycleMixin:
         next_state = (
             RouteDeckSessionAggregate(session)
             .append_conversation_turns((interrupted,))
+            .set_interaction(RouteDeckInteractionState())
             .set_public_state(public_state)
             .record_public_events(1)
             .commit()

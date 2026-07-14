@@ -51,6 +51,7 @@ export function RouteDeckSurfaceHost({
     return surfaces.map((surface, index) => ({ index, slot, surface }));
   });
   if (entries.length === 0) return <>{empty}</>;
+  const interactionBusy = projection.interaction.phase === "active";
 
   return (
     <div className={className} data-routedeck-surface-host="">
@@ -61,6 +62,7 @@ export function RouteDeckSurfaceHost({
           slot={slot}
           registry={registry}
           projectionVersion={projection.projection_version}
+          interactionBusy={interactionBusy}
         />
       ))}
     </div>
@@ -72,11 +74,13 @@ function SurfaceRenderer({
   slot,
   registry,
   projectionVersion,
+  interactionBusy,
 }: {
   surface: RouteDeckProjectedSurface;
   slot: RouteDeckSurfaceSlot;
   registry: RouteDeckSurfaceRegistry;
   projectionVersion: number;
+  interactionBusy: boolean;
 }) {
   const contract = useRouteDeckContract();
   const dispatch = useRouteDeckDispatch();
@@ -86,6 +90,12 @@ function SurfaceRenderer({
 
   const dispatchAffordance = useCallback(
     async (affordanceId: string, argumentsValue = {}) => {
+      if (interactionBusy) {
+        throw new RouteDeckStateError(
+          "interaction_in_progress",
+          "RouteDeck is completing another interaction.",
+        );
+      }
       if (!spec) {
         throw new RouteDeckStateError(
           "surface_contract_mismatch",
@@ -102,7 +112,7 @@ function SurfaceRenderer({
       }
       return dispatch(operationId, argumentsValue);
     },
-    [dispatch, spec, surface.surface_id],
+    [dispatch, interactionBusy, spec, surface.surface_id],
   );
 
   if (!spec || spec.component !== surface.component) {
@@ -130,8 +140,8 @@ function SurfaceRenderer({
   return (
     <section
       key={lifecycleKey}
-      aria-busy={mutation.inFlight}
-      inert={mutation.inFlight}
+      aria-busy={mutation.inFlight || interactionBusy}
+      inert={mutation.inFlight || interactionBusy}
       data-routedeck-slot={slot}
       data-routedeck-surface={surface.surface_id}
     >

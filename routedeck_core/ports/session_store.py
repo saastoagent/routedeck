@@ -72,6 +72,13 @@ class RouteDeckSessionStore(Protocol):
 
     async def acquire_turn(self, claim: TurnClaim) -> TurnLease: ...
 
+    async def start_turn(
+        self,
+        claim: TurnClaim,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+    ) -> TurnLease: ...
+
     async def claim_child_attempt(
         self,
         lease: TurnLease,

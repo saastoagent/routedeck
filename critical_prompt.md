@@ -1,16 +1,18 @@
 # Critical Prompt - RouteDeck
 
-The controlling decision is
-[ADR-004](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md),
-which activates the approved
+The controlling decisions are
+[ADR-004](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md) and
+[ADR-005](./decisions/ADR-005-operation-centric-state-and-consumer-structure.md),
+which activate and refine the approved
 [RouteDeck and Medusa buyer-agent design](./docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
-and its
-[consumer-driven implementation plan](./docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md).
+and the active
+[architecture-cleanup plan](./docs/superpowers/plans/2026-07-14-routedeck-architecture-cleanup.md).
 
 RouteDeck is state management and interaction governance for agentic
 applications. It gives an agent only the context it currently needs, supervises
-every application-semantic tool call, and keeps navigation, real identifiers,
-guards, surfaces, tool results, SSE updates, and frontend state coherent.
+every application-semantic tool call, and keeps navigation, private entity
+bindings, scoped public handles, guards, surfaces, tool results, SSE updates,
+and frontend state coherent.
 
 RouteDeck is not the agent, model, graph engine, product tool executor, product
 database, or authentication system.
@@ -20,7 +22,7 @@ database, or authentication system.
 ```text
 trusted product facts + navgraph declaration
   -> RouteDeck interaction/session projection
-  -> scoped agent context with visible real IDs and legal tools
+  -> scoped agent context with opaque public handles and legal tools
   -> agent proposes a tool call
   -> RouteDeck allows, blocks, requests input, or requires review
   -> host agent runtime executes an allowed product tool
@@ -40,7 +42,7 @@ RouteDeck owns reusable:
 - navgraph validation and guarded navigation
 - scoped planning/context projection
 - legal/blocked tool metadata and structured feedback
-- current-operation real-ID allowlists
+- current-operation private-binding and public-handle allowlists
 - before/after tool-call supervision
 - needs-input and review interaction state
 - active/frame/peer/detail/form/review surface mechanics
@@ -80,19 +82,16 @@ The host integration invokes only allowed tools and reports every result or
 failure back through RouteDeck. An integration that deliberately bypasses this
 gate is outside the RouteDeck guarantee.
 
-## Real Identifier Rule
+## Identifier Rule
 
-Use real product IDs, matching working Corpus behavior. Do not replace product
-entity IDs with opaque RouteDeck identifiers.
+The product remains authoritative for real entity IDs. RouteDeck stores those
+IDs only in classified private bindings and exposes scoped opaque handles in
+public projections, model context, URLs, and surface props.
 
-A trusted product provider places visible records and real IDs into the current
-projection. RouteDeck accepts an agent-supplied ID only when it is allowed for
-the requested tool in the current session/navgraph state. Fabricated, stale,
-hidden, cross-context, or currently ineligible IDs are blocked before the host
-tool runner sees them.
-
-Public assistant responses must still redact internal IDs when the product
-experience should not reveal them.
+RouteDeck resolves an agent- or browser-supplied handle only when its private
+binding is allowed for the requested operation, entity kind, node, and current
+session version. Fabricated, stale, hidden, cross-context, or currently
+ineligible handles are blocked before the host tool runner sees a private ID.
 
 ## Declarative Authoring
 
@@ -182,7 +181,9 @@ ADR-004 authorizes immutable feature composition, one supervised operation
 runner, durable RouteDeck session/conversation/navigation/review/operation/
 projection/event state, the generic FastAPI/SSE and SQLAlchemy persistence adapters, optional
 LangGraph middleware, headless/React packages, and the standalone Medusa buyer
-agent.
+agent. ADR-005 refines the implementation to named state actions,
+operation-centric consumer slices, SQLAlchemy ORM repositories, and the
+collapsible read-only Navgraph without changing that ownership boundary.
 
 This approval does not move product tool execution or Medusa business logic
 into RouteDeck. The host executor remains injected. Product paths use real
@@ -195,7 +196,7 @@ explicitly isolated tests.
 
 Stop and re-plan if:
 
-- a change contradicts ADR-004 or the approved design
+- a change contradicts ADR-004, ADR-005, or the approved design
 - an agent can invoke an application-semantic tool without RouteDeck oversight
 - RouteDeck begins invoking product tools itself
 - an ID not present in the current tool-specific allowlist reaches the host tool
@@ -220,15 +221,20 @@ Stop and re-plan if:
 
 ## Current Authority
 
-- Controlling decision:
-  `decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md`
+- Controlling decisions:
+  `decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md` and
+  `decisions/ADR-005-operation-centric-state-and-consumer-structure.md`
 - Approved design:
   `docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md`
 - Active plan:
+  `docs/superpowers/plans/2026-07-14-routedeck-architecture-cleanup.md`
+- Completed slice history:
   `docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md`
 - Current state: `context.md`
-- Existing schema authority: `routedeck_core/models.py`
+- Current schema authority: `routedeck_core/contracts/` plus the compiled
+  application contracts in `routedeck_core/app/`
 - Existing feature reference: `docs/route-deck-reference.md`, subject to ADR-004
+  and ADR-005
 - Historical interaction-governance rationale:
   `decisions/ADR-003-agentic-interaction-state-governor.md`
 - Retired plan:

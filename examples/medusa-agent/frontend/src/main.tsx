@@ -1,12 +1,13 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import {
+  AgentChatError,
+  createRouteDeckAgentClient,
+} from "@routedeck/core";
 
 import { App } from "./app/App";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
-import {
-  AgentChatError,
-  createAgentChatClient,
-} from "./app/chatClient";
+import { startMedusaConversation } from "./app/conversationEntryClient";
 import { loadMedusaRouteDeck } from "./app/config";
 import type { MedusaRouteDeck } from "./app/createRouteDeck";
 import "./app/app.css";
@@ -41,7 +42,7 @@ async function start(): Promise<void> {
   window.addEventListener("pagehide", () => routeDeck.store.dispose(), {
     once: true,
   });
-  const chatClient = createAgentChatClient();
+  const chatClient = createRouteDeckAgentClient();
   const renderApp = async () => {
     const initialConversation = await loadInitialConversation(
       routeDeck,
@@ -107,7 +108,7 @@ async function start(): Promise<void> {
 
 async function loadInitialConversation(
   routeDeck: MedusaRouteDeck,
-  chatClient: ReturnType<typeof createAgentChatClient>,
+  chatClient: ReturnType<typeof createRouteDeckAgentClient>,
 ) {
   const existing = await chatClient.loadConversation();
   if (existing.length > 0) return existing;
@@ -118,7 +119,7 @@ async function loadInitialConversation(
       "The RouteDeck session is unavailable for the buyer greeting.",
     );
   }
-  const entry = await chatClient.startConversation({
+  const entry = await startMedusaConversation({
     request_id: entryRequestId(),
     expected_session_version: sessionVersion,
   });
@@ -126,7 +127,7 @@ async function loadInitialConversation(
     sessionVersion: entry.sessionVersion,
     projectionVersion: entry.projectionVersion,
   });
-  return entry.turns;
+  return chatClient.loadConversation();
 }
 
 function entryRequestId(): string {

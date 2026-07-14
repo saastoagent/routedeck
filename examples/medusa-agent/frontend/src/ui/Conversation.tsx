@@ -3,7 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import type {
   AgentConversationMessage,
   AgentStreamStatus,
-} from "../app/useAgentStream";
+} from "@routedeck/react";
 
 export interface ConversationProps {
   messages: readonly AgentConversationMessage[];

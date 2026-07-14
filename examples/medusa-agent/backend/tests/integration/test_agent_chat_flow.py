@@ -435,7 +435,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             session_id = client.cookies["routedeck_guest"]
 
             first = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-1",
                     "expected_session_version": created_projection["session_version"],
@@ -493,7 +493,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             )
             assert all(turn.tool_status == "success" for turn in persisted_tools)
             model_calls_before_history = len(model.calls)
-            public_history = await client.get("/api/medusa-agent/conversation")
+            public_history = await client.get("/api/routedeck/conversation")
             assert public_history.status_code == 200
             assert public_history.headers["cache-control"] == "private, no-store"
             assert public_history.json() == {
@@ -556,7 +556,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             )
             model_calls_after_first = len(model.calls)
             replayed_first = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-1",
                     "expected_session_version": created_projection["session_version"],
@@ -573,7 +573,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             assert len(model.calls) == model_calls_after_first
             assert fixture.calls == ["create_cart", "list_products", "get_cart"]
             conflicting_first = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-1",
                     "expected_session_version": created_projection["session_version"],
@@ -586,7 +586,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
 
             projection_version = after_tools.projection_version
             second = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-2",
                     "expected_session_version": after_tools.session_version,
@@ -622,7 +622,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             client.cookies.clear()
             client.cookies.set("routedeck_guest", review_session_id)
             proposed = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-review",
                     "expected_session_version": review_snapshot.session_version,
@@ -646,6 +646,8 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             )
 
             staged = await runtime.store.load(review_session_id)
+            assert staged.state.interaction.phase.value == "idle"
+            assert staged.state.interaction.owner is None
             assert staged.state.operation is not None
             pending_review = staged.state.operation.pending_review
             assert pending_review is not None
@@ -674,7 +676,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             assert staged.state.conversation[-1].tool_status == "success"
             model_calls_after_review = len(model.calls)
             replayed_review = await client.post(
-                "/api/medusa-agent/chat",
+                "/api/routedeck/chat",
                 json={
                     "request_id": "chat-review",
                     "expected_session_version": review_snapshot.session_version,
@@ -705,7 +707,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             assert lease_count == 0
 
         completed = await runtime.store.load(session_id)
-        assert completed.projection_version == projection_version
+        assert completed.projection_version == projection_version + 2
         assert [turn.role.value for turn in completed.state.conversation] == [
             "user",
             "tool",

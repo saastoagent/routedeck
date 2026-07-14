@@ -18,6 +18,7 @@ from ..contracts.operations import (
     OperationSpec,
 )
 from ..contracts.mutations import MutationCommit, MutationKind, MutationStatus
+from ..contracts.interactions import RouteDeckInteractionState
 from ..contracts.projection import FrozenJson, FrozenJsonObject, PublicValue
 from ..contracts.session import (
     AttemptTerminalState,
@@ -155,6 +156,9 @@ class ReviewStagingMixin(ReviewRuntimePorts):
         provisional_state = (
             RouteDeckSessionAggregate(session)
             .append_conversation_turns(conversation_turns)
+            .set_interaction(
+                RouteDeckInteractionState() if review_turns else session.interaction
+            )
             .set_operation_state(
                 OperationState(
                     active_attempt=pending_attempt,
@@ -171,6 +175,9 @@ class ReviewStagingMixin(ReviewRuntimePorts):
         next_state = (
             RouteDeckSessionAggregate(session)
             .append_conversation_turns(conversation_turns)
+            .set_interaction(
+                RouteDeckInteractionState() if review_turns else session.interaction
+            )
             .set_operation_state(
                 OperationState(
                     active_attempt=pending_attempt,

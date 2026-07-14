@@ -1,20 +1,20 @@
 import { useMemo } from "react";
-import type { RouteDeckClientState } from "@routedeck/core";
+import {
+  createRouteDeckAgentClient,
+  type AgentChatClient,
+  type AgentHistoryTurn,
+  type RouteDeckClientState,
+} from "@routedeck/core";
 import {
   RouteDeckSuggestedActions,
   RouteDeckSurfaceHost,
+  useRouteDeckConversation,
   useRouteDeckRuntime,
   useRouteDeckSelector,
   type RouteDeckSurfaceRegistry,
   type RouteDeckSurfaceSlot,
 } from "@routedeck/react";
 
-import {
-  createAgentChatClient,
-  type AgentChatClient,
-  type AgentHistoryTurn,
-} from "../app/chatClient";
-import { useAgentStream } from "../app/useAgentStream";
 import { CheckoutReviewAuthorityProvider } from "../features/checkout/CheckoutReviewAuthority";
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
@@ -44,10 +44,10 @@ export function AgentShell({
   const sessionVersion = useRouteDeckSelector(selectSessionVersion);
   const legalOperations = useRouteDeckSelector(selectLegalOperations);
   const chatClient = useMemo(
-    () => client ?? createAgentChatClient(),
+    () => client ?? createRouteDeckAgentClient(),
     [client],
   );
-  const agent = useAgentStream({
+  const agent = useRouteDeckConversation({
     client: chatClient,
     initialConversation,
     sessionVersion,

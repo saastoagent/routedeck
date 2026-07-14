@@ -74,9 +74,10 @@ async def start_home_conversation(
     try:
         result = await agent.ainvoke({"messages": []})
         assistant = _entry_assistant_message(result)
+        current = await store.load(session_id)
         return await runner.complete_turn(
             turn,
-            expected_session_version=expected_session_version,
+            expected_session_version=current.session_version,
             turns=(
                 FinalizedConversationTurn(
                     turn_id=(

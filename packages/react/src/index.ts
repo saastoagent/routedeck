@@ -17,6 +17,7 @@ export * from "./review/RouteDeckReview";
 export * from "./review/RouteDeckNeedsInput";
 export * from "./status/RouteDeckStatus";
 export * from "./status/RouteDeckError";
+export * from "./conversation/useRouteDeckConversation";
 export * from "./inspector/topology";
 export * from "./inspector/edgeRouting";
 export type { NavGraphInspectorProps } from "./inspector/NavGraphInspector";

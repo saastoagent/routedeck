@@ -350,6 +350,8 @@ remain separate authorities for separate concerns.
 | `GET /contract` | Compiled frontend contract. |
 | `POST /sessions` | Create a guest session and run the injected initializer. |
 | `GET /session` | Current public projection. |
+| `GET /conversation` | Finalized public user/assistant conversation projection. |
+| `POST /chat` | Durable agent turn over an injected product-neutral driver. |
 | `POST /navigation` | Versioned exact navigation transaction. |
 | `POST /dispatch` | Versioned surface operation. |
 | `POST /reviews/{id}/accept` | Accept a current proposal. |
@@ -364,9 +366,19 @@ private-form codec, session factory, initializer, and navigation runner through
 failure; the transport never constructs a hidden store, model, or product
 adapter.
 
-Product chat is a separate API plane because the prompt, model, streaming
-events, and assistant behavior are product-owned. The Medusa reference mounts
-`POST /api/medusa-agent/chat` alongside the generic RouteDeck plane.
+The prompt, model, graph, and business tools remain product-owned. RouteDeck
+owns the surrounding conversation transaction: request identity, parent turn
+lease, public interaction state, persistence/replay, interruption semantics,
+and assistant SSE. The product supplies a `RouteDeckAgentDriver` that emits
+typed text/reset/review/completion events and contains no HTTP or session-commit
+logic.
+
+`GET /api/routedeck/events` is the canonical interaction-state handshake. A
+chat begins by committing `interaction={phase: active, owner: chat}` and a
+`turn_started` event before the product driver runs. Surfaces and suggested
+actions remain inert until a finalized, interrupted, or review-staged state is
+projected. `POST /api/routedeck/chat` streams conversational text, but it is not
+a second state authority.
 
 ## Headless And React Packages
 
@@ -374,6 +386,7 @@ events, and assistant behavior are product-owned. The Medusa reference mounts
 
 - strict decoders generated from Python contracts;
 - credential-aware HTTP and SSE clients;
+- the RouteDeck conversation client for public history and assistant streaming;
 - authoritative event/session store with replay and resync;
 - route codec, browser-history adapter, and navigation reconciliation;
 - isolated private-form client state.
@@ -383,6 +396,7 @@ events, and assistant behavior are product-owned. The Medusa reference mounts
 - `RouteDeckProvider` and selectors/hooks;
 - `RouteDeckSurfaceHost` plus a product component registry;
 - private-form, review, navigation, status, and error primitives;
+- `useRouteDeckConversation` for the browser turn lifecycle;
 - a lazy React Flow navgraph primitive that renders the complete compiled
   transition sitemap, highlights the current and currently reachable nodes,
   and inspects each node's route, deep-link policy, surfaces, operations, and

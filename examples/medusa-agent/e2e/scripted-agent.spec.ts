@@ -23,7 +23,7 @@ test("@scripted @scripted-agent drives catalog navigation through a model tool c
     const request = response.request();
     return (
       request.method() === "POST" &&
-      new URL(response.url()).pathname === "/api/medusa-agent/chat"
+      new URL(response.url()).pathname === "/api/routedeck/chat"
     );
   });
   await page.getByRole("button", { name: "Send", exact: true }).click();

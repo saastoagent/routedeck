@@ -57,16 +57,20 @@ def test_framework_packages_stay_product_neutral() -> None:
     )
 
 
-def test_medusa_frontend_uses_only_routedeck_and_product_chat_planes() -> None:
+def test_medusa_frontend_uses_routedeck_conversation_and_product_entry_planes() -> None:
     frontend_text = _combined(_production_files("examples/medusa-agent/frontend/src"))
     route_deck_client = _read("examples/medusa-agent/frontend/src/routedeck/client.ts")
-    chat_client = _read("examples/medusa-agent/frontend/src/app/chatClient.ts")
+    chat_client = _read("packages/core/src/conversation/client.ts")
+    entry_client = _read(
+        "examples/medusa-agent/frontend/src/app/conversationEntryClient.ts"
+    )
 
     assert 'from "@routedeck/core"' in frontend_text
     assert 'from "@routedeck/react"' in frontend_text
     assert 'baseUrl: "/api/routedeck"' in route_deck_client
-    assert 'options.baseUrl ?? "/api/medusa-agent"' in chat_client
+    assert 'options.baseUrl ?? "/api/routedeck"' in chat_client
     assert "`${baseUrl}/chat`" in chat_client
+    assert 'options.baseUrl ?? "/api/medusa-agent"' in entry_client
     for forbidden in (
         "@medusajs",
         "/store/",

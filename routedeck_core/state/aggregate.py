@@ -4,6 +4,7 @@ from typing import Self
 
 from ..contracts.conversation import ConversationTurn
 from ..contracts.projection import DataClassification
+from ..contracts.interactions import RouteDeckInteractionState
 from ..contracts.session import (
     Location,
     OperationState,
@@ -105,6 +106,13 @@ class RouteDeckSessionAggregate:
             )
         return self
 
+    def set_interaction(self, interaction: RouteDeckInteractionState) -> Self:
+        if interaction != self._candidate.interaction:
+            self._candidate = self._candidate.model_copy(
+                update={"interaction": interaction}
+            )
+        return self
+
     def set_operation_state(self, operation: OperationState | None) -> Self:
         if operation != self._candidate.operation:
             self._candidate = self._candidate.model_copy(
@@ -170,6 +178,7 @@ def _public_signature(session: RouteDeckSession) -> tuple[object, ...]:
         session.current,
         session.back_stack,
         session.forward_stack,
+        session.interaction,
         _projectable_public_state_signature(session.public_state),
     )
 

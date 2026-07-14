@@ -53,10 +53,10 @@ backend/medusa_agent/
     models.py            # strict wire and result models
     errors.py            # product client contract errors
   api/
-    chat.py              # durable chat-turn orchestration
-    chat_contract.py     # request and dependency contracts
-    chat_events.py       # model-event decoding and SSE frames
-    chat_replay.py       # mutation replay and HTTP boundary
+    entry.py             # product-specific system-prompt welcome entry
+    health.py            # product runtime health/readiness
+  agent_driver.py        # LangGraph events -> RouteDeckAgentDriver events
+  entry_conversation.py  # product-specific initial welcome turn
   composition.py         # declarative cross-feature app composition
   bindings.py            # typed product dependency injection
   runtime_factory.py     # runner, navigation, and persistence assembly
@@ -64,6 +64,12 @@ backend/medusa_agent/
   agent.py               # prompt, model, and LangGraph agent composition
   identifiers.py         # canonical cross-feature product identifiers
 ```
+
+Generic chat request handling, turn leases, conversation persistence, replay,
+SSE framing, interruption, and the public interaction handshake live in
+`routedeck_fastapi/conversation*.py`, not in this product package. The Medusa
+driver contains only the product-runtime translation needed to execute its
+LangGraph agent behind RouteDeck's `RouteDeckAgentDriver` port.
 
 Feature declarations are composed once in `composition.py`, implementations
 are wired once in `bindings.py`, and framework runtime construction lives in
@@ -99,7 +105,7 @@ The Medusa app owns:
 - catalog/cart/checkout/order feature declarations and business bindings;
 - Store API transport and all Medusa IDs behind opaque public handles;
 - region, country, sales-channel, and payment-provider configuration;
-- the buyer prompt, OpenAI model, product chat endpoint, and UI components;
+- the buyer prompt, OpenAI model, system-prompt-authored entry trigger, and UI components;
 - recovery decisions such as order reconciliation after an uncertain write.
 
 ## Route And Surface Contract
@@ -151,8 +157,10 @@ public state and only currently legal tools into each model call;
 by surface affordances.
 
 Durable conversation turns live in the RouteDeck session and are reconstructed
-for each request. Product chat streams from `POST /api/medusa-agent/chat`.
-Canonical RouteDeck state events remain on `GET /api/routedeck/events`.
+for each request. The Medusa LangGraph adapter emits typed agent events while
+RouteDeck owns the turn lease, replay, persistence, and stream at
+`POST /api/routedeck/chat`. Canonical interaction-state events remain on
+`GET /api/routedeck/events` and gate surface dispatch while chat is active.
 Chat SSE responses are `private, no-store, no-transform`; if interruption
 persistence fails, the stream terminates as `outcome_unknown` and the browser
 retains the exact request for explicit retry/resync.
@@ -228,7 +236,7 @@ OPENAI_TURN_POLICY_MODEL
 
 `OPENAI_API_KEY` is optional for API-process liveness but required for live
 chat and full application readiness. When it is absent,
-`POST /api/medusa-agent/chat` fails visibly with `503 dependency_unavailable`,
+`POST /api/routedeck/chat` fails visibly with `503 dependency_unavailable`,
 `GET /api/medusa-agent/ready` returns `503`, and the Compose-gated frontend
 waits. Add the key to `.env.local` and recreate the application services to
 enable the complete buyer agent. The three model roles are explicit and
@@ -244,13 +252,15 @@ Product-owned endpoints:
 
 - `GET /api/medusa-agent/health`
 - `GET /api/medusa-agent/ready`
-- `POST /api/medusa-agent/chat` (`text/event-stream`)
+- `POST /api/medusa-agent/conversation/entry`
 
 Generic RouteDeck endpoints mounted by the product:
 
 - `GET /api/routedeck/contract`
 - `POST /api/routedeck/sessions`
 - `GET /api/routedeck/session`
+- `GET /api/routedeck/conversation`
+- `POST /api/routedeck/chat` (`text/event-stream`)
 - `POST /api/routedeck/navigation`
 - `POST /api/routedeck/dispatch`
 - `POST /api/routedeck/reviews/{review_id}/accept`

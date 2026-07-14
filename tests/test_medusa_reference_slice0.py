@@ -84,7 +84,7 @@ def test_active_references_lock_the_compiled_framework_and_product_boundaries() 
 def test_active_references_name_only_the_current_public_api_planes() -> None:
     references = _combined(*ACTIVE_REFERENCE_FILES)
 
-    assert "POST /api/medusa-agent/chat" in references
+    assert "POST /api/routedeck/chat" in references
     for endpoint in GENERIC_ROUTEDECK_ENDPOINTS:
         assert endpoint in references
     for endpoint in RETIRED_PRODUCT_ENDPOINTS:
@@ -92,9 +92,9 @@ def test_active_references_name_only_the_current_public_api_planes() -> None:
     assert PRODUCT_SPECIFIC_ROUTEDECK_ROUTE.search(references) is None
 
 
-def test_generic_routedeck_and_product_chat_routers_are_composed_once() -> None:
+def test_routedeck_routers_and_product_entry_are_composed_once() -> None:
     router = _read("routedeck_fastapi/router.py")
-    chat = _read("examples/medusa-agent/backend/medusa_agent/api/chat.py")
+    conversation = _read("routedeck_fastapi/conversation.py")
     main = _read("examples/medusa-agent/backend/main.py")
 
     assert 'APIRouter(prefix="/api/routedeck"' in router
@@ -111,10 +111,10 @@ def test_generic_routedeck_and_product_chat_routers_are_composed_once() -> None:
     ):
         assert decorator in router
 
-    assert 'APIRouter(prefix="/api/medusa-agent"' in chat
-    assert '@router.post("/chat")' in chat
+    assert 'APIRouter(prefix="/api/routedeck"' in conversation
+    assert '@router.post("/chat")' in conversation
     assert main.count("create_routedeck_router_from_provider(") == 1
-    assert main.count("create_medusa_chat_router(") == 1
+    assert main.count("create_routedeck_conversation_router(") == 1
     assert "application.include_router(health_router)" in main
 
 

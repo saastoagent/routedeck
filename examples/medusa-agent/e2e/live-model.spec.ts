@@ -22,7 +22,7 @@ test("@live-model greets, streams a conversational hello, and stays home", async
     const request = response.request();
     return (
       request.method() === "POST" &&
-      new URL(response.url()).pathname === "/api/medusa-agent/chat"
+      new URL(response.url()).pathname === "/api/routedeck/chat"
     );
   });
   await page

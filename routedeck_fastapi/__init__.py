@@ -12,6 +12,14 @@ from .dependencies import (
     SessionProjector,
     SseSettings,
 )
+from .conversation import (
+    ChatStreamRequest,
+    PublicConversationTurn,
+    RouteDeckConversationDependencies,
+    create_routedeck_conversation_router,
+    public_conversation,
+    stream_agent_chat,
+)
 from .router import (
     DispatchRequest,
     PrivateFormWriteRequest,
@@ -32,12 +40,15 @@ from .security import (
 )
 
 __all__ = [
+    "ChatStreamRequest",
     "DispatchRequest",
     "EventWakeupNotifier",
     "GuestCookieSettings",
     "InProcessEventNotifier",
     "PrivateFormWriteRequest",
+    "PublicConversationTurn",
     "ReviewRequest",
+    "RouteDeckConversationDependencies",
     "RouteDeckDependencies",
     "RouteDeckDependencyUnavailable",
     "RouteDeckMutationPolicy",
@@ -49,9 +60,12 @@ __all__ = [
     "SessionProjector",
     "SseSettings",
     "create_routedeck_router",
+    "create_routedeck_conversation_router",
     "create_routedeck_router_from_provider",
     "encode_event",
     "encode_heartbeat",
     "encode_stream_reset",
+    "public_conversation",
+    "stream_agent_chat",
     "stream_events",
 ]

@@ -23,7 +23,7 @@ import {
   ScriptedRouteDeckClient,
 } from "@routedeck/testing";
 
-import type { AgentChatClient } from "../app/chatClient";
+import type { AgentChatClient } from "@routedeck/core";
 import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
 import { AgentShell } from "../ui/AgentShell";
 import { NavgraphSidebar } from "../ui/NavgraphSidebar";

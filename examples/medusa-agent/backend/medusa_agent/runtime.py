@@ -28,6 +28,9 @@ from .session import (
 )
 
 
+_READINESS_SESSION_ID = "routedeck-readiness-probe"
+
+
 class LiveRuntimeConfigurationError(RuntimeError):
     """Raised when explicit runtime configuration and real Medusa disagree."""
 
@@ -40,7 +43,7 @@ class LiveMedusaReadiness:
 
     async def routedeck_store_ready(self) -> bool:
         try:
-            await self.runtime.load_session()
+            await self.runtime.store.load(_READINESS_SESSION_ID)
         except SessionStoreError as error:
             return error.code in {
                 SessionStoreErrorCode.SESSION_NOT_FOUND,

@@ -1,0 +1,114 @@
+{
+  "resolution": "1920x1080",
+  "frameHoldSeconds": 2,
+  "selected": [
+    {
+      "index": 1,
+      "label": "welcome",
+      "name": "frame0001.png",
+      "bytes": 38486
+    },
+    {
+      "index": 2,
+      "label": "catalog-grid",
+      "name": "frame0002.png",
+      "bytes": 44545
+    },
+    {
+      "index": 3,
+      "label": "catalog-cards",
+      "name": "frame0003.png",
+      "bytes": 68574
+    },
+    {
+      "index": 4,
+      "label": "chat-product-request",
+      "name": "frame0004.png",
+      "bytes": 71305
+    },
+    {
+      "index": 5,
+      "label": "chat-product-opened",
+      "name": "frame0005.png",
+      "bytes": 42669
+    },
+    {
+      "index": 7,
+      "label": "variant-ready",
+      "name": "frame0007.png",
+      "bytes": 45336
+    },
+    {
+      "index": 8,
+      "label": "cart-added",
+      "name": "frame0008.png",
+      "bytes": 43275
+    },
+    {
+      "index": 9,
+      "label": "cart-summary",
+      "name": "frame0009.png",
+      "bytes": 37217
+    },
+    {
+      "index": 10,
+      "label": "checkout-contact",
+      "name": "frame0010.png",
+      "bytes": 46935
+    },
+    {
+      "index": 14,
+      "label": "protected-contact-corrected",
+      "name": "frame0014.png",
+      "bytes": 52294
+    },
+    {
+      "index": 16,
+      "label": "delivery-reloaded",
+      "name": "frame0016.png",
+      "bytes": 42904
+    },
+    {
+      "index": 19,
+      "label": "payment-surface",
+      "name": "frame0019.png",
+      "bytes": 41889
+    },
+    {
+      "index": 20,
+      "label": "payment-ready",
+      "name": "frame0020.png",
+      "bytes": 53425
+    },
+    {
+      "index": 21,
+      "label": "checkout-review",
+      "name": "frame0021.png",
+      "bytes": 47731
+    },
+    {
+      "index": 22,
+      "label": "approval-required",
+      "name": "frame0022.png",
+      "bytes": 49352
+    },
+    {
+      "index": 23,
+      "label": "order-confirmed",
+      "name": "frame0023.png",
+      "bytes": 46001
+    },
+    {
+      "index": 24,
+      "label": "confirmation-reloaded",
+      "name": "frame0024.png",
+      "bytes": 42733
+    },
+    {
+      "index": 25,
+      "label": "navgraph-confirmation",
+      "name": "frame0025.png",
+      "bytes": 64362
+    }
+  ]
+}

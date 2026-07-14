@@ -11,26 +11,26 @@ import {
   type AgentChatClient,
   type AgentHistoryTurn,
   type AgentReviewRequired,
-} from "./chatClient";
+} from "@routedeck/core";
 import {
   historyMessage,
   pendingRequestFor,
   type AgentConversationMessage,
   type AgentPendingRequest,
   type AgentStreamStatus,
-} from "./agentStreamState";
+} from "./state";
 import {
   applyAgentEvent,
   removeRequestMessages,
-} from "./agentStreamTransitions";
+} from "./transitions";
 
 export type {
   AgentConversationMessage,
   AgentPendingRequest,
   AgentStreamStatus,
-} from "./agentStreamState";
+} from "./state";
 
-export interface UseAgentStreamOptions {
+export interface UseRouteDeckConversationOptions {
   client: AgentChatClient;
   initialConversation?: readonly AgentHistoryTurn[];
   sessionVersion: number | null;
@@ -54,14 +54,14 @@ export interface AgentStreamState {
   cancel(): void;
 }
 
-export function useAgentStream({
+export function useRouteDeckConversation({
   client,
   initialConversation = [],
   sessionVersion,
   createRequestId,
   synchronizeTo,
   resync,
-}: UseAgentStreamOptions): AgentStreamState {
+}: UseRouteDeckConversationOptions): AgentStreamState {
   const [messages, setMessages] = useState<AgentConversationMessage[]>(() =>
     initialConversation.map(historyMessage),
   );

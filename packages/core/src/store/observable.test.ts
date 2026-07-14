@@ -35,6 +35,7 @@ function projection(): RouteDeckProjection {
     entities: [],
     event_cursor: 0,
     failure: null,
+    interaction: { phase: "idle", owner: null },
     legal_operations: [],
     suggested_actions: [],
     navigation: {

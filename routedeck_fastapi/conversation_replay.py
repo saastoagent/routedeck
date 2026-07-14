@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
-
-from fastapi import Request
-from fastapi.responses import JSONResponse
+from collections.abc import Mapping
+from typing import NoReturn
 
 from routedeck_core.contracts.conversation import (
     ConversationRole,
@@ -13,16 +11,10 @@ from routedeck_core.contracts.conversation import (
 )
 from routedeck_core.contracts.mutations import MutationRecord, MutationStatus
 from routedeck_core.contracts.session import SessionSnapshot
-from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
-from routedeck_fastapi import RouteDeckDependencies, RouteDeckDependencyUnavailable
+from routedeck_core.ports import RouteDeckAgentStreamError
 
-from .chat_contract import (
-    ChatDependencyProvider,
-    ChatStreamRequest,
-    MedusaChatDependencies,
-)
-from .chat_events import ChatStreamFailure, sse
-from .conversation import public_conversation
+from .contracts import ChatStreamRequest
+from .conversation_projection import public_conversation
 
 
 def chat_fingerprint(request: ChatStreamRequest) -> str:
@@ -62,10 +54,7 @@ def chat_replay_frames(
             None,
         )
         if assistant is None:
-            raise ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
+            _invalid_replay()
         return (
             start,
             history,
@@ -85,13 +74,7 @@ def chat_replay_frames(
         )
     result = record.result.to_dict()
     if record.status is MutationStatus.REQUIRES_REVIEW:
-        if set(result) != {"expires_at", "operation_id", "review_id"} or any(
-            not isinstance(value, str) or not value for value in result.values()
-        ):
-            raise ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
+        _require_replay_result(result, {"expires_at", "operation_id", "review_id"})
         return (
             start,
             history,
@@ -102,13 +85,7 @@ def chat_replay_frames(
             ),
         )
     if record.status is MutationStatus.TURN_INTERRUPTED:
-        if set(result) != {"code", "message"} or any(
-            not isinstance(value, str) or not value for value in result.values()
-        ):
-            raise ChatStreamFailure(
-                "chat_replay_invalid",
-                "The saved buyer-agent turn could not be replayed.",
-            )
+        _require_replay_result(result, {"code", "message"})
         return (
             start,
             history,
@@ -118,10 +95,7 @@ def chat_replay_frames(
                 {"request_id": record.request_id, "status": "turn_interrupted"},
             ),
         )
-    raise ChatStreamFailure(
-        "chat_replay_invalid",
-        "The saved buyer-agent turn could not be replayed.",
-    )
+    return _invalid_replay()
 
 
 def chat_stream_headers() -> dict[str, str]:
@@ -132,33 +106,30 @@ def chat_stream_headers() -> dict[str, str]:
     }
 
 
-def guest_session_id(
-    request: Request,
-    dependencies: RouteDeckDependencies,
-) -> str:
-    session_id = request.cookies.get(dependencies.cookie.name)
-    if not session_id or len(session_id) > 512:
-        raise SessionStoreError(SessionStoreErrorCode.SESSION_NOT_FOUND)
-    return session_id
+def sse(event: str, data: Mapping[str, object]) -> str:
+    payload = json.dumps(
+        dict(data),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return f"event: {event}\ndata: {payload}\n\n"
 
 
-async def resolve_dependencies(
-    provider: ChatDependencyProvider,
-    request: Request,
-) -> MedusaChatDependencies:
-    value = provider(request)
-    if inspect.isawaitable(value):
-        value = await value
-    if not isinstance(value, MedusaChatDependencies):
-        raise RouteDeckDependencyUnavailable("Medusa chat is not configured")
-    return value
+def _require_replay_result(
+    result: Mapping[str, object],
+    expected_keys: set[str],
+) -> None:
+    if set(result) != expected_keys or any(
+        not isinstance(value, str) or not value for value in result.values()
+    ):
+        _invalid_replay()
 
 
-def problem_response(status: int, *, code: str, message: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"failure": {"code": code, "message": message}},
-        headers={"Cache-Control": "no-store"},
+def _invalid_replay() -> NoReturn:
+    raise RouteDeckAgentStreamError(
+        "chat_replay_invalid",
+        "The saved agent turn could not be replayed.",
     )
 
 
@@ -166,7 +137,5 @@ __all__ = [
     "chat_fingerprint",
     "chat_replay_frames",
     "chat_stream_headers",
-    "guest_session_id",
-    "problem_response",
-    "resolve_dependencies",
+    "sse",
 ]

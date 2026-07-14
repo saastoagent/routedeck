@@ -142,6 +142,7 @@ const EVENT_TYPES = new Set<RouteDeckEventType>([
   "navigation_changed",
   "operation_changed",
   "private_form_changed",
+  "turn_started",
   "turn_finalized",
   "turn_interrupted",
 ]);
@@ -217,6 +218,7 @@ export function decodeProjection(
       "entities",
       "event_cursor",
       "failure",
+      "interaction",
       "legal_operations",
       "navigation",
       "projection_version",
@@ -277,6 +279,32 @@ export function decodeProjection(
     `${path}.status`,
     ["code", "message"],
   );
+  const interactionRecord = expectRecord(
+    record.interaction,
+    `${path}.interaction`,
+    ["owner", "phase"],
+  );
+  const interactionPhase = expectEnum(
+    interactionRecord.phase,
+    `${path}.interaction.phase`,
+    new Set(["idle", "active"] as const),
+  );
+  const interactionOwner =
+    interactionRecord.owner === null
+      ? null
+      : expectEnum(
+          interactionRecord.owner,
+          `${path}.interaction.owner`,
+          new Set(
+            ["chat", "surface", "review", "system", "navigation"] as const,
+          ),
+        );
+  if (
+    (interactionPhase === "idle" && interactionOwner !== null) ||
+    (interactionPhase === "active" && interactionOwner === null)
+  ) {
+    fail(`${path}.interaction`, "phase and owner do not form a valid interaction state");
+  }
   const projection: RouteDeckProjection = {
     current,
     diagnostics: {
@@ -308,6 +336,10 @@ export function decodeProjection(
       record.failure === null
         ? null
         : decodeFailure(record.failure, `${path}.failure`),
+    interaction: {
+      phase: interactionPhase,
+      owner: interactionOwner,
+    },
     legal_operations: decodeArray(
       record.legal_operations,
       `${path}.legal_operations`,

@@ -1,7 +1,4 @@
-import type {
-  AgentChatRequest,
-  AgentHistoryTurn,
-} from "./chatClient";
+import type { AgentChatRequest, AgentHistoryTurn } from "@routedeck/core";
 
 export interface AgentConversationMessage {
   id: string;

@@ -5,7 +5,7 @@ import { AgentShell } from "../ui/AgentShell";
 import { BuyerNavigation } from "../ui/BuyerNavigation";
 import { NavgraphSidebar } from "../ui/NavgraphSidebar";
 import type { MedusaRouteDeck } from "./createRouteDeck";
-import type { AgentChatClient, AgentHistoryTurn } from "./chatClient";
+import type { AgentChatClient, AgentHistoryTurn } from "@routedeck/core";
 
 export interface AppProps {
   routeDeck: MedusaRouteDeck;

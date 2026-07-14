@@ -1,0 +1,4 @@
+services:
+  agent-api:
+    environment:
+      ROUTEDECK_DATABASE_URL: sqlite+pysqlite:////workspace/examples/medusa-agent/.demo-data/routedeck-recording-session.sqlite

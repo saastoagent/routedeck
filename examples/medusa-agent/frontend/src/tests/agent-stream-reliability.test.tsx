@@ -6,8 +6,8 @@ import {
   type AgentChatClient,
   type AgentChatRequest,
   type AgentStreamEvent,
-} from "../app/chatClient";
-import { useAgentStream } from "../app/useAgentStream";
+} from "@routedeck/core";
+import { useRouteDeckConversation } from "@routedeck/react";
 
 it("starts from bootstrap history without posting a new chat turn", () => {
   const streamCalls: AgentChatRequest[] = [];
@@ -17,7 +17,7 @@ it("starts from bootstrap history without posting a new chat turn", () => {
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       initialConversation: [
         {
@@ -86,7 +86,7 @@ it("does not let a late conversation snapshot clobber an in-flight response", as
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 3,
       createRequestId: () => "live-chat",
@@ -164,7 +164,7 @@ it("replaces a partial assistant with the canonical completed replay turn", asyn
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 1,
       createRequestId: () => "replayed-chat",
@@ -223,7 +223,7 @@ it("retains an outcome-unknown chat request and retries the exact request id", a
   const createRequestId = vi.fn(() => "chat-request-stable");
   const synchronizeTo = vi.fn(async () => undefined);
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 1,
       createRequestId,
@@ -269,7 +269,7 @@ it("keeps the composer-busy stream state until RouteDeck reaches assistant_end",
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 2,
       createRequestId: () => "chat-version-sync",
@@ -325,7 +325,7 @@ it("removes an interrupted turn that authoritative history did not commit", asyn
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 2,
       createRequestId: () => "chat-interrupted",
@@ -376,7 +376,7 @@ it("retains the exact request when interruption persistence leaves the outcome u
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 2,
       createRequestId: () => "chat-outcome-unknown",
@@ -424,7 +424,7 @@ it("retains the exact chat request when the buyer stops an in-flight response", 
     },
   };
   const { result } = renderHook(() =>
-    useAgentStream({
+    useRouteDeckConversation({
       client,
       sessionVersion: 1,
       createRequestId: () => "chat-stop-stable",

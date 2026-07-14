@@ -5,6 +5,7 @@ export * from "./client/http";
 export * from "./client/sse";
 export * from "./client/client";
 export * from "./client/retained";
+export * from "./conversation/client";
 export * from "./private-forms/client";
 export * from "./private-forms/state";
 export * from "./routing/codec";

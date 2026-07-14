@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from routedeck_core.contracts.failures import FailureKind
 from routedeck_core.navigation.transactions import NavigationIntent
@@ -18,6 +18,19 @@ class DispatchRequest(RouteDeckRequestModel):
     expected_session_version: int = Field(ge=0)
     operation_id: str = Field(min_length=1)
     arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class ChatStreamRequest(RouteDeckRequestModel):
+    request_id: str = Field(min_length=1, max_length=256)
+    expected_session_version: int = Field(ge=0)
+    message: str = Field(min_length=1, max_length=16_000)
+
+    @field_validator("request_id", "message")
+    @classmethod
+    def _not_whitespace(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must contain non-whitespace text")
+        return value
 
 
 class SessionCreateRequest(RouteDeckRequestModel):
@@ -52,6 +65,7 @@ class RouteDeckHttpProblem(Exception):
 
 
 __all__ = [
+    "ChatStreamRequest",
     "DispatchRequest",
     "NavigationRequestBody",
     "PrivateFormWriteRequest",

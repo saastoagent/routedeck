@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 
 import {
-  createAgentChatClient,
+  createRouteDeckAgentClient,
   type AgentChatRequest,
   type AgentStreamEvent,
-} from "../app/chatClient";
+} from "@routedeck/core";
 
 
 const REQUEST: AgentChatRequest = {
@@ -13,10 +13,10 @@ const REQUEST: AgentChatRequest = {
   message: "Show my cart",
 };
 
-it("loads the finalized public conversation through the product read endpoint", async () => {
+it("loads the finalized public conversation through the RouteDeck endpoint", async () => {
   const requests: Array<{ input: string; init?: RequestInit }> = [];
-  const client = createAgentChatClient({
-    baseUrl: "https://agent.test/api/medusa-agent/",
+  const client = createRouteDeckAgentClient({
+    baseUrl: "https://agent.test/api/routedeck/",
     fetch: async (input, init) => {
       requests.push({ input: String(input), ...(init === undefined ? {} : { init }) });
       return Response.json({
@@ -42,7 +42,7 @@ it("loads the finalized public conversation through the product read endpoint", 
   ]);
   expect(requests).toEqual([
     {
-      input: "https://agent.test/api/medusa-agent/conversation",
+      input: "https://agent.test/api/routedeck/conversation",
       init: {
         method: "GET",
         credentials: "include",
@@ -54,7 +54,7 @@ it("loads the finalized public conversation through the product read endpoint", 
 
 
 it("classifies a received chat 5xx as outcome unknown", async () => {
-  const client = createAgentChatClient({
+  const client = createRouteDeckAgentClient({
     baseUrl: "https://agent.test",
     fetch: async () =>
       Response.json(
@@ -76,7 +76,7 @@ it("classifies a received chat 5xx as outcome unknown", async () => {
 
 
 it("keeps a received chat 4xx as a confirmed rejection", async () => {
-  const client = createAgentChatClient({
+  const client = createRouteDeckAgentClient({
     baseUrl: "https://agent.test",
     fetch: async () =>
       Response.json(
@@ -98,7 +98,7 @@ it("keeps a received chat 4xx as a confirmed rejection", async () => {
 
 
 it("classifies a successful chat response without a body as outcome unknown", async () => {
-  const client = createAgentChatClient({
+  const client = createRouteDeckAgentClient({
     baseUrl: "https://agent.test",
     fetch: async () => new Response(null, { status: 200 }),
   });

@@ -19,6 +19,7 @@ class RouteDeckEventType(StrEnum):
     NAVIGATION_CHANGED = "navigation_changed"
     OPERATION_CHANGED = "operation_changed"
     PRIVATE_FORM_CHANGED = "private_form_changed"
+    TURN_STARTED = "turn_started"
     TURN_FINALIZED = "turn_finalized"
     TURN_INTERRUPTED = "turn_interrupted"
 

@@ -7,12 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from medusa_agent.api import MedusaAgentReadinessProbe, health_router
-from medusa_agent.api.chat import (
-    AgentEventStream,
-    MedusaChatDependencies,
-    create_medusa_chat_router,
-)
-from medusa_agent.api.conversation import create_medusa_conversation_router
+from medusa_agent.agent_driver import AgentEventStream, MedusaLangGraphAgentDriver
 from medusa_agent.api.entry import (
     MedusaEntryDependencies,
     create_medusa_entry_router,
@@ -22,9 +17,11 @@ from medusa_agent.runtime import (
     open_live_medusa_application,
 )
 from routedeck_fastapi import (
+    RouteDeckConversationDependencies,
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
     SameOriginMutationPolicy,
+    create_routedeck_conversation_router,
     create_routedeck_router_from_provider,
 )
 
@@ -42,12 +39,15 @@ async def _routedeck_dependencies(request: Request) -> RouteDeckDependencies:
     return dependencies
 
 
-async def _chat_dependencies(request: Request) -> MedusaChatDependencies:
+async def _conversation_dependencies(
+    request: Request,
+) -> RouteDeckConversationDependencies:
     routedeck = await _routedeck_dependencies(request)
-    agent = getattr(request.app.state, "medusa_chat_agent", None)
-    if agent is None or not callable(getattr(agent, "astream_events", None)):
-        raise RouteDeckDependencyUnavailable("Medusa chat agent is not configured")
-    return MedusaChatDependencies(routedeck=routedeck, agent=agent)
+    driver = getattr(request.app.state, "routedeck_agent_driver", None)
+    return RouteDeckConversationDependencies(
+        routedeck=routedeck,
+        agent=(driver if isinstance(driver, MedusaLangGraphAgentDriver) else None),
+    )
 
 
 async def _entry_dependencies(request: Request) -> MedusaEntryDependencies:
@@ -89,7 +89,11 @@ def create_medusa_app(
         ),
     )
     application.state.routedeck_dependencies = routedeck
-    application.state.medusa_chat_agent = agent
+    application.state.routedeck_agent_driver = (
+        None
+        if routedeck is None or agent is None
+        else MedusaLangGraphAgentDriver(agent=agent, runner=routedeck.runner)
+    )
     application.state.medusa_entry_agent = entry_agent
     application.state.medusa_readiness = readiness
     trusted_browser_origins = frozenset(browser_origins)
@@ -107,11 +111,13 @@ def create_medusa_app(
             mutation_policy=mutation_policy,
         )
     )
-    application.include_router(create_medusa_chat_router(_chat_dependencies))
-    application.include_router(create_medusa_entry_router(_entry_dependencies))
     application.include_router(
-        create_medusa_conversation_router(_routedeck_dependencies)
+        create_routedeck_conversation_router(
+            _conversation_dependencies,
+            mutation_policy=mutation_policy,
+        )
     )
+    application.include_router(create_medusa_entry_router(_entry_dependencies))
     application.include_router(health_router)
     return application
 
@@ -123,7 +129,14 @@ def _live_lifespan(
     async def lifespan(application: FastAPI):
         live = await factory()
         application.state.routedeck_dependencies = live.routedeck
-        application.state.medusa_chat_agent = live.agent
+        application.state.routedeck_agent_driver = (
+            None
+            if live.agent is None
+            else MedusaLangGraphAgentDriver(
+                agent=live.agent,
+                runner=live.routedeck.runner,
+            )
+        )
         application.state.medusa_entry_agent = live.entry_agent
         application.state.medusa_readiness = live.readiness
         application.state.medusa_live_runtime = live
@@ -131,7 +144,7 @@ def _live_lifespan(
             yield
         finally:
             application.state.routedeck_dependencies = None
-            application.state.medusa_chat_agent = None
+            application.state.routedeck_agent_driver = None
             application.state.medusa_entry_agent = None
             application.state.medusa_readiness = None
             application.state.medusa_live_runtime = None

@@ -416,6 +416,17 @@ class InMemorySessionStore:
         self.turn_claim_counts[claim.request_id] += 1
         return lease
 
+    async def start_turn(
+        self,
+        claim: TurnClaim,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+    ) -> TurnLease:
+        del events
+        lease = await self.acquire_turn(claim)
+        self.sessions[claim.session_id] = next_state
+        return lease
+
     async def claim_child_attempt(
         self,
         lease: TurnLease,

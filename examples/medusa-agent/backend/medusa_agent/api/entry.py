@@ -9,16 +9,17 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
-from routedeck_fastapi import RouteDeckDependencies, RouteDeckDependencyUnavailable
+from routedeck_fastapi import (
+    RouteDeckDependencies,
+    RouteDeckDependencyUnavailable,
+    public_conversation,
+)
 
 from ..entry_conversation import (
     BuyerEntryAgent,
     EntryConversationError,
     start_home_conversation,
 )
-from .conversation import public_conversation
-
-
 class _EntryRequestModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

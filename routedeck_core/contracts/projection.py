@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import core_schema
 
 from .failures import RouteDeckFailure
+from .interactions import RouteDeckInteractionState
 
 
 JsonScalar = str | int | float | bool | None
@@ -231,6 +232,7 @@ class PublicProjection(_FrozenContract):
     projection_version: int = Field(ge=0)
     event_cursor: int = Field(ge=0)
     current: ProjectionLocation
+    interaction: RouteDeckInteractionState
     navigation: ProjectedNavigation
     legal_operations: tuple[ProjectedOperation, ...]
     suggested_actions: tuple[ProjectedSuggestedAction, ...]

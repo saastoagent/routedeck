@@ -146,7 +146,9 @@ services:
       - frontend-node-modules:/workspace/node_modules
       - frontend-core-node-modules:/workspace/packages/core/node_modules
       - frontend-react-node-modules:/workspace/packages/react/node_modules
+      - frontend-testing-node-modules:/workspace/packages/testing/node_modules
       - frontend-app-node-modules:/workspace/examples/medusa-agent/frontend/node_modules
+      - frontend-e2e-node-modules:/workspace/examples/medusa-agent/e2e/node_modules
     ports:
       - "127.0.0.1:5198:5198"
     depends_on:
@@ -178,6 +180,12 @@ volumes:
   frontend-react-node-modules:
     name: routedeck-medusa-demo-frontend-react-node-modules-v1
     labels: *demo-labels
+  frontend-testing-node-modules:
+    name: routedeck-medusa-demo-frontend-testing-node-modules-v1
+    labels: *demo-labels
   frontend-app-node-modules:
     name: routedeck-medusa-demo-frontend-app-node-modules-v1
+    labels: *demo-labels
+  frontend-e2e-node-modules:
+    name: routedeck-medusa-demo-frontend-e2e-node-modules-v1
     labels: *demo-labels
