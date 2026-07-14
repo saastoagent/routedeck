@@ -91,7 +91,12 @@ class _ReadinessRuntime:
     initial_market: BuyerMarket
     store_error: SessionStoreError | None = None
 
-    async def load_session(self):
+    @property
+    def store(self) -> "_ReadinessRuntime":
+        return self
+
+    async def load(self, session_id: str):
+        del session_id
         if self.store_error is not None:
             raise self.store_error
         return object()

@@ -39,6 +39,7 @@ it("decodes a conversation-only projection with supervised suggested actions", (
     entities: [],
     event_cursor: 0,
     failure: null,
+    interaction: { phase: "idle", owner: null },
     legal_operations: [
       {
         operation_id: "catalog.list",

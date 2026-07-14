@@ -273,7 +273,10 @@ async def test_review_staging_ends_and_releases_parent_agent_turn(
             owner_kind=TurnOwnerKind.CHAT,
         )
     )
-    request = reviewed_request().model_copy(update={"source": OperationSource.AGENT})
+    current = await store.load("session-1")
+    request = reviewed_request(
+        expected_session_version=current.state.session_version
+    ).model_copy(update={"source": OperationSource.AGENT})
 
     proposed = await runner.run(request, turn=turn)
 

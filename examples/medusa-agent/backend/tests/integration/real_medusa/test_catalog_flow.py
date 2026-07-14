@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -63,7 +64,11 @@ class CountingCatalogClient:
 @pytest.mark.asyncio
 async def test_real_catalog_projection_and_journal_replay() -> None:
     settings = Settings.from_env()
-    assert str(settings.medusa_base_url).rstrip("/") == "http://127.0.0.1:9100"
+    expected_base_url = os.environ.get(
+        "ROUTEDECK_EXPECTED_MEDUSA_BASE_URL",
+        "http://127.0.0.1:9100",
+    ).rstrip("/")
+    assert str(settings.medusa_base_url).rstrip("/") == expected_base_url
     http_client = HttpMedusaStoreClient(settings)
     regions = await http_client.list_regions()
     assert regions.failure is None

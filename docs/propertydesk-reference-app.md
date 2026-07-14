@@ -35,7 +35,7 @@ base to rename or polish.
 
 ## Current Repo Reality
 
-- RouteDeck currently lives at `agent-lab-powered-projects/routedeck`.
+- RouteDeck is the root of this standalone repository.
 - The reusable framework split exists:
   - `routedeck_core` for product-neutral Python contracts, projections,
     operations, surfaces, runtime state, and validation helpers.
@@ -127,7 +127,7 @@ passed into `PropertyDeskRouteDeckRuntime`.
 ## Proposed Code Location
 
 ```text
-agent-lab-powered-projects/routedeck/examples/propertydesk/
+examples/propertydesk/
 ```
 
 PropertyDesk should live inside the RouteDeck package because it is a framework

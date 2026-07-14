@@ -30,6 +30,7 @@ it("dispatches the exact projected operation binding and arguments", async () =>
       ({}) as RouteDeckDispatchResult,
   );
   const projection = {
+    interaction: { phase: "idle", owner: null },
     suggested_actions: [
       {
         action_id: "buyer.browse_products",

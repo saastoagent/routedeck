@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -200,7 +201,11 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
     tmp_path: Path,
 ) -> None:
     settings = Settings.from_env()
-    assert str(settings.medusa_base_url).rstrip("/") == "http://127.0.0.1:9100"
+    expected_base_url = os.environ.get(
+        "ROUTEDECK_EXPECTED_MEDUSA_BASE_URL",
+        "http://127.0.0.1:9100",
+    ).rstrip("/")
+    assert str(settings.medusa_base_url).rstrip("/") == expected_base_url
     client = _CountingClient(HttpMedusaStoreClient(settings))
     regions = await client.list_regions()
     assert regions.failure is None and regions.value is not None

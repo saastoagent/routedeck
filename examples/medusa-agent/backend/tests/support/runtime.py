@@ -166,6 +166,20 @@ class ExplicitTestSessionStore:
         )
         return self.lease
 
+    async def start_turn(
+        self,
+        claim: TurnClaim,
+        next_state: RouteDeckSession,
+        events: Sequence[RouteDeckEvent],
+    ) -> TurnLease:
+        if self.session.session_version != claim.expected_session_version:
+            raise AssertionError("test session version mismatch")
+        if len(events) != 1:
+            raise AssertionError("test turn must start with one public event")
+        lease = await self.acquire_turn(claim)
+        self.session = next_state
+        return lease
+
     async def claim_child_attempt(
         self,
         lease: TurnLease,
