@@ -2,6 +2,10 @@
 
 Date: 2026-07-15 (Asia/Calcutta)
 
+History note: source-derived commits retain their exact original timestamps;
+extraction-only commits use evidence-derived reconstructed dates and do not
+assert that the extraction itself occurred on those dates.
+
 ## Boundary
 
 - Standalone repository: `D:\Dev\AI Projects\routedeck`
@@ -19,8 +23,8 @@ instructions use standalone-relative paths.
 ## Preservation and history
 
 - Preserved snapshot: 2,034 non-dependency files, 122,209,176 bytes
-- Source working-state snapshot commit: `0a389f071ef66a7bbf5c2c4131b1f8cb6c192bf4`
-- Standalone-boundary commit: `334b7f25bc769a22f1569ab7a1034453a2851a50`
+- Source working-state snapshot commit: `adc4e98a3960a1bdce965fa7830394e6a64bf741`
+- Standalone-boundary commit: `92dec151f110129f3295cfda934b923bc34e947c`
 - Relevant filtered source commits retained: 43 of 43
 - Source-to-standalone commit map: `source-commit-map.tsv`
 - Ignored source artifacts preserved: 1,415 non-dependency files
@@ -74,7 +78,7 @@ Postgres and Redis volumes and generated local credentials:
 
 ```powershell
 docker compose --project-name routedeck-medusa-extracted `
-  --file .\examples\medusa-agent\infra\docker-compose.yml `
+  --file .\examples\medusa-agent\infra\compose.yaml `
   --file "D:\Dev\AI Projects\agent-core-repo-extraction-control\work\routedeck-isolated-compose.override.yaml" `
   up --detach --build
 ```
