@@ -100,7 +100,7 @@ def authorized_private_form(
 
 def projected_surfaces(projection: PublicProjection) -> tuple[ProjectedSurface, ...]:
     slots = projection.surfaces
-    return (
+    projected = (
         slots.active,
         *slots.frame,
         *slots.peer,
@@ -111,6 +111,7 @@ def projected_surfaces(projection: PublicProjection) -> tuple[ProjectedSurface, 
         *slots.error,
         *slots.diagnostic,
     )
+    return tuple(surface for surface in projected if surface is not None)
 
 
 async def private_form_state(

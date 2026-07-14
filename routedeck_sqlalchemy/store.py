@@ -11,7 +11,7 @@ from routedeck_core.contracts.conversation import (
     FinalizedConversationTurn,
 )
 from routedeck_core.contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     EventPage,
 )
 from routedeck_core.contracts.failures import RouteDeckFailure
@@ -306,7 +306,7 @@ class SqlAlchemySessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot:
         if record.review is None:
@@ -388,7 +388,7 @@ class SqlAlchemySessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         return await self.commits.with_lease(
@@ -405,7 +405,7 @@ class SqlAlchemySessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         turns: Sequence[FinalizedConversationTurn],
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         finalized = tuple(turns)
@@ -453,7 +453,7 @@ class SqlAlchemySessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         failure: RouteDeckFailure,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         if failure.request_id not in {None, lease.request_id}:
@@ -497,7 +497,7 @@ class SqlAlchemySessionStore:
         claim: ExecutionClaim,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         return await self.commits.with_claim(
@@ -515,7 +515,7 @@ class SqlAlchemySessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         return await self.commits.with_lease(
@@ -533,7 +533,7 @@ class SqlAlchemySessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot:
         return await self.commits.with_claim(
             claim,
@@ -590,7 +590,7 @@ class SqlAlchemySessionStore:
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         if not form_id:

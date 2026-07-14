@@ -17,7 +17,7 @@ from routedeck_core.contracts.mutations import MutationKind
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
 from routedeck_core.state.leases import TurnClaim, TurnLease, TurnOwnerKind
-from routedeck_core.state.session import require_compatible_session
+from routedeck_core.state.session import require_current_session
 from routedeck_fastapi import RouteDeckDependencyUnavailable
 from routedeck_langgraph import (
     RouteDeckInvocationContext,
@@ -82,7 +82,7 @@ def create_medusa_chat_router(provider: ChatDependencyProvider) -> APIRouter:
                         message="This request ID was already used for another mutation.",
                     )
                 replay_snapshot = await dependencies.routedeck.store.load(session_id)
-                require_compatible_session(
+                require_current_session(
                     dependencies.routedeck.app,
                     replay_snapshot.state,
                 )
@@ -97,7 +97,7 @@ def create_medusa_chat_router(provider: ChatDependencyProvider) -> APIRouter:
                     headers=_chat_stream_headers(),
                 )
             snapshot = await dependencies.routedeck.store.load(session_id)
-            require_compatible_session(
+            require_current_session(
                 dependencies.routedeck.app,
                 snapshot.state,
             )

@@ -10,6 +10,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CHECKOUT_START, CONTACT_FORM
 from ..models import (
     BillingChoice,
@@ -51,7 +52,7 @@ class StartCheckoutHandler:
             "default_country_code": self.buyer_country_code,
         }
         return OperationOutcome(
-            outcome="started",
+            outcome=MedusaOutcomeType.STARTED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             observation=FrozenJsonObject(form_values),
             effects=SessionEffects(

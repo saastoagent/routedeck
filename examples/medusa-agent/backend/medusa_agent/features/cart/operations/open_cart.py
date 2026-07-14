@@ -7,6 +7,7 @@ from typing import Any
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CART_OPEN
 from .common import cart_effects, current_cart, require_arguments
 
@@ -22,7 +23,7 @@ class OpenCartHandler:
     ) -> OperationOutcome:
         require_arguments(arguments, expected=(), operation_id=CART_OPEN.id)
         return OperationOutcome(
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             effects=cart_effects(
                 current_cart(context),

@@ -21,9 +21,10 @@ from routedeck_core.contracts.projection import (
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import CreateCartRequest, CreateCartResult
 from ....medusa.client.protocol import MedusaStoreClient
-from ..feature import BUYER_MARKET_PROVIDER, CART_CREATE, CART_CREATED_OUTCOME
+from ..feature import BUYER_MARKET_PROVIDER, CART_CREATE
 from ..models import EntityHandleFactory
 from .common import (
     failure_outcome,
@@ -102,7 +103,7 @@ class CreateCartHandler:
             ),
         )
         return OperationOutcome(
-            outcome=CART_CREATED_OUTCOME,
+            outcome=MedusaOutcomeType.CREATED,
             delivery_phase=result.delivery_phase,
             observation=FrozenJsonObject(
                 {

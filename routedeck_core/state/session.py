@@ -43,7 +43,7 @@ def create_session(
     )
 
 
-def require_compatible_session(
+def require_current_session(
     app: CompiledRouteDeckApp,
     session: RouteDeckSession,
 ) -> None:
@@ -59,5 +59,5 @@ __all__ = [
     "SESSION_SCHEMA_VERSION",
     "create_session",
     "navgraph_version",
-    "require_compatible_session",
+    "require_current_session",
 ]

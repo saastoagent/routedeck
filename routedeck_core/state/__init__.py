@@ -2,7 +2,7 @@
 
 from .aggregate import RouteDeckSessionAggregate
 from .leases import ExecutionClaim, TurnClaim, TurnLease, TurnOwnerKind
-from .session import create_session, navgraph_version, require_compatible_session
+from .session import create_session, navgraph_version, require_current_session
 
 __all__ = [
     "ExecutionClaim",
@@ -12,5 +12,5 @@ __all__ = [
     "TurnOwnerKind",
     "create_session",
     "navgraph_version",
-    "require_compatible_session",
+    "require_current_session",
 ]

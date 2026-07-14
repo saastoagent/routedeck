@@ -6,6 +6,7 @@ from typing import Any
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CONTINUE_SHOPPING
 
 
@@ -19,6 +20,6 @@ class ContinueShoppingHandler:
         if arguments:
             raise ValueError(f"{CONTINUE_SHOPPING.id} accepts no arguments")
         return OperationOutcome(
-            outcome="continued",
+            outcome=MedusaOutcomeType.CONTINUED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
         )

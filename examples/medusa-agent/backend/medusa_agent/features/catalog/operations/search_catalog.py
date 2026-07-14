@@ -6,6 +6,7 @@ from typing import Any
 from routedeck_core.contracts.operations import OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CATALOG_SEARCH
 from .common import collection_outcome, collection_value
 
@@ -22,4 +23,4 @@ class SearchCatalogHandler:
         value = collection_value(context)
         if value.observation.query != query:
             raise ValueError("catalog search provider query does not match the request")
-        return collection_outcome(value, outcome="searched")
+        return collection_outcome(value, outcome=MedusaOutcomeType.SEARCHED)

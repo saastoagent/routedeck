@@ -77,9 +77,10 @@ def test_medusa_frontend_uses_only_routedeck_and_product_chat_planes() -> None:
     assert PRODUCT_SPECIFIC_ROUTEDECK_ROUTE.search(frontend_text) is None
 
 
-def test_store_http_is_confined_to_the_typed_medusa_client_adapter() -> None:
+def test_store_http_is_confined_to_the_typed_medusa_client_package() -> None:
     backend_root = "examples/medusa-agent/backend/medusa_agent"
-    adapter = ROOT / backend_root / "medusa/client/http.py"
+    client_root = ROOT / backend_root / "medusa/client"
+    expected_owners = [client_root / "http.py", client_root / "transport.py"]
     protocol = _read(f"{backend_root}/medusa/client/protocol.py")
     transport_owners = []
 
@@ -88,9 +89,9 @@ def test_store_http_is_confined_to_the_typed_medusa_client_adapter() -> None:
         if "httpx" in text or "/store/" in text or "/admin/" in text:
             transport_owners.append(path)
 
-    assert transport_owners == [adapter]
+    assert transport_owners == expected_owners
     assert "class MedusaStoreClient(Protocol):" in protocol
-    assert "class HttpMedusaStoreClient:" in _read(adapter)
+    assert "class HttpMedusaStoreClient:" in _read(client_root / "http.py")
 
 
 def test_feature_declarations_do_not_own_transport_or_agent_topology() -> None:
@@ -115,7 +116,7 @@ def test_feature_declarations_do_not_own_transport_or_agent_topology() -> None:
         assert forbidden not in declarations
 
 
-def test_legacy_slice_backend_and_frontend_paths_are_removed() -> None:
+def test_retired_slice_backend_and_frontend_paths_are_removed() -> None:
     removed_paths = (
         "examples/medusa-agent/backend/core",
         "examples/medusa-agent/backend/routes",

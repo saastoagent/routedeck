@@ -13,7 +13,7 @@ from routedeck_core.contracts.failures import (
     FailureKind,
 )
 from routedeck_core.contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -38,7 +38,7 @@ from routedeck_core.navigation.transactions import (
 )
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.state.leases import TurnClaim, TurnOwnerKind
-from routedeck_core.state.session import require_compatible_session
+from routedeck_core.state.session import require_current_session
 from routedeck_core.supervision import RouteDeckOperationRunner
 
 from .dependencies import (
@@ -390,7 +390,7 @@ def create_routedeck_router_from_provider(
                     form_id=form_id,
                 )
             snapshot = await dependencies.store.load(session_id)
-            require_compatible_session(dependencies.app, snapshot.state)
+            require_current_session(dependencies.app, snapshot.state)
             binding = _authorized_private_form(
                 dependencies,
                 snapshot,
@@ -420,7 +420,7 @@ def create_routedeck_router_from_provider(
                 .record_public_events(1)
                 .commit()
             )
-            event = CanonicalRouteDeckEvent(
+            event = RouteDeckEvent(
                 event_id=dependencies.runner.id_factory("event"),
                 cursor=next_state.event_cursor,
                 event_type=RouteDeckEventType.PRIVATE_FORM_CHANGED,

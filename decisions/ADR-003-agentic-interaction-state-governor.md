@@ -1,12 +1,15 @@
 # ADR-003: RouteDeck Governs Agentic Interaction State
 
-Status: Accepted
+Status: Historical rationale; current implementation authority is ADR-004 and
+ADR-005
 Date: 2026-07-10
 
 This decision supersedes the compiler-first and durability-first portions of
 ADR-001, ADR-002, and the retired 2026-07-10 full-stack framework refactor
-plan. Those documents remain useful history, but this ADR controls current
-RouteDeck product identity, first-release scope, and Corpus migration.
+plan. Those documents remain useful history. This ADR still explains
+RouteDeck's product identity and supervision purpose, but its original release
+and Corpus migration mechanics are superseded by ADR-004, ADR-005, and the
+current standalone design.
 
 ## Context
 
@@ -98,19 +101,12 @@ effects.
 
 ## Real Identifier Grounding
 
-The first release uses real product identifiers, matching working Corpus
-behavior. It does not introduce opaque RouteDeck identifiers.
-
-RouteDeck may expose a real ID to the agent only when a trusted provider places
-that record in the current projected context. A proposed ID must match the
-current allowlist for that specific tool/operation and session state. Fabricated,
-stale, hidden, or currently ineligible IDs are rejected with useful feedback
-and are never forwarded to the tool runner.
-
-This preserves direct product API compatibility while preventing the agent from
-treating arbitrary strings as trusted application identity. Public response
-rendering continues to redact internal IDs when the product experience should
-not reveal them.
+Product systems remain authoritative for real identifiers. RouteDeck stores
+those identifiers only in classified private entity bindings and exposes
+scoped opaque handles to the model, browser, URLs, and surfaces. At execution,
+the framework resolves a handle only when its private binding is allowlisted
+for the requested operation and current session state. Fabricated, stale,
+hidden, or ineligible handles fail before a product handler receives an ID.
 
 ## State Ownership
 
@@ -119,7 +115,7 @@ application coherent:
 
 - current navgraph location and navigation history
 - active and available surfaces
-- visible selections and current real-ID allowlists
+- visible selections, opaque handles, and private operation allowlists
 - legal and blocked tools/operations plus feedback
 - needs-input and review state
 - relevant tool-result summaries/references
@@ -138,7 +134,7 @@ contains only what is relevant now, such as:
 
 - current node and active surface
 - current product/workspace summary
-- visible selectable entities with real IDs and allowed tool bindings
+- visible selectable entities with opaque handles and allowed tool bindings
 - legal product tools with accepted arguments and readiness
 - allowed surface choices
 - relevant recent tool-result summaries
@@ -170,11 +166,10 @@ The RouteDeck core must not require LangGraph or any other agent runtime.
 Runtime neutrality is an interface constraint, not a requirement to build many
 adapters now.
 
-The first extraction uses the existing Corpus planner/agent driver through a
-small injected boundary. Later, a Medusa agent proves that another agent runtime
-can use the same RouteDeck context, tool supervision, surfaces, and events.
-LangGraph may receive an official adapter later, but a compiler and LangGraph
-dependency are not part of the first extraction.
+The core has no LangGraph dependency. The separate `routedeck_langgraph`
+adapter injects RouteDeck context and supervises tool calls without compiling
+or owning the product's LangGraph topology. The Medusa agent owns its model
+graph and consumes that adapter explicitly.
 
 ## Declarative Authoring
 
@@ -189,43 +184,42 @@ and interpret results. Developers should not rebuild generic navigation,
 surface lifecycle, context filtering, argument allowlisting, feedback, or SSE
 framing inside each product.
 
-## First-Release Scope
+## Current Scope
 
-The first RouteDeck extraction is bounded by behavior already demonstrated in
-working Corpus. Corpus feature parity is the acceptance target.
+The standalone implementation remains bounded by behavior demonstrated in
+Corpus, while the Medusa buyer agent is the first canonical consumer and the
+end-to-end acceptance target.
 
 Included:
 
 - navgraph and guarded navigation
 - scoped agent context
-- real-ID allowlisting against current visible entities
+- opaque-handle allowlisting against current visible entities
 - supervision of every application-semantic tool call
 - legal/blocked tool feedback, needs-input, and review states
 - existing surface, selection, deep-link, recovery, diagnostics, and SSE
   behavior
 - interaction and session state needed by those features
 
-Explicitly deferred unless separately approved:
+Outside the framework boundary unless separately approved:
 
 - a RouteDeck-owned product tool executor
-- opaque identifier infrastructure
 - a LangGraph compiler or required LangGraph dependency
-- new SQLite/event/outbox durability infrastructure
 - stronger replay or idempotency systems not already required by Corpus
 - multiple adoption modes and their conformance framework
 - independent example projects
 
-The Medusa agent is the later portability proof after Corpus parity is stable.
+## Clean-Break Rule
 
-## Migration Rule
+Development is vertical and behavior-first:
 
-Migration is vertical and parity-first:
-
-1. Preserve the current Corpus behavior as the feature baseline.
-2. Extract one existing interaction capability at a time into RouteDeck.
-3. Keep Corpus callers compatible throughout each slice.
+1. Use Corpus behavior as the product reference, not as an API-compatibility
+   constraint.
+2. Implement one canonical RouteDeck contract and one canonical package path.
+3. Update the Medusa consumer directly when that contract changes.
 4. Prove backend behavior and the matching browser flow before continuing.
-5. Remove duplicate Corpus mechanics only after call-site and behavior proof.
+5. Delete superseded APIs, aliases, wrappers, and duplicate mechanics after
+   call-site proof; do not retain migration shims.
 
 A RouteDeck-internal test count is not sufficient evidence. Each slice must
 leave Corpus green and usable. Missing real data, dependencies, integrations,
@@ -236,12 +230,11 @@ working product behavior.
 
 - RouteDeck's identity becomes smaller and clearer: agentic interaction state
   and tool-call governance.
-- Corpus remains the initial behavioral oracle even where its current ownership
-  is wrong.
+- Corpus remains a behavioral reference, not a supported caller contract.
 - LangGraph is optional and downstream of the core interaction contract.
 - Existing working features move before new infrastructure is considered.
 - RouteDeck can block a call and explain why without owning or executing the
   product tool.
-- Real identifiers remain easy to integrate while becoming state-scoped and
-  operation-scoped.
-- Later portability is proven through Medusa only after Corpus parity.
+- Real identifiers stay private while scoped opaque handles cross public and
+  model boundaries.
+- Portability is proven directly through the standalone Medusa consumer.

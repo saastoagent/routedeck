@@ -18,6 +18,7 @@ from routedeck_core.contracts.projection import (
 )
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ...catalog.feature import (
     CATALOG_PRODUCTS_PROVIDER,
     CONTINUE_SHOPPING,
@@ -69,7 +70,7 @@ class OrdersContinueShoppingHandler:
             for binding in catalog.bindings
         )
         return OperationOutcome(
-            outcome="continued",
+            outcome=MedusaOutcomeType.CONTINUED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             observation=FrozenJsonObject(observation),
             effects=SessionEffects(

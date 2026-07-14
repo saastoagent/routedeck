@@ -44,7 +44,6 @@ from routedeck_core.contracts.session import (
     ResumeCapabilityBinding,
     RouteDeckSession,
 )
-from routedeck_core.navigation.routes import RouteResumeCapability
 from routedeck_core.ports.executor import OperationHandler
 from routedeck_core.state.session import SESSION_SCHEMA_VERSION, navgraph_version
 
@@ -483,7 +482,7 @@ def session_factory(
     entity_kind: str = "test.entity",
     allowed_operation_ids: tuple[str, ...] = (),
     private_drafts: tuple[PrivateDraft, ...] = (),
-    resume_capabilities: tuple[RouteResumeCapability, ...] = (),
+    resume_capabilities: tuple[ResumeCapabilityBinding, ...] = (),
 ) -> RouteDeckSession:
     """Build isolated canonical state; values here never enter product paths."""
 

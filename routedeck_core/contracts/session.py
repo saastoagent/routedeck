@@ -353,12 +353,6 @@ class SessionSnapshot(_FrozenContract):
         return self.state.session_id
 
     @property
-    def session(self) -> RouteDeckSession:
-        """Compatibility spelling for adapters written against early Task 4 drafts."""
-
-        return self.state
-
-    @property
     def session_version(self) -> int:
         return self.state.session_version
 

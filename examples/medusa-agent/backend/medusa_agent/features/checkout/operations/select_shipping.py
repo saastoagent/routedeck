@@ -14,6 +14,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import CartResult
 from ....medusa.client.protocol import MedusaStoreClient
 from ..feature import PAYMENT_METHOD, SELECT_PAYMENT, SELECT_SHIPPING
@@ -113,7 +114,7 @@ class SelectShippingHandler:
         )
 
         return OperationOutcome(
-            outcome="selected",
+            outcome=MedusaOutcomeType.SELECTED,
             delivery_phase=result.delivery_phase,
             observation=FrozenJsonObject(projected.model_dump(mode="json")),
             effects=SessionEffects(

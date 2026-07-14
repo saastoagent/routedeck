@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..app import BoundRouteDeckApp
 from ..contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -186,7 +186,7 @@ class RouteDeckNavigationRunner:
         entry = node.entry
         if entry is None:
             raise RuntimeError("Route entry disappeared after structural matching")
-        route_params = dict(match.params)
+        route_params = dict(match.route_bindings)
         arguments = {
             binding.argument: route_params[binding.parameter]
             for binding in entry.bindings
@@ -258,7 +258,7 @@ class RouteDeckNavigationRunner:
                 .record_public_events(1)
                 .commit()
             )
-            event = CanonicalRouteDeckEvent(
+            event = RouteDeckEvent(
                 event_id=self.id_factory("event"),
                 cursor=next_state.event_cursor,
                 event_type=RouteDeckEventType.NAVIGATION_CHANGED,
@@ -333,7 +333,7 @@ class RouteDeckNavigationRunner:
             return engine.open(
                 session,
                 node_id=structural.node_id,
-                route_params=structural.params,
+                route_params=structural.route_bindings,
                 public_key_validator=validator,
                 resume_handle=structural.resume_handle,
                 now=now,
@@ -386,7 +386,7 @@ class RouteDeckNavigationRunner:
         )
 
     def _require_canonical_path(self, path: str, match: StructuralRouteMatch) -> None:
-        params: dict[str, str] = dict(match.params)
+        params: dict[str, str] = dict(match.route_bindings)
         if match.resume_handle is not None:
             params["resume_handle"] = match.resume_handle
         canonical = self.app.app.routes.encode(match.node_id, params)

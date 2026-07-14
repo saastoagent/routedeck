@@ -102,7 +102,7 @@ LangGraph PropertyDesk agent
 
 PropertyDesk backend implementing RouteDeckRuntime
   -> product-owned HTTP endpoints backed by PropertyDeskRouteDeckRuntime
-  -> RouteDeck-compatible state, projection, dispatch, inspect, stream models
+  -> canonical RouteDeck state, projection, dispatch, inspect, stream contracts
     -> @routedeck/react store, hooks, surfaces, read-only diagnostics
       -> PropertyDesk UI surfaces, chips, forms, approvals
         -> typed product operations for UI controls

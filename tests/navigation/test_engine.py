@@ -7,10 +7,13 @@ import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
 from routedeck_core.contracts.navigation import NodeRef
-from routedeck_core.contracts.session import Location, LocationParameter
+from routedeck_core.contracts.session import (
+    Location,
+    LocationParameter,
+    ResumeCapabilityBinding,
+)
 from routedeck_core.navigation.engine import NavigationEngine
-from routedeck_core.navigation.deep_links import CapabilityMismatch
-from routedeck_core.navigation.routes import RouteResumeCapability
+from routedeck_core.navigation.routes import RouteCapabilityMismatch
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
 
@@ -330,7 +333,7 @@ def test_session_bound_navigation_requires_a_valid_same_session_capability(
     engine = NavigationEngine(app)
     initial = session_factory(app=app, node_id="buyer.home")
 
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.open(
             initial,
             node_id=node_id,
@@ -347,7 +350,7 @@ def test_session_bound_navigation_requires_a_valid_same_session_capability(
         if node_id == "orders.confirmation"
         else ()
     )
-    forged = RouteResumeCapability(
+    forged = ResumeCapabilityBinding(
         handle="resume-capability",
         session_id="another-session",
         node_id=node_id,
@@ -361,7 +364,7 @@ def test_session_bound_navigation_requires_a_valid_same_session_capability(
             )
         }
     )
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.open(
             forged_session,
             node_id=node_id,

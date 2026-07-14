@@ -7,6 +7,7 @@ from typing import Any
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import (
     MedusaClientFailure,
     MedusaClientFailureKind,
@@ -79,7 +80,7 @@ class ReconcileOrderHandler:
             confirmation_handle=order_ref,
         )
         return OperationOutcome(
-            outcome="verified",
+            outcome=MedusaOutcomeType.VERIFIED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             effects=confirmation_effects(
                 order=order,

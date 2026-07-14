@@ -1,3 +1,4 @@
+from .bindings import create_checkout_bindings
 from .feature import (
     CHECKOUT_CAPABILITY,
     CHECKOUT_FACTS_PROVIDER,
@@ -55,6 +56,7 @@ __all__ = [
     "CheckoutFactsProvider",
     "CheckoutPrivateFormReader",
     "CheckoutReadyGuard",
+    "create_checkout_bindings",
     "ContactValidGuard",
     "DELIVERY_NODE",
     "EncryptedCheckoutPrivateFormReader",

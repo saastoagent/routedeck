@@ -8,6 +8,7 @@ from routedeck_core.contracts.operations import OperationOutcome
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.protocol import MedusaStoreClient
 from ..feature import CART_ADD_ITEM
 from ..models import EntityHandleFactory
@@ -38,7 +39,7 @@ class AddCartItemHandler:
         return mutation_outcome(
             context=context,
             operation_id=CART_ADD_ITEM.id,
-            outcome="added",
+            outcome=MedusaOutcomeType.ADDED,
             result=result,
             current=current,
             new_entity_handle=self.new_entity_handle,

@@ -105,7 +105,7 @@ def _create_live_tool_model(*, settings: Settings) -> BaseChatModel:
 
     _require_live_model_settings(settings)
     return ChatOpenAI(
-        model=settings.openai_model,
+        model=settings.openai_buyer_model,
         api_key=settings.openai_api_key,
         streaming=True,
     )
@@ -116,7 +116,7 @@ def _create_live_entry_model(*, settings: Settings) -> BaseChatModel:
 
     _require_live_model_settings(settings)
     return ChatOpenAI(
-        model=settings.openai_model,
+        model=settings.openai_entry_model,
         api_key=settings.openai_api_key,
         streaming=True,
     )
@@ -127,7 +127,7 @@ def _create_live_turn_policy_model(*, settings: Settings) -> BaseChatModel:
 
     _require_live_model_settings(settings)
     return ChatOpenAI(
-        model=settings.openai_model,
+        model=settings.openai_turn_policy_model,
         api_key=settings.openai_api_key,
     )
 
@@ -143,10 +143,6 @@ def _require_live_model_settings(settings: Settings) -> None:
     if not api_key:
         raise MissingModelCredential(
             "OPENAI_API_KEY is required for the live Medusa buyer agent"
-        )
-    if not settings.openai_model:
-        raise MissingModelCredential(
-            "OPENAI_MODEL is required for the live Medusa buyer agent"
         )
 
 

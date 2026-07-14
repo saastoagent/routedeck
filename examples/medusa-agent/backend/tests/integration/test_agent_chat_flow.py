@@ -47,7 +47,7 @@ from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationTurnStatus,
 )
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.operations import (
     GuardRef,
     OperationOutcome,
@@ -277,12 +277,12 @@ class _SystemClock:
 
 @dataclass
 class _Notifier:
-    events: list[CanonicalRouteDeckEvent] = field(default_factory=list)
+    events: list[RouteDeckEvent] = field(default_factory=list)
 
     async def notify(
         self,
         _session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         self.events.extend(events)
 

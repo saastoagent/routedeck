@@ -30,7 +30,11 @@ from routedeck_core.contracts.surfaces import (
 )
 from routedeck_core.contracts.suggestions import SuggestedActionSpec
 
-from ...identifiers import MedusaOperationType, MedusaSuggestedActionType
+from ...identifiers import (
+    MedusaOperationType,
+    MedusaOutcomeType,
+    MedusaSuggestedActionType,
+)
 
 from .models import (
     CATALOG_COLLECTION_PROVIDER_SCHEMA,
@@ -75,7 +79,7 @@ CATALOG_LIST = OperationSpec(
         {"type": "object", "properties": {}, "additionalProperties": False}
     ),
     safety_class=SafetyClass.READ_EXTERNAL,
-    outcomes=("listed",),
+    outcomes=(MedusaOutcomeType.LISTED,),
     outcome_schemas=FrozenJsonObject({"listed": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
@@ -92,7 +96,7 @@ CATALOG_SEARCH = OperationSpec(
         }
     ),
     safety_class=SafetyClass.READ_EXTERNAL,
-    outcomes=("searched",),
+    outcomes=(MedusaOutcomeType.SEARCHED,),
     outcome_schemas=FrozenJsonObject({"searched": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
@@ -123,7 +127,7 @@ OPEN_PRODUCT = OperationSpec(
         EntityInputSpec(argument_name="product_ref", entity_kind="product"),
     ),
     safety_class=SafetyClass.NAVIGATION,
-    outcomes=("opened",),
+    outcomes=(MedusaOutcomeType.OPENED,),
     outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
     provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
     guard_refs=(PUBLIC_PRODUCT_GUARD.ref,),
@@ -141,7 +145,7 @@ OPEN_PRODUCT_BY_ROUTE = OperationSpec(
         }
     ),
     safety_class=SafetyClass.NAVIGATION,
-    outcomes=("opened",),
+    outcomes=(MedusaOutcomeType.OPENED,),
     outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
     provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
 )
@@ -161,7 +165,7 @@ SELECT_VARIANT = OperationSpec(
         EntityInputSpec(argument_name="variant_ref", entity_kind="variant"),
     ),
     safety_class=SafetyClass.STATE_SELECTION,
-    outcomes=("selected",),
+    outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": CATALOG_SELECTION_SCHEMA}),
     provider_refs=(CATALOG_VARIANTS_PROVIDER.ref,),
     guard_refs=(VARIANT_ALLOWED_GUARD.ref,),
@@ -171,7 +175,7 @@ CONTINUE_SHOPPING = OperationSpec(
     title="Continue shopping",
     description="Return to catalog browsing after confirmation.",
     safety_class=SafetyClass.NAVIGATION,
-    outcomes=("continued",),
+    outcomes=(MedusaOutcomeType.CONTINUED,),
     outcome_schemas=FrozenJsonObject({"continued": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
 )
@@ -286,7 +290,7 @@ CATALOG_BROWSE_NODE = NodeSpec(
     title="Products",
     kind=NodeKind.SECTION,
     route=RouteSpec(template="/products", deep_link_policy=DeepLinkPolicy.SHAREABLE),
-    entry=RouteEntrySpec(operation=CATALOG_LIST.ref, outcome="listed"),
+    entry=RouteEntrySpec(operation=CATALOG_LIST.ref, outcome=MedusaOutcomeType.LISTED),
     entity_providers=(CATALOG_PRODUCTS_PROVIDER, CATALOG_PRODUCT_PROVIDER),
     guards=(PUBLIC_PRODUCT_GUARD,),
     operations=(CATALOG_LIST, CATALOG_SEARCH, OPEN_PRODUCT),
@@ -314,7 +318,7 @@ CATALOG_PRODUCT_NODE = NodeSpec(
     ),
     entry=RouteEntrySpec(
         operation=OPEN_PRODUCT_BY_ROUTE.ref,
-        outcome="opened",
+        outcome=MedusaOutcomeType.OPENED,
         bindings=(
             RouteParameterBinding(
                 parameter="product_handle",
@@ -346,31 +350,31 @@ FEATURE_SPEC = FeatureSpec(
         TransitionSpec(
             source=CATALOG_BROWSE_NODE.ref,
             operation=CATALOG_LIST.ref,
-            outcome="listed",
+            outcome=MedusaOutcomeType.LISTED,
             target=CATALOG_BROWSE_NODE.ref,
         ),
         TransitionSpec(
             source=CATALOG_BROWSE_NODE.ref,
             operation=CATALOG_SEARCH.ref,
-            outcome="searched",
+            outcome=MedusaOutcomeType.SEARCHED,
             target=CATALOG_BROWSE_NODE.ref,
         ),
         TransitionSpec(
             source=CATALOG_BROWSE_NODE.ref,
             operation=OPEN_PRODUCT.ref,
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             target=CATALOG_PRODUCT_NODE.ref,
         ),
         TransitionSpec(
             source=CATALOG_PRODUCT_NODE.ref,
             operation=OPEN_PRODUCT_BY_ROUTE.ref,
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             target=CATALOG_PRODUCT_NODE.ref,
         ),
         TransitionSpec(
             source=CATALOG_PRODUCT_NODE.ref,
             operation=SELECT_VARIANT.ref,
-            outcome="selected",
+            outcome=MedusaOutcomeType.SELECTED,
             target=CATALOG_PRODUCT_NODE.ref,
         ),
     ),

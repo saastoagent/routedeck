@@ -221,7 +221,9 @@ MEDUSA_SALES_CHANNEL_ID
 MEDUSA_PAYMENT_PROVIDER_ID
 ROUTEDECK_DATABASE_URL
 ROUTEDECK_STATE_ENCRYPTION_KEY
-OPENAI_MODEL
+OPENAI_BUYER_MODEL
+OPENAI_ENTRY_MODEL
+OPENAI_TURN_POLICY_MODEL
 ```
 
 `OPENAI_API_KEY` is optional for API-process liveness but required for live
@@ -229,7 +231,9 @@ chat and full application readiness. When it is absent,
 `POST /api/medusa-agent/chat` fails visibly with `503 dependency_unavailable`,
 `GET /api/medusa-agent/ready` returns `503`, and the Compose-gated frontend
 waits. Add the key to `.env.local` and recreate the application services to
-enable the complete buyer agent. Do not add a fallback credential or model.
+enable the complete buyer agent. The three model roles are explicit and
+required; none inherits another role's configuration. Do not add a fallback
+credential or model.
 
 The live-model release smoke also requires this key. This README does not claim
 that smoke has passed.

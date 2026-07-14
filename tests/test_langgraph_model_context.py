@@ -36,10 +36,10 @@ from routedeck_langgraph.model_context import (
 def test_tool_turn_requires_typed_call_metadata() -> None:
     with pytest.raises(ValidationError, match="typed tool-call metadata"):
         FinalizedConversationTurn(
-            turn_id="legacy-tool-turn",
+            turn_id="previous-tool-turn",
             role=ConversationRole.TOOL,
-            content="legacy observation",
-            request_id="chat-legacy",
+            content="previous observation",
+            request_id="chat-previous",
         )
 
 

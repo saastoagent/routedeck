@@ -90,10 +90,7 @@ export async function openCart(
     page,
     ROUTEDECK_DISPATCH_PATH,
   );
-  await page
-    .getByRole("navigation", { name: "Buyer navigation", exact: true })
-    .getByRole("button", { name: "Cart", exact: true })
-    .click();
+  await page.getByRole("button", { name: "View cart", exact: true }).click();
   await dispatchResponse;
   await expectCart(page);
   await captureEvidence(evidence, page, "cart");
@@ -268,10 +265,18 @@ export async function expectSessionRequiredConfirmationLink(
     const page = await context.newPage();
     await page.goto(confirmationUrl);
     const alert = page.getByRole("alert");
-    await expect(alert).toContainText("Medusa Agent could not start");
-    await expect(alert).toContainText(
-      "No RouteDeck guest session is available.",
-    );
+    await expect(
+      alert.getByRole("heading", {
+        name: "Buyer session unavailable",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      alert.getByRole("button", {
+        name: "Start a new buyer session",
+        exact: true,
+      }),
+    ).toBeVisible();
     expect(sessionCreationRequests).toHaveLength(0);
   } finally {
     await context.close();
@@ -300,11 +305,11 @@ async function expectPendingApproval(page: Page): Promise<void> {
 }
 
 async function expectRouteDeckLive(page: Page): Promise<void> {
-  const statusRail = page.getByRole("complementary", {
-    name: "RouteDeck session status",
+  const navgraph = page.getByRole("complementary", {
+    name: "Navgraph",
     exact: true,
   });
-  await expect(statusRail.getByText("live", { exact: true })).toBeVisible();
+  await expect(navgraph).toHaveAttribute("data-status", "live");
 }
 
 async function captureEvidence(

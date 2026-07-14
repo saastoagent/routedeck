@@ -88,7 +88,9 @@ function Ensure-EnvironmentFile {
             "ROUTEDECK_STATE_ENCRYPTION_KEY=$(New-Base64UrlSecret 32)",
             "MEDUSA_BASE_URL=http://127.0.0.1:9100",
             "ROUTEDECK_DATABASE_URL=$SqliteUrl",
-            "OPENAI_MODEL=gpt-5.4-mini",
+            "OPENAI_BUYER_MODEL=gpt-5.4-nano",
+            "OPENAI_ENTRY_MODEL=gpt-5.4-nano",
+            "OPENAI_TURN_POLICY_MODEL=gpt-5.4-nano",
             "OPENAI_API_KEY="
         )
         [IO.File]::WriteAllLines($EnvironmentFile, $lines, [Text.UTF8Encoding]::new($false))
@@ -171,9 +173,6 @@ function Merge-GeneratedEnvironment {
     $allValues.Remove("ROUTEDECK_DATABASE_PATH")
     $allValues["ROUTEDECK_DATABASE_URL"] = $SqliteUrl
     $allValues["MEDUSA_BASE_URL"] = "http://127.0.0.1:9100"
-    if (-not $allValues.Contains("OPENAI_MODEL") -or [string]::IsNullOrWhiteSpace($allValues["OPENAI_MODEL"])) {
-        $allValues["OPENAI_MODEL"] = "gpt-5.4-mini"
-    }
     if (-not $allValues.Contains("OPENAI_API_KEY")) {
         $allValues["OPENAI_API_KEY"] = ""
     }
@@ -191,7 +190,9 @@ function Assert-RuntimeEnvironment {
         "MEDUSA_BASE_URL",
         "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
-        "OPENAI_MODEL"
+        "OPENAI_BUYER_MODEL",
+        "OPENAI_ENTRY_MODEL",
+        "OPENAI_TURN_POLICY_MODEL"
     )
     $values = @{}
     foreach ($line in Get-Content -LiteralPath $EnvironmentFile) {

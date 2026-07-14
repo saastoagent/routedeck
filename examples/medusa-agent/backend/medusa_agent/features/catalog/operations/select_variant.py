@@ -8,6 +8,7 @@ from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CATALOG_VARIANTS_PROVIDER, PRODUCT_DETAIL, SELECT_VARIANT
 from ..models import CatalogProductObservation, CatalogSelectionObservation
 from .common import public_values
@@ -42,7 +43,7 @@ class SelectVariantHandler:
             variant_handle=interaction_handle,
         )
         return OperationOutcome(
-            outcome="selected",
+            outcome=MedusaOutcomeType.SELECTED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             observation=FrozenJsonObject(observation.model_dump(mode="json")),
             effects=SessionEffects(

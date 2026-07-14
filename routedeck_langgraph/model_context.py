@@ -20,6 +20,7 @@ from routedeck_core.contracts.session import (
     RouteDeckSession,
     SessionSnapshot,
 )
+from routedeck_core.validation import RouteDeckValidationError
 
 
 class _FrozenContract(BaseModel):

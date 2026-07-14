@@ -87,7 +87,9 @@ def _settings(tmp_path: Path) -> Settings:
             ),
             "routedeck_state_encryption_key": "test-only-key",
             "openai_api_key": None,
-            "openai_model": "test-only-model",
+            "openai_buyer_model": "test-buyer-model",
+            "openai_entry_model": "test-entry-model",
+            "openai_turn_policy_model": "test-policy-model",
         }
     )
 

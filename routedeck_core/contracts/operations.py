@@ -391,4 +391,4 @@ __all__ = [
     "ReviewPolicy",
     "SafetyClass",
 ]
-from .agent import AgentPolicyRef
+from .agent import AgentPolicyRef  # noqa: E402

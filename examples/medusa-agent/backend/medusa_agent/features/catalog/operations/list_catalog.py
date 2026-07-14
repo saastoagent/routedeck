@@ -6,6 +6,7 @@ from typing import Any
 from routedeck_core.contracts.operations import OperationOutcome
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ..feature import CATALOG_LIST
 from .common import collection_outcome, collection_value
 
@@ -18,4 +19,6 @@ class ListCatalogHandler:
     ) -> OperationOutcome:
         if arguments:
             raise ValueError(f"{CATALOG_LIST.id} accepts no arguments")
-        return collection_outcome(collection_value(context), outcome="listed")
+        return collection_outcome(
+            collection_value(context), outcome=MedusaOutcomeType.LISTED
+        )

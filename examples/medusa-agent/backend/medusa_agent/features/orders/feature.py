@@ -22,7 +22,7 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-from ...identifiers import MedusaOperationType
+from ...identifiers import MedusaOperationType, MedusaOutcomeType
 
 from .models import ORDER_CONFIRMATION_SCHEMA, ORDER_RECOVERY_PROVIDER_SCHEMA
 
@@ -47,7 +47,7 @@ RECONCILE_ORDER = OperationSpec(
     ),
     entity_inputs=(EntityInputSpec(argument_name="order_ref", entity_kind="order"),),
     safety_class=SafetyClass.READ_EXTERNAL,
-    outcomes=("verified",),
+    outcomes=(MedusaOutcomeType.VERIFIED,),
     provider_refs=(ORDER_PROVIDER.ref,),
 )
 RECONCILE_ORDER_AFFORDANCE = SurfaceAffordanceSpec(

@@ -15,7 +15,7 @@ from routedeck_core.contracts.conversation import (
     FinalizedConversationTurn,
 )
 from routedeck_core.contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -60,7 +60,7 @@ class _Notifier:
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         del session_id, events
 
@@ -176,7 +176,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         .record_public_events(1)
         .commit()
     )
-    chat_event = CanonicalRouteDeckEvent(
+    chat_event = RouteDeckEvent(
         event_id="event-chat-1",
         cursor=chat_state.event_cursor,
         event_type=RouteDeckEventType.TURN_FINALIZED,
@@ -316,7 +316,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         .record_public_events(1)
         .commit()
     )
-    review_event = CanonicalRouteDeckEvent(
+    review_event = RouteDeckEvent(
         event_id="event-review-1",
         cursor=review_state.event_cursor,
         event_type=RouteDeckEventType.OPERATION_CHANGED,

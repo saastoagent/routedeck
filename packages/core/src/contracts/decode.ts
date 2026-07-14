@@ -1,5 +1,5 @@
 import type {
-  CanonicalRouteDeckEvent,
+  PublicRouteDeckEvent as GeneratedRouteDeckEvent,
   DeepLinkPolicy,
   DispatchRequest,
   FailureKind,
@@ -84,7 +84,7 @@ export interface RouteDeckEventPayload
 
 export interface RouteDeckEvent
   extends Omit<
-    CanonicalRouteDeckEvent,
+    GeneratedRouteDeckEvent,
     "payload" | "projection_version" | "session_id"
   > {
   payload: RouteDeckEventPayload;

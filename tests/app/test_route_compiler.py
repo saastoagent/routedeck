@@ -6,10 +6,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
-from routedeck_core.contracts.session import LocationParameter
+from routedeck_core.contracts.session import LocationParameter, ResumeCapabilityBinding
 from routedeck_core.navigation.routes import (
     PublicRouteKeyValidator,
-    RouteResumeCapability,
     RouteSessionContext,
 )
 from routedeck_core.validation import RouteDeckValidationError
@@ -43,7 +42,7 @@ def _context(
         guest_session_id="guest-1",
         public_key_validator=_catalog_validator(),
         resume_capabilities=(
-            RouteResumeCapability(
+            ResumeCapabilityBinding(
                 handle=registered_handle,
                 session_id=session_id,
                 node_id=node_id,
@@ -73,12 +72,12 @@ def test_routes_encode_and_decode_by_declared_segments() -> None:
     )
     decoded = routes.decode("/products/cafe%20mug", _context())
     assert decoded.node_id == "catalog.product"
-    assert decoded.params == {"product_handle": "cafe mug"}
+    assert decoded.route_bindings == {"product_handle": "cafe mug"}
     with pytest.raises(TypeError):
-        decoded.params["product_handle"] = "substituted"
+        decoded.route_bindings["product_handle"] = "substituted"
 
     regex_like = routes.encode("catalog.product", {"product_handle": "a+b.(test)"})
-    assert routes.decode(regex_like, _context()).params == {
+    assert routes.decode(regex_like, _context()).route_bindings == {
         "product_handle": "a+b.(test)"
     }
 
@@ -124,7 +123,7 @@ def test_structural_match_exposes_unseen_shareable_route_arguments() -> None:
     match = compile_medusa_app_spec().routes.match("/products/unseen-handle")
 
     assert match.node_id == "catalog.product"
-    assert match.params == {"product_handle": "unseen-handle"}
+    assert match.route_bindings == {"product_handle": "unseen-handle"}
     assert match.resume_handle is None
 
 
@@ -134,7 +133,7 @@ def test_structural_match_exposes_an_unvalidated_session_resume_handle() -> None
     match = routes.match("/cart?resume_handle=unregistered%2Bhandle")
 
     assert match.node_id == "cart.summary"
-    assert match.params == {}
+    assert match.route_bindings == {}
     assert match.resume_handle == "unregistered+handle"
     with pytest.raises(RouteDeckValidationError):
         routes.decode("/cart?resume_handle=unregistered%2Bhandle", None)
@@ -157,7 +156,7 @@ def test_route_matching_normalizes_repeated_and_trailing_slashes() -> None:
     decoded = compile_medusa_app_spec().routes.decode("/products//t-shirt/", _context())
 
     assert decoded.node_id == "catalog.product"
-    assert decoded.params == {"product_handle": "t-shirt"}
+    assert decoded.route_bindings == {"product_handle": "t-shirt"}
 
 
 @pytest.mark.parametrize(

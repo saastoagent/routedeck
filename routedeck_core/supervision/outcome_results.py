@@ -6,7 +6,7 @@ from typing import Any, cast
 from jsonschema.validators import validator_for
 
 from ..contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -422,8 +422,8 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         state: RouteDeckSession,
         request: OperationRequest,
         public_state: PublicSessionState,
-    ) -> CanonicalRouteDeckEvent:
-        return CanonicalRouteDeckEvent(
+    ) -> RouteDeckEvent:
+        return RouteDeckEvent(
             event_id=self.id_factory("event"),
             cursor=state.event_cursor,
             event_type=RouteDeckEventType.OPERATION_CHANGED,

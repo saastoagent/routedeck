@@ -24,6 +24,7 @@ from routedeck_core.contracts.projection import (
 )
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import (
     CartResult,
     MedusaClientFailure,
@@ -55,7 +56,7 @@ def mutation_outcome(
     *,
     context: ExecutionContext,
     operation_id: str,
-    outcome: str,
+    outcome: MedusaOutcomeType,
     result: CartResult,
     current: CartSnapshot,
     new_entity_handle: EntityHandleFactory,

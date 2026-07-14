@@ -1,5 +1,24 @@
 """Canonical Medusa product identifiers used across feature boundaries."""
 
+from enum import StrEnum
+
+
+class MedusaOutcomeType(StrEnum):
+    ADDED = "added"
+    CHECKOUT_FAILED = "checkout_failed"
+    CONTINUED = "continued"
+    CREATED = "created"
+    LISTED = "listed"
+    OPENED = "opened"
+    ORDER_CREATED = "order_created"
+    REMOVED = "removed"
+    SAVED = "saved"
+    SEARCHED = "searched"
+    SELECTED = "selected"
+    STARTED = "started"
+    UPDATED = "updated"
+    VERIFIED = "verified"
+
 
 class MedusaOperationType:
     CATALOG_LIST = "catalog.list"
@@ -34,11 +53,13 @@ class MedusaAgentPolicyType:
 
 class MedusaSuggestedActionType:
     BROWSE_PRODUCTS = "buyer.browse_products"
+    VIEW_CART = "buyer.view_cart"
 
 
 __all__ = [
     "MedusaAgentPolicyType",
     "MedusaOperationType",
+    "MedusaOutcomeType",
     "MedusaSuggestedActionType",
     "MedusaSurfaceType",
 ]

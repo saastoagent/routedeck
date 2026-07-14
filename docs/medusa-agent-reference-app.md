@@ -254,11 +254,13 @@ affordances. Parallel tool calls are disabled and rejected.
 `GET /api/routedeck/events`. Assistant prose without a completed tool result and
 matching RouteDeck projection is not a commerce state change.
 
-`OPENAI_API_KEY` and `OPENAI_MODEL` select the live OpenAI path. No key means no
+`OPENAI_API_KEY` plus the required `OPENAI_BUYER_MODEL`, `OPENAI_ENTRY_MODEL`,
+and `OPENAI_TURN_POLICY_MODEL` settings select the live OpenAI path. No key means no
 chat agent is composed; the chat endpoint returns a visible 503 unavailable
 failure and full application readiness remains false. Liveness and direct
 non-model API checks remain available, but the Compose-gated buyer frontend
-waits for a callable agent. There is no model fallback or canned response.
+waits for a callable agent. The roles do not inherit from one another. There is
+no model fallback or canned response.
 
 ## API Planes
 

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.mutations import MutationCommit
 from routedeck_core.contracts.session import (
     RouteDeckSession,
@@ -42,7 +42,7 @@ class SqlAlchemyCommitCoordinator:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         *,
         record: StoredOperationAttempt | None = None,
         journal_phase: str | None = None,
@@ -90,7 +90,7 @@ class SqlAlchemyCommitCoordinator:
         claim: ExecutionClaim,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
         *,
         journal_phase: str,

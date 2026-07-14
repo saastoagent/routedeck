@@ -18,7 +18,6 @@ from .features.cart import (
     CART_ADD_ITEM,
     CART_CAPABILITY,
     CART_CREATE,
-    CART_CREATED_OUTCOME,
     CART_CREATE_UNKNOWN_RECOVERY,
     CART_EXISTS_GUARD,
     CART_MUTATION_UNKNOWN_RECOVERY,
@@ -29,6 +28,7 @@ from .features.cart import (
     CREATE_CART_AFFORDANCE,
     FEATURE_SPEC as CART_FEATURE,
     OPEN_CART_AFFORDANCE,
+    VIEW_CART_ACTION,
 )
 from .features.cart.feature import (
     CART_ABSENT_GUARD,
@@ -68,6 +68,7 @@ from .features.orders import (
     RECONCILE_ORDER,
     RECONCILE_ORDER_AFFORDANCE,
 )
+from .identifiers import MedusaOutcomeType
 
 
 _FRAMEWORK_PACKAGES = (
@@ -122,9 +123,17 @@ _COMPOSED_CATALOG_BROWSE_NODE = CATALOG_BROWSE_NODE.model_copy(
             *CATALOG_BROWSE_NODE.context_providers,
             CART_STATE_PROVIDER,
         ),
+        "entity_providers": (
+            *CATALOG_BROWSE_NODE.entity_providers,
+            CART_BINDING_PROVIDER,
+        ),
         "guards": (*CATALOG_BROWSE_NODE.guards, CART_EXISTS_GUARD),
         "operations": (*CATALOG_BROWSE_NODE.operations, CART_OPEN),
         "capabilities": (*CATALOG_BROWSE_NODE.capabilities, CART_CAPABILITY),
+        "suggested_actions": (
+            *CATALOG_BROWSE_NODE.suggested_actions,
+            VIEW_CART_ACTION,
+        ),
         "surfaces": CATALOG_BROWSE_NODE.surfaces.model_copy(
             update={
                 "active": _COMPOSED_PRODUCT_GRID,
@@ -156,6 +165,10 @@ _COMPOSED_CATALOG_PRODUCT_NODE = CATALOG_PRODUCT_NODE.model_copy(
             CART_OPEN,
         ),
         "capabilities": (*CATALOG_PRODUCT_NODE.capabilities, CART_CAPABILITY),
+        "suggested_actions": (
+            *CATALOG_PRODUCT_NODE.suggested_actions,
+            VIEW_CART_ACTION,
+        ),
         "recovery": CATALOG_PRODUCT_NODE.recovery.model_copy(
             update={
                 "directives": (
@@ -288,61 +301,61 @@ MEDUSA_APP_SPEC = ApplicationSpec(
         TransitionSpec(
             source=_COMPOSED_BUYER_HOME_NODE.ref,
             operation=CART_CREATE.ref,
-            outcome=CART_CREATED_OUTCOME,
+            outcome=MedusaOutcomeType.CREATED,
             target=_COMPOSED_BUYER_HOME_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_BUYER_HOME_NODE.ref,
             operation=CATALOG_LIST.ref,
-            outcome="listed",
+            outcome=MedusaOutcomeType.LISTED,
             target=_COMPOSED_CATALOG_BROWSE_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CATALOG_BROWSE_NODE.ref,
             operation=CART_OPEN.ref,
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             target=_COMPOSED_CART_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CATALOG_PRODUCT_NODE.ref,
             operation=CART_OPEN.ref,
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             target=_COMPOSED_CART_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CATALOG_PRODUCT_NODE.ref,
             operation=CART_CREATE.ref,
-            outcome=CART_CREATED_OUTCOME,
+            outcome=MedusaOutcomeType.CREATED,
             target=_COMPOSED_CATALOG_PRODUCT_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CATALOG_PRODUCT_NODE.ref,
             operation=CART_ADD_ITEM.ref,
-            outcome="added",
+            outcome=MedusaOutcomeType.ADDED,
             target=_COMPOSED_CATALOG_PRODUCT_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CART_NODE.ref,
             operation=CHECKOUT_START.ref,
-            outcome="started",
+            outcome=MedusaOutcomeType.STARTED,
             target=CONTACT_NODE.ref,
         ),
         TransitionSpec(
             source=REVIEW_NODE.ref,
             operation=PLACE_ORDER.ref,
-            outcome="order_created",
+            outcome=MedusaOutcomeType.ORDER_CREATED,
             target=_COMPOSED_CONFIRMATION_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_REVIEW_NODE.ref,
             operation=RECONCILE_ORDER.ref,
-            outcome="verified",
+            outcome=MedusaOutcomeType.VERIFIED,
             target=_COMPOSED_CONFIRMATION_NODE.ref,
         ),
         TransitionSpec(
             source=_COMPOSED_CONFIRMATION_NODE.ref,
             operation=CONTINUE_SHOPPING.ref,
-            outcome="continued",
+            outcome=MedusaOutcomeType.CONTINUED,
             target=_COMPOSED_CATALOG_BROWSE_NODE.ref,
         ),
     ),

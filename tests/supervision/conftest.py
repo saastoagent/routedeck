@@ -19,7 +19,7 @@ from routedeck_core.app import (
 )
 from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent, EventPage
+from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.failures import RouteDeckFailure
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
@@ -310,14 +310,14 @@ class FixedClock:
 
 @dataclass
 class RecordingNotifier:
-    notifications: list[tuple[str, tuple[CanonicalRouteDeckEvent, ...]]] = field(
+    notifications: list[tuple[str, tuple[RouteDeckEvent, ...]]] = field(
         default_factory=list
     )
 
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         self.notifications.append((session_id, tuple(events)))
 
@@ -447,7 +447,7 @@ class InMemorySessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot:
         self._require_lease(lease)
@@ -549,7 +549,7 @@ class InMemorySessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         self._require_lease(lease)
@@ -565,7 +565,7 @@ class InMemorySessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         turns: Sequence[FinalizedConversationTurn],
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del turns, events
@@ -584,7 +584,7 @@ class InMemorySessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         failure: RouteDeckFailure,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del failure, events
@@ -602,7 +602,7 @@ class InMemorySessionStore:
         claim: ExecutionClaim,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         self._require_claim(claim)
@@ -624,7 +624,7 @@ class InMemorySessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         self._require_lease(lease)
@@ -648,7 +648,7 @@ class InMemorySessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot:
         self._require_claim(claim)
         self._require_version(claim.session_id, expected_session_version)
@@ -684,7 +684,7 @@ class InMemorySessionStore:
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del form_id, encrypted_value

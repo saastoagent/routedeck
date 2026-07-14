@@ -173,7 +173,7 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     )
     assert encoded == f"/products/{detail['product_handle']}"
     assert decoded.node_id == "catalog.product"
-    assert decoded.params["product_handle"] == detail["product_handle"]
+    assert decoded.route_bindings["product_handle"] == detail["product_handle"]
 
     history_only_session = product_session.model_copy(
         update={

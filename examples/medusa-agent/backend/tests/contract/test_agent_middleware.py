@@ -52,11 +52,14 @@ def test_live_entry_model_omits_the_tool_only_parallel_call_option(
             routedeck_database_url="sqlite+pysqlite:///routedeck.sqlite",
             routedeck_state_encryption_key=SecretStr("encryption-key"),
             openai_api_key=SecretStr("openai-key"),
-            openai_model="model-1",
+            openai_buyer_model="buyer-model",
+            openai_entry_model="entry-model",
+            openai_turn_policy_model="policy-model",
         )
     )
 
     assert "model_kwargs" not in captured
+    assert captured["model"] == "entry-model"
 
 
 def test_buyer_prompt_keeps_product_identity_while_framework_rules_are_resolved() -> None:

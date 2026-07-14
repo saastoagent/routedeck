@@ -46,6 +46,7 @@ PRODUCT_BACKEND_ROOT = Path("examples/medusa-agent/backend/medusa_agent")
 PRODUCT_MAIN = Path("examples/medusa-agent/backend/main.py")
 FEATURE_ROOT = PRODUCT_BACKEND_ROOT / "features"
 HTTP_ADAPTER = PRODUCT_BACKEND_ROOT / "medusa/client/http.py"
+HTTP_TRANSPORT = PRODUCT_BACKEND_ROOT / "medusa/client/transport.py"
 CLIENT_PROTOCOL = PRODUCT_BACKEND_ROOT / "medusa/client/protocol.py"
 PRODUCT_API_ROOT = PRODUCT_BACKEND_ROOT / "api"
 FRONTEND_SOURCE_ROOT = Path("examples/medusa-agent/frontend/src")
@@ -262,6 +263,10 @@ def check_store_endpoint_inventory(
     project_root: Path = PROJECT_ROOT,
 ) -> BoundaryCheck:
     allowed_adapter = _project_path(project_root, HTTP_ADAPTER, kind="file")
+    allowed_transports = {
+        allowed_adapter,
+        _project_path(project_root, HTTP_TRANSPORT, kind="file"),
+    }
     endpoints: list[dict[str, Any]] = []
     transports: list[dict[str, Any]] = []
     violations: list[str] = []
@@ -280,9 +285,9 @@ def check_store_endpoint_inventory(
             if not _is_forbidden(module, HTTP_CLIENT_MODULES):
                 continue
             transports.append({"path": display, "line": line, "module": module})
-            if path != allowed_adapter:
+            if path not in allowed_transports:
                 violations.append(
-                    f"{display}:{line}:HTTP client import outside medusa/client/http.py:{module}"
+                    f"{display}:{line}:HTTP client import outside medusa/client transport modules:{module}"
                 )
     adapter_display = _relative(allowed_adapter, project_root)
     if not any(item["path"] == adapter_display for item in endpoints):
@@ -292,7 +297,10 @@ def check_store_endpoint_inventory(
     return BoundaryCheck(
         name="store_endpoint_inventory",
         evidence={
-            "allowed_adapter": HTTP_ADAPTER.as_posix(),
+            "endpoint_adapter": HTTP_ADAPTER.as_posix(),
+            "transport_modules": sorted(
+                _relative(path, project_root) for path in allowed_transports
+            ),
             "scanned_file_count": len(_production_python_files(project_root)),
             "endpoint_templates": endpoints,
             "http_transports": transports,
@@ -655,8 +663,8 @@ def _tree_attribute_chains(tree: ast.AST) -> frozenset[str]:
 
 def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
     backend = _project_path(project_root, PRODUCT_BACKEND_ROOT, kind="directory")
-    composition_path = _project_path(
-        project_root, PRODUCT_BACKEND_ROOT / "composition.py", kind="file"
+    factory_path = _project_path(
+        project_root, PRODUCT_BACKEND_ROOT / "runtime_factory.py", kind="file"
     )
     runtime_path = _project_path(
         project_root, PRODUCT_BACKEND_ROOT / "runtime.py", kind="file"
@@ -682,13 +690,13 @@ def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
                     "constructor": _call_name(call.func),
                 }
             )
-    composition = _parse_python(composition_path)
+    factory = _parse_python(factory_path)
     navigation_calls = _assigned_constructor_calls(
-        composition, "RouteDeckNavigationRunner"
+        factory, "RouteDeckNavigationRunner"
     )
     runtime_calls = [
         node
-        for node in ast.walk(composition)
+        for node in ast.walk(factory)
         if isinstance(node, ast.Call) and _call_name(node.func) == "MedusaRuntime"
     ]
     route_dependencies = [

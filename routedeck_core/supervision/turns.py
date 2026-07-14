@@ -10,7 +10,7 @@ from ..contracts.conversation import (
     FinalizedConversationTurn,
 )
 from ..contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -22,7 +22,7 @@ from ..ports.notifier import notify_event_wakeup
 from ..ports.session_store import SessionStoreError, SessionStoreErrorCode
 from ..state.aggregate import RouteDeckSessionAggregate
 from ..state.leases import TurnClaim, TurnLease, TurnOwnerKind
-from ..state.session import require_compatible_session
+from ..state.session import require_current_session
 
 
 class TurnLifecycleMixin:
@@ -36,7 +36,7 @@ class TurnLifecycleMixin:
         if claim.owner_kind is not TurnOwnerKind.CHAT:
             raise ValueError("begin_turn requires a chat turn claim")
         session = (await self.store.load(claim.session_id)).state
-        require_compatible_session(self.app.app, session)
+        require_current_session(self.app.app, session)
         if session.session_version != claim.expected_session_version:
             raise SessionStoreError(SessionStoreErrorCode.VERSION_CONFLICT)
         return await self.store.acquire_turn(claim)
@@ -146,8 +146,8 @@ class TurnLifecycleMixin:
         request_id: str,
         status_code: str,
         failure: RouteDeckFailure | None = None,
-    ) -> CanonicalRouteDeckEvent:
-        return CanonicalRouteDeckEvent(
+    ) -> RouteDeckEvent:
+        return RouteDeckEvent(
             event_id=self.id_factory("event"),
             cursor=state.event_cursor,
             event_type=event_type,

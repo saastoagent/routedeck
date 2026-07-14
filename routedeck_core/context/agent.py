@@ -11,7 +11,11 @@ from ..contracts.projection import PublicEntityHandle
 from ..contracts.session import RouteDeckSession
 from ..contracts.suggestions import SuggestedActionSpec
 from ..contracts.surfaces import SurfaceSpec
-from ..projection.policy import resolve_projection_mode, visible_entity_handles
+from ..projection.policy import (
+    resolve_projection_mode,
+    visible_entity_handles,
+    visible_suggested_actions,
+)
 from ..validation import RouteDeckValidationError
 from .framework_policies import ROUTEDECK_FRAMEWORK_AGENT_POLICIES
 
@@ -44,10 +48,10 @@ class AgentContextLens:
         declared_entity_kinds = frozenset(
             provider.entity_kind for provider in node.entity_providers
         )
-        suggested_actions = tuple(
-            action
-            for action in node.suggested_actions
-            if action.operation_id in legal_operation_ids
+        suggested_actions = visible_suggested_actions(
+            node,
+            session,
+            legal_operation_ids,
         )
         policy_refs = (
             feature.policy_refs,

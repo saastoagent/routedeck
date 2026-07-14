@@ -14,7 +14,7 @@ active:
 
 | Gate | Command | Protects |
 | --- | --- | --- |
-| Public API | `python -m pytest tests/test_public_api.py -q` | Root `ApplicationSpec`/`FeatureSpec` compiler publication, package type markers, and explicit-but-unadvertised compatibility imports. |
+| Public API | `python -m pytest tests/test_public_api.py -q` | The sole root `ApplicationSpec`/`FeatureSpec` compiler publication and absence of retired imports. |
 | Application contracts | `python -m pytest tests/app -q` | Feature composition, exact route entries, transitions, frontend contract export, and fail-loud compilation. |
 | Canonical state | `python -m pytest tests/state -q` | Immutable session contracts, the transaction-scoped aggregate, leases, ports, effects, and public exports. |
 | Supervision | `python -m pytest tests/supervision -q` | One runner, idempotency, review, crash windows, external-outcome-unknown, recovery, and turn lifecycle. |
@@ -53,10 +53,8 @@ pnpm --filter @routedeck/react test
 pnpm --filter @routedeck/testing test
 ```
 
-Top-level `react/` is a deprecated Corpus-only compatibility tree. Its tests
-may be run only as an explicitly named compatibility gate; they do not count as
-current package or release-readiness evidence, and the tree remains until the
-Corpus migration/removal gate in `react/README.md` is satisfied.
+`packages/core`, `packages/react`, and `packages/testing` are the complete
+frontend framework workspace. There is no second React test tree.
 
 Root Vitest discovery is project-scoped by `vitest.config.ts`: core, React, and
 testing packages run in Node, while the Medusa frontend runs in jsdom. Compiled

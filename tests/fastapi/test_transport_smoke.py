@@ -13,7 +13,7 @@ from pydantic import SecretStr
 from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
 from routedeck_core.contracts.application import NodeSpec
 from routedeck_core.contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     EventPage,
     PublicEventPayload,
     RouteDeckEventType,
@@ -76,7 +76,7 @@ class SmokeNotifier:
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         del session_id, events
 
@@ -84,7 +84,7 @@ class SmokeNotifier:
 class SmokeStore:
     def __init__(self) -> None:
         self.session: RouteDeckSession | None = None
-        self.events: list[CanonicalRouteDeckEvent] = []
+        self.events: list[RouteDeckEvent] = []
         self.private_blobs: dict[str, bytes] = {}
         self.lease: TurnLease | None = None
         self.claim: TurnClaim | None = None
@@ -157,7 +157,7 @@ class SmokeStore:
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         if lease != self.lease:
@@ -212,7 +212,7 @@ class SmokeStore:
             }
         )
         self.events.append(
-            CanonicalRouteDeckEvent(
+            RouteDeckEvent(
                 event_id=f"event-{cursor}",
                 cursor=cursor,
                 event_type=event_type,

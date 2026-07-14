@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from routedeck_core.app import CompiledRouteDeckApp
 from routedeck_core.app.compiled import FrontendContract
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import PublicRouteDeckEvent
 from routedeck_core.contracts.failures import RouteDeckFailure
 from routedeck_core.contracts.operations import OperationResult
 from routedeck_core.contracts.projection import PublicProjection
@@ -27,7 +27,7 @@ class RouteDeckTransportContracts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     public_projection: PublicProjection
-    event: CanonicalRouteDeckEvent
+    event: PublicRouteDeckEvent
     failure: RouteDeckFailure
     operation_result: OperationResult
     frontend_contract: FrontendContract

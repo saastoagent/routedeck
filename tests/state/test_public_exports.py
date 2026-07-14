@@ -3,7 +3,7 @@ from __future__ import annotations
 import routedeck_core
 from routedeck_core import context, contracts, navigation, ports, projection, state
 from routedeck_core.context.scope import ContextScopeBuilder
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import RouteDeckSession
 from routedeck_core.navigation.deep_links import DeepLinkEngine
@@ -18,7 +18,7 @@ from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 
 def test_canonical_task4_apis_have_small_stable_package_exports() -> None:
     assert contracts.RouteDeckSession is RouteDeckSession
-    assert contracts.RouteDeckEvent is CanonicalRouteDeckEvent
+    assert contracts.RouteDeckEvent is RouteDeckEvent
     assert context.ContextScopeBuilder is ContextScopeBuilder
     assert navigation.NavigationEngine is NavigationEngine
     assert navigation.DeepLinkEngine is DeepLinkEngine
@@ -28,16 +28,12 @@ def test_canonical_task4_apis_have_small_stable_package_exports() -> None:
 
     assert routedeck_core.RouteDeckSession is RouteDeckSession
     assert routedeck_core.PublicProjection is PublicProjection
-    assert routedeck_core.CanonicalRouteDeckEvent is CanonicalRouteDeckEvent
+    assert routedeck_core.RouteDeckEvent is RouteDeckEvent
     assert routedeck_core.NavigationEngine is NavigationEngine
     assert routedeck_core.DeepLinkEngine is DeepLinkEngine
     assert routedeck_core.ProjectionProjector is ProjectionProjector
     assert routedeck_core.ContextScopeBuilder is ContextScopeBuilder
     assert routedeck_core.RouteDeckSessionStore is RouteDeckSessionStore
-
-
-def test_legacy_root_event_identity_is_not_silently_replaced() -> None:
-    assert routedeck_core.RouteDeckEvent is not CanonicalRouteDeckEvent
 
 
 def test_task5_supervision_contracts_have_intentional_package_exports() -> None:

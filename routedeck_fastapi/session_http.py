@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from routedeck_core.contracts.failures import FailureKind
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import SessionSnapshot
-from routedeck_core.state.session import require_compatible_session
+from routedeck_core.state.session import require_current_session
 
 from .contracts import RouteDeckHttpProblem, RouteDeckRequestModel
 from .dependencies import (
@@ -130,7 +130,7 @@ async def authenticated_snapshot(
 ) -> SessionSnapshot:
     session_id = guest_session_id(request, dependencies.cookie)
     snapshot = await dependencies.store.load(session_id)
-    require_compatible_session(dependencies.app, snapshot.state)
+    require_current_session(dependencies.app, snapshot.state)
     return snapshot
 
 
@@ -138,7 +138,7 @@ def project(
     dependencies: RouteDeckDependencies,
     snapshot: SessionSnapshot,
 ) -> PublicProjection:
-    require_compatible_session(dependencies.app, snapshot.state)
+    require_current_session(dependencies.app, snapshot.state)
     return dependencies.projector.project(snapshot.state)
 
 

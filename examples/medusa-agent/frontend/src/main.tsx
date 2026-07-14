@@ -147,6 +147,6 @@ function isMissingOrExpiredSession(error: unknown): boolean {
   );
 }
 
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+function errorMessage(error: unknown, unknownErrorMessage: string): string {
+  return error instanceof Error ? error.message : unknownErrorMessage;
 }

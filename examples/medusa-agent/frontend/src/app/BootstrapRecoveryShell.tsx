@@ -22,14 +22,15 @@ export function BootstrapRecoveryShell({
   const pendingNavigation = state.pendingNavigation;
   const expired = pendingBootstrap?.kind === "resume_expired";
   const missing = pendingBootstrap?.kind === "resume_missing";
-  const incompatible = pendingBootstrap?.kind === "resume_incompatible";
+  const contractMismatch =
+    pendingBootstrap?.kind === "resume_contract_mismatch";
   const canReconnectCurrent =
     pendingBootstrap === null && pendingNavigation === null;
   const canStartNew =
     pendingBootstrap?.kind === "session_create" ||
     expired ||
     missing ||
-    incompatible;
+    contractMismatch;
 
   useEffect(() => {
     if (state.syncStatus === "live") onReady();
@@ -66,8 +67,8 @@ export function BootstrapRecoveryShell({
           ? "Buyer session expired"
           : missing
             ? "Buyer session unavailable"
-            : incompatible
-              ? "Buyer session incompatible"
+            : contractMismatch
+              ? "Buyer session contract changed"
             : "Medusa Agent needs session recovery"}
       </h1>
       <p>
@@ -75,7 +76,7 @@ export function BootstrapRecoveryShell({
           ? "The saved buyer session is no longer available. Start a new session explicitly to continue."
           : missing
             ? "This session-bound link has no available buyer session. Start a new session explicitly to continue."
-            : incompatible
+            : contractMismatch
               ? "The application contract changed. Start a new buyer session explicitly to continue."
             : (actionError ??
             state.error?.message ??

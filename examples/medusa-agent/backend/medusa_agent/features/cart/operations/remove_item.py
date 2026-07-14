@@ -8,6 +8,7 @@ from routedeck_core.contracts.operations import OperationOutcome
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.protocol import MedusaStoreClient
 from ..feature import CART_REMOVE_ITEM
 from ..models import EntityHandleFactory
@@ -37,7 +38,7 @@ class RemoveCartItemHandler:
         return mutation_outcome(
             context=context,
             operation_id=CART_REMOVE_ITEM.id,
-            outcome="removed",
+            outcome=MedusaOutcomeType.REMOVED,
             result=result,
             current=current,
             new_entity_handle=self.new_entity_handle,

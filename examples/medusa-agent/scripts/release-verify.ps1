@@ -397,7 +397,9 @@ try {
     $fileValues = Read-EnvironmentFile
     Import-ProtectedEnvironment $fileValues
     $openAi = Resolve-RequiredSetting "OPENAI_API_KEY" $fileValues
-    $model = Resolve-RequiredSetting "OPENAI_MODEL" $fileValues
+    $buyerModel = Resolve-RequiredSetting "OPENAI_BUYER_MODEL" $fileValues
+    $entryModel = Resolve-RequiredSetting "OPENAI_ENTRY_MODEL" $fileValues
+    $turnPolicyModel = Resolve-RequiredSetting "OPENAI_TURN_POLICY_MODEL" $fileValues
     $encryption = Resolve-RequiredSetting "ROUTEDECK_STATE_ENCRYPTION_KEY" $fileValues
     foreach ($requiredName in @(
         "MEDUSA_PUBLISHABLE_KEY",
@@ -458,7 +460,11 @@ try {
             pnpm = $pnpmVersion
             docker = $dockerVersion
         }
-        model = [string]$model.value
+        models = [ordered]@{
+            buyer = [string]$buyerModel.value
+            entry = [string]$entryModel.value
+            turn_policy = [string]$turnPolicyModel.value
+        }
         model_credential_source = [string]$openAi.source
         secrets_redacted = $true
         ports = [ordered]@{ frontend = 5198; agent_api = 8098; medusa = 9100 }

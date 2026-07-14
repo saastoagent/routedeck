@@ -28,18 +28,19 @@ from routedeck_core.ports import (
     RouteDeckNotifier,
     RouteDeckSessionStore,
 )
-from routedeck_core.state.session import navgraph_version, require_compatible_session
+from routedeck_core.state.session import navgraph_version, require_current_session
 from routedeck_core.supervision import RouteDeckOperationRunner
 
 from .bindings import bind_medusa_app
 from .composition import compile_medusa_app_spec
-from .features.cart import CART_CREATE, CART_CREATED_OUTCOME
+from .features.cart import CART_CREATE
 from .features.catalog import CatalogRouteKeyValidator
 from .features.checkout import (
     CheckoutPrivateFormReader,
     EncryptedCheckoutPrivateFormReader,
 )
 from .medusa.client.protocol import MedusaStoreClient
+from .identifiers import MedusaOutcomeType
 from .request_ids import initial_cart_request_id
 
 if TYPE_CHECKING:
@@ -83,7 +84,7 @@ class MedusaRuntime:
             )
         )
         if result.disposition is OperationDisposition.COMPLETED:
-            if result.outcome != CART_CREATED_OUTCOME:
+            if result.outcome != MedusaOutcomeType.CREATED:
                 raise RuntimeError(
                     "Medusa session initialization returned an undeclared outcome."
                 )
@@ -95,7 +96,7 @@ class MedusaRuntime:
 
     async def load_session(self, session_id: str | None = None):
         snapshot = await self.store.load(session_id or self.default_session_id)
-        require_compatible_session(self.app.app, snapshot.state)
+        require_current_session(self.app.app, snapshot.state)
         return snapshot
 
     async def close(self) -> None:

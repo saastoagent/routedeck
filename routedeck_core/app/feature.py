@@ -25,8 +25,4 @@ class ApplicationSpec(_FrozenContract):
     features: tuple[FeatureSpec, ...]
     transitions: tuple[TransitionSpec, ...] = ()
 
-
-RouteDeckApplicationSpec = ApplicationSpec
-
-
-__all__ = ["ApplicationSpec", "FeatureSpec", "RouteDeckApplicationSpec"]
+__all__ = ["ApplicationSpec", "FeatureSpec"]

@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import Protocol
 
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent, EventPage
+from routedeck_core.contracts.events import EventPage, PublicRouteDeckEvent, RouteDeckEvent
 
 from .dependencies import EventWakeupNotifier, SseSettings
 
@@ -18,13 +18,10 @@ class EventReplayStore(Protocol):
     ) -> EventPage: ...
 
 
-def encode_event(event: CanonicalRouteDeckEvent) -> bytes:
+def encode_event(event: RouteDeckEvent) -> bytes:
     """Encode one durable, public RouteDeck event as an SSE frame."""
 
-    public_event = event.model_dump(
-        mode="json",
-        exclude={"session_id"},
-    )
+    public_event = PublicRouteDeckEvent.from_durable_event(event).model_dump(mode="json")
     data = json.dumps(
         public_event,
         ensure_ascii=False,

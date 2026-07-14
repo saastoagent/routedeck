@@ -33,9 +33,7 @@ class PublicEventPayload(_FrozenContract):
     failure: RouteDeckFailure | None = None
 
 
-class CanonicalRouteDeckEvent(_FrozenContract):
-    """Canonical Task 4 event; the root legacy event remains a compatibility API."""
-
+class RouteDeckEvent(_FrozenContract):
     event_id: str = Field(min_length=1)
     cursor: int = Field(ge=1)
     event_type: RouteDeckEventType
@@ -46,25 +44,36 @@ class CanonicalRouteDeckEvent(_FrozenContract):
     payload: PublicEventPayload
 
     @model_validator(mode="after")
-    def _aware_timestamp(self) -> CanonicalRouteDeckEvent:
+    def _aware_timestamp(self) -> RouteDeckEvent:
         if self.created_at.tzinfo is None:
             raise ValueError("created_at must be timezone-aware")
         return self
 
-    @property
-    def event_cursor(self) -> int:
-        return self.cursor
 
-    @property
-    def type(self) -> RouteDeckEventType:
-        return self.event_type
+class PublicRouteDeckEvent(_FrozenContract):
+    """SSE-safe event contract with the private session identifier removed."""
 
+    event_id: str = Field(min_length=1)
+    cursor: int = Field(ge=1)
+    event_type: RouteDeckEventType
+    session_version: int = Field(ge=0)
+    projection_version: int | None = Field(default=None, ge=0)
+    created_at: datetime
+    payload: PublicEventPayload
 
-RouteDeckEvent = CanonicalRouteDeckEvent
+    @model_validator(mode="after")
+    def _aware_timestamp(self) -> PublicRouteDeckEvent:
+        if self.created_at.tzinfo is None:
+            raise ValueError("created_at must be timezone-aware")
+        return self
+
+    @classmethod
+    def from_durable_event(cls, event: RouteDeckEvent) -> PublicRouteDeckEvent:
+        return cls.model_validate(event.model_dump(exclude={"session_id"}))
 
 
 class EventPage(_FrozenContract):
-    events: tuple[CanonicalRouteDeckEvent, ...]
+    events: tuple[RouteDeckEvent, ...]
     next_cursor: int = Field(ge=0)
     has_more: bool
     reset_required: bool = False
@@ -83,9 +92,9 @@ class EventPage(_FrozenContract):
 
 
 __all__ = [
-    "CanonicalRouteDeckEvent",
     "EventPage",
     "PublicEventPayload",
+    "PublicRouteDeckEvent",
     "RouteDeckEvent",
     "RouteDeckEventType",
 ]

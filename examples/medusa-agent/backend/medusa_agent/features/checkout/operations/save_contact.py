@@ -9,6 +9,7 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import CartResult
 from ....medusa.client.protocol import MedusaStoreClient
 from ..feature import SAVE_CONTACT
@@ -119,7 +120,7 @@ class SaveContactHandler:
             "shipping_option_count": len(shipping.projection.options),
         }
         return OperationOutcome(
-            outcome="saved",
+            outcome=MedusaOutcomeType.SAVED,
             delivery_phase=result.delivery_phase,
             observation=FrozenJsonObject(observation),
             effects=shipping_effects(shipping, allow_selection=True),

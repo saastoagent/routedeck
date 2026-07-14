@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from string import hexdigits
 from types import MappingProxyType
-from typing import Protocol, TypeAlias, runtime_checkable
+from typing import Protocol, runtime_checkable
 from urllib.parse import quote, unquote_to_bytes, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -37,13 +37,10 @@ class _FrozenContract(BaseModel):
     )
 
 
-RouteResumeCapability: TypeAlias = ResumeCapabilityBinding
-
-
 class RouteSessionContext(_FrozenContract):
     guest_session_id: str | None = Field(default=None, min_length=1)
     public_key_validator: PublicRouteKeyValidator | None = None
-    resume_capabilities: tuple[RouteResumeCapability, ...] = ()
+    resume_capabilities: tuple[ResumeCapabilityBinding, ...] = ()
     now: datetime
 
     @model_validator(mode="after")
@@ -55,7 +52,7 @@ class RouteSessionContext(_FrozenContract):
             raise ValueError("resume capability handles must be unique")
         return self
 
-    def resume_capability(self, handle: str) -> RouteResumeCapability | None:
+    def resume_capability(self, handle: str) -> ResumeCapabilityBinding | None:
         return next(
             (
                 capability
@@ -71,9 +68,7 @@ class DecodedRoute(_FrozenContract):
     route_params: tuple[LocationParameter, ...] = ()
 
     @property
-    def params(self) -> Mapping[str, str]:
-        """Expose an immutable compatibility view over canonical bindings."""
-
+    def route_bindings(self) -> Mapping[str, str]:
         return MappingProxyType(
             {parameter.name: parameter.value for parameter in self.route_params}
         )
@@ -87,7 +82,7 @@ class StructuralRouteMatch(_FrozenContract):
     resume_handle: str | None = None
 
     @property
-    def params(self) -> Mapping[str, str]:
+    def route_bindings(self) -> Mapping[str, str]:
         return MappingProxyType(
             {parameter.name: parameter.value for parameter in self.route_params}
         )
@@ -254,7 +249,7 @@ class CompiledRoutes:
     ) -> DecodedRoute:
         matched = self.match(path)
         route = self._by_node[matched.node_id]
-        params = dict(matched.params)
+        params = dict(matched.route_bindings)
 
         if route.deep_link_policy is DeepLinkPolicy.SHAREABLE:
             validator = (
@@ -476,7 +471,6 @@ __all__ = [
     "DecodedRoute",
     "PublicRouteKeyValidator",
     "RouteCapabilityMismatch",
-    "RouteResumeCapability",
     "RouteSessionRequired",
     "RouteSessionContext",
     "StructuralRouteMatch",

@@ -95,15 +95,13 @@ projection state.
 - Fail on missing context or an unowned tool; never substitute a second state
   source or execution path.
 
-## Retired APIs
+## Graph Boundary
 
-`build_route_deck_state_graph(...)` is a migration trap that deliberately
-raises `RouteDeckTopologyBuilderDeprecatedError`. It is not an integration API.
-The old handler/node parity helpers are compatibility-only and absent from the
-canonical package exports. Do not mirror RouteDeck nodes into LangGraph nodes.
+RouteDeck exports no topology builder or handler/node parity helper. Do not
+mirror RouteDeck nodes into LangGraph nodes.
 
 ## Focused Verification
 
 ```powershell
-python -m pytest tests/test_public_api.py tests/test_langgraph_adapter.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q
+python -m pytest tests/test_public_api.py tests/test_langgraph_model_context.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q
 ```

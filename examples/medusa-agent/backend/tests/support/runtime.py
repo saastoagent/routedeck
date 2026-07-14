@@ -52,7 +52,7 @@ from medusa_agent.medusa.client.protocol import MedusaStoreClient
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.app import ContextProvider, Guard, OperationHandler
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent, EventPage
+from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.failures import RouteDeckFailure
 from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.operations import (
@@ -87,14 +87,14 @@ from routedeck_core.supervision import RouteDeckOperationRunner
 
 @dataclass
 class RecordingNotifier:
-    notifications: list[tuple[str, tuple[CanonicalRouteDeckEvent, ...]]] = field(
+    notifications: list[tuple[str, tuple[RouteDeckEvent, ...]]] = field(
         default_factory=list
     )
 
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         self.notifications.append((session_id, tuple(events)))
 
@@ -238,7 +238,7 @@ class ExplicitTestSessionStore:
         claim: ExecutionClaim,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         self._require_claim(claim)
@@ -260,7 +260,7 @@ class ExplicitTestSessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         del lease, expected_session_version, next_state, events, record
@@ -288,7 +288,7 @@ class ExplicitTestSessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot:
         del lease, expected_session_version, record, next_state, events, parent_mutation
@@ -299,7 +299,7 @@ class ExplicitTestSessionStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del lease, expected_session_version, next_state, events, mutation
@@ -311,7 +311,7 @@ class ExplicitTestSessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         turns: Sequence[FinalizedConversationTurn],
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del turns, mutation
@@ -330,7 +330,7 @@ class ExplicitTestSessionStore:
         expected_session_version: int,
         next_state: RouteDeckSession,
         failure: RouteDeckFailure,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del lease, expected_session_version, next_state, failure, events, mutation
@@ -342,7 +342,7 @@ class ExplicitTestSessionStore:
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot:
         del claim, expected_session_version, record, next_state, events
         raise AssertionError("typed cart creation must not become ambiguous")
@@ -367,7 +367,7 @@ class ExplicitTestSessionStore:
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         del (

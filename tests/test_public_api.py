@@ -43,11 +43,11 @@ def test_target_core_subpackages_are_importable_without_module_collisions() -> N
     assert (core_root / "navigation" / "__init__.py").is_file()
 
 
-def test_runtime_subclass_remains_compatibility_only() -> None:
+def test_retired_runtime_subclass_is_not_available_from_the_public_package() -> None:
     import routedeck_core
 
     assert "RouteDeckRuntimeBase" not in routedeck_core.__all__
-    assert routedeck_core.RouteDeckRuntimeBase.__name__ == "RouteDeckRuntimeBase"
+    assert not hasattr(routedeck_core, "RouteDeckRuntimeBase")
 
 
 def test_current_core_authoring_surface_is_canonical() -> None:
@@ -72,14 +72,8 @@ def test_current_core_authoring_surface_is_canonical() -> None:
         assert getattr(routedeck_core, name) is value
 
 
-def test_legacy_core_authoring_remains_explicitly_importable_only() -> None:
+def test_retired_core_authoring_is_not_available_from_the_public_package() -> None:
     import routedeck_core
-    from routedeck_core import (
-        RouteDeckApp,
-        RouteDeckManifest,
-        RouteDeckManifestBuilder,
-        validate_manifest,
-    )
 
     for name in (
         "RouteDeckApp",
@@ -92,22 +86,45 @@ def test_legacy_core_authoring_remains_explicitly_importable_only() -> None:
         "validate_manifest",
     ):
         assert name not in routedeck_core.__all__
-
-    assert RouteDeckApp is routedeck_core.RouteDeckApp
-    assert RouteDeckManifest is routedeck_core.RouteDeckManifest
-    assert RouteDeckManifestBuilder is routedeck_core.RouteDeckManifestBuilder
-    assert validate_manifest is routedeck_core.validate_manifest
+        assert not hasattr(routedeck_core, name)
 
 
-def test_retired_langgraph_topology_parity_is_compatibility_only() -> None:
+def test_root_all_contains_only_the_compiled_framework_surface() -> None:
+    import routedeck_core
+
+    assert set(routedeck_core.__all__) == {
+        "ApplicationSpec",
+        "BoundRouteDeckApp",
+        "RouteDeckEvent",
+        "CompiledRouteDeckApp",
+        "ContextScopeBuilder",
+        "DeepLinkEngine",
+        "FailureKind",
+        "FailureSafeDetails",
+        "FeatureBindings",
+        "FeatureSpec",
+        "NavigationEngine",
+        "OperationContextScope",
+        "ProjectionProjector",
+        "PublicProjection",
+        "RouteDeckEventType",
+        "RouteDeckFailure",
+        "RouteDeckNotifier",
+        "RouteDeckOperationRunner",
+        "RouteDeckRetentionPolicy",
+        "RouteDeckSession",
+        "RouteDeckSessionAggregate",
+        "RouteDeckSessionStore",
+        "SessionEffects",
+        "SessionSnapshot",
+        "bind_app",
+        "compile_app",
+        "new_opaque_handle",
+    }
+
+
+def test_retired_langgraph_topology_parity_is_not_importable() -> None:
     import routedeck_langgraph
-    from routedeck_langgraph import (
-        RouteDeckTopologyBuilderDeprecatedError,
-        assert_route_transition,
-        build_route_deck_state_graph,
-        matching_route_deck_edge,
-        validate_langgraph_contract,
-    )
 
     for name in (
         "RouteDeckTopologyBuilderDeprecatedError",
@@ -118,22 +135,11 @@ def test_retired_langgraph_topology_parity_is_compatibility_only() -> None:
         "validate_langgraph_contract",
     ):
         assert name not in routedeck_langgraph.__all__
+        assert not hasattr(routedeck_langgraph, name)
 
     assert "RouteDeckMiddleware" in routedeck_langgraph.__all__
     assert "RouteDeckToolWrapper" in routedeck_langgraph.__all__
     assert "awrap_tool_call" in routedeck_langgraph.__all__
-    assert (
-        RouteDeckTopologyBuilderDeprecatedError
-        is routedeck_langgraph.RouteDeckTopologyBuilderDeprecatedError
-    )
-    assert assert_route_transition is routedeck_langgraph.assert_route_transition
-    assert (
-        build_route_deck_state_graph is routedeck_langgraph.build_route_deck_state_graph
-    )
-    assert matching_route_deck_edge is routedeck_langgraph.matching_route_deck_edge
-    assert (
-        validate_langgraph_contract is routedeck_langgraph.validate_langgraph_contract
-    )
 
 
 def test_failure_contract_has_one_public_model_definition() -> None:
@@ -143,23 +149,9 @@ def test_failure_contract_has_one_public_model_definition() -> None:
         FailureSafeDetails,
         RouteDeckFailure,
     )
-    from routedeck_core.errors import (
-        FailureKind as CompatibilityFailureKind,
-        FailureSafeDetails as CompatibilityFailureSafeDetails,
-        RouteDeckFailure as CompatibilityRouteDeckFailure,
-    )
-
-    assert routedeck_core.FailureKind is FailureKind is CompatibilityFailureKind
-    assert (
-        routedeck_core.FailureSafeDetails
-        is FailureSafeDetails
-        is CompatibilityFailureSafeDetails
-    )
-    assert (
-        routedeck_core.RouteDeckFailure
-        is RouteDeckFailure
-        is CompatibilityRouteDeckFailure
-    )
+    assert routedeck_core.FailureKind is FailureKind
+    assert routedeck_core.FailureSafeDetails is FailureSafeDetails
+    assert routedeck_core.RouteDeckFailure is RouteDeckFailure
     assert RouteDeckFailure.__module__ == "routedeck_core.contracts.failures"
 
 

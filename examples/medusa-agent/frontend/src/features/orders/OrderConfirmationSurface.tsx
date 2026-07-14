@@ -65,7 +65,12 @@ export function OrderConfirmationSurface({
       aria-labelledby="order-confirmation-title"
       data-confirmation={order.confirmation_handle}
     >
-      <h1 id="order-confirmation-title">Order confirmed</h1>
+      <h1 id="order-confirmation-title">
+        <span className="order-confirmation-icon" aria-hidden="true">
+          {"\u2713"}
+        </span>
+        Order confirmed
+      </h1>
       <p>Order {order.display_id}</p>
       <p>Status: {order.status}</p>
       <ul>

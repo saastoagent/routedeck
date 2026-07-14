@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Protocol, runtime_checkable
 
 from routedeck_core.app import CompiledRouteDeckApp
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
 from routedeck_core.ports import RouteDeckSessionStore
@@ -36,7 +36,7 @@ class EventWakeupNotifier(Protocol):
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None: ...
 
     async def wait_for_events(
@@ -119,7 +119,7 @@ class InProcessEventNotifier:
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         if not events:
             return

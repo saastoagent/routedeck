@@ -30,7 +30,7 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-from ...identifiers import MedusaAgentPolicyType, MedusaOperationType
+from ...identifiers import MedusaAgentPolicyType, MedusaOperationType, MedusaOutcomeType
 
 from .models import CONTACT_FIELD_NAMES
 from .schemas import (
@@ -112,7 +112,7 @@ CHECKOUT_START = OperationSpec(
         {"type": "object", "properties": {}, "additionalProperties": False}
     ),
     safety_class=SafetyClass.NAVIGATION,
-    outcomes=("started",),
+    outcomes=(MedusaOutcomeType.STARTED,),
     outcome_schemas=FrozenJsonObject({"started": CHECKOUT_STARTED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(CHECKOUT_READY_GUARD.ref,),
@@ -136,7 +136,7 @@ SAVE_CONTACT = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive="reconcile_unknown_contact",
-    outcomes=("saved",),
+    outcomes=(MedusaOutcomeType.SAVED,),
     outcome_schemas=FrozenJsonObject({"saved": CONTACT_SAVED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(CHECKOUT_READY_GUARD.ref, CONTACT_VALID_GUARD.ref),
@@ -161,7 +161,7 @@ SELECT_SHIPPING = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive="reconcile_unknown_shipping_selection",
-    outcomes=("selected",),
+    outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": SHIPPING_SELECTED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref, SHIPPING_OPTIONS_PROVIDER.ref),
     guard_refs=(CHECKOUT_READY_GUARD.ref, SHIPPING_VALID_GUARD.ref),
@@ -186,7 +186,7 @@ SELECT_PAYMENT = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive="reconcile_unknown_payment_selection",
-    outcomes=("selected",),
+    outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": PAYMENT_SELECTED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref, PAYMENT_PROVIDERS_PROVIDER.ref),
     guard_refs=(CHECKOUT_READY_GUARD.ref, PAYMENT_VALID_GUARD.ref),
@@ -201,7 +201,7 @@ PLACE_ORDER = OperationSpec(
     unknown_recovery_operation_refs=(
         OperationRef(id=MedusaOperationType.ORDERS_RECONCILE),
     ),
-    outcomes=("order_created", "checkout_failed"),
+    outcomes=(MedusaOutcomeType.ORDER_CREATED, MedusaOutcomeType.CHECKOUT_FAILED),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
     guard_refs=(REVIEW_CURRENT_GUARD.ref,),
     public_metadata=FrozenJsonObject({"review_surface_id": "checkout.review"}),
@@ -430,25 +430,25 @@ FEATURE_SPEC = FeatureSpec(
         TransitionSpec(
             source=CONTACT_NODE.ref,
             operation=SAVE_CONTACT.ref,
-            outcome="saved",
+            outcome=MedusaOutcomeType.SAVED,
             target=DELIVERY_NODE.ref,
         ),
         TransitionSpec(
             source=DELIVERY_NODE.ref,
             operation=SELECT_SHIPPING.ref,
-            outcome="selected",
+            outcome=MedusaOutcomeType.SELECTED,
             target=PAYMENT_NODE.ref,
         ),
         TransitionSpec(
             source=PAYMENT_NODE.ref,
             operation=SELECT_PAYMENT.ref,
-            outcome="selected",
+            outcome=MedusaOutcomeType.SELECTED,
             target=REVIEW_NODE.ref,
         ),
         TransitionSpec(
             source=REVIEW_NODE.ref,
             operation=PLACE_ORDER.ref,
-            outcome="checkout_failed",
+            outcome=MedusaOutcomeType.CHECKOUT_FAILED,
             target=REVIEW_NODE.ref,
         ),
     ),

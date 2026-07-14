@@ -128,9 +128,9 @@ routes tool calls through the supervised operation runner.
 
 RouteDeck remains the authority for durable conversation turns, session state,
 legal operations, review, and projection. LangGraph remains the product-owned
-model/tool orchestration layer. The legacy `build_route_deck_state_graph(...)`
-symbol deliberately raises a deprecation error instead of creating a second
-state authority.
+model/tool orchestration layer. RouteDeck exports no topology builder because
+creating a second graph from the navgraph would introduce a second state
+authority.
 
 Install the optional integration with the other local framework packages:
 

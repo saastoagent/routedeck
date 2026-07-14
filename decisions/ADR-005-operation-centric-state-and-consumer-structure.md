@@ -25,8 +25,8 @@ buyer journey.
 - Durable storage uses SQLAlchemy ORM repositories behind one store contract.
   SQLite and PostgreSQL URLs are supported explicitly; product code does not
   contain raw persistence SQL or select a silent fallback database.
-- Public event identifiers use the `RouteDeckEventType` name. The former
-  `RouteDeckEventKind` identifier is a clean break, not a compatibility alias.
+- Public event identifiers use the canonical `RouteDeckEventType` name and have
+  no alternate exported identifier.
 - Medusa remains a thin consumer. `composition.py` declares the app,
   `bindings.py` wires typed product implementations, and `runtime_factory.py`
   assembles RouteDeck runtime infrastructure. Complex commerce mutations are
@@ -54,7 +54,7 @@ buyer journey.
 - The surface-driven and chat-driven paths still converge on the same
   `RouteDeckOperationRunner`, so the buyer-visible flow and review semantics do
   not diverge.
-- No reducer or old event-name compatibility shim is retained.
+- No reducer or alternate event-name shim is retained.
 
 ## Verification Boundary
 

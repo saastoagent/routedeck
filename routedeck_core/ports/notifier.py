@@ -4,7 +4,7 @@ import logging
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
-from ..contracts.events import CanonicalRouteDeckEvent
+from ..contracts.events import RouteDeckEvent
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -15,14 +15,14 @@ class RouteDeckNotifier(Protocol):
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None: ...
 
 
 async def notify_event_wakeup(
     notifier: RouteDeckNotifier,
     session_id: str,
-    events: Sequence[CanonicalRouteDeckEvent],
+    events: Sequence[RouteDeckEvent],
 ) -> None:
     """Wake local followers without making delivery part of the durable commit."""
 

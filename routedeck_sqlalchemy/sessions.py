@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent, EventPage
+from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
@@ -50,7 +50,7 @@ class SessionRepository:
         now: datetime,
         lease: ApplicationLease,
     ) -> SessionSnapshot:
-        self.validate_compatibility(initial)
+        self.validate_session_contract(initial)
         if database.get(SessionTombstoneRow, initial.session_id) is not None:
             raise SessionStoreError(SessionStoreErrorCode.SESSION_EXPIRED)
         serialized = serialize_session(initial, self.codec)
@@ -137,7 +137,7 @@ class SessionRepository:
     ) -> SessionSnapshot:
         row = self.load_row(database, session_id, now=now)
         state = deserialize_session(database, row, self.codec)
-        self.validate_compatibility(state)
+        self.validate_session_contract(state)
         return SessionSnapshot(state=state)
 
     def create_for_request(
@@ -179,7 +179,7 @@ class SessionRepository:
         session_id: str,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         now: datetime,
         lease: ApplicationLease,
         complete_session: bool = False,
@@ -264,7 +264,7 @@ class SessionRepository:
         ).all()
         has_more = len(rows) > limit
         events = tuple(
-            CanonicalRouteDeckEvent.model_validate_json(row.event_json)
+            RouteDeckEvent.model_validate_json(row.event_json)
             for row in rows[:limit]
         )
         return EventPage(
@@ -347,11 +347,11 @@ class SessionRepository:
         self,
         current: SessionRow,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         if next_state.session_id != current.session_id:
             raise ValueError("next state belongs to another session")
-        self.validate_compatibility(next_state)
+        self.validate_session_contract(next_state)
         if next_state.session_version < current.session_version:
             raise SessionStoreError(SessionStoreErrorCode.VERSION_CONFLICT)
         if next_state.projection_version < current.projection_version:
@@ -373,7 +373,7 @@ class SessionRepository:
         self,
         database: Session,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         *,
         now: datetime,
     ) -> None:
@@ -412,7 +412,7 @@ class SessionRepository:
                 )
             )
 
-    def validate_compatibility(self, state: RouteDeckSession) -> None:
+    def validate_session_contract(self, state: RouteDeckSession) -> None:
         if state.schema_version != SESSION_SCHEMA_VERSION:
             raise SessionStoreError(SessionStoreErrorCode.SESSION_UPGRADE_REQUIRED)
         if (

@@ -15,7 +15,7 @@ from ..contracts.operations import (
 from ..contracts.projection import FrozenJsonObject
 from ..contracts.session import RouteDeckSession
 from ..ports.executor import ResolvedEntityInput
-from ..state.session import require_compatible_session
+from ..state.session import require_current_session
 from .outcomes import canonical_json_fingerprint
 
 
@@ -97,7 +97,7 @@ class SupervisionPolicyMixin:
         operation: OperationSpec,
     ) -> RouteDeckFailure | None:
         try:
-            require_compatible_session(self.app.app, session)
+            require_current_session(self.app.app, session)
         except Exception:
             return self._failure(
                 request,

@@ -120,6 +120,10 @@ def test_generic_routedeck_and_product_chat_routers_are_composed_once() -> None:
 
 def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
     composition = _read("examples/medusa-agent/backend/medusa_agent/composition.py")
+    bindings = _read("examples/medusa-agent/backend/medusa_agent/bindings.py")
+    runtime_factory = _read(
+        "examples/medusa-agent/backend/medusa_agent/runtime_factory.py"
+    )
     feature_paths = sorted(
         (ROOT / "examples/medusa-agent/backend/medusa_agent/features").glob(
             "*/feature.py"
@@ -138,20 +142,17 @@ def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
         "PrivateFormBindingSpec(",
     ):
         assert contract_name in feature_text
-    for runtime_name in (
-        "compile_app(",
-        "bind_app(",
-        "RouteDeckOperationRunner(",
-        "RouteDeckNavigationRunner(",
-        "MedusaStoreClient",
-    ):
-        assert runtime_name in composition
+    assert "compile_app(" in composition
+    assert "bind_app(" in bindings
+    assert "MedusaStoreClient" in bindings
+    assert "RouteDeckOperationRunner(" in runtime_factory
+    assert "RouteDeckNavigationRunner(" in runtime_factory
+    assert "MedusaStoreClient" in runtime_factory
 
 
 def test_langgraph_adapter_wraps_execution_without_owning_topology() -> None:
     middleware = _read("routedeck_langgraph/middleware.py")
     tool_wrapper = _read("routedeck_langgraph/tool_wrapper.py")
-    legacy_builder = _read("routedeck_langgraph/graph.py")
     agent = _read("examples/medusa-agent/backend/medusa_agent/agent.py")
 
     assert "class RouteDeckMiddleware(" in middleware
@@ -161,9 +162,9 @@ def test_langgraph_adapter_wraps_execution_without_owning_topology() -> None:
     )
     assert "class RouteDeckToolWrapper:" in tool_wrapper
     assert "RouteDeckOperationRunner" in tool_wrapper
-    assert "raise RouteDeckTopologyBuilderDeprecatedError(" in legacy_builder
-    assert "no longer builds or" in legacy_builder
-    assert "mutates LangGraph topology" in legacy_builder
+    assert not (ROOT / "routedeck_langgraph/graph.py").exists()
+    assert not (ROOT / "routedeck_langgraph/transition.py").exists()
+    assert not (ROOT / "routedeck_langgraph/validation.py").exists()
     assert "agent = create_agent(" in agent
     assert "middleware = RouteDeckMiddleware(runtime)" in agent
     assert "wrapper = RouteDeckToolWrapper(runtime)" in agent
@@ -175,7 +176,7 @@ def test_private_forms_and_exact_browser_history_are_framework_owned() -> None:
     router = _read("routedeck_fastapi/router.py")
     navigation = _read("routedeck_core/navigation/transactions.py")
     browser_history = _read("packages/core/src/routing/history.ts")
-    browser_store = _read("packages/core/src/store/store.ts")
+    browser_navigation = _read("packages/core/src/store/navigation.ts")
     contact_feature = _read(
         "examples/medusa-agent/backend/medusa_agent/features/checkout/feature.py"
     )
@@ -201,7 +202,7 @@ def test_private_forms_and_exact_browser_history_are_framework_owned() -> None:
     assert "history_entry_id" in browser_history
     assert "pushState" in browser_history
     assert "replaceState" in browser_history
-    assert 'kind: "restore_history_entry"' in browser_store
+    assert 'kind: "restore_history_entry"' in browser_navigation
 
 
 def test_current_python_and_javascript_versions_are_locked() -> None:

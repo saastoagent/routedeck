@@ -1,3 +1,4 @@
+from .bindings import create_order_bindings
 from .feature import (
     CONFIRMATION_NODE,
     FEATURE_SPEC,
@@ -23,6 +24,7 @@ __all__ = [
     "RECONCILE_ORDER",
     "RECONCILE_ORDER_AFFORDANCE",
     "BoundOrderProvider",
+    "create_order_bindings",
     "OrdersContinueShoppingHandler",
     "PlaceOrderHandler",
     "ReconcileOrderHandler",

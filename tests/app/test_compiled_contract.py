@@ -111,7 +111,11 @@ def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings()
         "billing_address",
     )
     assert review_binding == contact_binding
-    assert contract.surfaces["checkout.contact_form"] is contact_node.surfaces.active
+    frontend_contact = contract.surfaces["checkout.contact_form"]
+    assert frontend_contact.id == contact_node.surfaces.active.id
+    assert frontend_contact.component == contact_node.surfaces.active.component
+    assert frontend_contact.lifecycle == contact_node.surfaces.active.lifecycle
+    assert frontend_contact.affordances == contact_node.surfaces.active.affordances
     assert product.surfaces.active == "catalog.product_detail"
     assert product.surfaces.frame
     assert set(type(product.surfaces).model_fields) >= {

@@ -17,7 +17,7 @@ from medusa_agent.config import Settings
 from medusa_agent.medusa.client import HttpMedusaStoreClient
 from medusa_agent.session import BuyerMarket
 from routedeck_core.app import ContextProvider, Guard, OperationHandler
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.mutations import (
     MutationCommit,
     MutationKind,
@@ -184,12 +184,12 @@ class _SystemClock:
 
 @dataclass
 class _RecordingNotifier:
-    events: list[CanonicalRouteDeckEvent] = field(default_factory=list)
+    events: list[RouteDeckEvent] = field(default_factory=list)
 
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         del session_id
         self.events.extend(events)

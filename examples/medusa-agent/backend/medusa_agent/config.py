@@ -27,7 +27,9 @@ class Settings(BaseModel):
     routedeck_database_url: str = Field(min_length=1)
     routedeck_state_encryption_key: SecretStr
     openai_api_key: SecretStr | None
-    openai_model: str = Field(min_length=1)
+    openai_buyer_model: str = Field(min_length=1)
+    openai_entry_model: str = Field(min_length=1)
+    openai_turn_policy_model: str = Field(min_length=1)
     medusa_timeout_seconds: float = Field(default=15.0, gt=0)
 
     @classmethod
@@ -56,7 +58,9 @@ _ENV_FIELDS = frozenset(
         "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
         "OPENAI_API_KEY",
-        "OPENAI_MODEL",
+        "OPENAI_BUYER_MODEL",
+        "OPENAI_ENTRY_MODEL",
+        "OPENAI_TURN_POLICY_MODEL",
         "MEDUSA_TIMEOUT_SECONDS",
     }
 )
@@ -70,7 +74,9 @@ _FIELD_BY_ENV = {
     "MEDUSA_PAYMENT_PROVIDER_ID": "medusa_payment_provider_id",
     "ROUTEDECK_DATABASE_URL": "routedeck_database_url",
     "ROUTEDECK_STATE_ENCRYPTION_KEY": "routedeck_state_encryption_key",
-    "OPENAI_MODEL": "openai_model",
+    "OPENAI_BUYER_MODEL": "openai_buyer_model",
+    "OPENAI_ENTRY_MODEL": "openai_entry_model",
+    "OPENAI_TURN_POLICY_MODEL": "openai_turn_policy_model",
     "MEDUSA_TIMEOUT_SECONDS": "medusa_timeout_seconds",
 }
 

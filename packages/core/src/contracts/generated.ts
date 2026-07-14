@@ -54,7 +54,6 @@ export type OperationId2 = string | null;
 export type RequestId2 = string | null;
 export type StatusCode = string | null;
 export type ProjectionVersion = number | null;
-export type SessionId = string;
 export type SessionVersion = number;
 export type EntryNodeId = string;
 export type Name1 = string;
@@ -114,7 +113,7 @@ export type ProjectionVersion1 = number;
 export type RequestId3 = string;
 export type ExpiresAt = string;
 export type Id4 = string;
-export type SessionId1 = string;
+export type SessionId = string;
 export type SessionVersion1 = number;
 export type Complete = boolean;
 export type ExpectedSessionVersion1 = number;
@@ -168,7 +167,7 @@ export type RequestId5 = string;
  */
 export interface RouteDeckTransportContracts {
   dispatch_request: DispatchRequest;
-  event: CanonicalRouteDeckEvent;
+  event: PublicRouteDeckEvent;
   failure: RouteDeckFailure;
   frontend_contract: FrontendContract;
   operation_result: OperationResult;
@@ -186,16 +185,15 @@ export interface Arguments {
   [k: string]: unknown;
 }
 /**
- * Canonical Task 4 event; the root legacy event remains a compatibility API.
+ * SSE-safe event contract with the private session identifier removed.
  */
-export interface CanonicalRouteDeckEvent {
+export interface PublicRouteDeckEvent {
   created_at: CreatedAt;
   cursor: Cursor;
   event_id: EventId;
   event_type: RouteDeckEventType;
   payload: PublicEventPayload;
   projection_version?: ProjectionVersion;
-  session_id: SessionId;
   session_version: SessionVersion;
 }
 export interface PublicEventPayload {
@@ -302,7 +300,7 @@ export interface OperationResult {
   projection_version: ProjectionVersion1;
   request_id: RequestId3;
   review?: OperationReview | null;
-  session_id: SessionId1;
+  session_id: SessionId;
   session_version: SessionVersion1;
 }
 export interface OperationEvidence {

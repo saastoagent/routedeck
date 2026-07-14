@@ -14,7 +14,7 @@ from routedeck_core.contracts.conversation import (
 )
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
-from routedeck_core.state.session import require_compatible_session
+from routedeck_core.state.session import require_current_session
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_fastapi import RouteDeckDependencies, RouteDeckDependencyUnavailable
 
@@ -49,7 +49,7 @@ def create_medusa_conversation_router(
             dependencies = await _resolve_dependencies(provider, request)
             session_id = _guest_session_id(request, dependencies)
             snapshot = await dependencies.store.load(session_id)
-            require_compatible_session(dependencies.app, snapshot.state)
+            require_current_session(dependencies.app, snapshot.state)
             return JSONResponse(
                 content={"turns": public_conversation(snapshot)},
                 headers={"Cache-Control": "private, no-store"},

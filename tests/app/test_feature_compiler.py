@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from medusa_agent.composition import compile_medusa_app_spec
 from routedeck_core.app import (
     ApplicationSpec,
+    FeatureBindings,
     FeatureSpec,
     bind_app,
     compile_app,
@@ -262,7 +263,24 @@ def test_declared_objects_are_canonical_across_nodes_and_catalogs() -> None:
         for provider in (*node.context_providers, *node.entity_providers):
             assert app.providers[provider.id] is provider
         for surface in node.surfaces.declared_surfaces():
-            assert app.frontend_contract.surfaces[surface.id] is surface
+            contract = app.frontend_contract.surfaces[surface.id]
+            assert contract.id == surface.id
+            assert contract.component == surface.component
+            assert contract.lifecycle is surface.lifecycle
+            assert contract.affordances == surface.affordances
+            assert contract.public_props_schema == surface.public_props_schema
+
+
+def test_feature_binding_merge_rejects_duplicate_ownership() -> None:
+    app = compile_medusa_app_spec()
+    bindings = invalid_bindings(app, "missing_handler")
+    ref, handler = next(iter(bindings.handlers.items()))
+
+    with pytest.raises(RouteDeckValidationError, match="Duplicate handler"):
+        FeatureBindings.merge(
+            bindings,
+            FeatureBindings(handlers={ref: handler}, providers={}, guards={}),
+        )
 
 
 def _write_recovery_app(mutation: str) -> ApplicationSpec:

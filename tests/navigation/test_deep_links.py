@@ -6,15 +6,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
-from routedeck_core.contracts.session import LocationParameter
-from routedeck_core.navigation.deep_links import (
-    CapabilityMismatch,
-    DeepLinkEngine,
-    SessionRequired,
-)
+from routedeck_core.contracts.session import LocationParameter, ResumeCapabilityBinding
+from routedeck_core.navigation.deep_links import DeepLinkEngine
 from routedeck_core.navigation.routes import (
     PublicRouteKeyValidator,
-    RouteResumeCapability,
+    RouteCapabilityMismatch,
+    RouteSessionRequired,
 )
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
@@ -40,8 +37,8 @@ def _capability(
     node_id: str = "cart.summary",
     expires_at: datetime | None = None,
     route_params: tuple[LocationParameter, ...] = (),
-) -> RouteResumeCapability:
-    return RouteResumeCapability(
+) -> ResumeCapabilityBinding:
+    return ResumeCapabilityBinding(
         handle=handle,
         session_id=session_id,
         node_id=node_id,
@@ -61,7 +58,7 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
     )
     assert public.node_id == "catalog.product"
 
-    with pytest.raises(SessionRequired):
+    with pytest.raises(RouteSessionRequired):
         engine.open(
             "/cart?resume_handle=opaque-capability",
             session=None,
@@ -76,7 +73,7 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
             )
         }
     )
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.open(
             "/cart?resume_handle=opaque-capability",
             session=malformed_session,
@@ -93,7 +90,7 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
     ),
 )
 def test_representative_session_bound_routes_require_a_session(path: str) -> None:
-    with pytest.raises(SessionRequired):
+    with pytest.raises(RouteSessionRequired):
         DeepLinkEngine(compile_medusa_app_spec()).open(
             path,
             session=None,
@@ -131,7 +128,7 @@ def test_valid_cart_and_confirmation_capabilities_open_bound_routes() -> None:
 
     assert cart.node_id == "cart.summary"
     assert confirmation.node_id == "orders.confirmation"
-    assert confirmation.params == {"confirmation_handle": "confirmation"}
+    assert confirmation.route_bindings == {"confirmation_handle": "confirmation"}
 
 
 def test_session_capability_rejects_path_parameter_substitution() -> None:
@@ -146,13 +143,13 @@ def test_session_capability_rejects_path_parameter_substitution() -> None:
     session = session_factory(app=app, resume_capabilities=(capability,))
     engine = DeepLinkEngine(app)
 
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.open(
             "/orders/substituted/confirmation?resume_handle=confirmation-capability",
             session=session,
             now=NOW,
         )
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.encode(
             "orders.confirmation",
             {
@@ -204,11 +201,11 @@ def test_shareable_link_generation_requires_an_injected_public_key_validator() -
     ),
 )
 def test_expired_wrong_node_and_unknown_capabilities_fail_explicitly(
-    capabilities: tuple[RouteResumeCapability, ...],
+    capabilities: tuple[ResumeCapabilityBinding, ...],
     path: str,
 ) -> None:
     app = compile_medusa_app_spec()
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         DeepLinkEngine(app).open(
             path,
             session=session_factory(app=app, resume_capabilities=capabilities),
@@ -227,7 +224,7 @@ def test_invalid_public_binding_and_missing_resume_handle_fail_explicitly() -> N
             public_key_validator=_validator(),
             now=NOW,
         )
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.open(
             "/cart",
             session=session_factory(
@@ -291,7 +288,7 @@ def test_generated_session_link_contains_no_session_or_private_id() -> None:
             session=session,
             now=NOW,
         )
-    with pytest.raises(CapabilityMismatch):
+    with pytest.raises(RouteCapabilityMismatch):
         engine.encode(
             "cart.summary",
             {"resume_handle": "cart_private_123"},

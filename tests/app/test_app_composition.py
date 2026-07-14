@@ -16,7 +16,7 @@ from routedeck_core.contracts.navigation import DeepLinkPolicy
 
 
 EXPECTED_NODES = (
-    ("buyer.home", "/", "buyer.welcome", DeepLinkPolicy.SHAREABLE),
+    ("buyer.home", "/", None, DeepLinkPolicy.SHAREABLE),
     (
         "catalog.browse",
         "/products",
@@ -91,7 +91,7 @@ def test_composition_declares_exact_nodes_routes_surfaces_and_policies() -> None
             (
                 node.id,
                 node.route.template,
-                node.surfaces.active.id,
+                node.surfaces.active.id if node.surfaces.active else None,
                 node.route.deep_link_policy,
             )
             for node in app.spec.nodes
@@ -233,7 +233,7 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
 def test_medusa_entity_arguments_are_explicit_and_node_scoped() -> None:
     app = compile_medusa_app_spec()
     expected = {
-        "catalog.open_product": {"product_handle": "product"},
+        "catalog.open_product": {"product_ref": "product"},
         "catalog.select_variant": {"variant_ref": "variant"},
         "cart.add_item": {"variant_ref": "variant"},
         "cart.update_item": {"line_item_ref": "line_item"},

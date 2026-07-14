@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 from ..contracts.conversation import FinalizedConversationTurn
-from ..contracts.events import CanonicalRouteDeckEvent, EventPage
+from ..contracts.events import RouteDeckEvent, EventPage
 from ..contracts.failures import RouteDeckFailure
 from ..contracts.mutations import MutationCommit, MutationRecord
 from ..contracts.session import (
@@ -91,7 +91,7 @@ class RouteDeckSessionStore(Protocol):
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot: ...
 
@@ -125,7 +125,7 @@ class RouteDeckSessionStore(Protocol):
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot: ...
 
@@ -135,7 +135,7 @@ class RouteDeckSessionStore(Protocol):
         expected_session_version: int,
         next_state: RouteDeckSession,
         turns: Sequence[FinalizedConversationTurn],
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot: ...
 
@@ -145,7 +145,7 @@ class RouteDeckSessionStore(Protocol):
         expected_session_version: int,
         next_state: RouteDeckSession,
         failure: RouteDeckFailure,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot: ...
 
@@ -154,7 +154,7 @@ class RouteDeckSessionStore(Protocol):
         claim: ExecutionClaim,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
         """Atomically commit state, attempt, events, and requested completion.
@@ -172,7 +172,7 @@ class RouteDeckSessionStore(Protocol):
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot: ...
 
@@ -182,7 +182,7 @@ class RouteDeckSessionStore(Protocol):
         expected_session_version: int,
         record: StoredOperationAttempt,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot: ...
 
     async def release_turn(self, lease: TurnLease) -> None: ...
@@ -207,7 +207,7 @@ class RouteDeckSessionStore(Protocol):
         form_id: str,
         encrypted_value: bytes,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot: ...
 

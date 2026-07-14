@@ -40,6 +40,19 @@ class FeatureBindings:
     providers: Mapping[ProviderRef, ContextProvider]
     guards: Mapping[GuardRef, Guard]
 
+    @classmethod
+    def merge(cls, *parts: FeatureBindings) -> FeatureBindings:
+        """Compose feature bindings while rejecting ambiguous ownership."""
+
+        handlers: dict[OperationRef, OperationHandler] = {}
+        providers: dict[ProviderRef, ContextProvider] = {}
+        guards: dict[GuardRef, Guard] = {}
+        for part in parts:
+            _merge_binding_map("handler", handlers, part.handlers)
+            _merge_binding_map("provider", providers, part.providers)
+            _merge_binding_map("guard", guards, part.guards)
+        return cls(handlers=handlers, providers=providers, guards=guards)
+
 
 @dataclass(frozen=True)
 class BoundRouteDeckApp:
@@ -94,6 +107,19 @@ def _require_exact_refs(
         raise RouteDeckValidationError(
             f"Invalid {kind} bindings: missing={missing!r}, extra={extra!r}"
         )
+
+
+def _merge_binding_map(
+    kind: str,
+    destination: dict[object, object],
+    source: Mapping[object, object],
+) -> None:
+    duplicates = sorted(str(ref) for ref in destination.keys() & source.keys())
+    if duplicates:
+        raise RouteDeckValidationError(
+            f"Duplicate {kind} bindings: refs={duplicates!r}"
+        )
+    destination.update(source)
 
 
 def _require_async_bindings(

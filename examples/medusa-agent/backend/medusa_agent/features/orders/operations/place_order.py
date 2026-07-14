@@ -9,6 +9,7 @@ from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
 from routedeck_core.handles import new_opaque_handle
 from routedeck_core.ports.executor import ExecutionContext
 
+from ....identifiers import MedusaOutcomeType
 from ....medusa.client.models import (
     CartCompletionRejected,
     CartCompletionUnknown,
@@ -126,7 +127,7 @@ class PlaceOrderHandler:
             confirmation_handle=confirmation_handle,
         )
         return OperationOutcome(
-            outcome="order_created",
+            outcome=MedusaOutcomeType.ORDER_CREATED,
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
             effects=confirmation_effects(
                 order=verified_order,

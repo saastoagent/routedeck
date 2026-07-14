@@ -5,7 +5,7 @@ from datetime import datetime
 from ..app import CompiledRouteDeckApp
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, RouteDeckSession
-from ..state.session import require_compatible_session
+from ..state.session import require_current_session
 from ..validation import RouteDeckValidationError
 from .routes import PublicRouteKeyValidator
 
@@ -20,7 +20,7 @@ def validate_session_location(
 ) -> None:
     """Validate one canonical location before context or public projection."""
 
-    require_compatible_session(app, session)
+    require_current_session(app, session)
     candidate = location or session.current
     node_id = candidate.node_id
     expected_names = set(app.routes.path_parameter_names(node_id))

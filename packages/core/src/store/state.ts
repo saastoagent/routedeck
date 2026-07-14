@@ -40,7 +40,7 @@ export type RouteDeckPendingBootstrap =
       status: 404;
     }>
   | Readonly<{
-      kind: "resume_incompatible";
+      kind: "resume_contract_mismatch";
       status: 409;
     }>;
 

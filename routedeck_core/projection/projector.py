@@ -29,7 +29,11 @@ from ..navigation.routes import PublicRouteKeyValidator
 from ..navigation.session_location import validate_session_location
 from ..state.surfaces import validate_canonical_surface_state
 from ..validation import RouteDeckValidationError
-from .policy import resolve_projection_mode, visible_entity_handles
+from .policy import (
+    resolve_projection_mode,
+    visible_entity_handles,
+    visible_suggested_actions,
+)
 from .redaction import project_public_values
 
 
@@ -63,6 +67,11 @@ class ProjectionProjector:
         legal_operation_by_id = {
             operation.id: operation for operation in legal_operations
         }
+        suggested_actions = visible_suggested_actions(
+            node,
+            session,
+            legal_operation_ids,
+        )
         visible_handles = visible_entity_handles(
             session,
             legal_operation_ids,
@@ -142,8 +151,7 @@ class ProjectionProjector:
                     operation_id=action.operation_id,
                     arguments=action.arguments,
                 )
-                for action in node.suggested_actions
-                if action.operation_id in legal_operation_by_id
+                for action in suggested_actions
             ),
             entities=visible_handles,
             surfaces=self._surface_slots(

@@ -46,7 +46,5 @@ fields. It must not own generic runtime subclasses, projection assembly,
 navigation stacks, review mechanics, event sequencing, SSE formatting, or
 client-authoritative graph-state reconstruction.
 
-The older `backend/services/route_deck/` SaaStoAgent adapter/catalog is product
-compatibility code, not RouteDeck framework ownership. It must be explicitly
-migrated, retained as a named compatibility boundary, or retired after call-site
-proof.
+Consuming products use the canonical compiled contracts directly. Product-local
+adapters and catalogs do not define or extend the RouteDeck framework boundary.

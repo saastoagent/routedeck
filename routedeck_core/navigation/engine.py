@@ -10,7 +10,7 @@ from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, LocationParameter, RouteDeckSession
 from ..state.aggregate import RouteDeckSessionAggregate
 from ..state.history import move_back, move_forward
-from ..state.session import require_compatible_session
+from ..state.session import require_current_session
 from ..state.surfaces import surface_state_for_node
 from ..validation import RouteDeckValidationError
 from .deep_links import DeepLinkEngine
@@ -34,7 +34,7 @@ class NavigationEngine:
         resume_handle: str | None = None,
         now: datetime | None = None,
     ) -> RouteDeckSession:
-        require_compatible_session(self.app, session)
+        require_current_session(self.app, session)
         validate_session_location(
             self.app,
             session,
@@ -83,7 +83,7 @@ class NavigationEngine:
         public_key_validator: PublicRouteKeyValidator | None = None,
         now: datetime | None = None,
     ) -> RouteDeckSession:
-        require_compatible_session(self.app, session)
+        require_current_session(self.app, session)
         validate_session_location(
             self.app,
             session,
@@ -124,7 +124,7 @@ class NavigationEngine:
         public_key_validator: PublicRouteKeyValidator | None = None,
         now: datetime | None = None,
     ) -> RouteDeckSession:
-        require_compatible_session(self.app, session)
+        require_current_session(self.app, session)
         validate_session_location(
             self.app,
             session,
@@ -166,7 +166,7 @@ class NavigationEngine:
         resume_handle: str | None = None,
         now: datetime | None = None,
     ) -> RouteDeckSession:
-        require_compatible_session(self.app, session)
+        require_current_session(self.app, session)
         validate_session_location(
             self.app,
             session,
@@ -219,7 +219,7 @@ class NavigationEngine:
     ) -> RouteDeckSession:
         """Restore one exact canonical history entry without inferring direction."""
 
-        require_compatible_session(self.app, session)
+        require_current_session(self.app, session)
         validate_session_location(
             self.app,
             session,

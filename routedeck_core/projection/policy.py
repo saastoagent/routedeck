@@ -8,6 +8,7 @@ from ..contracts.failures import FailureKind
 from ..contracts.operations import OperationSpec
 from ..contracts.projection import PublicEntityHandle
 from ..contracts.session import RouteDeckSession
+from ..contracts.suggestions import SuggestedActionSpec
 from ..contracts.surfaces import SurfaceSpec
 from ..validation import RouteDeckValidationError
 
@@ -127,6 +128,30 @@ def visible_entity_handles(
     )
 
 
+def visible_suggested_actions(
+    node: NodeSpec,
+    session: RouteDeckSession,
+    legal_operation_ids: set[str] | frozenset[str],
+) -> tuple[SuggestedActionSpec, ...]:
+    """Resolve actions whose operations and declared state requirements are present."""
+
+    bound_entities = {
+        (binding.entity_kind, binding.public_handle)
+        for binding in session.private_state.entity_bindings
+    }
+    present_entity_kinds = {
+        entity.entity_kind
+        for entity in session.public_state.entity_handles
+        if (entity.entity_kind, entity.handle) in bound_entities
+    }
+    return tuple(
+        action
+        for action in node.suggested_actions
+        if action.operation_id in legal_operation_ids
+        and set(action.visibility.required_entity_kinds) <= present_entity_kinds
+    )
+
+
 def _node_operation(node: NodeSpec, operation_id: str) -> OperationSpec | None:
     return next(
         (operation for operation in node.operations if operation.id == operation_id),
@@ -154,4 +179,9 @@ def _entity_inputs_are_available(
     )
 
 
-__all__ = ["ProjectionMode", "resolve_projection_mode", "visible_entity_handles"]
+__all__ = [
+    "ProjectionMode",
+    "resolve_projection_mode",
+    "visible_entity_handles",
+    "visible_suggested_actions",
+]

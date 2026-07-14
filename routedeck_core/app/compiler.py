@@ -249,6 +249,7 @@ def _validate_suggested_actions(nodes: tuple[NodeSpec, ...]) -> None:
                 f"Node {node.id!r} declares a suggested action more than once"
             )
         operations = {operation.id: operation for operation in node.operations}
+        entity_kinds = {provider.entity_kind for provider in node.entity_providers}
         for action in node.suggested_actions:
             operation = operations.get(action.operation_id)
             if operation is None:
@@ -265,6 +266,14 @@ def _validate_suggested_actions(nodes: tuple[NodeSpec, ...]) -> None:
                     f"Node {node.id!r} suggested action {action.id!r} has "
                     "arguments outside the operation input contract"
                 ) from exc
+            missing_entity_kinds = (
+                set(action.visibility.required_entity_kinds) - entity_kinds
+            )
+            if missing_entity_kinds:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} suggested action {action.id!r} requires "
+                    f"undeclared entity kinds {tuple(sorted(missing_entity_kinds))!r}"
+                )
 
 
 def _validate_feature_transition_ownership(source_spec: ApplicationSpec) -> None:

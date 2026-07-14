@@ -19,7 +19,7 @@ from routedeck_core.contracts.projection import (
 )
 from routedeck_core.ports.executor import ExecutionContext
 
-from ....identifiers import MedusaOperationType
+from ....identifiers import MedusaOperationType, MedusaOutcomeType
 from ..feature import (
     CATALOG_PRODUCTS_PROVIDER,
     OPEN_PRODUCT,
@@ -44,7 +44,7 @@ def collection_value(context: ExecutionContext) -> CatalogCollectionProviderValu
 def collection_outcome(
     value: CatalogCollectionProviderValue,
     *,
-    outcome: str,
+    outcome: MedusaOutcomeType,
 ) -> OperationOutcome:
     observation = value.observation.model_dump(mode="json", exclude_none=True)
     cards = {
@@ -105,7 +105,7 @@ def open_product_outcome(value: CatalogProductProviderValue) -> OperationOutcome
     )
     observation = value.observation.model_dump(mode="json", exclude_none=True)
     return OperationOutcome(
-        outcome="opened",
+        outcome=MedusaOutcomeType.OPENED,
         delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
         observation=FrozenJsonObject(observation),
         effects=SessionEffects(

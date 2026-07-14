@@ -146,7 +146,10 @@ def test_projection_uses_current_node_legal_operations_and_rich_surfaces() -> No
     projection = ProjectionProjector(app).project(session)
 
     assert projection.current.node_id == "buyer.home"
-    assert projection.surfaces["active"].component == "buyer.welcome"
+    assert projection.surfaces.active is None
+    assert tuple(surface.component for surface in projection.surfaces.frame) == (
+        "buyer.frame",
+    )
     assert set(projection.legal_operation_ids) == {"catalog.list", "cart.create"}
     assert projection.session_version == session.session_version
     assert projection.projection_version == session.projection_version
@@ -199,6 +202,7 @@ def test_projection_preserves_rich_current_surfaces_navigation_and_status() -> N
     assert set(projection.diagnostics.declared_provider_ids) == {
         "catalog.product",
         "catalog.products",
+        "cart.binding",
         "cart.current",
     }
 

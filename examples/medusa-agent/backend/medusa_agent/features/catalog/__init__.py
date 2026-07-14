@@ -1,3 +1,4 @@
+from .bindings import create_catalog_bindings
 from .feature import (
     BUYER_HOME_NODE,
     CATALOG_BROWSE_NODE,
@@ -64,6 +65,7 @@ __all__ = [
     "SearchCatalogHandler",
     "SelectVariantHandler",
     "CurrentCatalogProductProvider",
+    "create_catalog_bindings",
     "VARIANT_ALLOWED_GUARD",
     "VariantAllowedGuard",
 ]

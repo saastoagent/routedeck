@@ -10,7 +10,7 @@ from langchain.agents.middleware import (
     ModelResponse,
     ToolCallRequest,
 )
-from langchain_core.messages import AnyMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AnyMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
 from .model_context import (

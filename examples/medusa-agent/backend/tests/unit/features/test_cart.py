@@ -6,7 +6,7 @@ import pytest
 from pydantic import SecretStr, ValidationError
 
 from medusa_agent.features.cart.feature import CART_STATE_PROVIDER
-from medusa_agent.features.cart.handlers import AddCartItemHandler
+from medusa_agent.features.cart.operations import AddCartItemHandler
 from medusa_agent.features.cart.models import (
     CartProviderContext,
     CartProviderState,

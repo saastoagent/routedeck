@@ -1,66 +1,5 @@
 {
   "$defs": {
-    "CanonicalRouteDeckEvent": {
-      "additionalProperties": false,
-      "description": "Canonical Task 4 event; the root legacy event remains a compatibility API.",
-      "properties": {
-        "created_at": {
-          "format": "date-time",
-          "title": "Created At",
-          "type": "string"
-        },
-        "cursor": {
-          "minimum": 1,
-          "title": "Cursor",
-          "type": "integer"
-        },
-        "event_id": {
-          "minLength": 1,
-          "title": "Event Id",
-          "type": "string"
-        },
-        "event_type": {
-          "$ref": "#/$defs/RouteDeckEventType"
-        },
-        "payload": {
-          "$ref": "#/$defs/PublicEventPayload"
-        },
-        "projection_version": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Projection Version"
-        },
-        "session_id": {
-          "minLength": 1,
-          "title": "Session Id",
-          "type": "string"
-        },
-        "session_version": {
-          "minimum": 0,
-          "title": "Session Version",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "event_id",
-        "cursor",
-        "event_type",
-        "session_id",
-        "session_version",
-        "created_at",
-        "payload"
-      ],
-      "title": "CanonicalRouteDeckEvent",
-      "type": "object"
-    },
     "DeepLinkPolicy": {
       "enum": [
         "shareable",
@@ -1231,6 +1170,61 @@
       "title": "PublicProjection",
       "type": "object"
     },
+    "PublicRouteDeckEvent": {
+      "additionalProperties": false,
+      "description": "SSE-safe event contract with the private session identifier removed.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "cursor": {
+          "minimum": 1,
+          "title": "Cursor",
+          "type": "integer"
+        },
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/RouteDeckEventType"
+        },
+        "payload": {
+          "$ref": "#/$defs/PublicEventPayload"
+        },
+        "projection_version": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Projection Version"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "cursor",
+        "event_type",
+        "session_version",
+        "created_at",
+        "payload"
+      ],
+      "title": "PublicRouteDeckEvent",
+      "type": "object"
+    },
     "PublicValue": {
       "additionalProperties": false,
       "properties": {
@@ -1404,7 +1398,7 @@
       "$ref": "#/$defs/DispatchRequest"
     },
     "event": {
-      "$ref": "#/$defs/CanonicalRouteDeckEvent"
+      "$ref": "#/$defs/PublicRouteDeckEvent"
     },
     "failure": {
       "$ref": "#/$defs/RouteDeckFailure"

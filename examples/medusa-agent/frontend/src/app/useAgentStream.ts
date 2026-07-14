@@ -13,14 +13,16 @@ import {
   type AgentReviewRequired,
 } from "./chatClient";
 import {
-  applyAgentEvent,
   historyMessage,
   pendingRequestFor,
-  removeRequestMessages,
   type AgentConversationMessage,
   type AgentPendingRequest,
   type AgentStreamStatus,
 } from "./agentStreamState";
+import {
+  applyAgentEvent,
+  removeRequestMessages,
+} from "./agentStreamTransitions";
 
 export type {
   AgentConversationMessage,
@@ -107,10 +109,12 @@ export function useAgentStream({
             (await applyAgentEvent(
               event,
               request.request_id,
-              synchronizeTo,
-              setMessages,
-              setStatus,
-              setReview,
+              {
+                updateMessages: setMessages,
+                setStatus,
+                setReview,
+                synchronizeTo,
+              },
             )) || streamEnded;
         }
         if (abort.signal.aborted) {

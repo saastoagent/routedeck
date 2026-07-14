@@ -12,7 +12,7 @@ from routedeck_core.contracts.conversation import (
     ConversationTurnStatus,
 )
 from routedeck_core.contracts.events import (
-    CanonicalRouteDeckEvent,
+    RouteDeckEvent,
     PublicEventPayload,
     RouteDeckEventType,
 )
@@ -85,7 +85,7 @@ def recover_abandoned_turn_batch(
                 .record_public_events(1)
                 .commit()
             )
-            event = CanonicalRouteDeckEvent(
+            event = RouteDeckEvent(
                 event_id=f"restart-event-{uuid.uuid4().hex}",
                 cursor=next_state.event_cursor,
                 event_type=RouteDeckEventType.TURN_INTERRUPTED,

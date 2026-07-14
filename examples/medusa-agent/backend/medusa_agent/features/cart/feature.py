@@ -18,6 +18,10 @@ from routedeck_core.contracts.operations import (
     SafetyClass,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
+from routedeck_core.contracts.suggestions import (
+    SuggestedActionSpec,
+    SuggestedActionVisibilitySpec,
+)
 from routedeck_core.contracts.surfaces import (
     SurfaceAffordanceSpec,
     SurfaceLifecycle,
@@ -25,9 +29,12 @@ from routedeck_core.contracts.surfaces import (
     SurfaceSpec,
 )
 
-from ...identifiers import MedusaOperationType
+from ...identifiers import (
+    MedusaOperationType,
+    MedusaOutcomeType,
+    MedusaSuggestedActionType,
+)
 
-CART_CREATED_OUTCOME = "created"
 CART_CREATE_UNKNOWN_RECOVERY = "reconcile_unknown_cart_creation"
 CART_MUTATION_UNKNOWN_RECOVERY = "reconcile_unknown_cart"
 
@@ -139,10 +146,10 @@ CART_CREATE = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive=CART_CREATE_UNKNOWN_RECOVERY,
-    outcomes=(CART_CREATED_OUTCOME,),
+    outcomes=(MedusaOutcomeType.CREATED,),
     outcome_schemas=FrozenJsonObject(
         {
-            CART_CREATED_OUTCOME: {
+            MedusaOutcomeType.CREATED: {
                 "type": "object",
                 "properties": {
                     "cart_id": {"type": "string", "minLength": 1},
@@ -180,7 +187,7 @@ CART_ADD_ITEM = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=("added",),
+    outcomes=(MedusaOutcomeType.ADDED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
@@ -189,7 +196,7 @@ CART_OPEN = OperationSpec(
     title="Open cart",
     description="Navigate to the current cart summary.",
     safety_class=SafetyClass.NAVIGATION,
-    outcomes=("opened",),
+    outcomes=(MedusaOutcomeType.OPENED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
@@ -213,7 +220,7 @@ CART_UPDATE_ITEM = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=("updated",),
+    outcomes=(MedusaOutcomeType.UPDATED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
@@ -234,7 +241,7 @@ CART_REMOVE_ITEM = OperationSpec(
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=("removed",),
+    outcomes=(MedusaOutcomeType.REMOVED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
 )
@@ -242,6 +249,12 @@ OPEN_CART_AFFORDANCE = SurfaceAffordanceSpec(
     id="open_cart",
     event="open",
     operation=CART_OPEN.ref,
+)
+VIEW_CART_ACTION = SuggestedActionSpec(
+    id=MedusaSuggestedActionType.VIEW_CART,
+    operation_id=CART_OPEN.id,
+    label="View cart",
+    visibility=SuggestedActionVisibilitySpec(required_entity_kinds=("cart",)),
 )
 CREATE_CART_AFFORDANCE = SurfaceAffordanceSpec(
     id="create_cart",
@@ -392,19 +405,19 @@ FEATURE_SPEC = FeatureSpec(
         TransitionSpec(
             source=CART_NODE.ref,
             operation=CART_OPEN.ref,
-            outcome="opened",
+            outcome=MedusaOutcomeType.OPENED,
             target=CART_NODE.ref,
         ),
         TransitionSpec(
             source=CART_NODE.ref,
             operation=CART_UPDATE_ITEM.ref,
-            outcome="updated",
+            outcome=MedusaOutcomeType.UPDATED,
             target=CART_NODE.ref,
         ),
         TransitionSpec(
             source=CART_NODE.ref,
             operation=CART_REMOVE_ITEM.ref,
-            outcome="removed",
+            outcome=MedusaOutcomeType.REMOVED,
             target=CART_NODE.ref,
         ),
     ),
@@ -419,7 +432,6 @@ __all__ = [
     "CART_BINDING_PROVIDER",
     "CART_CAPABILITY",
     "CART_CREATE",
-    "CART_CREATED_OUTCOME",
     "CART_CREATE_UNKNOWN_RECOVERY",
     "CART_EXISTS_GUARD",
     "CART_NODE",
@@ -430,4 +442,5 @@ __all__ = [
     "CREATE_CART_AFFORDANCE",
     "FEATURE_SPEC",
     "OPEN_CART_AFFORDANCE",
+    "VIEW_CART_ACTION",
 ]

@@ -6,11 +6,11 @@ import pytest
 from pydantic import ValidationError
 
 from medusa_agent.composition import compile_medusa_app_spec
-from routedeck_core.navigation.deep_links import DeepLinkEngine, SessionRequired
+from routedeck_core.contracts.session import ResumeCapabilityBinding
+from routedeck_core.navigation.deep_links import DeepLinkEngine
 from routedeck_core.navigation.routes import (
     CompiledRoutes,
     RouteCapabilityMismatch,
-    RouteResumeCapability,
     RouteSessionContext,
     RouteSessionRequired,
 )
@@ -20,8 +20,8 @@ from routedeck_core.validation import RouteDeckValidationError
 NOW = datetime(2026, 7, 12, 12, 0, tzinfo=UTC)
 
 
-def _capability(handle: str = "resume-1") -> RouteResumeCapability:
-    return RouteResumeCapability(
+def _capability(handle: str = "resume-1") -> ResumeCapabilityBinding:
+    return ResumeCapabilityBinding(
         handle=handle,
         session_id="session-1",
         node_id="cart.summary",
@@ -42,7 +42,7 @@ def test_route_session_context_rejects_naive_time_and_duplicate_capabilities() -
 
 
 def test_session_bound_link_encoding_requires_session_and_clock() -> None:
-    with pytest.raises(SessionRequired, match="authenticated session"):
+    with pytest.raises(RouteSessionRequired, match="authenticated session"):
         DeepLinkEngine(compile_medusa_app_spec()).encode(
             "cart.summary",
             {"resume_handle": "resume-1"},

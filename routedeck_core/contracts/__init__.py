@@ -13,12 +13,7 @@ from .conversation import (
     ConversationTurnStatus,
     FinalizedConversationTurn,
 )
-from .events import (
-    CanonicalRouteDeckEvent,
-    EventPage,
-    RouteDeckEvent,
-    RouteDeckEventType,
-)
+from .events import EventPage, PublicRouteDeckEvent, RouteDeckEvent, RouteDeckEventType
 from .effects import (
     EntityBindingEffect,
     EntityKindEffects,
@@ -89,7 +84,7 @@ from .surfaces import (
     SurfaceSlotsSpec,
     SurfaceSpec,
 )
-from .suggestions import SuggestedActionSpec
+from .suggestions import SuggestedActionSpec, SuggestedActionVisibilitySpec
 
 __all__ = [
     "AgentPolicyRef",
@@ -97,7 +92,6 @@ __all__ = [
     "CapabilityRef",
     "CapabilitySpec",
     "CompiledApplicationSpec",
-    "CanonicalRouteDeckEvent",
     "ClassifiedValue",
     "ConversationRole",
     "ConversationToolCall",
@@ -148,6 +142,7 @@ __all__ = [
     "ProviderRef",
     "PublicEntityHandle",
     "PublicProjection",
+    "PublicRouteDeckEvent",
     "PublicSurfaceEffect",
     "PublicSessionState",
     "RecoveryPolicySpec",
@@ -169,6 +164,7 @@ __all__ = [
     "SurfaceSlotsSpec",
     "SurfaceSpec",
     "SuggestedActionSpec",
+    "SuggestedActionVisibilitySpec",
     "SessionSnapshot",
     "SessionEffects",
     "StoredOperationAttempt",

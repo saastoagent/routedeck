@@ -105,7 +105,7 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
       pending?.kind !== "session_create" &&
       pending?.kind !== "resume_expired" &&
       pending?.kind !== "resume_missing" &&
-      pending?.kind !== "resume_incompatible"
+      pending?.kind !== "resume_contract_mismatch"
     ) {
       throw new RouteDeckStateError(
         "new_session_recovery_unavailable",
@@ -384,7 +384,7 @@ export function createRouteDeckStore(config: RouteDeckStoreConfig): RouteDeckSto
           });
         } else if (isUpgradeBootstrapError(error)) {
           observable.setBootstrapFailure(safeError(error), {
-              kind: "resume_incompatible",
+              kind: "resume_contract_mismatch",
               status: 409,
           });
         } else {

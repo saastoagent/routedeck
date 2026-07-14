@@ -9,7 +9,7 @@ from pydantic import SecretStr
 
 from medusa_agent.composition import compile_medusa_app_spec
 from routedeck_core.app import BoundRouteDeckApp, FeatureBindings
-from routedeck_core.contracts.events import CanonicalRouteDeckEvent
+from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
 from routedeck_core.navigation import (
@@ -41,7 +41,7 @@ class RecordingStore:
     state: RouteDeckSession
     lease: TurnLease | None = None
     claim: TurnClaim | None = None
-    events: list[CanonicalRouteDeckEvent] = field(default_factory=list)
+    events: list[RouteDeckEvent] = field(default_factory=list)
     mutations: dict[str, MutationRecord] = field(default_factory=dict)
 
     async def load(self, session_id: str) -> SessionSnapshot:
@@ -78,7 +78,7 @@ class RecordingStore:
         lease: TurnLease,
         expected_session_version: int,
         next_state: RouteDeckSession,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
         assert lease == self.lease
@@ -115,12 +115,12 @@ class UnexpectedEntryRunner:
 
 @dataclass
 class RecordingNotifier:
-    events: list[CanonicalRouteDeckEvent] = field(default_factory=list)
+    events: list[RouteDeckEvent] = field(default_factory=list)
 
     async def notify(
         self,
         session_id: str,
-        events: Sequence[CanonicalRouteDeckEvent],
+        events: Sequence[RouteDeckEvent],
     ) -> None:
         assert session_id
         self.events.extend(events)

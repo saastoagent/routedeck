@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-
 import pytest
 from pydantic import SecretStr
 
@@ -73,7 +71,9 @@ def _settings() -> Settings:
         routedeck_database_url="sqlite+pysqlite:///routedeck.sqlite",
         routedeck_state_encryption_key=SecretStr("encryption-key"),
         openai_api_key=SecretStr("openai-key"),
-        openai_model="model-1",
+        openai_buyer_model="buyer-model",
+        openai_entry_model="entry-model",
+        openai_turn_policy_model="policy-model",
     )
 
 

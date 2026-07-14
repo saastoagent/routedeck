@@ -6,9 +6,8 @@ Implementation authority: `routedeck_core/app`, `routedeck_core/contracts`,
 `routedeck_core/state`, `routedeck_core/supervision`, and
 `routedeck_core/navigation`.
 
-This document describes the standalone compiled RouteDeck runtime. Older
-manifest/runtime facades remain compatibility surfaces; new applications use
-the contracts described here.
+This document describes the one standalone compiled RouteDeck runtime and its
+canonical contracts.
 
 ## Core Vision
 
@@ -204,7 +203,7 @@ checkpoint, or an external API response is not an alternate session authority.
 `RouteDeckOperationRunner` is the only execution path for surface, agent,
 route-entry, system, and recovery operations. It:
 
-1. loads and validates the compatible session;
+1. loads and validates the current session contract;
 2. claims the parent turn/request with a fingerprint and expected version;
 3. loads declared providers and evaluates declared guards;
 4. stages required review or claims external execution;
@@ -338,9 +337,9 @@ through the supervised parent-turn lifecycle.
 
 The application retains its existing `create_agent(...)` or raw `StateGraph`.
 For raw graphs, use the wrapper around `ToolNode` tool calls. RouteDeck does not
-accept a `StateGraph` and does not synthesize or mutate topology. The legacy
-`build_route_deck_state_graph(...)` API deliberately raises a deprecation error
-to prevent dual state authorities.
+accept a `StateGraph` and does not synthesize or mutate topology. No topology
+builder is exported: the RouteDeck navgraph and the product orchestration graph
+remain separate authorities for separate concerns.
 
 ## Generic HTTP Plane
 

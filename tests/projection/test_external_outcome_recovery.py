@@ -22,9 +22,12 @@ from routedeck_core.contracts.operations import (
     SafetyClass,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
-from routedeck_core.contracts.session import PrivateEntityBinding, RouteDeckSession
+from routedeck_core.contracts.session import (
+    PrivateEntityBinding,
+    ResumeCapabilityBinding,
+    RouteDeckSession,
+)
 from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
-from routedeck_core.navigation.routes import RouteResumeCapability
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
@@ -313,7 +316,7 @@ def test_medusa_checkout_unknown_outcome_hides_recovery_without_order_binding() 
     assert place_order.unknown_recovery_directive == "reconcile_unknown_order"
 
     now = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
-    resume_capability = RouteResumeCapability(
+    resume_capability = ResumeCapabilityBinding(
         handle="opaque-checkout-review-resume",
         session_id="session-1",
         node_id="checkout.review",
@@ -347,7 +350,7 @@ def test_medusa_checkout_unknown_outcome_projects_recovery_for_order_binding() -
     app = compile_medusa_app_spec()
     place_order = app.operations["checkout.place_order"]
     now = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
-    resume_capability = RouteResumeCapability(
+    resume_capability = ResumeCapabilityBinding(
         handle="opaque-checkout-review-resume",
         session_id="session-1",
         node_id="checkout.review",

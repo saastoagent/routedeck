@@ -6,12 +6,11 @@ from typing import TYPE_CHECKING
 
 from ..app import CompiledRouteDeckApp
 from ..contracts.navigation import DeepLinkPolicy
-from ..state.session import require_compatible_session
+from ..contracts.session import ResumeCapabilityBinding
+from ..state.session import require_current_session
 from .routes import (
     DecodedRoute,
     PublicRouteKeyValidator,
-    RouteCapabilityMismatch,
-    RouteResumeCapability,
     RouteSessionContext,
     RouteSessionRequired,
 )
@@ -20,10 +19,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from ..contracts.session import RouteDeckSession
-
-
-SessionRequired = RouteSessionRequired
-CapabilityMismatch = RouteCapabilityMismatch
 
 
 @dataclass(frozen=True)
@@ -42,7 +37,7 @@ class DeepLinkEngine:
         public_key_validator: PublicRouteKeyValidator | None = None,
     ) -> str:
         if session is not None:
-            require_compatible_session(self.app, session)
+            require_current_session(self.app, session)
         path = self.app.routes.encode(node_id, params)
         if self.app.routes.deep_link_policy(node_id) is DeepLinkPolicy.SHAREABLE:
             self.app.routes.validate_public_bindings(
@@ -52,7 +47,7 @@ class DeepLinkEngine:
             )
             return path
         if session is None or now is None:
-            raise SessionRequired(
+            raise RouteSessionRequired(
                 "Session-bound link generation requires authenticated session context"
             )
         context = self._session_context(
@@ -72,7 +67,7 @@ class DeepLinkEngine:
         public_key_validator: PublicRouteKeyValidator | None = None,
     ) -> DecodedRoute:
         if session is not None:
-            require_compatible_session(self.app, session)
+            require_current_session(self.app, session)
         context = self._session_context(
             session=session,
             now=now,
@@ -90,10 +85,10 @@ class DeepLinkEngine:
         if session is None and public_key_validator is None:
             return None
 
-        capabilities: tuple[RouteResumeCapability, ...] = ()
+        capabilities: tuple[ResumeCapabilityBinding, ...] = ()
         if session is not None:
             capabilities = tuple(
-                RouteResumeCapability(
+                ResumeCapabilityBinding(
                     handle=capability.handle,
                     session_id=capability.session_id,
                     node_id=capability.node_id,
@@ -112,7 +107,5 @@ class DeepLinkEngine:
 
 
 __all__ = [
-    "CapabilityMismatch",
     "DeepLinkEngine",
-    "SessionRequired",
 ]
