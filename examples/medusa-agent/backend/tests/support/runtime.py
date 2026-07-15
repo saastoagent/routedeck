@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import SecretStr
 
+from medusa_agent.bindings import bind_medusa_app
 from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.runtime_factory import build_medusa_runtime
 from medusa_agent.features.cart import (
     BUYER_MARKET_PROVIDER,
     CART_ADD_ITEM,
@@ -38,6 +38,7 @@ from medusa_agent.features.catalog import (
     SELECT_VARIANT,
     VARIANT_ALLOWED_GUARD,
 )
+from medusa_agent.features.catalog import CatalogRouteKeyValidator
 from medusa_agent.features.checkout import (
     CHECKOUT_FACTS_PROVIDER,
     CHECKOUT_READY_GUARD,
@@ -48,8 +49,13 @@ from medusa_agent.features.checkout import (
     SHIPPING_OPTIONS_PROVIDER,
     SHIPPING_VALID_GUARD,
 )
+from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.protocol import MedusaStoreClient
-from medusa_agent.session import BuyerMarket, create_medusa_session
+from medusa_agent.session import (
+    BuyerMarket,
+    create_medusa_session,
+    initialize_medusa_session,
+)
 from routedeck_core.app import ContextProvider, Guard, OperationHandler
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
 from routedeck_core.contracts.events import RouteDeckEvent, EventPage
@@ -64,6 +70,7 @@ from routedeck_core.contracts.operations import (
     ProviderRef,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
+from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
 from routedeck_core.contracts.session import (
     JournaledExecutionResult,
     Location,
@@ -74,7 +81,12 @@ from routedeck_core.contracts.session import (
     StoredOperationAttempt,
 )
 from routedeck_core.ports.executor import ExecutionContext
-from routedeck_core.navigation import RouteDeckNavigationRunner
+from routedeck_core.ports import (
+    Clock,
+    RouteDeckAgentDriverFactory,
+    RouteDeckNotifier,
+)
+from routedeck_core.runtime import RouteDeckRuntime, build_routedeck_runtime
 from routedeck_core.state.leases import ExecutionClaim, TurnClaim, TurnLease
 from routedeck_core.supervision.guards import (
     GuardDecision,
@@ -82,7 +94,10 @@ from routedeck_core.supervision.guards import (
     ProviderInvocationContext,
     ProviderResult,
 )
-from routedeck_core.supervision import RouteDeckOperationRunner
+from routedeck_sqlalchemy import (
+    SqlAlchemyRuntimeResources,
+    open_sqlalchemy_routedeck_runtime,
+)
 
 
 @dataclass
@@ -97,6 +112,15 @@ class RecordingNotifier:
         events: Sequence[RouteDeckEvent],
     ) -> None:
         self.notifications.append((session_id, tuple(events)))
+
+    async def wait_for_events(
+        self,
+        session_id: str,
+        after_cursor: int,
+        timeout: timedelta,
+    ) -> bool:
+        del session_id, after_cursor, timeout
+        return False
 
 
 @dataclass(frozen=True)
@@ -449,20 +473,32 @@ class UnexpectedPrivateFormReader:
         raise AssertionError("a private checkout form was not selected for this test")
 
 
-@dataclass(frozen=True)
-class TestMedusaRuntime:
-    runner: RouteDeckOperationRunner
-    navigation: RouteDeckNavigationRunner
-    store: ExplicitTestSessionStore
-    notifier: RecordingNotifier
+class ExplicitTestSensitiveCodec:
+    """Non-production codec used only by the in-memory contract-test runtime."""
+
+    def encrypt(self, value: bytes) -> bytes:
+        return b"test-only:" + value
+
+    def decrypt(self, value: bytes) -> bytes:
+        if not value.startswith(b"test-only:"):
+            raise ValueError("test-only ciphertext is invalid")
+        return value.removeprefix(b"test-only:")
 
 
-def build_test_medusa_runtime(
+@dataclass
+class ExplicitTestLifecycle:
+    close_calls: int = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+
+
+def build_test_runtime(
     *,
     client: MedusaStoreClient,
     market: BuyerMarket,
     initial_location: Location | None = None,
-) -> TestMedusaRuntime:
+) -> RouteDeckRuntime:
     compiled = compile_medusa_app_spec()
     location = initial_location or Location(
         node_id="catalog.product",
@@ -473,7 +509,11 @@ def build_test_medusa_runtime(
             ),
         ),
     )
-    base_session = create_medusa_session(session_id="session-1", market=market)
+    base_session = create_medusa_session(
+        app=compiled,
+        session_id="session-1",
+        market=market,
+    )
     if location.entry_id is None:
         location = location.model_copy(
             update={"entry_id": base_session.current.entry_id}
@@ -543,26 +583,112 @@ def build_test_medusa_runtime(
         for guard in compiled.guards.values()
         if guard.id not in composed_guard_ids
     }
-    runtime = build_medusa_runtime(
+    app = bind_medusa_app(
+        app=compiled,
         client=client,
         private_forms=UnexpectedPrivateFormReader(),
         configured_payment_provider_id="pp_system_default",
+        buyer_country_code=market.country_code,
         handlers=handlers,
         providers=providers,
         guards=guards,
+    )
+
+    def make_session(compiled_app, session_id: str) -> RouteDeckSession:
+        return create_medusa_session(
+            app=compiled_app,
+            session_id=session_id,
+            market=market,
+        )
+
+    async def keep_created_session(
+        _services,
+        snapshot: SessionSnapshot,
+    ) -> SessionSnapshot:
+        return snapshot
+
+    return build_routedeck_runtime(
+        app=app,
         store=store,
+        private_form_codec=ExplicitTestSensitiveCodec(),
+        session_factory=make_session,
+        session_initializer=keep_created_session,
+        public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+        agent_driver_factory=None,
+        lifecycle=ExplicitTestLifecycle(),
         clock=FixedClock(),
         notifier=notifier,
         id_factory=SequentialIds(),
         review_ttl=timedelta(minutes=10),
+        resume_capability_ttl=timedelta(hours=24),
         default_session_id=session.session_id,
-        initial_market=market,
     )
-    return TestMedusaRuntime(
-        runner=runtime.runner,
-        navigation=runtime.navigation,
-        store=store,
+
+
+async def open_test_runtime(
+    *,
+    database_url: str,
+    encryption_key: str | bytes,
+    instance_id: str,
+    client: MedusaStoreClient,
+    configured_payment_provider_id: str,
+    handlers: Mapping[OperationRef, OperationHandler],
+    providers: Mapping[ProviderRef, ContextProvider],
+    guards: Mapping[GuardRef, Guard],
+    clock: Clock,
+    notifier: RouteDeckNotifier,
+    id_factory: Callable[[str], str],
+    review_ttl: timedelta,
+    default_session_id: str,
+    market: BuyerMarket,
+    resume_capability_ttl: timedelta = timedelta(hours=24),
+    retention_policy: RouteDeckRetentionPolicy | None = None,
+    busy_timeout: timedelta = timedelta(seconds=5),
+    worker_count: int = 1,
+    agent_driver_factory: RouteDeckAgentDriverFactory | None = None,
+) -> RouteDeckRuntime:
+    """Open the explicit durable runtime used only by Medusa integration tests."""
+
+    compiled = compile_medusa_app_spec()
+
+    def application_factory(resources: SqlAlchemyRuntimeResources):
+        return bind_medusa_app(
+            app=compiled,
+            client=client,
+            private_forms=EncryptedCheckoutPrivateFormReader(
+                resources.store,
+                resources.codec,
+            ),
+            configured_payment_provider_id=configured_payment_provider_id,
+            buyer_country_code=market.country_code,
+            handlers=handlers,
+            providers=providers,
+            guards=guards,
+        )
+
+    return await open_sqlalchemy_routedeck_runtime(
+        compiled_app=compiled,
+        application_factory=application_factory,
+        session_factory=lambda app, session_id: create_medusa_session(
+            app=app,
+            session_id=session_id,
+            market=market,
+        ),
+        session_initializer=initialize_medusa_session,
+        public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+        agent_driver_factory=agent_driver_factory,
+        database_url=database_url,
+        encryption_key=encryption_key,
+        instance_id=instance_id,
+        review_ttl=review_ttl,
+        resume_capability_ttl=resume_capability_ttl,
+        default_session_id=default_session_id,
+        retention_policy=retention_policy,
+        busy_timeout=busy_timeout,
+        worker_count=worker_count,
+        clock=clock,
         notifier=notifier,
+        id_factory=id_factory,
     )
 
 
@@ -582,4 +708,4 @@ def operation_request(
     )
 
 
-__all__ = ["build_test_medusa_runtime", "operation_request"]
+__all__ = ["build_test_runtime", "open_test_runtime", "operation_request"]

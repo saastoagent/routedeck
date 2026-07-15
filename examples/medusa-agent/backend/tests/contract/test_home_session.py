@@ -1,22 +1,43 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import UTC, datetime
+
 from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.session import (
-    BuyerMarket,
-    create_medusa_session,
-    project_medusa_session,
-)
+from medusa_agent.features.catalog import CatalogRouteKeyValidator
+from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.session import RouteDeckSession
-from routedeck_core.projection.projector import ProjectionProjector
+from routedeck_core.projection import ConfiguredSessionProjector, ProjectionProjector
+
+
+@dataclass(frozen=True)
+class _FixedClock:
+    current: datetime = datetime(2029, 1, 1, tzinfo=UTC)
+
+    def now(self) -> datetime:
+        return self.current
 
 
 def test_medusa_home_session_uses_compiled_buyer_graph(
     buyer_market: BuyerMarket,
 ) -> None:
     app = compile_medusa_app_spec()
-    session = create_medusa_session(session_id="session-1", market=buyer_market)
-    projection = project_medusa_session(session)
-    generic_projection = ProjectionProjector(app).project(session)
+    session = create_medusa_session(
+        app=app,
+        session_id="session-1",
+        market=buyer_market,
+    )
+    clock = _FixedClock()
+    projection = ConfiguredSessionProjector(
+        app=app,
+        clock=clock,
+        public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+    ).project(session)
+    generic_projection = ProjectionProjector(
+        app=app,
+        public_key_validator=CatalogRouteKeyValidator.from_session(session),
+        now=clock.now(),
+    ).project(session)
 
     assert isinstance(session, RouteDeckSession)
     assert session.session_id == "session-1"

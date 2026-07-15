@@ -27,7 +27,7 @@ from routedeck_langgraph import (
 from routedeck_testing import ScriptedTextModel, ScriptedToolModel, tool_call
 from routedeck_testing.factories import session_factory
 from support.medusa import RecordingMedusaStoreClient, buyer_market, cart
-from support.runtime import build_test_medusa_runtime
+from support.runtime import build_test_runtime
 
 
 def test_live_entry_model_omits_the_tool_only_parallel_call_option(
@@ -70,7 +70,7 @@ def test_buyer_prompt_keeps_product_identity_while_framework_rules_are_resolved(
         BUYER_AGENT_PROMPT
     )
 
-    bound_app = build_test_medusa_runtime(
+    runtime = build_test_runtime(
         client=RecordingMedusaStoreClient(
             CreateCartResult(
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
@@ -78,7 +78,8 @@ def test_buyer_prompt_keeps_product_identity_while_framework_rules_are_resolved(
             )
         ),
         market=buyer_market(),
-    ).runner.app
+    )
+    bound_app = runtime.services.runner.app
     context = build_model_context(
         session_factory(app=bound_app.app, node_id="checkout.contact"),
         bound_app,
@@ -110,11 +111,11 @@ async def test_conversation_turn_policy_hides_all_commerce_tools() -> None:
             cart=cart(),
         )
     )
-    runtime = build_test_medusa_runtime(client=client, market=buyer_market())
+    runtime = build_test_runtime(client=client, market=buyer_market())
     model = ScriptedTextModel("Hello. How can I help?")
     agent = create_medusa_agent(
         model=model,
-        runtime=runtime,
+        runtime=runtime.services,
         turn_policy=_ConversationTurnPolicy(),
     )
 
@@ -135,7 +136,7 @@ async def test_conversation_turn_policy_hides_all_commerce_tools() -> None:
 
 
 def test_runner_tools_use_provider_safe_names_and_preserve_operation_ids() -> None:
-    runtime = build_test_medusa_runtime(
+    runtime = build_test_runtime(
         client=RecordingMedusaStoreClient(
             CreateCartResult(
                 delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
@@ -144,7 +145,7 @@ def test_runner_tools_use_provider_safe_names_and_preserve_operation_ids() -> No
         ),
         market=buyer_market(),
     )
-    wrapper = RouteDeckToolWrapper(runtime.runner)
+    wrapper = RouteDeckToolWrapper(runtime.services)
 
     tool_names = tuple(tool.name for tool in wrapper.tools)
     assert len(tool_names) == len(set(tool_names))
@@ -166,8 +167,8 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
             cart=cart(),
         )
     )
-    runtime = build_test_medusa_runtime(client=client, market=buyer_market())
-    wrapper = RouteDeckToolWrapper(runtime.runner)
+    runtime = build_test_runtime(client=client, market=buyer_market())
+    wrapper = RouteDeckToolWrapper(runtime.services)
 
     raw_graph = StateGraph(MessagesState)
     raw_graph.add_node("agent", lambda state: state)
@@ -188,7 +189,7 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
     )
     agent = create_medusa_agent(
         model=model,
-        runtime=runtime,
+        runtime=runtime.services,
         turn_policy=_ActionTurnPolicy(),
     )
 
@@ -239,7 +240,7 @@ async def test_agent_tool_execution_requires_explicit_session_context() -> None:
             cart=cart(),
         )
     )
-    runtime = build_test_medusa_runtime(client=client, market=buyer_market())
+    runtime = build_test_runtime(client=client, market=buyer_market())
     agent = create_medusa_agent(
         model=ScriptedToolModel(
             [
@@ -250,7 +251,7 @@ async def test_agent_tool_execution_requires_explicit_session_context() -> None:
                 )
             ]
         ),
-        runtime=runtime,
+        runtime=runtime.services,
         turn_policy=_ActionTurnPolicy(),
     )
 
@@ -270,7 +271,7 @@ async def test_agent_tool_execution_requires_explicit_parent_request_prefix() ->
             cart=cart(),
         )
     )
-    runtime = build_test_medusa_runtime(client=client, market=buyer_market())
+    runtime = build_test_runtime(client=client, market=buyer_market())
     agent = create_medusa_agent(
         model=ScriptedToolModel(
             [
@@ -281,7 +282,7 @@ async def test_agent_tool_execution_requires_explicit_parent_request_prefix() ->
                 )
             ]
         ),
-        runtime=runtime,
+        runtime=runtime.services,
         turn_policy=_ActionTurnPolicy(),
     )
 

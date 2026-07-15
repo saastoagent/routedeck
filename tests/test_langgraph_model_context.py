@@ -133,6 +133,7 @@ def test_model_context_reports_review_pending_only_for_pending_resolution(
     expected: bool,
 ) -> None:
     session = create_medusa_session(
+        app=compile_medusa_app_spec(),
         session_id="session-review-status",
         market=BuyerMarket(
             region_handle="region-public",

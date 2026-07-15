@@ -108,6 +108,71 @@ it("does not let a late conversation snapshot clobber an in-flight response", as
   ]);
 });
 
+it("resets only the active streamed assistant and preserves finalized history", async () => {
+  const client: AgentChatClient = {
+    async *stream(request) {
+      yield {
+        type: "assistant_delta",
+        request_id: request.request_id,
+        content: "Discard this partial response",
+      } as const;
+      yield {
+        type: "assistant_reset",
+        request_id: request.request_id,
+      } as const;
+      yield {
+        type: "assistant_delta",
+        request_id: request.request_id,
+        content: "Canonical response",
+      } as const;
+      yield {
+        type: "assistant_end",
+        request_id: request.request_id,
+        session_version: 4,
+        projection_version: 4,
+        turn_id: "canonical-reset-assistant",
+      } as const;
+      yield {
+        type: "stream_end",
+        request_id: request.request_id,
+        status: "completed",
+      } as const;
+    },
+  };
+  const { result } = renderHook(() =>
+    useRouteDeckConversation({
+      client,
+      initialConversation: [
+        {
+          turn_id: "durable-assistant",
+          request_id: "durable-request",
+          role: "assistant",
+          content: "Durable history",
+        },
+      ],
+      sessionVersion: 3,
+      createRequestId: () => "active-reset-request",
+      synchronizeTo: async () => undefined,
+      resync: async () => undefined,
+    }),
+  );
+
+  await act(async () => result.current.send("Replace the partial response"));
+
+  expect(result.current.messages).toEqual([
+    expect.objectContaining({
+      id: "durable-assistant",
+      content: "Durable history",
+      status: "finalized",
+    }),
+    expect.objectContaining({
+      id: "canonical-reset-assistant",
+      content: "Canonical response",
+      status: "finalized",
+    }),
+  ]);
+});
+
 it("replaces a partial assistant with the canonical completed replay turn", async () => {
   let attempt = 0;
   const client: AgentChatClient = {

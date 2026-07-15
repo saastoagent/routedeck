@@ -4,8 +4,12 @@ from .codec import (
     FernetSensitiveCodec,
     InvalidEncryptionKey,
     MissingEncryptionKey,
-    SensitiveCodec,
     SensitiveDataIntegrityError,
+)
+from .application_runtime import (
+    ApplicationFactory,
+    SqlAlchemyRuntimeResources,
+    open_sqlalchemy_routedeck_runtime,
 )
 from .database import (
     PERSISTENCE_SCHEMA_VERSION,
@@ -17,9 +21,10 @@ from .lease import (
     RouteDeckInstanceLeaseLost,
     RouteDeckWorkerConfigurationError,
 )
-from .store import SqlAlchemySessionStore, UtcClock
+from .store import SqlAlchemySessionStore
 
 __all__ = [
+    "ApplicationFactory",
     "FernetSensitiveCodec",
     "InvalidEncryptionKey",
     "MissingEncryptionKey",
@@ -27,10 +32,10 @@ __all__ = [
     "RouteDeckInstanceAlreadyRunning",
     "RouteDeckInstanceLeaseLost",
     "RouteDeckWorkerConfigurationError",
-    "SensitiveCodec",
     "SensitiveDataIntegrityError",
+    "SqlAlchemyRuntimeResources",
     "SqlAlchemySessionStore",
     "UnsupportedDatabaseDialect",
     "UnsupportedDatabaseSchema",
-    "UtcClock",
+    "open_sqlalchemy_routedeck_runtime",
 ]

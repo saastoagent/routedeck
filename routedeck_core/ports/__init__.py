@@ -3,14 +3,19 @@
 from .agent_driver import (
     AgentReviewRequired,
     AgentTurnCompleted,
+    AssistantInitiatedTrigger,
     AssistantTextDelta,
     AssistantTextReset,
     RouteDeckAgentDriver,
+    RouteDeckAgentDriverFactory,
     RouteDeckAgentEvent,
     RouteDeckAgentStreamError,
     RouteDeckAgentTurn,
+    RouteDeckConversationTrigger,
+    UserMessageTrigger,
 )
 from .clock import Clock
+from .codec import SensitiveCodec
 from .executor import (
     ExecutionContext,
     OperationBinding,
@@ -28,6 +33,7 @@ from .session_store import (
 __all__ = [
     "AgentReviewRequired",
     "AgentTurnCompleted",
+    "AssistantInitiatedTrigger",
     "AssistantTextDelta",
     "AssistantTextReset",
     "Clock",
@@ -37,11 +43,15 @@ __all__ = [
     "RegisteredOperationExecutor",
     "ResolvedEntityInput",
     "RouteDeckAgentDriver",
+    "RouteDeckAgentDriverFactory",
     "RouteDeckAgentEvent",
     "RouteDeckAgentStreamError",
     "RouteDeckAgentTurn",
+    "RouteDeckConversationTrigger",
     "RouteDeckNotifier",
     "RouteDeckSessionStore",
+    "SensitiveCodec",
     "SessionStoreError",
     "SessionStoreErrorCode",
+    "UserMessageTrigger",
 ]

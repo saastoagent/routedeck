@@ -1,5 +1,6 @@
 import {
   AgentChatError,
+  type AgentAssistantTurnRequest,
   type AgentChatRequest,
   type AgentHistoryTurn,
   type AgentStreamEvent,
@@ -63,6 +64,16 @@ export function validateAgentChatRequest(request: AgentChatRequest): void {
   stringValue(request.request_id, "request.request_id");
   stringValue(request.message, "request.message");
   integerValue(request.expected_session_version, "request.expected_session_version");
+}
+
+export function validateAgentAssistantTurnRequest(
+  request: AgentAssistantTurnRequest,
+): void {
+  stringValue(request.request_id, "request.request_id");
+  integerValue(
+    request.expected_session_version,
+    "request.expected_session_version",
+  );
 }
 
 export async function agentResponseError(

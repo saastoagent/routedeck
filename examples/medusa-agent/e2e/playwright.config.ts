@@ -35,7 +35,7 @@ export default defineConfig({
     serviceWorkers: "block",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: videoMode(),
   },
   projects: [
     {
@@ -52,6 +52,15 @@ export default defineConfig({
     },
   ],
 });
+
+function videoMode(): "on" | "retain-on-failure" {
+  const value = process.env.ROUTEDECK_E2E_VIDEO;
+  if (value === undefined) return "retain-on-failure";
+  if (value !== "on") {
+    throw new Error("ROUTEDECK_E2E_VIDEO must be 'on' when set.");
+  }
+  return value;
+}
 
 function releaseReporter(): ReporterDescription[] {
   const bundleRoot = process.env.ROUTEDECK_RELEASE_BUNDLE;

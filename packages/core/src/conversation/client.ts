@@ -2,10 +2,12 @@ import {
   agentResponseError,
   decodeHistoryTurn,
   parseAgentSse,
+  validateAgentAssistantTurnRequest,
   validateAgentChatRequest,
 } from "./codec";
 import {
   AgentChatError,
+  type AgentAssistantTurnRequest,
   type AgentChatRequest,
   type RouteDeckAgentClient,
 } from "./types";
@@ -54,6 +56,32 @@ export function createRouteDeckAgentClient(
     async *stream(request: AgentChatRequest, signal?: AbortSignal) {
       validateAgentChatRequest(request);
       const response = await fetcher(`${baseUrl}/chat`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+        ...(signal === undefined ? {} : { signal }),
+      });
+      if (!response.ok) throw await agentResponseError(response);
+      if (response.body === null) {
+        throw new AgentChatError(
+          "stream_body_missing",
+          "The buyer-agent stream has no response body.",
+          response.status,
+          "unknown",
+        );
+      }
+      yield* parseAgentSse(response.body);
+    },
+    async *streamAssistantTurn(
+      request: AgentAssistantTurnRequest,
+      signal?: AbortSignal,
+    ) {
+      validateAgentAssistantTurnRequest(request);
+      const response = await fetcher(`${baseUrl}/conversation/assistant-turn`, {
         method: "POST",
         credentials: "include",
         headers: {

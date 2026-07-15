@@ -7,7 +7,10 @@ from datetime import timedelta
 import pytest
 from cryptography.fernet import Fernet
 
-from medusa_agent.runtime_factory import open_persistent_medusa_runtime
+from medusa_agent.bindings import bind_medusa_app
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.features.catalog import CatalogRouteKeyValidator
+from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.models import CreateCartRequest, CreateCartResult
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.conversation import (
@@ -40,13 +43,15 @@ from routedeck_core.contracts.session import (
     StoredOperationAttempt,
 )
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
+from routedeck_core.runtime_defaults import UtcClock
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.state.leases import TurnClaim, TurnOwnerKind
 from routedeck_sqlalchemy import (
     FernetSensitiveCodec,
     RouteDeckInstanceAlreadyRunning,
+    SqlAlchemyRuntimeResources,
     SqlAlchemySessionStore,
-    UtcClock,
+    open_sqlalchemy_routedeck_runtime,
 )
 
 
@@ -89,27 +94,53 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         currency_code="inr",
         sales_channel_handle="web",
     )
+    compiled = compile_medusa_app_spec()
+    client = _UnusedMedusaClient()
+
+    async def keep_created_session(_services, snapshot):
+        return snapshot
 
     async def open_runtime(instance_id: str):
-        return await open_persistent_medusa_runtime(
+        def application_factory(resources: SqlAlchemyRuntimeResources):
+            return bind_medusa_app(
+                app=compiled,
+                client=client,
+                private_forms=EncryptedCheckoutPrivateFormReader(
+                    resources.store,
+                    resources.codec,
+                ),
+                configured_payment_provider_id="payment-provider-test",
+                buyer_country_code=market.country_code,
+                handlers={},
+                providers={},
+                guards={},
+            )
+
+        return await open_sqlalchemy_routedeck_runtime(
+            compiled_app=compiled,
+            application_factory=application_factory,
+            session_factory=lambda app, session_id: create_medusa_session(
+                app=app,
+                session_id=session_id,
+                market=market,
+            ),
+            session_initializer=keep_created_session,
+            public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+            agent_driver_factory=None,
             database_url=f"sqlite+pysqlite:///{database_path.as_posix()}",
             encryption_key=key,
             instance_id=instance_id,
-            client=_UnusedMedusaClient(),
-            configured_payment_provider_id="payment-provider-test",
-            handlers={},
-            providers={},
-            guards={},
             clock=clock,
             notifier=notifier,
             id_factory=ids,
             review_ttl=timedelta(minutes=10),
+            resume_capability_ttl=timedelta(hours=24),
             default_session_id="buyer-session-1",
-            market=market,
         )
 
     first_runtime = await open_runtime("first")
-    codec = first_runtime.store.codec
+    first_store = first_runtime.services.store
+    codec = first_runtime.private_form_codec
     with pytest.raises(RouteDeckInstanceAlreadyRunning):
         await SqlAlchemySessionStore.open(
             f"sqlite+pysqlite:///{database_path.as_posix()}",
@@ -117,19 +148,25 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             codec=FernetSensitiveCodec(key),
         )
 
-    created = await first_runtime.store.create(
-        create_medusa_session(session_id="buyer-session-1", market=market)
-    )
-    creation_first = await first_runtime.store.create_for_request(
+    created = await first_store.create(
         create_medusa_session(
+            app=compiled,
+            session_id="buyer-session-1",
+            market=market,
+        )
+    )
+    creation_first = await first_store.create_for_request(
+        create_medusa_session(
+            app=compiled,
             session_id="buyer-session-created-once",
             market=market,
         ),
         "session-create-request-1",
         "session-create-fingerprint-1",
     )
-    creation_replay = await first_runtime.store.create_for_request(
+    creation_replay = await first_store.create_for_request(
         create_medusa_session(
+            app=compiled,
             session_id="buyer-session-not-created",
             market=market,
         ),
@@ -138,8 +175,9 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     )
     assert creation_replay == creation_first
     with pytest.raises(SessionStoreError) as reused_creation:
-        await first_runtime.store.create_for_request(
+        await first_store.create_for_request(
             create_medusa_session(
+                app=compiled,
                 session_id="buyer-session-not-created-2",
                 market=market,
             ),
@@ -147,7 +185,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             "different-session-create-fingerprint",
         )
     assert reused_creation.value.code is SessionStoreErrorCode.REQUEST_ID_REUSED
-    chat_lease = await first_runtime.store.acquire_turn(
+    chat_lease = await first_store.acquire_turn(
         TurnClaim(
             session_id=created.session_id,
             expected_session_version=created.session_version,
@@ -190,7 +228,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             status_code=chat_state.public_state.status_code,
         ),
     )
-    chat_snapshot = await first_runtime.store.finalize_turn(
+    chat_snapshot = await first_store.finalize_turn(
         chat_lease,
         created.session_version,
         chat_state,
@@ -202,7 +240,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         ),
     )
 
-    draft_lease = await first_runtime.store.acquire_turn(
+    draft_lease = await first_store.acquire_turn(
         TurnClaim(
             session_id=created.session_id,
             expected_session_version=chat_snapshot.session_version,
@@ -223,7 +261,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         )
         .commit()
     )
-    draft_snapshot = await first_runtime.store.save_private_blob(
+    draft_snapshot = await first_store.save_private_blob(
         draft_lease,
         chat_snapshot.session_version,
         "contact",
@@ -236,11 +274,11 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             result={"complete": True, "form_id": "contact", "revision": 1},
         ),
     )
-    chat_mutation = await first_runtime.store.find_mutation(
+    chat_mutation = await first_store.find_mutation(
         created.session_id,
         "chat-1",
     )
-    private_mutation = await first_runtime.store.find_mutation(
+    private_mutation = await first_store.find_mutation(
         created.session_id,
         "draft-1",
     )
@@ -249,9 +287,9 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     assert private_mutation is not None
     assert private_mutation.kind is MutationKind.PRIVATE_FORM
     assert private_mutation.request_fingerprint == "draft-fingerprint-1"
-    await first_runtime.store.release_turn(draft_lease)
+    await first_store.release_turn(draft_lease)
 
-    review_lease = await first_runtime.store.acquire_turn(
+    review_lease = await first_store.acquire_turn(
         TurnClaim(
             session_id=created.session_id,
             expected_session_version=draft_snapshot.session_version,
@@ -331,16 +369,16 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             status_code="review_pending",
         ),
     )
-    review_snapshot = await first_runtime.store.stage_review(
+    review_snapshot = await first_store.stage_review(
         review_lease,
         draft_snapshot.session_version,
         record,
         review_state,
         (review_event,),
     )
-    await first_runtime.store.release_turn(review_lease)
+    await first_store.release_turn(review_lease)
 
-    await first_runtime.store.acquire_turn(
+    await first_store.acquire_turn(
         TurnClaim(
             session_id=created.session_id,
             expected_session_version=review_snapshot.session_version,
@@ -352,14 +390,15 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     await first_runtime.close()
 
     second_runtime = await open_runtime("second")
-    reopened = await second_runtime.load_session()
-    persisted_review = await second_runtime.store.find_review(
+    second_store = second_runtime.services.store
+    reopened = await second_store.load("buyer-session-1")
+    persisted_review = await second_store.find_review(
         reopened.session_id, "review-1"
     )
-    private_blob = await second_runtime.store.load_private_blob(
+    private_blob = await second_store.load_private_blob(
         reopened.session_id, "contact"
     )
-    replay = await second_runtime.store.events_after(reopened.session_id, 0, 20)
+    replay = await second_store.events_after(reopened.session_id, 0, 20)
 
     assert reopened.state.current.node_id == "buyer.home"
     assert reopened.state.operation is not None
@@ -371,7 +410,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     assert private_blob is not None
     assert codec.decrypt(private_blob) == b'{"email":"buyer@example.test"}'
 
-    purge_lease = await second_runtime.store.acquire_turn(
+    purge_lease = await second_store.acquire_turn(
         TurnClaim(
             session_id=reopened.session_id,
             expected_session_version=reopened.session_version,
@@ -387,7 +426,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         )
         .commit()
     )
-    await second_runtime.store.commit_state(
+    await second_store.commit_state(
         purge_lease,
         reopened.session_version,
         purged_state,
@@ -397,9 +436,9 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             status=MutationStatus.COMPLETED,
         ),
     )
-    await second_runtime.store.release_turn(purge_lease)
+    await second_store.release_turn(purge_lease)
     assert (
-        await second_runtime.store.load_private_blob(
+        await second_store.load_private_blob(
             reopened.session_id,
             "contact",
         )

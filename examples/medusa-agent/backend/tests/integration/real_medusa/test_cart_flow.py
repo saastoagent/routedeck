@@ -10,7 +10,6 @@ from uuid import uuid4
 import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.config import Settings
 from medusa_agent.features.cart.feature import CART_SUMMARY
 from medusa_agent.medusa.client import HttpMedusaStoreClient
@@ -34,6 +33,7 @@ from routedeck_core.supervision.guards import (
     ProviderInvocationContext,
     ProviderResult,
 )
+from support.runtime import open_test_runtime
 
 
 _OWNED_OPERATION_IDS = {
@@ -196,7 +196,7 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
     }
     notifier = _RecordingNotifier()
     session_id = f"cart-flow-{uuid4().hex}"
-    runtime = await open_persistent_medusa_runtime(
+    runtime = await open_test_runtime(
         database_url=(
             "sqlite+pysqlite:///"
             + (tmp_path / "cart-flow.sqlite").as_posix()
@@ -216,7 +216,9 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
         market=market,
     )
     try:
-        snapshot = await runtime.create_session()
+        initial = runtime.session_factory(runtime.services.app.app, session_id)
+        snapshot = await runtime.services.store.create(initial)
+        snapshot = await runtime.session_initializer(runtime.services, snapshot)
         cart_binding = next(
             binding
             for binding in snapshot.state.private_state.entity_bindings
@@ -226,7 +228,7 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
         assert client.calls.count("create_cart") == 1
 
         await _run(runtime, "catalog.list", "catalog-list-1")
-        snapshot = await runtime.load_session()
+        snapshot = await runtime.services.store.load(session_id)
         product_ref = next(
             entity.handle
             for entity in snapshot.state.public_state.entity_handles
@@ -238,7 +240,7 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
             "catalog-open-1",
             {"product_ref": product_ref},
         )
-        snapshot = await runtime.load_session()
+        snapshot = await runtime.services.store.load(session_id)
         variant_ref = next(
             entity.handle
             for entity in snapshot.state.public_state.entity_handles
@@ -251,14 +253,14 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
             "cart-add-1",
             {"variant_ref": variant_ref, "quantity": 1},
         )
-        first_add = await runtime.runner.run(add_request)
-        replayed_add = await runtime.runner.run(add_request)
+        first_add = await runtime.services.runner.run(add_request)
+        replayed_add = await runtime.services.runner.run(add_request)
         assert first_add == replayed_add
         assert first_add.disposition is OperationDisposition.COMPLETED
         assert client.calls.count("add_line_item") == 1
 
         await _run(runtime, "cart.open", "cart-open-1")
-        snapshot = await runtime.load_session()
+        snapshot = await runtime.services.store.load(session_id)
         line_ref = next(
             entity.handle
             for entity in snapshot.state.public_state.entity_handles
@@ -271,7 +273,7 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
             {"line_item_ref": line_ref, "quantity": 2},
         )
         assert client.calls.count("update_line_item") == 1
-        updated = await runtime.load_session()
+        updated = await runtime.services.store.load(session_id)
         updated_cart = _cart_surface(updated.state)
         assert updated_cart["items"][0]["quantity"] == 2
         assert updated_cart["items"][0]["line_total"] >= 0
@@ -285,7 +287,7 @@ async def test_real_runner_cart_create_add_update_remove_and_reopen(
         )
         assert client.calls.count("remove_line_item") == 1
         await _run(runtime, "cart.open", "cart-reopen-1")
-        reopened = await runtime.load_session()
+        reopened = await runtime.services.store.load(session_id)
         reopened_cart = _cart_surface(reopened.state)
         assert reopened_cart["items"] == []
         assert not any(
@@ -308,7 +310,9 @@ async def _request(
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> OperationRequest:
-    snapshot = await runtime.load_session()
+    snapshot = await runtime.services.store.load(
+        runtime.services.runner.default_session_id
+    )
     return OperationRequest(
         session_id=snapshot.session_id,
         request_id=request_id,
@@ -325,7 +329,7 @@ async def _run(
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> Any:
-    result = await runtime.runner.run(
+    result = await runtime.services.runner.run(
         await _request(runtime, operation_id, request_id, arguments)
     )
     assert result.disposition is OperationDisposition.COMPLETED, result

@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
+from routedeck_core.ports import SensitiveCodec
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
 from routedeck_core.state.session import SESSION_SCHEMA_VERSION
 
-from .codec import SensitiveCodec
 from .lease import ApplicationLease
 from .models import (
     EventRow,

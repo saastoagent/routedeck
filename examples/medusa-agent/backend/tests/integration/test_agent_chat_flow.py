@@ -20,9 +20,11 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from main import create_medusa_app
-from medusa_agent.agent import create_medusa_agent
+from medusa_agent.agent import create_medusa_agent, create_medusa_entry_agent
+from medusa_agent.bindings import bind_medusa_app
 from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.runtime_factory import open_persistent_medusa_runtime
+from medusa_agent.features.catalog import CatalogRouteKeyValidator
+from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.models import (
     CalculatedPrice,
     Cart,
@@ -42,6 +44,7 @@ from medusa_agent.medusa.client.models import (
     StoreAddress,
 )
 from medusa_agent.session import BuyerMarket, create_medusa_session
+from medusa_agent.turn_policy import TURN_POLICY_EVENT_TAG
 from routedeck_core.app import ContextProvider, Guard, OperationHandler
 from routedeck_core.contracts.conversation import (
     ConversationRole,
@@ -61,19 +64,24 @@ from routedeck_core.contracts.session import (
     PrivateEntityBinding,
 )
 from routedeck_core.ports.executor import ExecutionContext
-from routedeck_core.projection import ProjectionProjector
 from routedeck_core.supervision.guards import (
     GuardDecision,
     GuardInvocationContext,
     ProviderInvocationContext,
     ProviderResult,
 )
-from routedeck_fastapi import RouteDeckDependencies, SseSettings
 from routedeck_fastapi.sse import encode_event
-from routedeck_langgraph import operation_tool_name
-from routedeck_sqlalchemy import FernetSensitiveCodec
+from routedeck_langgraph import (
+    RouteDeckLangGraphDriverFactory,
+    RouteDeckLangGraphGraphs,
+    operation_tool_name,
+)
+from routedeck_sqlalchemy import (
+    SqlAlchemyRuntimeResources,
+    open_sqlalchemy_routedeck_runtime,
+)
 from routedeck_sqlalchemy.models import TurnLeaseRow
-from routedeck_testing import ScriptedToolModel, tool_call
+from routedeck_testing import ScriptedTextModel, ScriptedToolModel, tool_call
 
 
 _OWNED_OPERATION_IDS = {
@@ -286,6 +294,18 @@ class _Notifier:
     ) -> None:
         self.events.extend(events)
 
+    async def wait_for_events(
+        self,
+        session_id: str,
+        after_cursor: int,
+        timeout: timedelta,
+    ) -> bool:
+        del timeout
+        return any(
+            event.session_id == session_id and event.cursor > after_cursor
+            for event in self.events
+        )
+
 
 class _StreamingScriptedToolModel(ScriptedToolModel):
     async def _astream(
@@ -357,22 +377,6 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
         "ROUTEDECK_TEST_DATABASE_URL",
         f"sqlite+pysqlite:///{database_path.as_posix()}",
     )
-    runtime = await open_persistent_medusa_runtime(
-        database_url=database_url,
-        encryption_key=encryption_key,
-        instance_id="agent-chat-smoke",
-        client=fixture,  # type: ignore[arg-type]
-        configured_payment_provider_id=_PAYMENT_PROVIDER_ID,
-        handlers=handlers,
-        providers=providers,
-        guards=guards,
-        clock=_SystemClock(),
-        notifier=notifier,
-        id_factory=lambda kind: f"{kind}-{next(ids)}",
-        review_ttl=timedelta(minutes=10),
-        default_session_id="agent-chat-default",
-        market=market,
-    )
     model = _StreamingScriptedToolModel(
         [
             tool_call(
@@ -399,25 +403,62 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             ),
         ]
     )
-    agent = create_medusa_agent(
-        model=model,
-        runtime=runtime,
-        turn_policy=_ActionTurnPolicy(),
-    )
-    dependencies = RouteDeckDependencies(
-        app=runtime.app.app,
-        runner=runtime.runner,
-        store=runtime.store,
-        notifier=notifier,  # type: ignore[arg-type]
-        projector=ProjectionProjector(runtime.app.app),
-        private_form_codec=FernetSensitiveCodec(encryption_key),
-        session_factory=lambda session_id: create_medusa_session(
+
+    def application_factory(resources: SqlAlchemyRuntimeResources):
+        return bind_medusa_app(
+            app=compiled,
+            client=fixture,  # type: ignore[arg-type]
+            private_forms=EncryptedCheckoutPrivateFormReader(
+                resources.store,
+                resources.codec,
+            ),
+            configured_payment_provider_id=_PAYMENT_PROVIDER_ID,
+            buyer_country_code=market.country_code,
+            handlers=handlers,
+            providers=providers,
+            guards=guards,
+        )
+
+    def graph_factory(services):
+        return RouteDeckLangGraphGraphs(
+            user_message=create_medusa_agent(
+                model=model,
+                runtime=services,
+                turn_policy=_ActionTurnPolicy(),
+            ),
+            assistant_initiated=create_medusa_entry_agent(
+                model=ScriptedTextModel("Hi from the explicit entry test graph.")
+            ),
+            ignored_event_tags=frozenset({TURN_POLICY_EVENT_TAG}),
+        )
+
+    async def keep_created_session(_services, snapshot):
+        return snapshot
+
+    runtime = await open_sqlalchemy_routedeck_runtime(
+        compiled_app=compiled,
+        application_factory=application_factory,
+        session_factory=lambda app, session_id: create_medusa_session(
+            app=app,
             session_id=session_id,
             market=market,
         ),
-        sse=SseSettings(follow=False),
+        session_initializer=keep_created_session,
+        public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+        agent_driver_factory=RouteDeckLangGraphDriverFactory(
+            graph_factory=graph_factory
+        ),
+        database_url=database_url,
+        encryption_key=encryption_key,
+        instance_id="agent-chat-smoke",
+        clock=_SystemClock(),
+        notifier=notifier,
+        id_factory=lambda kind: f"{kind}-{next(ids)}",
+        review_ttl=timedelta(minutes=10),
+        resume_capability_ttl=timedelta(hours=24),
+        default_session_id="agent-chat-default",
     )
-    application = create_medusa_app(routedeck=dependencies, agent=agent)
+    application = create_medusa_app(runtime=runtime)
 
     try:
         transport = httpx.ASGITransport(app=application)
@@ -460,7 +501,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             assert _event(first_events, "stream_end")["status"] == "completed"
             assert fixture.calls == ["create_cart", "list_products", "get_cart"]
 
-            after_tools = await runtime.store.load(session_id)
+            after_tools = await runtime.services.store.load(session_id)
             assert after_tools.state.current.node_id == "cart.summary"
             assert [turn.role.value for turn in after_tools.state.conversation] == [
                 "user",
@@ -538,7 +579,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             ).decode("utf-8")
             assert session_id not in public_event_frames
             child_attempts = [
-                await runtime.store.find_attempt(
+                await runtime.services.store.find_attempt(
                     session_id,
                     f"chat-1:{call_id}",
                 )
@@ -616,8 +657,12 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
 
             fixture.review_ready = True
             review_session_id = "agent-chat-review"
-            review_snapshot = await runtime.store.create(
-                _review_ready_session(review_session_id, market)
+            review_snapshot = await runtime.services.store.create(
+                _review_ready_session(
+                    review_session_id,
+                    market,
+                    runtime.services.app.app,
+                )
             )
             client.cookies.clear()
             client.cookies.set("routedeck_guest", review_session_id)
@@ -645,7 +690,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
                 "requires_review"
             )
 
-            staged = await runtime.store.load(review_session_id)
+            staged = await runtime.services.store.load(review_session_id)
             assert staged.state.interaction.phase.value == "idle"
             assert staged.state.interaction.owner is None
             assert staged.state.operation is not None
@@ -706,7 +751,7 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
                 inspection_engine.dispose()
             assert lease_count == 0
 
-        completed = await runtime.store.load(session_id)
+        completed = await runtime.services.store.load(session_id)
         assert completed.projection_version == projection_version + 2
         assert [turn.role.value for turn in completed.state.conversation] == [
             "user",
@@ -734,8 +779,12 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
         await runtime.close()
 
 
-def _review_ready_session(session_id: str, market: BuyerMarket):
-    session = create_medusa_session(session_id=session_id, market=market)
+def _review_ready_session(session_id: str, market: BuyerMarket, app):
+    session = create_medusa_session(
+        app=app,
+        session_id=session_id,
+        market=market,
+    )
     return session.model_copy(
         update={
             "current": Location(node_id="checkout.review", entry_id=1),

@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "story_id": "US-05",
+  "title": "Thoughtful Full Checkout",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "video_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "started_at": "2026-07-15T16:00:51.969Z",
+  "duration_ms": 163149,
+  "outcome": "failed",
+  "error": {
+    "name": "Error",
+    "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 3,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+  },
+  "events": [
+    {
+      "at_ms": 83,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 551,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/contract",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 569,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 404
+      }
+    },
+    {
+      "at_ms": 569,
+      "kind": "console",
+      "detail": {
+        "level": "error",
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    },
+    {
+      "at_ms": 931,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/sessions",
+        "status": 201
+      }
+    },
+    {
+      "at_ms": 932,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 983,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1054,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1164,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/conversation/assistant-turn",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1296,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1297,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1348,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 3227,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 3228,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 3290,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 3333,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 3538,
+      "kind": "assertion",
+      "detail": {
+        "name": "viewport",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "at_ms": 4728,
+      "kind": "user",
+      "detail": {
+        "message": "Can you help me find something simple and affordable?"
+      }
+    },
+    {
+      "at_ms": 7393,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 7594,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 7594,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 7684,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9915,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9915,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 9992,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 10456,
+      "kind": "assistant",
+      "detail": {
+        "message": "BUYER ASSISTANT\n\nAbsolutely 😊 To keep it simple and affordable, tell me one thing: 1) What type of item are you looking for? (examples: phone accessory, household basics, skincare, snacks, clothing essentials) 2) Any preference on brand or “anything is fine”? 3) What’s your rough budget range? (e.g., under $25 / under $50) If you’re not sure, I can suggest a few good “starter” options—what do you need it for?"
+      }
+    },
+    {
+      "at_ms": 11686,
+      "kind": "user",
+      "detail": {
+        "message": "Show me the options so I can decide."
+      }
+    },
+    {
+      "at_ms": 13489,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 13632,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 13635,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 13713,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 16685,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 16686,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 16823,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 163014,
+      "kind": "assertion",
+      "detail": {
+        "name": "story_failure",
+        "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 3,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+      }
+    }
+  ],
+  "visible_failures": []
+}

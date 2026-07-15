@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 
 import {
   createRouteDeckAgentClient,
+  type AgentAssistantTurnRequest,
   type AgentChatRequest,
   type AgentStreamEvent,
 } from "@routedeck/core";
@@ -11,6 +12,11 @@ const REQUEST: AgentChatRequest = {
   request_id: "chat-http-stable",
   expected_session_version: 3,
   message: "Show my cart",
+};
+
+const ASSISTANT_REQUEST: AgentAssistantTurnRequest = {
+  request_id: "assistant-http-stable",
+  expected_session_version: 3,
 };
 
 it("loads the finalized public conversation through the RouteDeck endpoint", async () => {
@@ -47,6 +53,75 @@ it("loads the finalized public conversation through the RouteDeck endpoint", asy
         method: "GET",
         credentials: "include",
         headers: { Accept: "application/json" },
+      },
+    },
+  ]);
+});
+
+it("streams an assistant-initiated turn through the generic RouteDeck endpoint", async () => {
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const client = createRouteDeckAgentClient({
+    baseUrl: "https://agent.test/api/routedeck/",
+    fetch: async (input, init) => {
+      requests.push({ input: String(input), ...(init === undefined ? {} : { init }) });
+      return new Response(
+        `${[
+          "event: stream_start",
+          'data: {"request_id":"assistant-http-stable","session_version":3}',
+          "",
+          "event: assistant_delta",
+          'data: {"content":"Welcome.","request_id":"assistant-http-stable"}',
+          "",
+          "event: assistant_end",
+          'data: {"request_id":"assistant-http-stable","session_version":4,"projection_version":4,"turn_id":"assistant-entry"}',
+          "",
+          "event: stream_end",
+          'data: {"request_id":"assistant-http-stable","status":"completed"}',
+          "",
+        ].join("\n")}\n`,
+        {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        },
+      );
+    },
+  });
+
+  await expect(collect(client.streamAssistantTurn(ASSISTANT_REQUEST))).resolves.toEqual([
+    {
+      type: "stream_start",
+      request_id: "assistant-http-stable",
+      session_version: 3,
+    },
+    {
+      type: "assistant_delta",
+      content: "Welcome.",
+      request_id: "assistant-http-stable",
+    },
+    {
+      type: "assistant_end",
+      request_id: "assistant-http-stable",
+      session_version: 4,
+      projection_version: 4,
+      turn_id: "assistant-entry",
+    },
+    {
+      type: "stream_end",
+      request_id: "assistant-http-stable",
+      status: "completed",
+    },
+  ]);
+  expect(requests).toEqual([
+    {
+      input: "https://agent.test/api/routedeck/conversation/assistant-turn",
+      init: {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(ASSISTANT_REQUEST),
       },
     },
   ]);

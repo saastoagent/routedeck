@@ -97,6 +97,7 @@ def test_root_all_contains_only_the_compiled_framework_surface() -> None:
         "BoundRouteDeckApp",
         "RouteDeckEvent",
         "CompiledRouteDeckApp",
+        "ConfiguredSessionProjector",
         "ContextScopeBuilder",
         "DeepLinkEngine",
         "FailureKind",
@@ -111,16 +112,37 @@ def test_root_all_contains_only_the_compiled_framework_surface() -> None:
         "RouteDeckFailure",
         "RouteDeckNotifier",
         "RouteDeckOperationRunner",
+        "RouteDeckRuntime",
+        "RouteDeckRuntimeLifecycle",
+        "RouteDeckRuntimeServices",
         "RouteDeckRetentionPolicy",
         "RouteDeckSession",
         "RouteDeckSessionAggregate",
         "RouteDeckSessionStore",
+        "SensitiveCodec",
         "SessionEffects",
         "SessionSnapshot",
         "bind_app",
         "compile_app",
+        "build_routedeck_runtime",
         "new_opaque_handle",
     }
+
+
+def test_fastapi_exposes_only_the_runtime_router_construction_entry() -> None:
+    import routedeck_fastapi
+
+    assert "create_routedeck_router_from_runtime_provider" in (
+        routedeck_fastapi.__all__
+    )
+    for retired_name in (
+        "RouteDeckConversationDependencies",
+        "create_routedeck_conversation_router",
+        "create_routedeck_router",
+        "create_routedeck_router_from_provider",
+    ):
+        assert retired_name not in routedeck_fastapi.__all__
+        assert not hasattr(routedeck_fastapi, retired_name)
 
 
 def test_retired_langgraph_topology_parity_is_not_importable() -> None:

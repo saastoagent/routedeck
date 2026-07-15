@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from medusa_agent.runtime_factory import MedusaRuntime
 from medusa_agent.features.cart import CreateCartHandler
 from medusa_agent.medusa.client.models import (
     CreateCartRequest,
@@ -14,7 +14,7 @@ from medusa_agent.medusa.client.models import (
     MedusaClientFailureKind,
 )
 from medusa_agent.medusa.client.protocol import MedusaStoreClient
-from medusa_agent.session import create_medusa_session
+from medusa_agent.session import create_medusa_session, initialize_medusa_session
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.operations import DeliveryPhase
 from routedeck_core.contracts.operations import (
@@ -29,7 +29,11 @@ from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.ports.executor import ExecutionContext
 from support.medusa import RecordingMedusaStoreClient, buyer_market, cart
-from support.runtime import build_test_medusa_runtime, operation_request
+from support.runtime import (
+    RecordingNotifier,
+    build_test_runtime,
+    operation_request,
+)
 
 
 @dataclass
@@ -112,9 +116,9 @@ async def test_medusa_cart_create_binding_cannot_bypass_runner() -> None:
     client = RecordingMedusaStoreClient(
         create_cart_result=CreateCartResult.succeeded(cart())
     )
-    runtime = build_test_medusa_runtime(client=client, market=market)
+    runtime = build_test_runtime(client=client, market=market)
 
-    result = await runtime.runner.run(
+    result = await runtime.services.runner.run(
         operation_request(
             operation_id="cart.create",
             source=OperationSource.SYSTEM,
@@ -133,7 +137,7 @@ async def test_medusa_cart_create_binding_cannot_bypass_runner() -> None:
         )
     ]
     assert result.evidence.source is OperationSource.SYSTEM
-    stored = await runtime.store.find_attempt("session-1", "cart-create-1")
+    stored = await runtime.services.store.find_attempt("session-1", "cart-create-1")
     assert stored is not None
     assert stored.journaled_result is not None
     assert stored.journaled_result.observation.to_dict() == {
@@ -141,9 +145,11 @@ async def test_medusa_cart_create_binding_cannot_bypass_runner() -> None:
         "currency_code": client.created_cart.currency_code,
     }
     assert client.created_cart.id.get_secret_value() not in result.model_dump_json()
+    notifier = runtime.services.notifier
+    assert isinstance(notifier, RecordingNotifier)
     assert all(
         client.created_cart.id.get_secret_value() not in event.model_dump_json()
-        for _, events in runtime.notifier.notifications
+        for _, events in notifier.notifications
         for event in events
     )
 
@@ -164,7 +170,17 @@ async def test_failed_or_unknown_initial_cart_never_returns_a_session(
     kind: FailureKind,
 ) -> None:
     market = buyer_market()
-    session = create_medusa_session(session_id="session-bootstrap", market=market)
+    runtime = build_test_runtime(
+        client=RecordingMedusaStoreClient(
+            create_cart_result=CreateCartResult.succeeded(cart())
+        ),
+        market=market,
+    )
+    session = create_medusa_session(
+        app=runtime.services.app.app,
+        session_id="session-bootstrap",
+        market=market,
+    )
     runner = _InitializationRunner(
         OperationResult(
             disposition=disposition,
@@ -190,17 +206,14 @@ async def test_failed_or_unknown_initial_cart_never_returns_a_session(
             ),
         )
     )
-    runtime = MedusaRuntime(
-        app=None,  # type: ignore[arg-type]
+    services = replace(
+        runtime.services,
         runner=runner,  # type: ignore[arg-type]
-        navigation=None,  # type: ignore[arg-type]
         store=_InitializationStore(),  # type: ignore[arg-type]
-        default_session_id=session.session_id,
-        initial_market=market,
     )
 
     with pytest.raises(RuntimeError, match="did not prove cart creation"):
-        await runtime.initialize_session(SessionSnapshot(state=session))
+        await initialize_medusa_session(services, SessionSnapshot(state=session))
 
     assert len(runner.requests) == 1
     request = runner.requests[0]

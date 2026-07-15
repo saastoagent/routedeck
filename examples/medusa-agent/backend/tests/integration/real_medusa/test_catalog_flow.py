@@ -16,7 +16,7 @@ from medusa_agent.features.catalog import (
 )
 from medusa_agent.medusa.client import HttpMedusaStoreClient, ProductQuery
 from medusa_agent.medusa.client.models import ProductPageResult, ProductResult
-from medusa_agent.session import BuyerMarket, project_medusa_session
+from medusa_agent.session import BuyerMarket
 from routedeck_core.contracts.operations import (
     OperationDisposition,
     OperationRequest,
@@ -25,7 +25,7 @@ from routedeck_core.contracts.operations import (
 from routedeck_core.contracts.projection import FrozenJsonObject, PublicValue
 from routedeck_core.contracts.session import Location
 from routedeck_core.navigation.routes import RouteSessionContext
-from support.runtime import build_test_medusa_runtime
+from support.runtime import build_test_runtime
 
 
 @dataclass
@@ -81,7 +81,7 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     assert region.countries
 
     client = CountingCatalogClient(http_client)
-    runtime = build_test_medusa_runtime(
+    runtime = build_test_runtime(
         client=client,  # type: ignore[arg-type]
         market=BuyerMarket(
             region_handle=settings.medusa_region_id,
@@ -92,7 +92,7 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
         initial_location=Location(node_id="buyer.home"),
     )
 
-    listed = await runtime.runner.run(
+    listed = await runtime.services.runner.run(
         _request(
             operation_id=CATALOG_LIST.id,
             request_id="catalog-list-real",
@@ -100,8 +100,8 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
         )
     )
     assert listed.disposition is OperationDisposition.COMPLETED
-    listed_session = (await runtime.store.load("session-1")).state
-    listed_projection = project_medusa_session(listed_session)
+    listed_session = (await runtime.services.store.load("session-1")).state
+    listed_projection = runtime.services.projector.project(listed_session)
     listed_props = _values(listed_projection.surfaces.active.props)
     products = listed_props["products"]
     assert isinstance(products, list)
@@ -109,7 +109,7 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     assert listed_props["count"] == 4
     first_title = products[0]["title"]
 
-    searched = await runtime.runner.run(
+    searched = await runtime.services.runner.run(
         _request(
             operation_id=CATALOG_SEARCH.id,
             request_id="catalog-search-real",
@@ -118,8 +118,8 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
         )
     )
     assert searched.disposition is OperationDisposition.COMPLETED
-    searched_session = (await runtime.store.load("session-1")).state
-    searched_projection = project_medusa_session(searched_session)
+    searched_session = (await runtime.services.store.load("session-1")).state
+    searched_projection = runtime.services.projector.project(searched_session)
     searched_props = _values(searched_projection.surfaces.active.props)
     assert searched_props["query"] == first_title
     assert searched_props["products"]
@@ -139,8 +139,8 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
         expected_session_version=searched.session_version,
         arguments={"product_ref": selected_entity.handle},
     )
-    runtime.store.fail_next_commit_attempt = True
-    interrupted = await runtime.runner.run(open_request)
+    runtime.services.store.fail_next_commit_attempt = True
+    interrupted = await runtime.services.runner.run(open_request)
     assert interrupted.disposition is OperationDisposition.FAILED
     assert interrupted.failure is not None
     assert interrupted.failure.code == "state_commit_failed"
@@ -148,13 +148,13 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
         (selected_card["product_handle"], settings.medusa_region_id)
     ]
 
-    opened = await runtime.runner.run(open_request)
+    opened = await runtime.services.runner.run(open_request)
     assert opened.disposition is OperationDisposition.COMPLETED
     assert client.product_queries == [
         (selected_card["product_handle"], settings.medusa_region_id)
     ]
-    product_session = (await runtime.store.load("session-1")).state
-    product_projection = project_medusa_session(product_session)
+    product_session = (await runtime.services.store.load("session-1")).state
+    product_projection = runtime.services.projector.project(product_session)
     product_props = _values(product_projection.surfaces.active.props)
     detail = product_props["product"]
     assert product_projection.current.node_id == "catalog.product"
@@ -165,11 +165,11 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     assert detail["variants"]
 
     validator = CatalogRouteKeyValidator.from_session(product_session)
-    encoded = runtime.runner.app.app.routes.encode(
+    encoded = runtime.services.app.app.routes.encode(
         "catalog.product",
         {"product_handle": detail["product_handle"]},
     )
-    decoded = runtime.runner.app.app.routes.decode(
+    decoded = runtime.services.app.app.routes.decode(
         encoded,
         RouteSessionContext(
             now=datetime(2030, 1, 1, tzinfo=UTC),
@@ -194,7 +194,7 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     )
 
     variant = detail["variants"][0]
-    selected = await runtime.runner.run(
+    selected = await runtime.services.runner.run(
         _request(
             operation_id=SELECT_VARIANT.id,
             request_id="catalog-select-real",
@@ -204,8 +204,8 @@ async def test_real_catalog_projection_and_journal_replay() -> None:
     )
     assert selected.disposition is OperationDisposition.COMPLETED
     assert len(client.product_queries) == 1
-    selected_session = (await runtime.store.load("session-1")).state
-    selected_projection = project_medusa_session(selected_session)
+    selected_session = (await runtime.services.store.load("session-1")).state
+    selected_projection = runtime.services.projector.project(selected_session)
     selected_detail = _values(selected_projection.surfaces.active.props)["product"]
     assert selected_detail["selected_variant_handle"] == variant["interaction_handle"]
 

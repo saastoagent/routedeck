@@ -21,6 +21,23 @@ test("named state actions publish one immutable snapshot per change", () => {
   });
 });
 
+test("disposal preserves the last projection in an immutable terminal snapshot", () => {
+  const observable = new RouteDeckObservableState();
+  const current = projection();
+
+  observable.applySnapshot(current);
+  observable.dispose();
+
+  expect(observable.snapshot).toMatchObject({
+    projection: current,
+    sessionVersion: 1,
+    projectionVersion: 1,
+    eventCursor: 0,
+    syncStatus: "disposed",
+  });
+  expect(Object.isFrozen(observable.snapshot)).toBe(true);
+});
+
 
 function projection(): RouteDeckProjection {
   const location = { node_id: "home", route_params: [] };

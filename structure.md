@@ -1,38 +1,62 @@
 # Structure - RouteDeck
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
-This is the maintained ownership map for the clean-break architecture.
+This is the maintained ownership map for the ADR-006 clean-break architecture.
 
 ```text
 routedeck/
   routedeck_core/
-    app/                 # ApplicationSpec/FeatureSpec compilation and binding
+    app/                 # compiler facade plus registry/validation/output modules
     contracts/           # immutable public contracts
     context/             # operation-scoped context and policy lenses
     navigation/          # routes, deep links, and history transactions
-    ports/               # executor, store, notifier, and clock protocols
-    projection/          # default-deny public projection
+    ports/               # executor, store, notifier, codec, clock, agent-driver ports
+    projection/          # default-deny and configured session projection
     state/               # canonical session aggregate and lifecycle rules
-    supervision/         # turns, guards, review, outcomes, and runner
-  routedeck_sqlalchemy/  # SQLite/PostgreSQL ORM store and sensitive codec
-  routedeck_fastapi/     # generic HTTP, private-form, and SSE transport
-  routedeck_langgraph/   # optional context middleware and supervised tools
+    supervision/         # turns, guards, review, outcomes, and runner facade/slices
+    runtime.py           # immutable services/runtime containers and builder
+    runtime_defaults.py  # UTC clock, notifier, and ID defaults
+  routedeck_sqlalchemy/
+    application_runtime.py # fail-closed durable runtime opener
+    store.py             # canonical SqlAlchemySessionStore facade
+    store_parts/         # lifecycle/session/turn/supervision/commit/event/form/maintenance transactions
+  routedeck_fastapi/
+    runtime.py           # runtime-provider dependency derivation
+    router.py            # one canonical /api/routedeck router
+    routes/              # contract/session/operation/conversation/event/form/inspection planes
+  routedeck_langgraph/
+    agent_driver.py      # generic graph factory and event translation
+    conversation.py      # strict user/assistant turn extraction
+    middleware.py        # default-deny model context
+    tool_wrapper.py      # supervised product-tool bridge
   routedeck_testing/     # Python test-only support
   packages/
-    core/                # headless TypeScript client/store/routing/forms
-    react/               # React provider, hooks, surfaces, review, navgraph
+    core/src/
+      contracts/         # strict domain decoder modules behind decode.ts
+      conversation/      # history/chat/assistant-turn client contracts
+      store/             # public store facade plus focused coordinators
+    react/src/
+      conversation/      # named presentation actions and network lifecycle hook
+      ...                # provider, hooks, surfaces, review, forms, navigation, inspector
     testing/             # frontend test-only harnesses
   examples/medusa-agent/
     backend/medusa_agent/
-      api/               # product chat, entry, history, and health endpoints
+      api/health.py      # product liveness/readiness only
       features/          # catalog, cart, checkout, and order vertical slices
-      medusa/client/     # typed Store API port, adapter, models, and failures
-      bindings.py        # thin feature-binding composition root
+      medusa/client/
+        resources/       # catalog/cart/checkout/order Store resource owners
+        http.py          # canonical typed facade
+        transport.py     # HTTP/auth and delivery classification
+        wire.py          # strict response decoding
+      agent.py           # product prompts, models, and graph factories
+      bindings.py        # typed product binding composition
       composition.py     # declarative product application composition
-      runtime_factory.py # live dependency assembly
+      runtime.py         # product configuration passed to framework openers
+      session.py         # buyer market, session factory, and initializer
+    backend/main.py      # one runtime provider, generic router, health, lifespan
     frontend/src/
-      app/               # bootstrap, chat transport, and product shell state
+      app/               # generic client bootstrap and product shell state
       features/          # buyer-facing product surfaces
       routedeck/         # framework client and surface registry seam
       ui/                # application shell and conversation UI
@@ -42,29 +66,29 @@ routedeck/
   tests/                 # Python framework and boundary suites
   architecture/          # subsystem ownership and component contracts
   docs/                  # framework and reference-app documentation
-  decisions/             # architecture decisions
+  decisions/             # architecture decisions; ADR-006 is current runtime authority
 ```
 
 ## Ownership Rules
 
 | Path | Owns | Must not own |
 | --- | --- | --- |
-| `routedeck_core/` | Generic contracts, canonical state, supervision, projection, navigation, and ports. | Product prompts, domain APIs, commerce rules, or React components. |
-| `routedeck_sqlalchemy/` | SQLAlchemy models and repositories for sessions, attempts, reviews, events, leases, private blobs, and migrations. | Product recovery policy or alternate execution paths. |
-| `routedeck_fastapi/` | Generic `/api/routedeck/*` transport and typed SSE. | Medusa routes or product response schemas. |
-| `routedeck_langgraph/` | Model-context filtering and supervised tool integration. | Product topology, prompts, model selection, or state authority. |
-| `packages/core/` | Typed browser client, observable store, routing/history, and private-form state. | React rendering or product-specific route inference. |
-| `packages/react/` | Generic React primitives over the headless runtime. | Medusa copy, cards, checkout policy, or Store API calls. |
+| `routedeck_core/` | Generic contracts, canonical state, one runtime/services builder, supervision, projection, navigation, and ports. | Product prompts, domain APIs, commerce rules, or React components. |
+| `routedeck_sqlalchemy/` | Durable resource opening/lifecycle and the SQLAlchemy store facade over focused transaction services. | Product recovery policy or alternate stores after failure. |
+| `routedeck_fastapi/` | One runtime-derived `/api/routedeck/*` plane, typed user/assistant conversation lifecycle, and SSE. | Medusa routes, separate dependency bundles, or product response schemas. |
+| `routedeck_langgraph/` | Generic graph-set factory, typed event translation, model-context filtering, conversation extraction, and supervised tools. | Product topology, prompts, model selection, or state authority. |
+| `packages/core/` | Strict contracts, typed browser clients, observable state, routing/history, private forms, and focused store coordinators. | React rendering or product-specific route inference. |
+| `packages/react/` | Generic React primitives and named conversation presentation actions. | Generic reducer-shaped transition APIs, Medusa copy, cards, or Store calls. |
 | `packages/testing/` | Test-only frontend factories and harnesses. | Product runtime behavior or published application state. |
-| `examples/medusa-agent/backend/medusa_agent/features/` | Product declarations, bindings, handlers, providers, and guards. | Generic persistence, navigation, or transport behavior. |
-| `examples/medusa-agent/backend/medusa_agent/medusa/client/` | All Store endpoints, HTTP transport, wire decoding, typed results, and delivery evidence. | RouteDeck mechanics or UI rendering. |
+| `examples/medusa-agent/backend/medusa_agent/` | Product declarations/bindings, callbacks, graphs/prompts/models, market facts, Store client, readiness, and configuration. | Generic runners, navigation, persistence construction, agent drivers, or transport routes. |
+| `examples/medusa-agent/backend/medusa_agent/medusa/client/resources/` | Typed Store resource groups and endpoint-specific request/result behavior. | RouteDeck mechanics or UI rendering. |
 | `examples/medusa-agent/frontend/src/features/` | Buyer-facing product components. | Direct Store API access or canonical application state. |
 | `examples/medusa-agent/infra/` | Explicit local demo provisioning, Compose services, and scoped reset policy. | Production data or hidden substitute behavior. |
 
-New applications use `ApplicationSpec`, `FeatureSpec`, `compile_app(...)`,
-`FeatureBindings.merge(...)`, and `bind_app(...)`. The JavaScript framework
-surface is exclusively `packages/core`, `packages/react`, and
-`packages/testing`.
+New applications declare and bind an app, provide session and product graph
+factories, then call a RouteDeck runtime opener. Consumers do not construct
+`RouteDeckOperationRunner`, `RouteDeckNavigationRunner`,
+`RouteDeckDependencies`, or `RouteDeckLangGraphAgentDriver`.
 
 ## Generated And Local-Only Paths
 

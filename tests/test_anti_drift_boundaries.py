@@ -57,20 +57,18 @@ def test_framework_packages_stay_product_neutral() -> None:
     )
 
 
-def test_medusa_frontend_uses_routedeck_conversation_and_product_entry_planes() -> None:
+def test_medusa_frontend_uses_only_the_generic_routedeck_conversation_plane() -> None:
     frontend_text = _combined(_production_files("examples/medusa-agent/frontend/src"))
     route_deck_client = _read("examples/medusa-agent/frontend/src/routedeck/client.ts")
     chat_client = _read("packages/core/src/conversation/client.ts")
-    entry_client = _read(
-        "examples/medusa-agent/frontend/src/app/conversationEntryClient.ts"
-    )
 
     assert 'from "@routedeck/core"' in frontend_text
     assert 'from "@routedeck/react"' in frontend_text
     assert 'baseUrl: "/api/routedeck"' in route_deck_client
     assert 'options.baseUrl ?? "/api/routedeck"' in chat_client
     assert "`${baseUrl}/chat`" in chat_client
-    assert 'options.baseUrl ?? "/api/medusa-agent"' in entry_client
+    assert "`${baseUrl}/conversation/assistant-turn`" in chat_client
+    assert "/api/medusa-agent/conversation/entry" not in frontend_text
     for forbidden in (
         "@medusajs",
         "/store/",
@@ -81,10 +79,30 @@ def test_medusa_frontend_uses_routedeck_conversation_and_product_entry_planes() 
     assert PRODUCT_SPECIFIC_ROUTEDECK_ROUTE.search(frontend_text) is None
 
 
+def test_medusa_host_mounts_one_runtime_derived_router_with_assistant_turn() -> None:
+    main = _read("examples/medusa-agent/backend/main.py")
+    fastapi_text = _combined(_production_files("routedeck_fastapi"))
+
+    assert main.count("create_routedeck_router_from_runtime_provider(") == 1
+    assert "create_routedeck_router_from_provider(" not in main
+    assert "create_routedeck_conversation_router(" not in main
+    assert "create_medusa_entry_router(" not in main
+    assert '"/conversation/assistant-turn"' in fastapi_text
+    assert '"/api/medusa-agent/conversation/entry"' not in main
+
+
 def test_store_http_is_confined_to_the_typed_medusa_client_package() -> None:
     backend_root = "examples/medusa-agent/backend/medusa_agent"
     client_root = ROOT / backend_root / "medusa/client"
-    expected_owners = [client_root / "http.py", client_root / "transport.py"]
+    expected_owners = [
+        client_root / "http.py",
+        client_root / "resources/base.py",
+        client_root / "resources/cart.py",
+        client_root / "resources/catalog.py",
+        client_root / "resources/checkout.py",
+        client_root / "resources/orders.py",
+        client_root / "transport.py",
+    ]
     protocol = _read(f"{backend_root}/medusa/client/protocol.py")
     transport_owners = []
 
@@ -130,6 +148,23 @@ def test_retired_slice_backend_and_frontend_paths_are_removed() -> None:
         "examples/medusa-agent/frontend/src/hooks/useRouteDeckProjection.ts",
         "examples/medusa-agent/frontend/src/hooks/useRouteDeckEvents.ts",
         "examples/medusa-agent/frontend/src/hooks/useSSEChat.ts",
+        "examples/medusa-agent/backend/medusa_agent/runtime_factory.py",
+        "examples/medusa-agent/backend/medusa_agent/agent_driver.py",
+        "examples/medusa-agent/backend/medusa_agent/api/entry.py",
+        "examples/medusa-agent/backend/medusa_agent/entry_conversation.py",
+        "examples/medusa-agent/frontend/src/app/conversationEntryClient.ts",
+        "routedeck_fastapi/conversation_dependencies.py",
+        "routedeck_fastapi/conversation.py",
+        "packages/react/src/conversation/state.ts",
+        "packages/react/src/conversation/transitions.ts",
+        "packages/react/dist/conversation/state.d.ts",
+        "packages/react/dist/conversation/state.d.ts.map",
+        "packages/react/dist/conversation/state.js",
+        "packages/react/dist/conversation/state.js.map",
+        "packages/react/dist/conversation/transitions.d.ts",
+        "packages/react/dist/conversation/transitions.d.ts.map",
+        "packages/react/dist/conversation/transitions.js",
+        "packages/react/dist/conversation/transitions.js.map",
     )
 
     assert [path for path in removed_paths if (ROOT / path).exists()] == []
@@ -151,6 +186,7 @@ def test_retired_product_state_routes_are_not_reintroduced() -> None:
         "/api/medusa-agent/action",
         "/api/medusa-agent/agent/stream",
         "/api/medusa-agent/inspect",
+        "/api/medusa-agent/conversation/entry",
     )
 
     assert [route for route in retired_routes if route in product_text] == []

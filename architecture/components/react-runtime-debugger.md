@@ -1,38 +1,58 @@
 # Headless And React Runtime
 
+Authority: ADR-006 for runtime ownership; ADR-005 remains active where ADR-006
+does not supersede it.
+
 ## Purpose
 
-`@routedeck/core` is the headless browser client and RouteDeck projection-state
-layer. `@routedeck/react` supplies product-neutral React bindings and UI
-primitives. `@routedeck/testing` owns test-only harnesses.
+`@routedeck/core` owns strict browser contracts, clients, and canonical
+observable RouteDeck state. `@routedeck/react` owns product-neutral bindings,
+named conversation presentation actions, and UI primitives.
+`@routedeck/testing` remains test-only.
 
 ## Owner Files
 
-- `packages/core/src/{contracts,client,store,routing,private-forms}/*`
-- `packages/core/src/index.ts`
+- `packages/core/src/contracts/{decode,json,projection,events,operations,frontend,privateForms,inspection}.ts`
+- `packages/core/src/conversation/{types,codec,client}.ts`
+- `packages/core/src/store/{store,bootstrap,synchronization,operations,lifecycle}.ts`
+- `packages/core/src/{client,routing,private-forms}/*`
+- `packages/react/src/conversation/{presentation,useRouteDeckConversation}.ts`
 - `packages/react/src/{provider,hooks,surfaces,navigation,private-forms,review,status,inspector}/*`
-- `packages/react/src/index.ts`
 - `packages/testing/src/*`
 
 ## Public Interfaces
 
-- `@routedeck/core`: strict decoding, HTTP/SSE, retained replay/resync,
-  observable named actions/selectors, history control, and private-form state.
-- `@routedeck/react`: provider/hooks, surface registry/host, operation
-  controller, navigation, forms, review, status/error, and lazy navgraph.
-- `@routedeck/testing`: factories plus component/store/SSE harnesses used only
-  in tests.
+- `createRouteDeckAgentClient(...)` loads canonical conversation, streams user
+  chat, and streams typed assistant initiation through
+  `streamAssistantTurn(...)`.
+- `createRouteDeckStore(...)` remains the public coordinator facade; focused
+  bootstrap, synchronization, operation, and lifecycle coordinators are
+  internal.
+- `RouteDeckObservableState` and named store actions/selectors remain the
+  canonical browser view of session/projection state.
+- `ConversationPresentationActions` exposes named methods such as
+  `beginTurn`, `restoreSnapshot`, `showUserMessage`, `appendAssistantText`,
+  `finalizeAssistant`, `requireReview`, `completeTurn`, and `failTurn`.
+- `useRouteDeckConversation(...)` owns abort, SSE iteration, retained exact
+  requests, retry/discard, and resynchronization and calls those named actions
+  explicitly.
+- React provider/hooks, surface host, operations, forms, review, navigation,
+  status/error, and lazy Navgraph primitives.
 
-The headless store owns the canonical browser view of RouteDeck state. Product
-chat state is separate and may synchronize to a session/projection version, but
-it cannot infer commerce state or replace the RouteDeck projection.
+Presentation state contains only rendered conversation messages, status,
+error, review, and retained-request display. It is not an alternate
+`RouteDeckObservableState`, and there is no public generic reducer/dispatch or
+transition callback API.
 
 ## Evidence
 
 ```powershell
 pnpm --filter @routedeck/core test
+pnpm --filter @routedeck/core typecheck
+pnpm --filter @routedeck/react typecheck
 pnpm --filter @routedeck/react test
-pnpm --filter @routedeck/testing test
-pnpm typecheck
-pnpm build
 ```
+
+Update this document when strict decoding, assistant/chat clients, observable
+state, named presentation actions, retained-request behavior, routing/history,
+forms, or React primitive ownership changes.

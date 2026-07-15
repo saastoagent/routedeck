@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import {
   AgentChatError,
@@ -13,22 +8,11 @@ import {
   type AgentReviewRequired,
 } from "@routedeck/core";
 import {
-  historyMessage,
-  pendingRequestFor,
+  useConversationPresentation,
   type AgentConversationMessage,
   type AgentPendingRequest,
   type AgentStreamStatus,
-} from "./state";
-import {
-  applyAgentEvent,
-  removeRequestMessages,
-} from "./transitions";
-
-export type {
-  AgentConversationMessage,
-  AgentPendingRequest,
-  AgentStreamStatus,
-} from "./state";
+} from "./presentation";
 
 export interface UseRouteDeckConversationOptions {
   client: AgentChatClient;
@@ -62,15 +46,8 @@ export function useRouteDeckConversation({
   synchronizeTo,
   resync,
 }: UseRouteDeckConversationOptions): AgentStreamState {
-  const [messages, setMessages] = useState<AgentConversationMessage[]>(() =>
-    initialConversation.map(historyMessage),
-  );
-  const [status, setStatus] = useState<AgentStreamStatus>("idle");
-  const [error, setError] = useState<AgentChatError | null>(null);
-  const [review, setReview] = useState<AgentReviewRequired | null>(null);
-  const [pendingRequest, setPendingRequest] = useState<AgentPendingRequest | null>(
-    null,
-  );
+  const presentation = useConversationPresentation(initialConversation);
+  const actions = presentation.actions;
   const abortRef = useRef<AbortController | null>(null);
   const retainedRef = useRef<Readonly<AgentChatRequest> | null>(null);
 
@@ -96,26 +73,81 @@ export function useRouteDeckConversation({
       }
       const abort = new AbortController();
       abortRef.current = abort;
-      setStatus("streaming");
-      setError(null);
-      setReview(null);
+      actions.beginTurn();
       let streamEnded = false;
       try {
-        for await (const event of client.stream(
-          request,
-          abort.signal,
-        )) {
-          streamEnded =
-            (await applyAgentEvent(
-              event,
-              request.request_id,
-              {
-                updateMessages: setMessages,
-                setStatus,
-                setReview,
-                synchronizeTo,
-              },
-            )) || streamEnded;
+        for await (const event of client.stream(request, abort.signal)) {
+          switch (event.type) {
+            case "stream_start":
+              requireRequestId(event.request_id, request.request_id);
+              break;
+            case "conversation_snapshot":
+              actions.restoreSnapshot(event.turns, request.request_id);
+              break;
+            case "user_message":
+              requireRequestId(event.request_id, request.request_id);
+              actions.showUserMessage(event);
+              break;
+            case "assistant_delta":
+              requireRequestId(event.request_id, request.request_id);
+              actions.appendAssistantText(event.request_id, event.content);
+              break;
+            case "assistant_reset":
+              requireRequestId(event.request_id, request.request_id);
+              actions.resetAssistantText(event.request_id);
+              break;
+            case "assistant_end":
+              requireRequestId(event.request_id, request.request_id);
+              await synchronizeTo({
+                sessionVersion: event.session_version,
+                projectionVersion: event.projection_version,
+              });
+              actions.finalizeAssistant(event.request_id, event.turn_id);
+              break;
+            case "review_required":
+              actions.requireReview({
+                status: event.status,
+                operation_id: event.operation_id,
+                review_id: event.review_id,
+                expires_at: event.expires_at,
+              });
+              break;
+            case "chat_error":
+              actions.removeRequest(request.request_id);
+              throw new AgentChatError(
+                event.code,
+                event.message,
+                null,
+                "rejected",
+              );
+            case "stream_end":
+              requireRequestId(event.request_id, request.request_id);
+              if (event.status === "completed") {
+                actions.completeTurn("idle");
+                streamEnded = true;
+                break;
+              }
+              if (event.status === "requires_review") {
+                actions.completeTurn("review_required");
+                streamEnded = true;
+                break;
+              }
+              actions.removeRequest(request.request_id);
+              if (event.status === "turn_interrupted") {
+                throw new AgentChatError(
+                  "chat_turn_interrupted",
+                  "The buyer-agent turn was interrupted before it was committed.",
+                  null,
+                  "interrupted",
+                );
+              }
+              throw new AgentChatError(
+                "chat_turn_outcome_unknown",
+                "The buyer-agent turn could not be durably resolved. Retry the exact message or resynchronize before continuing.",
+                null,
+                "unknown",
+              );
+          }
         }
         if (abort.signal.aborted) {
           throw new AgentChatError(
@@ -132,12 +164,10 @@ export function useRouteDeckConversation({
           );
         }
         retainedRef.current = null;
-        setPendingRequest(null);
+        actions.clearFailure();
       } catch (caught) {
         if (abort.signal.aborted) {
-          setMessages((current) =>
-            removeRequestMessages(current, request.request_id),
-          );
+          actions.removeRequest(request.request_id);
           const cancellation = new AgentChatError(
             "chat_turn_outcome_unknown",
             "The response was stopped, but the buyer-agent turn may already be committed. Retry the exact message or resynchronize before continuing.",
@@ -145,9 +175,7 @@ export function useRouteDeckConversation({
             "unknown",
           );
           retainedRef.current = request;
-          setPendingRequest(pendingRequestFor(request));
-          setStatus("error");
-          setError(cancellation);
+          actions.failTurn(cancellation, pendingRequestFor(request));
           throw cancellation;
         }
         const nextError =
@@ -157,21 +185,16 @@ export function useRouteDeckConversation({
                 "chat_stream_failed",
                 "The buyer-agent stream failed.",
               );
-        if (nextError.outcome === "unknown") {
-          retainedRef.current = request;
-          setPendingRequest(pendingRequestFor(request));
-        } else {
-          retainedRef.current = null;
-          setPendingRequest(null);
-        }
-        setError(nextError);
-        setStatus("error");
+        const pending =
+          nextError.outcome === "unknown" ? pendingRequestFor(request) : null;
+        retainedRef.current = pending === null ? null : request;
+        actions.failTurn(nextError, pending);
         throw nextError;
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
       }
     },
-    [client, synchronizeTo],
+    [actions, client, synchronizeTo],
   );
 
   const send = useCallback(
@@ -233,7 +256,8 @@ export function useRouteDeckConversation({
         "not_sent",
       );
     }
-    if (retainedRef.current === null) {
+    const retained = retainedRef.current;
+    if (retained === null) {
       throw new AgentChatError(
         "chat_retry_missing",
         "There is no outcome-unknown chat request to discard.",
@@ -244,9 +268,8 @@ export function useRouteDeckConversation({
     try {
       await resync();
       retainedRef.current = null;
-      setPendingRequest(null);
-      setError(null);
-      setStatus("idle");
+      actions.clearFailure();
+      actions.completeTurn("idle");
     } catch (caught) {
       const nextError =
         caught instanceof AgentChatError
@@ -255,21 +278,35 @@ export function useRouteDeckConversation({
               "chat_resync_failed",
               "RouteDeck could not resynchronize the outcome-unknown chat request.",
             );
-      setError(nextError);
-      setStatus("error");
+      actions.failTurn(nextError, pendingRequestFor(retained));
       throw nextError;
     }
-  }, [resync]);
+  }, [actions, resync]);
 
   return {
-    messages,
-    status,
-    error,
-    review,
-    pendingRequest,
+    ...presentation.state,
     send,
     retry,
     discardPending,
     cancel,
   };
+}
+
+function pendingRequestFor(
+  request: Readonly<AgentChatRequest>,
+): AgentPendingRequest {
+  return Object.freeze({
+    requestId: request.request_id,
+    expectedSessionVersion: request.expected_session_version,
+    message: request.message,
+  });
+}
+
+function requireRequestId(actual: string, expected: string): void {
+  if (actual !== expected) {
+    throw new AgentChatError(
+      "chat_request_identity_mismatch",
+      "The buyer-agent stream event does not match the active request.",
+    );
+  }
 }

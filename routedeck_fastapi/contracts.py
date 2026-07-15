@@ -33,6 +33,11 @@ class ChatStreamRequest(RouteDeckRequestModel):
         return value
 
 
+class AssistantTurnRequest(RouteDeckRequestModel):
+    request_id: str = Field(min_length=1, max_length=256)
+    expected_session_version: int = Field(ge=0)
+
+
 class SessionCreateRequest(RouteDeckRequestModel):
     request_id: str = Field(min_length=1)
 
@@ -65,6 +70,7 @@ class RouteDeckHttpProblem(Exception):
 
 
 __all__ = [
+    "AssistantTurnRequest",
     "ChatStreamRequest",
     "DispatchRequest",
     "NavigationRequestBody",

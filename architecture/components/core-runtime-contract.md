@@ -2,70 +2,69 @@
 
 ## Purpose
 
-This component owns RouteDeck's shared product-neutral kernel for both adoption
-modes: application specification and compilation contracts, runtime state,
-projections, operations, guards and review, surfaces, typed events, channel
-filtering, validation, and dispatch result models.
+This component owns RouteDeck's product-neutral interaction kernel and the
+framework runtime that supplies every adapter plane. ADR-006 is the controlling
+runtime-ownership decision.
 
 ## Owner Files
 
-- `routedeck_core/app.py`
+- `routedeck_core/app/{compiler,compiler_registry,compiler_validation,route_entries,frontend_contract,executable_paths}.py`
 - `routedeck_core/contracts/*.py`
 - `routedeck_core/state/*.py`
 - `routedeck_core/supervision/*.py`
 - `routedeck_core/navigation/*.py`
 - `routedeck_core/projection/*.py`
+- `routedeck_core/ports/*.py`
+- `routedeck_core/runtime.py`
+- `routedeck_core/runtime_defaults.py`
 - `routedeck_core/__init__.py`
 
 ## Public Interfaces
 
-- Manifest, node, edge, action, field, policy, surface, and runtime models.
-- Runtime projection and operation readiness metadata.
-- Validation helpers for manifest and runtime contracts.
-- Dispatch result and event contracts used by adapters and React consumers.
-- Full Flow application builder/compiler contracts.
-- Core Integration executor and context-provider protocols.
-- Shared event identity, correlation, sequence, visibility, channel, terminal,
-  and replay semantics.
-- Versioned client-contract export derived from the application specification.
-- `RouteDeckSessionAggregate` named actions for canonical state transitions and
-  invariant enforcement.
-- Coordinated backend semantics for atomic state/result/terminal-event commit.
+- `ApplicationSpec`, `FeatureSpec`, `compile_app(...)`, and `bind_app(...)`.
+- Immutable application, session, operation, conversation, event, projection,
+  navigation, surface, review, failure, and retention contracts.
+- `RouteDeckSessionAggregate` named actions for canonical state transitions.
+- `RouteDeckOperationRunner` and `RouteDeckNavigationRunner`.
+- `RouteDeckRuntimeServices`, containing the bound app, store, clock, notifier,
+  ID factory, one runner, navigation over that same runner, and projector.
+- `RouteDeckRuntime`, adding the sensitive codec, session callbacks, optional
+  configured agent driver, and explicit lifecycle.
+- `build_routedeck_runtime(...)`, which constructs the runner once, passes it
+  to navigation, builds the configured projector, then creates the optional
+  driver exactly once after services exist.
 
-The public `RouteDeckOperationRunner` is one product-neutral contract, while
-its implementation is composed from focused lifecycle slices under
-`routedeck_core/supervision/`: request orchestration, recovery, review actions,
-review staging, execution, commits, and result validation. Runtime projection
-builders live in `routedeck_core/runtime_projection.py`; the extensible runtime
-base remains in `routedeck_core/runtime.py`.
+The builder never selects an alternate store, model, notifier, driver, or
+cached result after a supplied dependency fails. `RouteDeckRuntime.close()`
+delegates to its explicit lifecycle.
 
-SQLAlchemy persistence and FastAPI/SSE transport are adjacent adapters with
-their own code-map rows; they do not own canonical state behavior.
+The public compiler and supervision facades orchestrate focused internal
+modules; those modules are not alternate public compilers or runners.
+SQLAlchemy, FastAPI/SSE, LangGraph, and React are adjacent adapters and do not
+own canonical session behavior.
 
 ## Dependent Flows
 
-- Product adapters projecting graph state into RouteDeck state.
-- React package type parity and debugger rendering.
-- LangGraph adapter validation.
-- LangGraph Full Flow compilation and existing-agent executor attachment.
-- Minimal examples and SaaStoAgent integration.
+- `open_sqlalchemy_routedeck_runtime(...)` opens durable resources and calls the
+  core builder fail-closed.
+- `RouteDeckLangGraphDriverFactory` receives the completed runtime services.
+- `create_routedeck_router_from_runtime_provider(...)` derives every HTTP plane
+  from one `RouteDeckRuntime`.
+- Headless and React clients consume the compiled contract and canonical
+  projection/events.
 
 ## Tests And Evidence
 
-- `tests/test_core_contract.py`
-- `tests/test_projection_contract.py`
-- `tests/test_runtime_store_contract.py`
-- `python -m pytest tests -q`
+```powershell
+python -m pytest tests/state/test_runtime_builder.py tests/app tests/state tests/supervision tests/projection tests/navigation -q
+python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
+```
+
+The boundary report must include a passing `runtime_ownership` check; a report
+file is evidence only for the run that produced it.
 
 ## Update Triggers
 
-Update this doc and `architecture/code-map.md` when changing:
-
-- model names, fields, or defaults
-- validation semantics
-- operation readiness metadata
-- projection shape
-- event or dispatch result contracts
-- aggregate action and runtime state lifecycle assumptions
-- Full Flow/Core Integration conformance
-- event envelope, channel filtering, ordering, terminal, or replay behavior
+Update this document and `architecture/code-map.md` when changing the runtime
+containers/builder, compiler facade, canonical contracts, aggregate actions,
+runner/navigation sharing, projection, lifecycle, or adapter-facing ports.

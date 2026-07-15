@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "story_id": "US-04",
+  "title": "Hybrid Cart Management",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "video_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "started_at": "2026-07-15T15:57:36.351Z",
+  "duration_ms": 156654,
+  "outcome": "failed",
+  "error": {
+    "name": "Error",
+    "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 2,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+  },
+  "events": [
+    {
+      "at_ms": 80,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 485,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/contract",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 503,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 404
+      }
+    },
+    {
+      "at_ms": 503,
+      "kind": "console",
+      "detail": {
+        "level": "error",
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    },
+    {
+      "at_ms": 959,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/sessions",
+        "status": 201
+      }
+    },
+    {
+      "at_ms": 960,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1013,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1055,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1145,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/conversation/assistant-turn",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1303,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1304,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1351,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2454,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2455,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 2511,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2557,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2862,
+      "kind": "assertion",
+      "detail": {
+        "name": "viewport",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "at_ms": 4051,
+      "kind": "user",
+      "detail": {
+        "message": "I'd like to browse before deciding. What do you have?"
+      }
+    },
+    {
+      "at_ms": 6723,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 6939,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 6940,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 7082,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9191,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9191,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 9275,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 156522,
+      "kind": "assertion",
+      "detail": {
+        "name": "story_failure",
+        "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 2,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+      }
+    }
+  ],
+  "visible_failures": []
+}

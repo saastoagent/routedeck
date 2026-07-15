@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Self, TypeVar
 
 from sqlalchemy.orm import Session
 
-from routedeck_core.contracts.conversation import (
-    FinalizedConversationTurn,
-)
-from routedeck_core.contracts.events import (
-    RouteDeckEvent,
-    EventPage,
-)
+from routedeck_core.contracts.conversation import FinalizedConversationTurn
+from routedeck_core.contracts.events import EventPage, RouteDeckEvent
 from routedeck_core.contracts.failures import RouteDeckFailure
-from routedeck_core.contracts.mutations import (
-    MutationCommit,
-)
+from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
 from routedeck_core.contracts.session import (
     JournaledExecutionResult,
@@ -27,29 +19,27 @@ from routedeck_core.contracts.session import (
     StoredOperationAttempt,
 )
 from routedeck_core.ports.clock import Clock
+from routedeck_core.ports.codec import SensitiveCodec
 from routedeck_core.state.leases import ExecutionClaim, TurnClaim, TurnLease
 
-from .codec import SensitiveCodec
 from .commits import SqlAlchemyCommitCoordinator
-from .database import DatabaseRuntime, open_database
-from .lease import (
-    ApplicationLease,
-    RouteDeckWorkerConfigurationError,
-    acquire_application_lease,
-)
+from .database import DatabaseRuntime
+from .lease import ApplicationLease
 from .operations import OperationRepository
-from .recovery import recover_abandoned_turn_batch
-from .runtime import SqlAlchemyStoreRuntime, aware_utc
+from .runtime import SqlAlchemyStoreRuntime
 from .sessions import SessionRepository
+from .store_parts.commits import _CommitTransactions
+from .store_parts.events import _EventTransactions
+from .store_parts.lifecycle import _StoreLifecycle
+from .store_parts.maintenance import _MaintenanceTransactions
+from .store_parts.private_forms import _PrivateFormTransactions
+from .store_parts.sessions import _SessionTransactions
+from .store_parts.supervision import _SupervisionTransactions
+from .store_parts.turns import _TurnTransactions
 from .turns import TurnRepository
 
 
 T = TypeVar("T")
-
-
-class UtcClock:
-    def now(self) -> datetime:
-        return datetime.now(timezone.utc)
 
 
 class SqlAlchemySessionStore:
@@ -96,13 +86,55 @@ class SqlAlchemySessionStore:
             operations=self.operations,
         )
 
+        self._lifecycle = _StoreLifecycle(self._runtime)
+        self._session_transactions = _SessionTransactions(
+            lifecycle=self._lifecycle,
+            sessions=self.sessions,
+            operations=self.operations,
+            turns=self.turns,
+        )
+        self._turn_transactions = _TurnTransactions(
+            lifecycle=self._lifecycle,
+            sessions=self.sessions,
+            turns=self.turns,
+        )
+        self._supervision_transactions = _SupervisionTransactions(
+            lifecycle=self._lifecycle,
+            operations=self.operations,
+            commits=self.commits,
+        )
+        self._commit_transactions = _CommitTransactions(
+            lifecycle=self._lifecycle,
+            sessions=self.sessions,
+            turns=self.turns,
+            operations=self.operations,
+            commits=self.commits,
+        )
+        self._event_transactions = _EventTransactions(
+            lifecycle=self._lifecycle,
+            sessions=self.sessions,
+        )
+        self._private_form_transactions = _PrivateFormTransactions(
+            lifecycle=self._lifecycle,
+            codec=self.codec,
+            sessions=self.sessions,
+            turns=self.turns,
+        )
+        self._maintenance_transactions = _MaintenanceTransactions(
+            lifecycle=self._lifecycle,
+            codec=self.codec,
+            retention_policy=self.retention_policy,
+            sessions=self.sessions,
+            turns=self.turns,
+        )
+
     @property
     def dialect_name(self) -> str:
-        return self._runtime.database.dialect_name
+        return self._lifecycle.dialect_name
 
     @property
     def database_url(self) -> str:
-        return self._runtime.database.database_url
+        return self._lifecycle.database_url
 
     @classmethod
     async def open(
@@ -118,87 +150,34 @@ class SqlAlchemySessionStore:
         lease_ttl: timedelta = timedelta(seconds=30),
         expected_navgraph_version: str | None = None,
     ) -> Self:
-        if worker_count != 1:
-            raise RouteDeckWorkerConfigurationError(
-                "RouteDeck SQLAlchemy persistence supports one application worker"
-            )
-        if not isinstance(codec, SensitiveCodec):
-            raise TypeError("SqlAlchemySessionStore requires a SensitiveCodec")
-        if lease_ttl <= timedelta(seconds=3):
-            raise ValueError("lease_ttl must be greater than three seconds")
-        effective_clock = clock or UtcClock()
-        effective_retention = (
-            retention_policy or RouteDeckRetentionPolicy.standalone_default()
-        )
-        now = aware_utc(effective_clock.now())
-
-        def initialize() -> tuple[DatabaseRuntime, ApplicationLease]:
-            database = open_database(database_url, busy_timeout=busy_timeout)
-            try:
-                with database.session_factory() as session, session.begin():
-                    lease = acquire_application_lease(
-                        session,
-                        instance_id=instance_id,
-                        now=now,
-                        ttl=lease_ttl,
-                    )
-                return database, lease
-            except BaseException:
-                database.dispose()
-                raise
-
-        database, lease = await asyncio.to_thread(initialize)
-        store = cls(
-            database=database,
-            instance_lease=lease,
-            instance_lease_ttl=lease_ttl,
+        return await _StoreLifecycle.open_store(
+            cls,
+            database_url,
+            instance_id=instance_id,
             codec=codec,
-            clock=effective_clock,
-            retention_policy=effective_retention,
+            clock=clock,
+            retention_policy=retention_policy,
+            busy_timeout=busy_timeout,
+            worker_count=worker_count,
+            lease_ttl=lease_ttl,
             expected_navgraph_version=expected_navgraph_version,
         )
-        try:
-            await store._recover_abandoned_turns()
-            if effective_retention.cleanup_on_startup:
-                await store.cleanup_expired()
-            store._runtime.start(
-                instance_id=instance_id,
-                cleanup_interval=effective_retention.cleanup_interval,
-                cleanup=store.cleanup_expired,
-            )
-            return store
-        except BaseException:
-            await store.close()
-            raise
 
     async def __aenter__(self) -> Self:
-        self._runtime.ensure_open()
+        self._lifecycle.ensure_open()
         return self
 
     async def __aexit__(self, *_: object) -> None:
         await self.close()
 
     async def close(self) -> None:
-        await self._runtime.close()
+        await self._lifecycle.close()
 
     async def create(self, initial: RouteDeckSession) -> SessionSnapshot:
-        return await self._write(
-            lambda database, now: self.sessions.insert(
-                database,
-                initial,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
-        )
+        return await self._session_transactions.create(initial)
 
     async def load(self, session_id: str) -> SessionSnapshot:
-        return await self._read(
-            lambda database, now: self.sessions.load(
-                database,
-                session_id,
-                now=now,
-            )
-        )
+        return await self._session_transactions.load(session_id)
 
     async def create_for_request(
         self,
@@ -206,15 +185,10 @@ class SqlAlchemySessionStore:
         request_id: str,
         request_fingerprint: str,
     ) -> SessionSnapshot:
-        return await self._write(
-            lambda database, now: self.sessions.create_for_request(
-                database,
-                initial,
-                request_id=request_id,
-                request_fingerprint=request_fingerprint,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
+        return await self._session_transactions.create_for_request(
+            initial,
+            request_id,
+            request_fingerprint,
         )
 
     async def find_attempt(
@@ -222,13 +196,9 @@ class SqlAlchemySessionStore:
         session_id: str,
         request_id: str,
     ) -> StoredOperationAttempt | None:
-        return await self._read(
-            lambda database, now: self.operations.find_attempt(
-                database,
-                session_id=session_id,
-                request_id=request_id,
-                now=now,
-            )
+        return await self._session_transactions.find_attempt(
+            session_id,
+            request_id,
         )
 
     async def find_review(
@@ -236,38 +206,23 @@ class SqlAlchemySessionStore:
         session_id: str,
         review_id: str,
     ) -> PendingReview | None:
-        return await self._read(
-            lambda database, now: self.operations.find_review(
-                database,
-                session_id=session_id,
-                review_id=review_id,
-                now=now,
-            )
+        return await self._session_transactions.find_review(
+            session_id,
+            review_id,
         )
 
     async def find_mutation(
         self,
         session_id: str,
         request_id: str,
-    ):
-        return await self._read(
-            lambda database, now: self.turns.find_mutation(
-                database,
-                session_id=session_id,
-                request_id=request_id,
-                now=now,
-            )
+    ) -> MutationRecord | None:
+        return await self._session_transactions.find_mutation(
+            session_id,
+            request_id,
         )
 
     async def acquire_turn(self, claim: TurnClaim) -> TurnLease:
-        return await self._write(
-            lambda database, now: self.turns.acquire(
-                database,
-                claim,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
-        )
+        return await self._turn_transactions.acquire_turn(claim)
 
     async def start_turn(
         self,
@@ -275,25 +230,11 @@ class SqlAlchemySessionStore:
         next_state: RouteDeckSession,
         events: Sequence[RouteDeckEvent],
     ) -> TurnLease:
-        def start(database: Session, now: datetime) -> TurnLease:
-            lease = self.turns.acquire(
-                database,
-                claim,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
-            self.sessions.commit(
-                database,
-                session_id=claim.session_id,
-                expected_session_version=claim.expected_session_version,
-                next_state=next_state,
-                events=events,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
-            return lease
-
-        return await self._write(start)
+        return await self._turn_transactions.start_turn(
+            claim,
+            next_state,
+            events,
+        )
 
     async def claim_child_attempt(
         self,
@@ -301,15 +242,10 @@ class SqlAlchemySessionStore:
         request_id: str,
         request_fingerprint: str,
     ) -> None:
-        await self._write(
-            lambda database, now: self.turns.claim_child(
-                database,
-                lease,
-                request_id=request_id,
-                request_fingerprint=request_fingerprint,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
+        await self._turn_transactions.claim_child_attempt(
+            lease,
+            request_id,
+            request_fingerprint,
         )
 
     async def release_child_attempt(
@@ -317,13 +253,9 @@ class SqlAlchemySessionStore:
         lease: TurnLease,
         request_id: str,
     ) -> None:
-        await self._write(
-            lambda database, _now: self.turns.release_child(
-                database,
-                lease,
-                request_id=request_id,
-                application_lease=self._runtime.application_lease,
-            )
+        await self._turn_transactions.release_child_attempt(
+            lease,
+            request_id,
         )
 
     async def stage_review(
@@ -335,16 +267,13 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         parent_mutation: MutationCommit | None = None,
     ) -> SessionSnapshot:
-        if record.review is None:
-            raise ValueError("stage_review requires a review record")
-        return await self.commits.with_lease(
+        return await self._supervision_transactions.stage_review(
             lease,
             expected_session_version,
+            record,
             next_state,
             events,
-            record=record,
-            journal_phase="review_staged",
-            mutation=parent_mutation,
+            parent_mutation,
         )
 
     async def claim_execution(
@@ -352,14 +281,9 @@ class SqlAlchemySessionStore:
         lease: TurnLease,
         record: StoredOperationAttempt,
     ) -> ExecutionClaim:
-        return await self._write(
-            lambda database, now: self.operations.claim_execution(
-                database,
-                lease,
-                record,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
+        return await self._supervision_transactions.claim_execution(
+            lease,
+            record,
         )
 
     async def recover_execution_claim(
@@ -367,14 +291,9 @@ class SqlAlchemySessionStore:
         lease: TurnLease,
         attempt_id: str,
     ) -> ExecutionClaim:
-        return await self._write(
-            lambda database, now: self.operations.recover_execution_claim(
-                database,
-                lease,
-                attempt_id,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
+        return await self._supervision_transactions.recover_execution_claim(
+            lease,
+            attempt_id,
         )
 
     async def record_execution_result(
@@ -383,15 +302,10 @@ class SqlAlchemySessionStore:
         result: JournaledExecutionResult,
         record: StoredOperationAttempt,
     ) -> None:
-        await self._write(
-            lambda database, now: self.operations.record_execution_result(
-                database,
-                claim,
-                result,
-                record,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
+        await self._supervision_transactions.record_execution_result(
+            claim,
+            result,
+            record,
         )
 
     async def record_execution_started(
@@ -399,14 +313,9 @@ class SqlAlchemySessionStore:
         claim: ExecutionClaim,
         record: StoredOperationAttempt,
     ) -> None:
-        await self._write(
-            lambda database, now: self.operations.record_execution_started(
-                database,
-                claim,
-                record,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
+        await self._supervision_transactions.record_execution_started(
+            claim,
+            record,
         )
 
     async def commit_state(
@@ -417,12 +326,12 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
-        return await self.commits.with_lease(
+        return await self._commit_transactions.commit_state(
             lease,
             expected_session_version,
             next_state,
             events,
-            mutation=mutation,
+            mutation,
         )
 
     async def finalize_turn(
@@ -434,44 +343,14 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
-        finalized = tuple(turns)
-        if not finalized or any(
-            turn.request_id != lease.request_id for turn in finalized
-        ):
-            raise ValueError("finalized turns must belong to their turn lease")
-
-        def finalize(database: Session, now: datetime) -> SessionSnapshot:
-            self.turns.require_lease(
-                database,
-                lease,
-                application_lease=self._runtime.application_lease,
-            )
-            self.turns.require_no_active_child(database, lease.session_id)
-            snapshot = self.sessions.commit(
-                database,
-                session_id=lease.session_id,
-                expected_session_version=expected_session_version,
-                next_state=next_state,
-                events=events,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
-            self.turns.record_mutation(
-                database,
-                lease,
-                mutation,
-                snapshot,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
-            self.turns.delete_lease(
-                database,
-                lease,
-                application_lease=self._runtime.application_lease,
-            )
-            return snapshot
-
-        return await self._write(finalize)
+        return await self._commit_transactions.finalize_turn(
+            lease,
+            expected_session_version,
+            next_state,
+            turns,
+            events,
+            mutation,
+        )
 
     async def interrupt_turn(
         self,
@@ -482,41 +361,14 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
-        if failure.request_id not in {None, lease.request_id}:
-            raise ValueError("turn failure belongs to another request")
-
-        def interrupt(database: Session, now: datetime) -> SessionSnapshot:
-            self.turns.require_lease(
-                database,
-                lease,
-                application_lease=self._runtime.application_lease,
-            )
-            self.turns.require_no_active_child(database, lease.session_id)
-            snapshot = self.sessions.commit(
-                database,
-                session_id=lease.session_id,
-                expected_session_version=expected_session_version,
-                next_state=next_state,
-                events=events,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
-            self.turns.record_mutation(
-                database,
-                lease,
-                mutation,
-                snapshot,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
-            self.turns.delete_lease(
-                database,
-                lease,
-                application_lease=self._runtime.application_lease,
-            )
-            return snapshot
-
-        return await self._write(interrupt)
+        return await self._commit_transactions.interrupt_turn(
+            lease,
+            expected_session_version,
+            next_state,
+            failure,
+            events,
+            mutation,
+        )
 
     async def commit_attempt(
         self,
@@ -526,14 +378,12 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
-        return await self.commits.with_claim(
+        return await self._commit_transactions.commit_attempt(
             claim,
             expected_session_version,
             next_state,
             events,
             record,
-            journal_phase="state_committed",
-            complete_session=self.operations.record_completes_session(record),
         )
 
     async def commit_supervision(
@@ -544,13 +394,12 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         record: StoredOperationAttempt,
     ) -> SessionSnapshot:
-        return await self.commits.with_lease(
+        return await self._commit_transactions.commit_supervision(
             lease,
             expected_session_version,
             next_state,
             events,
-            record=record,
-            journal_phase="supervision_committed",
+            record,
         )
 
     async def mark_external_outcome_unknown(
@@ -561,19 +410,16 @@ class SqlAlchemySessionStore:
         next_state: RouteDeckSession,
         events: Sequence[RouteDeckEvent],
     ) -> SessionSnapshot:
-        return await self.commits.with_claim(
+        return await self._commit_transactions.mark_external_outcome_unknown(
             claim,
             expected_session_version,
+            record,
             next_state,
             events,
-            record,
-            journal_phase="external_outcome_unknown",
         )
 
     async def release_turn(self, lease: TurnLease) -> None:
-        await self._write(
-            lambda database, _now: self.commits.release_turn(database, lease)
-        )
+        await self._commit_transactions.release_turn(lease)
 
     async def events_after(
         self,
@@ -581,18 +427,10 @@ class SqlAlchemySessionStore:
         cursor: int,
         limit: int,
     ) -> EventPage:
-        if cursor < 0:
-            raise ValueError("event cursor must be non-negative")
-        if limit <= 0 or limit > 1_000:
-            raise ValueError("event page limit must be between 1 and 1000")
-        return await self._read(
-            lambda database, now: self.sessions.events_after(
-                database,
-                session_id=session_id,
-                cursor=cursor,
-                limit=limit,
-                now=now,
-            )
+        return await self._event_transactions.events_after(
+            session_id,
+            cursor,
+            limit,
         )
 
     async def load_private_blob(
@@ -600,13 +438,9 @@ class SqlAlchemySessionStore:
         session_id: str,
         form_id: str,
     ) -> bytes | None:
-        return await self._read(
-            lambda database, now: self.sessions.load_private_blob(
-                database,
-                session_id=session_id,
-                form_id=form_id,
-                now=now,
-            )
+        return await self._private_form_transactions.load_private_blob(
+            session_id,
+            form_id,
         )
 
     async def save_private_blob(
@@ -619,81 +453,43 @@ class SqlAlchemySessionStore:
         events: Sequence[RouteDeckEvent],
         mutation: MutationCommit,
     ) -> SessionSnapshot:
-        if not form_id:
-            raise ValueError("form_id is required")
-        self.codec.decrypt(encrypted_value)
-
-        def save(database: Session, now: datetime) -> SessionSnapshot:
-            self.turns.require_lease(
-                database,
-                lease,
-                application_lease=self._runtime.application_lease,
-            )
-            snapshot = self.sessions.commit(
-                database,
-                session_id=lease.session_id,
-                expected_session_version=expected_session_version,
-                next_state=next_state,
-                events=events,
-                now=now,
-                lease=self._runtime.application_lease,
-            )
-            self.sessions.put_private_blob(
-                database,
-                session_id=lease.session_id,
-                form_id=form_id,
-                encrypted_value=encrypted_value,
-                now=now,
-            )
-            self.turns.record_mutation(
-                database,
-                lease,
-                mutation,
-                snapshot,
-                now=now,
-                application_lease=self._runtime.application_lease,
-            )
-            return snapshot
-
-        return await self._write(save)
-
-    async def cleanup_expired(self) -> int:
-        return await self._write(
-            lambda database, now: self.sessions.cleanup_expired(database, now=now)
+        return await self._private_form_transactions.save_private_blob(
+            lease,
+            expected_session_version,
+            form_id,
+            encrypted_value,
+            next_state,
+            events,
+            mutation,
         )
 
+    async def cleanup_expired(self) -> int:
+        return await self._maintenance_transactions.cleanup_expired()
+
     async def _recover_abandoned_turns(self) -> None:
-        while True:
-            recovered = await self._write(self._recover_abandoned_turn_batch)
-            if recovered < self.retention_policy.cleanup_batch_size:
-                return
+        await self._maintenance_transactions.recover_abandoned_turns()
 
     def _recover_abandoned_turn_batch(
         self,
         database: Session,
         now: datetime,
     ) -> int:
-        return recover_abandoned_turn_batch(
+        return self._maintenance_transactions.recover_abandoned_turn_batch(
             database,
             now,
-            sessions=self.sessions,
-            turns=self.turns,
-            codec=self.codec,
-            retention_policy=self.retention_policy,
-            application_lease=self._runtime.application_lease,
         )
 
     async def _write(
         self,
         operation: Callable[[Session, datetime], T],
     ) -> T:
-        return await self._runtime.write(operation)
+        return await self._lifecycle.write(operation)
 
     async def _read(
         self,
         operation: Callable[[Session, datetime], T],
     ) -> T:
-        return await self._runtime.write(operation)
+        return await self._lifecycle.read(operation)
 
 
-__all__ = ["SqlAlchemySessionStore", "UtcClock"]
+__all__ = ["SqlAlchemySessionStore"]

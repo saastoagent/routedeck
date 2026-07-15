@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
-
 from cryptography.fernet import Fernet, InvalidToken
 
 
@@ -15,13 +13,6 @@ class InvalidEncryptionKey(ValueError):
 
 class SensitiveDataIntegrityError(RuntimeError):
     pass
-
-
-@runtime_checkable
-class SensitiveCodec(Protocol):
-    def encrypt(self, value: bytes) -> bytes: ...
-
-    def decrypt(self, value: bytes) -> bytes: ...
 
 
 class FernetSensitiveCodec:
@@ -58,6 +49,5 @@ __all__ = [
     "FernetSensitiveCodec",
     "InvalidEncryptionKey",
     "MissingEncryptionKey",
-    "SensitiveCodec",
     "SensitiveDataIntegrityError",
 ]

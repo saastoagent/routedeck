@@ -13,7 +13,6 @@ from uuid import uuid4
 import pytest
 
 from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.runtime_factory import open_persistent_medusa_runtime
 from medusa_agent.config import Settings
 from medusa_agent.medusa.client import HttpMedusaStoreClient
 from medusa_agent.session import BuyerMarket
@@ -51,6 +50,7 @@ from routedeck_core.supervision.guards import (
 )
 from routedeck_langgraph import build_model_context
 from routedeck_sqlalchemy import FernetSensitiveCodec
+from support.runtime import open_test_runtime
 from medusa_agent.medusa.client.models import (
     MedusaClientFailure,
     MedusaClientFailureKind,
@@ -243,7 +243,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
     clock = _SystemClock()
     session_id = f"delivery-flow-{uuid4().hex}"
     database_path = tmp_path / "delivery-flow.sqlite"
-    runtime = await open_persistent_medusa_runtime(
+    runtime = await open_test_runtime(
         database_url=f"sqlite+pysqlite:///{database_path.as_posix()}",
         encryption_key=settings.routedeck_state_encryption_key.get_secret_value(),
         instance_id=f"delivery-flow-instance-{uuid4().hex}",
@@ -264,7 +264,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
     private_address = "47 Encrypted Avenue"
     private_phone = "+45 1234 5678"
     try:
-        created = await runtime.create_session()
+        initial = runtime.session_factory(runtime.services.app.app, session_id)
+        created = await runtime.services.store.create(initial)
+        created = await runtime.session_initializer(runtime.services, created)
         private_cart_id = next(
             binding.private_id
             for binding in created.state.private_state.entity_bindings
@@ -272,7 +274,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         )
 
         await _run(runtime, "catalog.list", "delivery-catalog-list")
-        snapshot = await runtime.load_session()
+        snapshot = await runtime.services.store.load(session_id)
         product_ref = next(
             entity.handle
             for entity in snapshot.state.public_state.entity_handles
@@ -284,7 +286,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             "delivery-product-open",
             {"product_ref": product_ref},
         )
-        snapshot = await runtime.load_session()
+        snapshot = await runtime.services.store.load(session_id)
         variant_ref = next(
             entity.handle
             for entity in snapshot.state.public_state.entity_handles
@@ -299,9 +301,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         await _run(runtime, "cart.open", "delivery-cart-open")
         await _run(runtime, "checkout.start", "delivery-checkout-start")
 
-        contact_snapshot = await runtime.load_session()
+        contact_snapshot = await runtime.services.store.load(session_id)
         contact_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(contact_snapshot.state)
         contact_props = _public_values(contact_projection.surfaces.active.props)
@@ -348,14 +350,14 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         )
         assert private_email not in save_request.model_dump_json()
         assert private_address not in save_request.model_dump_json()
-        saved = await runtime.runner.run(save_request)
+        saved = await runtime.services.runner.run(save_request)
         assert saved.disposition is OperationDisposition.COMPLETED, saved
         assert client.calls.count("set_checkout_contact") == 1
         assert client.calls.count("list_shipping_options") == 1
 
-        delivery_snapshot = await runtime.load_session()
+        delivery_snapshot = await runtime.services.store.load(session_id)
         delivery_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(delivery_snapshot.state)
         delivery_props = _public_values(delivery_projection.surfaces.active.props)
@@ -374,9 +376,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert client.calls.count("list_shipping_options") == 2
         assert client.calls.count("set_shipping_option") == 1
 
-        final_snapshot = await runtime.load_session()
+        final_snapshot = await runtime.services.store.load(session_id)
         final_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(final_snapshot.state)
         assert final_projection.current.node_id == "checkout.payment"
@@ -385,11 +387,11 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             for capability in final_snapshot.state.private_state.resume_capabilities
             if capability.node_id == "checkout.payment"
         )
-        reopen_url = runtime.app.app.routes.encode(
+        reopen_url = runtime.services.app.app.routes.encode(
             "checkout.payment",
             {"resume_handle": current_resume.handle},
         )
-        reopened = runtime.app.app.routes.decode(
+        reopened = runtime.services.app.app.routes.decode(
             reopen_url,
             RouteSessionContext(
                 guest_session_id=session_id,
@@ -428,9 +430,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert payment_selected.disposition is OperationDisposition.COMPLETED
         assert client.calls.count("initialize_payment") == 1
 
-        review_snapshot = await runtime.load_session()
+        review_snapshot = await runtime.services.store.load(session_id)
         review_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(review_snapshot.state)
         assert review_projection.current.node_id == "checkout.review"
@@ -441,7 +443,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert order_review_props["billing_complete"] is True
         assert order_review_props["payment_label"] == ("System / manual demo payment")
 
-        proposed = await runtime.runner.run(
+        proposed = await runtime.services.runner.run(
             await _request(
                 runtime,
                 "checkout.place_order",
@@ -451,16 +453,16 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert proposed.disposition is OperationDisposition.REQUIRES_REVIEW
         assert proposed.review is not None
         assert client.calls.count("complete_cart") == 0
-        pending_snapshot = await runtime.load_session()
+        pending_snapshot = await runtime.services.store.load(session_id)
         pending_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(pending_snapshot.state)
         pending_props = _public_values(pending_projection.surfaces.review[0].props)
         assert pending_props["state"] == "pending"
         assert pending_props["review_id"] == proposed.review.id
 
-        placed = await runtime.runner.accept_review(
+        placed = await runtime.services.runner.accept_review(
             proposed.review.id,
             "delivery-place-accept",
             pending_snapshot.session_version,
@@ -470,9 +472,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert client.calls.count("complete_cart") == 1
         assert client.calls.count("get_order") == 1
 
-        recovery_snapshot = await runtime.load_session()
+        recovery_snapshot = await runtime.services.store.load(session_id)
         recovery_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(recovery_snapshot.state)
         recovery_surface = next(
@@ -498,9 +500,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert client.calls.count("complete_cart") == 1
         assert client.calls.count("get_order") == 2
 
-        confirmation_snapshot = await runtime.load_session()
+        confirmation_snapshot = await runtime.services.store.load(session_id)
         confirmation_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(confirmation_snapshot.state)
         assert confirmation_projection.current.node_id == "orders.confirmation"
@@ -525,7 +527,10 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             for binding in confirmation_snapshot.state.private_state.entity_bindings
         )
         assert confirmation_snapshot.state.private_state.drafts == ()
-        assert await runtime.store.load_private_blob(session_id, form_handle) is None
+        assert (
+            await runtime.services.store.load_private_blob(session_id, form_handle)
+            is None
+        )
 
         continued = await _run(
             runtime,
@@ -533,9 +538,9 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             "delivery-continue-shopping",
         )
         assert continued.disposition is OperationDisposition.COMPLETED
-        continued_snapshot = await runtime.load_session()
+        continued_snapshot = await runtime.services.store.load(session_id)
         continued_projection = ProjectionProjector(
-            runtime.app.app,
+            runtime.services.app.app,
             now=clock.now(),
         ).project(continued_snapshot.state)
         assert continued_projection.current.node_id == "catalog.browse"
@@ -546,7 +551,10 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             for binding in continued_snapshot.state.private_state.entity_bindings
         )
 
-        model_context = build_model_context(continued_snapshot, runtime.app)
+        model_context = build_model_context(
+            continued_snapshot,
+            runtime.services.app,
+        )
         combined_public = "\n".join(
             (
                 contact_projection.model_dump_json(),
@@ -573,7 +581,10 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             assert private_value not in combined_public
             assert private_value.encode("utf-8") not in database_path.read_bytes()
 
-        stored = await runtime.store.find_attempt(session_id, "delivery-contact-save")
+        stored = await runtime.services.store.find_attempt(
+            session_id,
+            "delivery-contact-save",
+        )
         assert stored is not None
         assert private_email not in stored.model_dump_json()
         assert private_address not in stored.model_dump_json()
@@ -587,7 +598,9 @@ async def _save_private_form(
     form_handle: str,
     value: dict[str, Any],
 ) -> None:
-    snapshot = await runtime.load_session()
+    snapshot = await runtime.services.store.load(
+        runtime.services.runner.default_session_id
+    )
     draft = PrivateDraft(
         form_id=form_handle,
         field_names=tuple(sorted(value)),
@@ -609,7 +622,7 @@ async def _save_private_form(
     codec = FernetSensitiveCodec(
         settings.routedeck_state_encryption_key.get_secret_value()
     )
-    lease = await runtime.store.acquire_turn(
+    lease = await runtime.services.store.acquire_turn(
         TurnClaim(
             session_id=snapshot.session_id,
             expected_session_version=snapshot.session_version,
@@ -619,7 +632,7 @@ async def _save_private_form(
         )
     )
     try:
-        await runtime.store.save_private_blob(
+        await runtime.services.store.save_private_blob(
             lease,
             snapshot.session_version,
             form_handle,
@@ -637,7 +650,7 @@ async def _save_private_form(
             ),
         )
     finally:
-        await runtime.store.release_turn(lease)
+        await runtime.services.store.release_turn(lease)
 
 
 async def _request(
@@ -646,7 +659,9 @@ async def _request(
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> OperationRequest:
-    snapshot = await runtime.load_session()
+    snapshot = await runtime.services.store.load(
+        runtime.services.runner.default_session_id
+    )
     return OperationRequest(
         session_id=snapshot.session_id,
         request_id=request_id,
@@ -663,7 +678,7 @@ async def _run(
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> Any:
-    result = await runtime.runner.run(
+    result = await runtime.services.runner.run(
         await _request(runtime, operation_id, request_id, arguments)
     )
     assert result.disposition is OperationDisposition.COMPLETED, result

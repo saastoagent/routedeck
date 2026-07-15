@@ -29,7 +29,6 @@ from medusa_agent.medusa.client.models import (
 from medusa_agent.session import (
     BuyerMarket,
     create_medusa_session,
-    project_medusa_session,
 )
 from routedeck_core.contracts.operations import (
     DeliveryPhase,
@@ -42,7 +41,7 @@ from routedeck_core.contracts.session import Location, LocationParameter
 from routedeck_core.supervision.guards import ProviderInvocationContext
 from routedeck_core.navigation import NavigationIntent, NavigationRequest
 from support.medusa import RecordingMedusaStoreClient
-from support.runtime import build_test_medusa_runtime
+from support.runtime import build_test_runtime
 
 
 @dataclass
@@ -101,7 +100,7 @@ def _product(handle: str) -> Product:
 @pytest.mark.asyncio
 async def test_open_product_by_route_hydrates_exact_product_detail() -> None:
     client = _client(ProductResult.succeeded(_product("linen-shirt")))
-    runtime = build_test_medusa_runtime(
+    runtime = build_test_runtime(
         client=client,
         market=_market(),
         initial_location=Location(
@@ -112,7 +111,7 @@ async def test_open_product_by_route_hydrates_exact_product_detail() -> None:
         ),
     )
 
-    result = await runtime.runner.run(
+    result = await runtime.services.runner.run(
         OperationRequest(
             session_id="session-1",
             request_id="route-product-1",
@@ -125,11 +124,11 @@ async def test_open_product_by_route_hydrates_exact_product_detail() -> None:
 
     assert result.disposition is OperationDisposition.COMPLETED
     assert client.calls == ["get_product:linen-shirt:private-region-route"]
-    session = (await runtime.store.load("session-1")).state
+    session = (await runtime.services.store.load("session-1")).state
     assert {
         parameter.name: parameter.value for parameter in session.current.route_params
     } == {"product_handle": "linen-shirt"}, session.operation.journaled_result
-    projection = project_medusa_session(session)
+    projection = runtime.services.projector.project(session)
     detail = projection.surfaces.active
     assert detail is not None
     assert detail.surface_id == "catalog.product_detail"
@@ -157,7 +156,7 @@ async def test_open_product_by_route_hydrates_exact_product_detail() -> None:
 @pytest.mark.asyncio
 async def test_fresh_product_path_runs_declared_entry_and_commits_history() -> None:
     client = _client(ProductResult.succeeded(_product("linen-shirt")))
-    runtime = build_test_medusa_runtime(
+    runtime = build_test_runtime(
         client=client,
         market=_market(),
         initial_location=Location(node_id="buyer.home"),
@@ -172,8 +171,8 @@ async def test_fresh_product_path_runs_declared_entry_and_commits_history() -> N
             path="/products/linen-shirt",
         ),
     )
-    snapshot = await runtime.navigation.navigate(request)
-    replay = await runtime.navigation.navigate(request)
+    snapshot = await runtime.services.navigation.navigate(request)
+    replay = await runtime.services.navigation.navigate(request)
 
     assert client.calls == ["get_product:linen-shirt:private-region-route"]
     assert replay == snapshot
@@ -220,7 +219,12 @@ async def test_open_product_by_route_fails_loudly_for_invalid_lookup(
     message: str,
 ) -> None:
     client = _client(product_result)
-    session = create_medusa_session(session_id="session-1", market=_market())
+    runtime = build_test_runtime(client=client, market=_market())
+    session = create_medusa_session(
+        app=runtime.services.app.app,
+        session_id="session-1",
+        market=_market(),
+    )
     request = OperationRequest(
         session_id=session.session_id,
         request_id="route-product-invalid",

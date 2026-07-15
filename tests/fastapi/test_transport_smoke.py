@@ -7,10 +7,17 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
+from routedeck_core.app import (
+    ApplicationSpec,
+    BoundRouteDeckApp,
+    FeatureBindings,
+    FeatureSpec,
+    compile_app,
+)
 from routedeck_core.contracts.application import NodeSpec
 from routedeck_core.contracts.events import (
     RouteDeckEvent,
@@ -43,11 +50,22 @@ from routedeck_core.contracts.session import (
     SessionSnapshot,
 )
 from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
-from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
+from routedeck_core.navigation import RouteDeckNavigationRunner
+from routedeck_core.ports import (
+    RouteDeckAgentDriver,
+    SessionStoreError,
+    SessionStoreErrorCode,
+)
 from routedeck_core.projection import ProjectionProjector
+from routedeck_core.runtime import RouteDeckRuntime, RouteDeckRuntimeServices
 from routedeck_core.state import create_session
 from routedeck_core.state.leases import TurnClaim, TurnLease
-from routedeck_fastapi import RouteDeckDependencies, SseSettings
+from routedeck_fastapi import (
+    RouteDeckDependencies,
+    SameOriginMutationPolicy,
+    SseSettings,
+    create_routedeck_router_from_runtime_provider,
+)
 
 
 BACKEND_ROOT = (
@@ -310,6 +328,7 @@ def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunne
 
     def session_factory(session_id: str) -> RouteDeckSession:
         return create_medusa_session(
+            app=compiled,
             session_id=session_id,
             market=BuyerMarket(
                 region_handle="region-public",
@@ -332,9 +351,88 @@ def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunne
     return dependencies, store, runner
 
 
-def test_complete_generic_transport_and_medusa_mount_smoke() -> None:
+@dataclass
+class _SmokeRuntimeLifecycle:
+    async def close(self) -> None:
+        return None
+
+
+def _runtime_from_dependencies(
+    dependencies: RouteDeckDependencies,
+    *,
+    agent_driver: RouteDeckAgentDriver | None = None,
+) -> RouteDeckRuntime:
+    bound_app = BoundRouteDeckApp(
+        app=dependencies.app,
+        bindings=FeatureBindings(handlers={}, providers={}, guards={}),
+    )
+    navigation = dependencies.navigation or RouteDeckNavigationRunner(
+        app=bound_app,
+        store=dependencies.store,
+        operation_runner=dependencies.runner,
+        clock=dependencies.runner.clock,
+        notifier=dependencies.notifier,
+        id_factory=dependencies.runner.id_factory,
+        public_key_validator_factory=lambda _session: None,
+    )
+    services = RouteDeckRuntimeServices(
+        app=bound_app,
+        store=dependencies.store,
+        clock=dependencies.runner.clock,
+        notifier=dependencies.notifier,
+        id_factory=dependencies.runner.id_factory,
+        runner=dependencies.runner,
+        navigation=navigation,  # type: ignore[arg-type]
+        projector=dependencies.projector,  # type: ignore[arg-type]
+    )
+
+    def session_factory(_app, session_id: str):
+        return dependencies.session_factory(session_id)
+
+    def session_initializer(_services, snapshot: SessionSnapshot):
+        initializer = dependencies.session_initializer
+        return snapshot if initializer is None else initializer(snapshot)
+
+    return RouteDeckRuntime(
+        services=services,
+        private_form_codec=dependencies.private_form_codec,
+        session_factory=session_factory,
+        session_initializer=session_initializer,
+        agent_driver=agent_driver or dependencies.agent_driver,
+        lifecycle=_SmokeRuntimeLifecycle(),
+    )
+
+
+def _test_transport_app(
+    dependencies: RouteDeckDependencies,
+    *,
+    agent_driver: RouteDeckAgentDriver | None = None,
+) -> FastAPI:
+    runtime = _runtime_from_dependencies(
+        dependencies,
+        agent_driver=agent_driver,
+    )
+    application = FastAPI()
+    application.include_router(
+        create_routedeck_router_from_runtime_provider(
+            lambda _request: runtime,
+            mutation_policy=SameOriginMutationPolicy(
+                trusted_origins=frozenset(
+                    {
+                        "http://127.0.0.1:5198",
+                        "http://localhost:5198",
+                    }
+                )
+            ),
+            sse=dependencies.sse,
+        )
+    )
+    return application
+
+
+def test_complete_generic_transport_smoke() -> None:
     dependencies, store, runner = _smoke_dependencies()
-    client = TestClient(create_medusa_app(routedeck=dependencies))
+    client = TestClient(_test_transport_app(dependencies))
 
     created = client.post(
         "/api/routedeck/sessions",
@@ -417,12 +515,9 @@ def test_complete_generic_transport_and_medusa_mount_smoke() -> None:
     ] == [1, 2]
     assert session_cookie not in replay.text
 
-    assert client.get("/api/medusa-agent/health").json() == {"status": "ok"}
-
-
 def test_mutation_transport_rejects_simple_cross_origin_and_non_json_requests() -> None:
     text_dependencies, text_store, _runner = _smoke_dependencies()
-    text_client = TestClient(create_medusa_app(routedeck=text_dependencies))
+    text_client = TestClient(_test_transport_app(text_dependencies))
 
     text_plain = text_client.post(
         "/api/routedeck/sessions",
@@ -437,7 +532,7 @@ def test_mutation_transport_rejects_simple_cross_origin_and_non_json_requests() 
     assert text_store.session is None
 
     origin_dependencies, origin_store, _runner = _smoke_dependencies()
-    origin_client = TestClient(create_medusa_app(routedeck=origin_dependencies))
+    origin_client = TestClient(_test_transport_app(origin_dependencies))
     untrusted_origin = origin_client.post(
         "/api/routedeck/sessions",
         json={"request_id": "csrf-same-site"},
@@ -451,7 +546,7 @@ def test_mutation_transport_rejects_simple_cross_origin_and_non_json_requests() 
     assert origin_store.session is None
 
     trusted_dependencies, trusted_store, _runner = _smoke_dependencies()
-    trusted_client = TestClient(create_medusa_app(routedeck=trusted_dependencies))
+    trusted_client = TestClient(_test_transport_app(trusted_dependencies))
     trusted_origin = trusted_client.post(
         "/api/routedeck/sessions",
         json={"request_id": "trusted-local-frontend"},
@@ -480,8 +575,10 @@ def test_readiness_checks_runtime_store_agent_and_medusa_probe() -> None:
     probe = _SmokeReadinessProbe()
     client = TestClient(
         create_medusa_app(
-            routedeck=dependencies,
-            agent=_SmokeAgent(),
+            runtime=_runtime_from_dependencies(
+                dependencies,
+                agent_driver=_SmokeAgent(),
+            ),
             readiness=probe,
         )
     )
@@ -493,10 +590,27 @@ def test_readiness_checks_runtime_store_agent_and_medusa_probe() -> None:
     assert probe.calls == ["routedeck_store", "medusa"]
 
 
+def test_readiness_fails_closed_when_runtime_has_no_agent_driver() -> None:
+    dependencies, _, _ = _smoke_dependencies()
+    probe = _SmokeReadinessProbe()
+    client = TestClient(
+        create_medusa_app(
+            runtime=_runtime_from_dependencies(dependencies),
+            readiness=probe,
+        )
+    )
+
+    response = client.get("/api/medusa-agent/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+    assert probe.calls == []
+
+
 class _SmokeAgent:
-    async def astream_events(self, *_args, **_kwargs):
+    async def stream(self, *_args, **_kwargs):
         if False:
-            yield {}
+            yield None
 
 
 @dataclass
@@ -520,6 +634,7 @@ def test_session_initializer_failure_never_returns_a_usable_session() -> None:
 
     def session_factory(session_id: str) -> RouteDeckSession:
         return create_medusa_session(
+            app=compiled,
             session_id=session_id,
             market=BuyerMarket(
                 region_handle="region-public",
@@ -544,7 +659,7 @@ def test_session_initializer_failure_never_returns_a_usable_session() -> None:
         session_initializer=fail_initializer,
         sse=SseSettings(follow=False),
     )
-    client = TestClient(create_medusa_app(routedeck=dependencies))
+    client = TestClient(_test_transport_app(dependencies))
 
     failed = client.post(
         "/api/routedeck/sessions",
@@ -765,7 +880,7 @@ def _private_form_transport() -> tuple[TestClient, SmokeStore]:
         session_factory=session_factory,
         sse=SseSettings(follow=False),
     )
-    client = TestClient(create_medusa_app(routedeck=dependencies))
+    client = TestClient(_test_transport_app(dependencies))
     created = client.post(
         "/api/routedeck/sessions",
         json={"request_id": "create-session-private-form"},

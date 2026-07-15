@@ -18,7 +18,9 @@ from routedeck_core.contracts.session import PrivateDraft, SessionSnapshot
 from routedeck_core.contracts.surfaces import PrivateFormBindingSpec
 
 from .contracts import PrivateFormWriteRequest, RouteDeckHttpProblem
-from .dependencies import RouteDeckDependencies, SensitiveCodec
+from routedeck_core.ports import SensitiveCodec
+
+from .dependencies import RouteDeckDependencies
 from .responses import PRIVATE_CACHE_CONTROL
 from .session_http import project
 

@@ -24,9 +24,9 @@ from routedeck_core.contracts.mutations import (
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
+from routedeck_core.ports import SensitiveCodec
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 
-from .codec import SensitiveCodec
 from .lease import ApplicationLease
 from .models import ActiveChildAttemptRow, TurnLeaseRow
 from .serialization import deserialize_session

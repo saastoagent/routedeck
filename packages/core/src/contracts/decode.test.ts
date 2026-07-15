@@ -27,6 +27,19 @@ it("accepts virtual snapshot revision zero but rejects saved revision zero", () 
   ).toThrow(/\$privateFormSaved\.revision/);
 });
 
+it("keeps strict decoder failures on the canonical contract barrel", () => {
+  expect(() =>
+    decodePrivateFormSnapshot({
+      form_id: "form-public-1",
+      revision: 0,
+      complete: false,
+      session_version: 1,
+      value: {},
+      undeclared: true,
+    }),
+  ).toThrow(/\$privateForm\.undeclared/);
+});
+
 it("decodes a conversation-only projection with supervised suggested actions", () => {
   const projection = decodeProjection({
     current: { node_id: "buyer.home", route_params: [] },

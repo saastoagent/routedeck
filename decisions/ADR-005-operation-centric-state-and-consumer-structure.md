@@ -1,7 +1,17 @@
 # ADR-005: RouteDeck Uses Named State Actions And Operation-Centric Consumers
 
-Status: Accepted
+Status: Accepted; runtime-assembly clause partially superseded by ADR-006
 Date: 2026-07-12
+
+## Supersession Note
+
+ADR-006 partially supersedes only the Decision clause stating that Medusa's
+`runtime_factory.py` assembles RouteDeck runtime infrastructure. That clause is
+preserved below as a historical record of the structure accepted on
+2026-07-12, but it is no longer the controlling ownership boundary. RouteDeck
+now owns generic runtime assembly, generic conversation driving, and typed
+assistant initiation/presentation. All other decisions in this ADR remain
+accepted.
 
 ## Context
 

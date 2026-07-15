@@ -5,11 +5,12 @@ product declares its nodes, routes, operations, providers, guards, surfaces,
 and transitions; RouteDeck compiles those declarations into one authoritative
 backend contract and one typed frontend contract.
 
-The framework owns session state, durable supervision, review, projection,
-events, private-form transport, deep links, exact history, and React state
-synchronization. The consuming application owns product behavior: prompts,
-models, API clients, domain validation, side effects, copy, and visual
-components.
+The framework owns runtime assembly, session state, durable supervision,
+review, projection, events, private-form transport, deep links, exact history,
+generic user/assistant conversation driving, and React state synchronization.
+The consuming application owns product behavior: declarations and bindings,
+prompts, models and graph topology, API clients, domain validation, side
+effects, market facts, readiness, copy, and visual components.
 
 The standalone app in [`examples/medusa-agent`](examples/medusa-agent/README.md)
 is the reference consumer. It implements a real local Medusa guest-buyer flow
@@ -18,19 +19,24 @@ without putting commerce code in RouteDeck.
 ## Packages
 
 - `routedeck_core` - immutable application contracts, compilation, canonical
-  sessions, operation supervision, projection, navigation, and ports.
+  sessions, operation supervision, projection, navigation, ports, and the
+  framework-owned runtime/services builder.
 - `routedeck_sqlalchemy` - fenced SQLAlchemy ORM persistence for SQLite and
-  PostgreSQL, durable events, private blobs, and sensitive-data encryption.
-- `routedeck_fastapi` - generic `/api/routedeck/*` session, dispatch,
-  navigation, review, private-form, inspection, and SSE transport.
-- `routedeck_langgraph` - optional middleware and tool wrapping for an
-  application-owned LangGraph agent.
+  PostgreSQL, durable events, private blobs, sensitive-data encryption, and a
+  fail-closed runtime opener.
+- `routedeck_fastapi` - one runtime-derived `/api/routedeck/*` session,
+  conversation, assistant-turn, dispatch, navigation, review, private-form,
+  inspection, and SSE transport.
+- `routedeck_langgraph` - optional generic graph driver, conversation
+  extraction, middleware, and tool wrapping over application-owned graphs.
 - `routedeck_testing` - Python conformance helpers and explicitly test-only
   scripted models.
-- `@routedeck/core` - generated contracts, HTTP/SSE client, authoritative
-  client store, route codec, browser-history adapter, and private-form state.
+- `@routedeck/core` - generated contracts, user/assistant conversation and
+  HTTP/SSE clients, authoritative client store, route codec, browser-history
+  adapter, and private-form state.
 - `@routedeck/react` - provider, hooks, surface host, navigation, review,
-  private-form, status, and inspector primitives.
+  private-form, status, inspector primitives, and named conversation
+  presentation actions.
 - `@routedeck/testing` - frontend harnesses and factories for tests.
 
 ## Boundary
@@ -44,9 +50,16 @@ payments, or orders. The Medusa app keeps those concerns in:
   models, delivery evidence, and sanitized failures;
 - `medusa_agent/composition.py` for the declarative cross-feature app spec;
 - `medusa_agent/bindings.py` for product dependency injection;
-- `medusa_agent/runtime_factory.py` for RouteDeck runner and persistence
-  assembly;
+- `medusa_agent/agent.py` for product prompts, models, and graph construction;
+- `medusa_agent/session.py` for buyer market/session callbacks;
+- `medusa_agent/runtime.py` for strict product configuration passed into the
+  framework runtime opener;
 - product-owned React components under `frontend/src/features`.
+
+Medusa does not construct generic runners, navigation, persistence resources,
+FastAPI dependency bundles, or a LangGraph event driver. Its host supplies one
+`RouteDeckRuntime` through `create_routedeck_router_from_runtime_provider(...)`
+and mounts only product health/readiness beside the generic route plane.
 
 Every UI affordance and agent tool reaches the same
 `RouteDeckOperationRunner`. The browser never calls the Medusa Store API
@@ -132,12 +145,20 @@ model/tool orchestration layer. RouteDeck exports no topology builder because
 creating a second graph from the navgraph would introduce a second state
 authority.
 
-RouteDeck also owns the conversation controller and browser lifecycle:
-`POST /api/routedeck/chat` wraps an injected product agent driver with the
-durable turn lease, replay, persistence, SSE protocol, and authoritative
-interaction handshake. A product driver translates its model runtime into
-typed text/reset/review/completion events; it does not own HTTP or session
-commits.
+RouteDeck also owns the generic graph driver, conversation controller, and
+browser lifecycle. A product graph factory supplies explicit `user_message`
+and `assistant_initiated` LangGraph streams through
+`RouteDeckLangGraphGraphs`; `RouteDeckLangGraphDriverFactory` constructs the
+framework driver after runtime services exist. `POST /api/routedeck/chat` and
+`POST /api/routedeck/conversation/assistant-turn` share one durable turn lease,
+fingerprint, replay, persistence, cancellation, SSE, and interaction handshake.
+The assistant path sends no synthetic `HumanMessage`, emits no `user_message`
+frame, and rejects tools or review output.
+
+In the browser, `createRouteDeckAgentClient(...)` exposes both stream methods.
+React's presentation layer uses named methods for snapshot restore, user
+messages, assistant deltas/finalization, review, completion, and failure; it is
+not a second canonical RouteDeck store or a public reducer API.
 
 Install the optional integration with the other local framework packages:
 
@@ -189,7 +210,11 @@ proof boundaries. Generated contracts live under `artifacts/contracts`; they
 are outputs of the contract exporter, not hand-authored application state.
 
 Architecture ownership is mapped in
-[`architecture/code-map.md`](architecture/code-map.md). The active decision
-chain is [ADR-004](decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
-to the approved
-[design](docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md).
+[`architecture/code-map.md`](architecture/code-map.md). The controlling runtime
+decision is
+[ADR-006](decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md),
+with [ADR-005](decisions/ADR-005-operation-centric-state-and-consumer-structure.md)
+retaining its non-superseded structural decisions and
+[ADR-004](decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
+retaining scope and local-execution authority. Completed plans remain
+historical records.

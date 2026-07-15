@@ -1,7 +1,9 @@
 # Using RouteDeck For Agents, Humans, And Product Developers
 
 Status: Practical usage guide
-Date: 2026-07-10
+Date: 2026-07-15
+Authority: ADR-006 for runtime ownership; ADR-005 remains active where ADR-006
+does not supersede it.
 
 RouteDeck is a full-stack framework for robust agentic applications, with an
 embeddable state and interaction runtime for existing agents. It lets a product
@@ -23,21 +25,22 @@ For the printable preview version, open
 ## Short Version
 
 ```text
-Product graph owns truth.
-RouteDeck owns the generic runtime, projection, navigation, dispatch, and diagnostics contract.
-Product adapters translate graph state into RouteDeck runtime state.
-Product UI and product agents consume RouteDeck state and dispatch typed operations.
-Product services execute domain work.
+RouteDeck owns canonical interaction/session truth and the generic runtime.
+The product supplies declarations, bindings, callbacks, graphs/models, and domain adapters.
+RouteDeck drives typed user and assistant turns and supervises every operation.
+Product UI renders RouteDeck projection through headless/React clients.
+Product services remain the authority for domain data and side effects.
 ```
 
 ## Who Uses RouteDeck
 
 RouteDeck has two developer adoption modes and three runtime audiences:
 
-- Full Flow developers declare an app and let RouteDeck compile and run the
-  LangGraph-backed backend, event, SSE, projection, and React state path.
+- Full Flow developers declare and bind an app, provide session and optional
+  product-graph factories, and let RouteDeck assemble the runtime, durable
+  store, supervision, HTTP/SSE, projection, and React state path.
 - Core Integration developers keep an existing agent or custom graph and attach
-  it to the same RouteDeck kernel through an executor adapter.
+  it to the same RouteDeck runtime through typed graph/tool adapters.
 
 - human operators use product UI rendered from RouteDeck projections
 - product agents use product-facing RouteDeck context to choose typed operations
@@ -263,36 +266,43 @@ app = bind_app(
 
 `compile_app` validates the complete declaration. `bind_app` then requires the
 exact async handler, provider, and guard references: missing and extra bindings
-are startup errors. The composition root injects the session store, executor,
-clock, notifier, and ID factory into `RouteDeckOperationRunner`, then mounts the
-generic FastAPI router. See the Medusa app's `composition.py`, `bindings.py`,
-`runtime_factory.py`, and `runtime.py` for the working end-to-end composition.
+are startup errors. The product composition root passes that compiled/bound
+application, session callbacks, graph factory, and explicit configuration to a
+RouteDeck runtime opener. RouteDeck constructs the store/codec resources, one
+operation runner, navigation over that same runner, projection, notifier, and
+optional generic driver. See the Medusa app's `composition.py`, `bindings.py`,
+`session.py`, `agent.py`, and `runtime.py` for the working composition.
 
 ### Core Integration
 
-Use Core Integration when execution already exists. Keep the product graph,
-model, and tool topology; inject an `OperationExecutor` implementation into the
-same `RouteDeckOperationRunner`:
+Use Core Integration when a product graph already exists. Keep the product
+graph, model, and tool topology, but supply the graph set through the generic
+driver factory and open one RouteDeck runtime:
 
 ```python
-runner = RouteDeckOperationRunner(
-    app=bound_app,
-    store=session_store,
-    executor=existing_operation_executor,
-    clock=clock,
-    notifier=notifier,
-    id_factory=id_factory,
+runtime = await open_sqlalchemy_routedeck_runtime(
+    compiled_app=compiled,
+    application_factory=bind_application,
+    session_factory=create_product_session,
+    session_initializer=initialize_product_session,
+    public_key_validator_factory=public_key_validator,
+    agent_driver_factory=RouteDeckLangGraphDriverFactory(
+        graph_factory=create_product_graphs,
+    ),
+    database_url=database_url,
+    encryption_key=encryption_key,
+    instance_id=instance_id,
     review_ttl=review_ttl,
     resume_capability_ttl=resume_ttl,
     default_session_id=default_session_id,
 )
 ```
 
-The executor receives only an already validated `OperationBinding`, typed
-arguments, and `ExecutionContext`. It does not redefine RouteDeck operations,
-guards, events, surfaces, projections, or store semantics. A LangGraph product
-normally keeps its own `create_agent(...)` graph and uses
-`RouteDeckMiddleware` plus `RouteDeckToolWrapper` to enter this runner.
+The application factory binds product handlers/providers/guards over the
+opened durable resources. A LangGraph product keeps its own `create_agent(...)`
+graph and uses `RouteDeckMiddleware` plus `RouteDeckToolWrapper`; product code
+does not construct a runner, navigation runner, persistence runtime, FastAPI
+dependency bundle, or `RouteDeckLangGraphAgentDriver`.
 
 ### Runtime Contract
 
@@ -317,6 +327,9 @@ The reference FastAPI adapter exposes a distinct generic API plane:
 GET  /api/routedeck/contract
 POST /api/routedeck/sessions
 GET  /api/routedeck/session
+GET  /api/routedeck/conversation
+POST /api/routedeck/chat
+POST /api/routedeck/conversation/assistant-turn
 POST /api/routedeck/navigation
 POST /api/routedeck/dispatch
 POST /api/routedeck/reviews/{review_id}/accept
@@ -327,13 +340,14 @@ PUT  /api/routedeck/private-forms/{form_id}
 GET  /api/routedeck/inspect
 ```
 
-Product auth dependencies remain injected. RouteDeck owns route mechanics and
-schemas; product-specific checkout, tenancy, billing, or provider semantics
-remain in product handlers. Product-owned endpoints such as agent chat live on
-a separate product API plane.
+Product auth dependencies remain injected. RouteDeck owns route mechanics,
+schemas, user/assistant conversation transport, and SSE lifecycle;
+product-specific checkout, tenancy, billing, provider semantics, prompts, and
+models remain product-owned. A host mounts every generic plane once with
+`create_routedeck_router_from_runtime_provider(...)`.
 
 `POST /api/routedeck/sessions` takes `{"request_id":"..."}`. Dispatch,
-navigation, reviews, private-form saves, and product chat likewise carry a
+navigation, reviews, private-form saves, user chat, and assistant turns carry a
 caller-owned globally unique request ID; versioned mutations also carry the
 current expected session version. If delivery becomes outcome-unknown, retain
 the exact ID and payload and require an explicit retry or abandon decision.
@@ -357,9 +371,17 @@ const store = createRouteDeckStore({
 ```
 
 The store loads the versioned client contract derived from the backend
-application specification. Product frontend code registers React components by
+application specification. `createRouteDeckAgentClient(...)` separately loads
+canonical conversation and exposes `stream(...)` plus
+`streamAssistantTurn(...)`. Product frontend code registers React components by
 declared component key; it does not repeat nodes, flows, operations, or surface
 policy.
+
+`@routedeck/react` keeps rendered conversation state behind named presentation
+methods such as snapshot restore, user-message display, assistant append/reset/
+finalize, review, completion, and failure. Network iteration, cancellation,
+retained exact requests, retry, discard, and resync stay in
+`useRouteDeckConversation`. Neither layer replaces `RouteDeckObservableState`.
 
 Mount once:
 
@@ -391,18 +413,22 @@ RouteDeck owns:
 - projection helpers
 - navigation state contract
 - dispatch result contract
+- runtime/services assembly and explicit lifecycle
+- generic LangGraph event translation and conversation extraction
+- user-chat and assistant-initiated transport/replay/failure semantics
 - React store and hooks
 - generic diagnostics and debugger primitives
 - validation helpers
 
-Product graph owns:
+Product application owns:
 
 - node catalog for the product
 - operation handlers
 - transition rules
 - domain guard logic
 - auth and tenancy semantics
-- persistence
+- domain persistence and product service APIs
+- graph topology, prompts, models, and model selection
 - product services
 - side effects
 - domain recovery
@@ -425,6 +451,7 @@ Product agent owns:
 - asking product-safe clarifying questions
 - resolving user-facing fields
 - applying public/private safety policy
+- supplying the product user-message and no-tool assistant-initiation graphs
 
 RouteDeck must not own:
 

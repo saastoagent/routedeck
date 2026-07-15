@@ -73,6 +73,69 @@ async def test_release_client_measures_completion_and_independent_reread(
     assert '"transport_kind":"injected"' in trace
 
 
+@pytest.mark.asyncio
+async def test_mock_transport_contract_routes_catalog_and_checkout_resources(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, str, dict[str, str]]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(
+            (request.method, request.url.path, dict(request.url.params))
+        )
+        assert request.headers["x-publishable-api-key"] == "pk_test_private"
+        if request.url.path == "/store/regions":
+            return httpx.Response(
+                200,
+                json={
+                    "regions": [
+                        {
+                            "id": "reg_private_1234567890123456",
+                            "name": "United States",
+                            "currency_code": "usd",
+                            "countries": [],
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/store/shipping-options":
+            return httpx.Response(
+                200,
+                json={
+                    "shipping_options": [
+                        {
+                            "id": "so_private_1234567890123456",
+                            "name": "Standard",
+                            "price_type": "flat",
+                            "amount": 500,
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"Unexpected Store request: {request.url.path}")
+
+    client = HttpMedusaStoreClient(
+        _settings(tmp_path),
+        transport=httpx.MockTransport(handler),
+    )
+
+    regions = await client.list_regions()
+    shipping = await client.list_shipping_options(
+        "cart_private_1234567890123456"
+    )
+
+    assert regions.failure is None
+    assert shipping.failure is None
+    assert calls == [
+        ("GET", "/store/regions", {}),
+        (
+            "GET",
+            "/store/shipping-options",
+            {"cart_id": "cart_private_1234567890123456"},
+        ),
+    ]
+
+
 def _settings(tmp_path: Path) -> Settings:
     return Settings.model_validate(
         {

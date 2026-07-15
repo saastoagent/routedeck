@@ -62,10 +62,11 @@ REQUIRED_BOUNDARY_CHECKS = (
     "handler_client_port",
     "browser_network",
     "product_transport_separation",
-    "shared_runner",
+    "runtime_ownership",
     "source_policy_scan",
     "architectural_review",
 )
+BOUNDARY_REPORT_SCHEMA_VERSION = 3
 
 _SENSITIVE_KEYS = frozenset(
     {
@@ -377,6 +378,40 @@ def _load_ndjson_objects(path: Path) -> list[Mapping[str, Any]]:
     return rows
 
 
+def _validate_boundary_report(boundary: Mapping[str, Any]) -> None:
+    if boundary.get("schema_version") != BOUNDARY_REPORT_SCHEMA_VERSION:
+        raise IncompleteReleaseEvidence(
+            "Boundary evidence must use schema version "
+            f"{BOUNDARY_REPORT_SCHEMA_VERSION}"
+        )
+    checks = boundary.get("checks")
+    if not isinstance(checks, list) or not all(
+        isinstance(check, dict) for check in checks
+    ):
+        raise IncompleteReleaseEvidence("Boundary evidence has no valid checks list")
+    check_names = tuple(check.get("name") for check in checks)
+    if check_names != REQUIRED_BOUNDARY_CHECKS:
+        raise IncompleteReleaseEvidence(
+            "Boundary evidence check inventory or order drifted from schema version "
+            f"{BOUNDARY_REPORT_SCHEMA_VERSION}"
+        )
+    if (
+        boundary.get("status") != "pass"
+        or type(boundary.get("violation_count")) is not int
+        or boundary.get("violation_count") != 0
+        or any(
+            check.get("status") != "pass"
+            or check.get("violations") != []
+            or not isinstance(check.get("evidence"), dict)
+            or not check["evidence"]
+            for check in checks
+        )
+    ):
+        raise IncompleteReleaseEvidence(
+            "Boundary evidence is incomplete or failing"
+        )
+
+
 def _validate_semantic_evidence(bundle: Path) -> None:
     command_rows = _load_ndjson_objects(bundle / "commands.jsonl")
     required_command_order = (
@@ -417,20 +452,7 @@ def _validate_semantic_evidence(bundle: Path) -> None:
         )
 
     boundary = _load_json_object(bundle / "contracts" / "boundary-report.json")
-    checks = boundary.get("checks")
-    if not isinstance(checks, list):
-        raise IncompleteReleaseEvidence("Boundary evidence has no checks list")
-    check_names = {check.get("name") for check in checks if isinstance(check, dict)}
-    missing_checks = sorted(set(REQUIRED_BOUNDARY_CHECKS).difference(check_names))
-    if (
-        boundary.get("status") != "pass"
-        or boundary.get("violation_count") != 0
-        or missing_checks
-    ):
-        raise IncompleteReleaseEvidence(
-            "Boundary evidence is incomplete or failing"
-            + (f": missing {', '.join(missing_checks)}" if missing_checks else "")
-        )
+    _validate_boundary_report(boundary)
 
     network = _load_json_object(bundle / "browser" / "network-boundary.json")
     network_events = _load_ndjson_objects(bundle / "browser" / "network-events.ndjson")

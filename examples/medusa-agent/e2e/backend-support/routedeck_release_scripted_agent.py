@@ -3,8 +3,9 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage
 
 from medusa_agent.agent import create_medusa_agent, create_medusa_entry_agent
-from medusa_agent.composition import MedusaRuntime
-from routedeck_langgraph import operation_tool_name
+from medusa_agent.turn_policy import TURN_POLICY_EVENT_TAG
+from routedeck_core import RouteDeckRuntimeServices
+from routedeck_langgraph import RouteDeckLangGraphGraphs, operation_tool_name
 from routedeck_testing import ScriptedTextModel, ScriptedToolModel, tool_call
 
 
@@ -13,32 +14,34 @@ class _ActionTurnPolicy:
         return "action"
 
 
-def create_scripted_test_agent(*, runtime: MedusaRuntime) -> object:
-    """Build the bounded script used only by the local browser release gate."""
+def create_scripted_test_graphs(
+    *,
+    runtime: RouteDeckRuntimeServices,
+) -> RouteDeckLangGraphGraphs:
+    """Build the complete graph set used only by the local browser release gate."""
 
-    model = ScriptedToolModel(
-        (
-            tool_call(
-                operation_tool_name("catalog.list"),
-                {},
-                call_id="release-scripted-catalog-list",
-            ),
-            AIMessage(content="The available products are open."),
-        )
-    )
-    return create_medusa_agent(
-        model=model,
+    user_message = create_medusa_agent(
+        model=ScriptedToolModel(
+            (
+                tool_call(
+                    operation_tool_name("catalog.list"),
+                    {},
+                    call_id="release-scripted-catalog-list",
+                ),
+                AIMessage(content="The available products are open."),
+            )
+        ),
         runtime=runtime,
         turn_policy=_ActionTurnPolicy(),
     )
-
-
-def create_scripted_test_entry_agent() -> object:
-    """Create a deterministic test-only home-entry agent for release probes."""
-
-    return create_medusa_entry_agent(
-        model=ScriptedTextModel("Hi — how can I help you shop today?")
+    assistant_initiated = create_medusa_entry_agent(
+        model=ScriptedTextModel("Hi \N{EM DASH} how can I help you shop today?")
+    )
+    return RouteDeckLangGraphGraphs(
+        user_message=user_message,
+        assistant_initiated=assistant_initiated,
+        ignored_event_tags=frozenset({TURN_POLICY_EVENT_TAG}),
     )
 
 
-__all__ = ["create_scripted_test_agent", "create_scripted_test_entry_agent"]
+__all__ = ["create_scripted_test_graphs"]

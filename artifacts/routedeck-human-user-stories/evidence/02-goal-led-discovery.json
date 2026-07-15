@@ -1,0 +1,346 @@
+{
+  "schema_version": 1,
+  "story_id": "US-02",
+  "title": "Goal-Led Discovery and Clarification",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "video_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "started_at": "2026-07-15T15:53:23.718Z",
+  "duration_ms": 46105,
+  "outcome": "failed",
+  "error": {
+    "name": "Error",
+    "message": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('link', { name: 'Medusa T-Shirt', exact: true })\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('link', { name: 'Medusa T-Shirt', exact: true })\u001b[22m\n\u001b[2m    43 × locator resolved to 0 elements\u001b[22m\n\u001b[2m       - unexpected value \"0\"\u001b[22m\n"
+  },
+  "events": [
+    {
+      "at_ms": 59,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 472,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/contract",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 490,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 404
+      }
+    },
+    {
+      "at_ms": 490,
+      "kind": "console",
+      "detail": {
+        "level": "error",
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    },
+    {
+      "at_ms": 900,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/sessions",
+        "status": 201
+      }
+    },
+    {
+      "at_ms": 901,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 951,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 992,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1089,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/conversation/assistant-turn",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1243,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1244,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1290,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2558,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2558,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 2602,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2681,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 2867,
+      "kind": "assertion",
+      "detail": {
+        "name": "viewport",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "at_ms": 4054,
+      "kind": "user",
+      "detail": {
+        "message": "I'm after something comfortable for a relaxed weekend, but I'm not sure what. Can you help me narrow it down?"
+      }
+    },
+    {
+      "at_ms": 9083,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9284,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 9285,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 9370,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 11591,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 11592,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 11739,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 12154,
+      "kind": "assistant",
+      "detail": {
+        "message": "BUYER ASSISTANT\n\nAbsolutely—I can help narrow it down quickly. 😊 1) **What do you mean by “comfortable” for your weekend?** - lounge set / sweats - soft tees & hoodies - comfy dress / matching set - athleisure (light support, easy stretch) 2) **Where will you wear it most?** - mostly at home - errands / coffee runs - travel (long days, easy layers) 3) **Fit preference:** relaxed, regular, or slightly fitted? 4) **Fabric vibe:** cotton, fleece, knit/stretch, or “anything soft”? 5) **Budget range** (roughly per item or total): ? Answer those (even briefly), and I’ll suggest a few best directions to browse."
+      }
+    },
+    {
+      "at_ms": 13383,
+      "kind": "user",
+      "detail": {
+        "message": "Could you show me the available options?"
+      }
+    },
+    {
+      "at_ms": 15326,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 15532,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 15532,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 15600,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 22232,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 22235,
+      "kind": "route",
+      "detail": {
+        "path": "/products"
+      }
+    },
+    {
+      "at_ms": 22339,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 24107,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 24108,
+      "kind": "route",
+      "detail": {
+        "path": "/products"
+      }
+    },
+    {
+      "at_ms": 24239,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 24598,
+      "kind": "assistant",
+      "detail": {
+        "message": "BUYER ASSISTANT\n\nSure! Here are the available weekend-comfort options currently in the catalog grid (all **€10** each): - **Medusa T-Shirt** — 8 variants (product handle: t-shirt) - **Medusa Shorts** — 4 variants (product handle: shorts) - **Medusa Sweatpants** — 4 variants (product handle: sweatpants) - **Medusa Sweatshirt** — 4 variants (product handle: sweatshirt) Want to build a set (e.g., **t-shirt + shorts** or **sweatshirt + sweatpants**) or are you looking for one standout piece? If you tell me which direction, I can open the details for that item."
+      }
+    },
+    {
+      "at_ms": 45938,
+      "kind": "assertion",
+      "detail": {
+        "name": "story_failure",
+        "message": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('link', { name: 'Medusa T-Shirt', exact: true })\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('link', { name: 'Medusa T-Shirt', exact: true })\u001b[22m\n\u001b[2m    43 × locator resolved to 0 elements\u001b[22m\n\u001b[2m       - unexpected value \"0\"\u001b[22m\n"
+      }
+    }
+  ],
+  "visible_failures": []
+}

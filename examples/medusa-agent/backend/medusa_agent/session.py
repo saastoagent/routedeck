@@ -1,23 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.app import CompiledRouteDeckApp
-from routedeck_core.contracts.projection import FrozenJson, PublicProjection
+from routedeck_core.contracts.operations import (
+    OperationDisposition,
+    OperationRequest,
+    OperationSource,
+)
+from routedeck_core.contracts.projection import FrozenJson
 from routedeck_core.contracts.session import (
     PrivateConfiguration,
     PrivateFieldValue,
     PrivateSessionState,
     RouteDeckSession,
+    SessionSnapshot,
 )
-from routedeck_core.projection.projector import ProjectionProjector
-from routedeck_core.ports import Clock
+from routedeck_core.runtime import RouteDeckRuntimeServices
 from routedeck_core.state.session import create_session
 
-from .composition import compile_medusa_app_spec
-from .features.catalog import CatalogRouteKeyValidator
+from .features.cart import CART_CREATE
+from .identifiers import MedusaOutcomeType
+from .request_ids import initial_cart_request_id
 
 
 class BuyerMarket(BaseModel):
@@ -31,29 +35,14 @@ class BuyerMarket(BaseModel):
     sales_channel_handle: str = Field(min_length=1)
 
 
-@dataclass(frozen=True)
-class MedusaSessionProjector:
-    """Project live sessions with product route keys and an injected clock."""
-
-    app: CompiledRouteDeckApp
-    clock: Clock
-
-    def project(self, session: RouteDeckSession) -> PublicProjection:
-        return ProjectionProjector(
-            self.app,
-            public_key_validator=CatalogRouteKeyValidator.from_session(session),
-            now=self.clock.now(),
-        ).project(session)
-
-
 def create_medusa_session(
     *,
+    app: CompiledRouteDeckApp,
     session_id: str,
     market: BuyerMarket,
 ) -> RouteDeckSession:
     """Create the canonical RouteDeck state for the compiled Medusa graph."""
 
-    app = compile_medusa_app_spec()
     private_market = PrivateConfiguration(
         namespace="medusa.buyer_market",
         fields=(
@@ -82,18 +71,33 @@ def create_medusa_session(
     )
 
 
-def project_medusa_session(session: RouteDeckSession) -> PublicProjection:
-    """Project with exact product handles observed by the catalog vertical."""
+async def initialize_medusa_session(
+    services: RouteDeckRuntimeServices,
+    created: SessionSnapshot,
+) -> SessionSnapshot:
+    """Journal the one real cart creation required for a new buyer session."""
 
-    return ProjectionProjector(
-        compile_medusa_app_spec(),
-        public_key_validator=CatalogRouteKeyValidator.from_session(session),
-    ).project(session)
+    result = await services.runner.run(
+        OperationRequest(
+            session_id=created.session_id,
+            request_id=initial_cart_request_id(created.session_id),
+            expected_session_version=created.session_version,
+            operation_id=CART_CREATE.id,
+            source=OperationSource.SYSTEM,
+        )
+    )
+    if (
+        result.disposition is not OperationDisposition.COMPLETED
+        or result.outcome != MedusaOutcomeType.CREATED
+    ):
+        raise RuntimeError(
+            "Medusa session initialization did not prove cart creation."
+        )
+    return await services.store.load(created.session_id)
 
 
 __all__ = [
     "BuyerMarket",
-    "MedusaSessionProjector",
     "create_medusa_session",
-    "project_medusa_session",
+    "initialize_medusa_session",
 ]

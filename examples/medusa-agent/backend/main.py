@@ -7,22 +7,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from medusa_agent.api import MedusaAgentReadinessProbe, health_router
-from medusa_agent.agent_driver import AgentEventStream, MedusaLangGraphAgentDriver
-from medusa_agent.api.entry import (
-    MedusaEntryDependencies,
-    create_medusa_entry_router,
-)
 from medusa_agent.runtime import (
     LiveMedusaApplication,
     open_live_medusa_application,
 )
+from routedeck_core import RouteDeckRuntime
 from routedeck_fastapi import (
-    RouteDeckConversationDependencies,
-    RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
     SameOriginMutationPolicy,
-    create_routedeck_conversation_router,
-    create_routedeck_router_from_provider,
+    create_routedeck_router_from_runtime_provider,
 )
 
 
@@ -32,37 +25,16 @@ _DEFAULT_BROWSER_ORIGINS = (
 )
 
 
-async def _routedeck_dependencies(request: Request) -> RouteDeckDependencies:
-    dependencies = getattr(request.app.state, "routedeck_dependencies", None)
-    if not isinstance(dependencies, RouteDeckDependencies):
+async def _routedeck_runtime(request: Request) -> RouteDeckRuntime:
+    runtime = getattr(request.app.state, "routedeck_runtime", None)
+    if not isinstance(runtime, RouteDeckRuntime):
         raise RouteDeckDependencyUnavailable("RouteDeck runtime is not configured")
-    return dependencies
-
-
-async def _conversation_dependencies(
-    request: Request,
-) -> RouteDeckConversationDependencies:
-    routedeck = await _routedeck_dependencies(request)
-    driver = getattr(request.app.state, "routedeck_agent_driver", None)
-    return RouteDeckConversationDependencies(
-        routedeck=routedeck,
-        agent=(driver if isinstance(driver, MedusaLangGraphAgentDriver) else None),
-    )
-
-
-async def _entry_dependencies(request: Request) -> MedusaEntryDependencies:
-    routedeck = await _routedeck_dependencies(request)
-    agent = getattr(request.app.state, "medusa_entry_agent", None)
-    if agent is None or not callable(getattr(agent, "ainvoke", None)):
-        raise RouteDeckDependencyUnavailable("Medusa entry agent is not configured")
-    return MedusaEntryDependencies(routedeck=routedeck, agent=agent)
+    return runtime
 
 
 def create_medusa_app(
     *,
-    routedeck: RouteDeckDependencies | None = None,
-    agent: AgentEventStream | None = None,
-    entry_agent: object | None = None,
+    runtime: RouteDeckRuntime | None = None,
     readiness: MedusaAgentReadinessProbe | None = None,
     live_runtime_factory: (
         Callable[[], Awaitable[LiveMedusaApplication]] | None
@@ -72,10 +44,7 @@ def create_medusa_app(
     """Compose product APIs with the generic RouteDeck transport exactly once."""
 
     if live_runtime_factory is not None and (
-        routedeck is not None
-        or agent is not None
-        or entry_agent is not None
-        or readiness is not None
+        runtime is not None or readiness is not None
     ):
         raise ValueError(
             "Live runtime composition cannot be combined with injected ports"
@@ -88,13 +57,7 @@ def create_medusa_app(
             else _live_lifespan(live_runtime_factory)
         ),
     )
-    application.state.routedeck_dependencies = routedeck
-    application.state.routedeck_agent_driver = (
-        None
-        if routedeck is None or agent is None
-        else MedusaLangGraphAgentDriver(agent=agent, runner=routedeck.runner)
-    )
-    application.state.medusa_entry_agent = entry_agent
+    application.state.routedeck_runtime = runtime
     application.state.medusa_readiness = readiness
     trusted_browser_origins = frozenset(browser_origins)
     mutation_policy = SameOriginMutationPolicy(trusted_origins=trusted_browser_origins)
@@ -106,18 +69,11 @@ def create_medusa_app(
         allow_headers=["*"],
     )
     application.include_router(
-        create_routedeck_router_from_provider(
-            _routedeck_dependencies,
+        create_routedeck_router_from_runtime_provider(
+            _routedeck_runtime,
             mutation_policy=mutation_policy,
         )
     )
-    application.include_router(
-        create_routedeck_conversation_router(
-            _conversation_dependencies,
-            mutation_policy=mutation_policy,
-        )
-    )
-    application.include_router(create_medusa_entry_router(_entry_dependencies))
     application.include_router(health_router)
     return application
 
@@ -128,24 +84,13 @@ def _live_lifespan(
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         live = await factory()
-        application.state.routedeck_dependencies = live.routedeck
-        application.state.routedeck_agent_driver = (
-            None
-            if live.agent is None
-            else MedusaLangGraphAgentDriver(
-                agent=live.agent,
-                runner=live.routedeck.runner,
-            )
-        )
-        application.state.medusa_entry_agent = live.entry_agent
-        application.state.medusa_readiness = live.readiness
-        application.state.medusa_live_runtime = live
         try:
+            application.state.routedeck_runtime = live.runtime
+            application.state.medusa_readiness = live.readiness
+            application.state.medusa_live_runtime = live
             yield
         finally:
-            application.state.routedeck_dependencies = None
-            application.state.routedeck_agent_driver = None
-            application.state.medusa_entry_agent = None
+            application.state.routedeck_runtime = None
             application.state.medusa_readiness = None
             application.state.medusa_live_runtime = None
             await live.close()

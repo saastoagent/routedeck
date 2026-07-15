@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -99,3 +100,35 @@ def test_import_scan_fails_loudly_for_missing_package() -> None:
             package="missing_routedeck_package",
             forbidden=CORE_FORBIDDEN_IMPORTS,
         )
+
+
+def test_runtime_ownership_proof_uses_ast_constructor_and_identity_flow() -> None:
+    from scripts.check_boundaries import (
+        _assigned_constructor_calls,
+        _keyword_expression,
+        _tree_attribute_chains,
+    )
+
+    tree = ast.parse(
+        "\n".join(
+            (
+                '# RouteDeckOperationRunner(operation_runner="not code")',
+                'DOCUMENTATION = "dependencies.runner.dispatch"',
+                "runner = RouteDeckOperationRunner(app=app)",
+                "navigation = RouteDeckNavigationRunner(operation_runner=runner)",
+                "result = dependencies.runner.dispatch(request)",
+            )
+        )
+    )
+
+    runner_calls = _assigned_constructor_calls(tree, "RouteDeckOperationRunner")
+    navigation_calls = _assigned_constructor_calls(
+        tree, "RouteDeckNavigationRunner"
+    )
+
+    assert len(runner_calls) == 1
+    assert runner_calls[0][1] == "runner"
+    assert len(navigation_calls) == 1
+    assert navigation_calls[0][1] == "navigation"
+    assert _keyword_expression(navigation_calls[0][2], "operation_runner") == "runner"
+    assert "dependencies.runner.dispatch" in _tree_attribute_chains(tree)

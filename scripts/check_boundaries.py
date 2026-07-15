@@ -29,10 +29,11 @@ REQUIRED_CHECK_NAMES = (
     "handler_client_port",
     "browser_network",
     "product_transport_separation",
-    "shared_runner",
+    "runtime_ownership",
     "source_policy_scan",
     "architectural_review",
 )
+BOUNDARY_REPORT_SCHEMA_VERSION = 3
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CORE_ROOT = Path("routedeck_core")
@@ -47,8 +48,45 @@ PRODUCT_MAIN = Path("examples/medusa-agent/backend/main.py")
 FEATURE_ROOT = PRODUCT_BACKEND_ROOT / "features"
 HTTP_ADAPTER = PRODUCT_BACKEND_ROOT / "medusa/client/http.py"
 HTTP_TRANSPORT = PRODUCT_BACKEND_ROOT / "medusa/client/transport.py"
+MEDUSA_RESOURCE_ROOT = PRODUCT_BACKEND_ROOT / "medusa/client/resources"
+STORE_RESOURCE_OWNERS = (
+    MEDUSA_RESOURCE_ROOT / "catalog.py",
+    MEDUSA_RESOURCE_ROOT / "cart.py",
+    MEDUSA_RESOURCE_ROOT / "checkout.py",
+    MEDUSA_RESOURCE_ROOT / "orders.py",
+)
+STORE_ENDPOINT_OWNERS = (*STORE_RESOURCE_OWNERS, HTTP_TRANSPORT)
+HTTP_CLIENT_OWNERS = (
+    HTTP_ADAPTER,
+    HTTP_TRANSPORT,
+    MEDUSA_RESOURCE_ROOT / "base.py",
+)
 CLIENT_PROTOCOL = PRODUCT_BACKEND_ROOT / "medusa/client/protocol.py"
 PRODUCT_API_ROOT = PRODUCT_BACKEND_ROOT / "api"
+CORE_RUNTIME = CORE_ROOT / "runtime.py"
+FASTAPI_RUNTIME = Path("routedeck_fastapi/runtime.py")
+FASTAPI_ROUTER = Path("routedeck_fastapi/router.py")
+FASTAPI_ROUTES_ROOT = Path("routedeck_fastapi/routes")
+REQUIRED_FASTAPI_ROUTE_MODULES = frozenset(
+    {
+        "__init__.py",
+        "contract.py",
+        "sessions.py",
+        "operations.py",
+        "conversation.py",
+        "events.py",
+        "private_forms.py",
+        "inspection.py",
+    }
+)
+FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS = frozenset(
+    {
+        "RouteDeckOperationRunner",
+        "RouteDeckNavigationRunner",
+        "RouteDeckDependencies",
+        "RouteDeckLangGraphAgentDriver",
+    }
+)
 FRONTEND_SOURCE_ROOT = Path("examples/medusa-agent/frontend/src")
 MEDUSA_SERVER_ROOT = Path("examples/medusa-agent/medusa")
 MEDUSA_COMPOSE = Path("examples/medusa-agent/infra/compose.yaml")
@@ -262,10 +300,17 @@ def _is_store_path(value: str) -> bool:
 def check_store_endpoint_inventory(
     project_root: Path = PROJECT_ROOT,
 ) -> BoundaryCheck:
-    allowed_adapter = _project_path(project_root, HTTP_ADAPTER, kind="file")
-    allowed_transports = {
-        allowed_adapter,
-        _project_path(project_root, HTTP_TRANSPORT, kind="file"),
+    endpoint_owners = {
+        _project_path(project_root, relative, kind="file")
+        for relative in STORE_ENDPOINT_OWNERS
+    }
+    required_resource_owners = {
+        _project_path(project_root, relative, kind="file")
+        for relative in STORE_RESOURCE_OWNERS
+    }
+    transport_owners = {
+        _project_path(project_root, relative, kind="file")
+        for relative in HTTP_CLIENT_OWNERS
     }
     endpoints: list[dict[str, Any]] = []
     transports: list[dict[str, Any]] = []
@@ -277,29 +322,37 @@ def check_store_endpoint_inventory(
             if not _is_store_path(value):
                 continue
             endpoints.append({"path": display, "line": line, "template": value})
-            if path != allowed_adapter:
+            if path not in endpoint_owners:
                 violations.append(
-                    f"{display}:{line}:Store endpoint literal outside medusa/client/http.py"
+                    f"{display}:{line}:Store endpoint literal outside the resource/transport owner inventory"
                 )
         for line, module in _imported_modules(tree):
             if not _is_forbidden(module, HTTP_CLIENT_MODULES):
                 continue
             transports.append({"path": display, "line": line, "module": module})
-            if path not in allowed_transports:
+            if path not in transport_owners:
                 violations.append(
-                    f"{display}:{line}:HTTP client import outside medusa/client transport modules:{module}"
+                    f"{display}:{line}:HTTP client import outside the explicit Medusa transport owner inventory:{module}"
                 )
-    adapter_display = _relative(allowed_adapter, project_root)
-    if not any(item["path"] == adapter_display for item in endpoints):
-        violations.append(f"{adapter_display}:no Store endpoint templates found")
-    if not any(item["path"] == adapter_display for item in transports):
-        violations.append(f"{adapter_display}:no HTTP transport import found")
+    endpoint_paths = {item["path"] for item in endpoints}
+    for owner in sorted(required_resource_owners, key=lambda path: path.as_posix()):
+        display = _relative(owner, project_root)
+        if display not in endpoint_paths:
+            violations.append(f"{display}:no Store endpoint templates found")
+    transport_display = HTTP_TRANSPORT.as_posix()
+    if not any(item["path"] == transport_display for item in transports):
+        violations.append(f"{transport_display}:no HTTP transport import found")
     return BoundaryCheck(
         name="store_endpoint_inventory",
         evidence={
-            "endpoint_adapter": HTTP_ADAPTER.as_posix(),
+            "endpoint_owners": sorted(
+                _relative(path, project_root) for path in endpoint_owners
+            ),
+            "required_resource_owners": sorted(
+                _relative(path, project_root) for path in required_resource_owners
+            ),
             "transport_modules": sorted(
-                _relative(path, project_root) for path in allowed_transports
+                _relative(path, project_root) for path in transport_owners
             ),
             "scanned_file_count": len(_production_python_files(project_root)),
             "endpoint_templates": endpoints,
@@ -535,8 +588,8 @@ def _router_inventory(path: Path, project_root: Path) -> dict[str, Any]:
     }
 
 
-def _included_router_factories(tree: ast.AST) -> frozenset[str]:
-    factories: set[str] = set()
+def _included_router_factory_calls(tree: ast.AST) -> tuple[str, ...]:
+    factories: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or _call_name(node.func) != "include_router":
             continue
@@ -548,29 +601,41 @@ def _included_router_factories(tree: ast.AST) -> frozenset[str]:
         else:
             name = _call_name(argument) if isinstance(argument, ast.expr) else None
         if name:
-            factories.add(name)
-    return frozenset(factories)
+            factories.append(name)
+    return tuple(factories)
+
+
+def _included_router_factories(tree: ast.AST) -> frozenset[str]:
+    return frozenset(_included_router_factory_calls(tree))
 
 
 def check_product_transport_separation(
     project_root: Path = PROJECT_ROOT,
 ) -> BoundaryCheck:
-    generic_paths = tuple(
-        _project_path(project_root, path, kind="file")
-        for path in (
-            Path("routedeck_fastapi/router.py"),
-            Path("routedeck_fastapi/conversation.py"),
-        )
+    generic_router_path = _project_path(
+        project_root, FASTAPI_ROUTER, kind="file"
     )
+    routes_root = _project_path(
+        project_root, FASTAPI_ROUTES_ROOT, kind="directory"
+    )
+    route_module_paths = _python_files(routes_root)
+    route_module_names = frozenset(path.name for path in route_module_paths)
+    generic_paths = (generic_router_path, *route_module_paths)
     api_root = _project_path(project_root, PRODUCT_API_ROOT, kind="directory")
     main_path = _project_path(project_root, PRODUCT_MAIN, kind="file")
     generic = [_router_inventory(path, project_root) for path in generic_paths]
-    product = [
-        _router_inventory(path, project_root)
-        for path in _python_files(api_root)
-        if path.name != "__init__.py"
-    ]
+    product_paths = tuple(
+        path for path in _python_files(api_root) if path.name != "__init__.py"
+    )
+    product = [_router_inventory(path, project_root) for path in product_paths]
     violations: list[str] = []
+    if route_module_names != REQUIRED_FASTAPI_ROUTE_MODULES:
+        missing = sorted(REQUIRED_FASTAPI_ROUTE_MODULES.difference(route_module_names))
+        extra = sorted(route_module_names.difference(REQUIRED_FASTAPI_ROUTE_MODULES))
+        violations.append(
+            f"{FASTAPI_ROUTES_ROOT.as_posix()}:route module inventory drifted:"
+            f"missing={missing!r}:extra={extra!r}"
+        )
     generic_prefixes = {
         item["prefix"]
         for inventory in generic
@@ -579,7 +644,7 @@ def check_product_transport_separation(
     }
     if generic_prefixes != {"/api/routedeck"}:
         violations.append(
-            "routedeck_fastapi/router.py:generic router prefix must be exactly /api/routedeck"
+            f"{FASTAPI_ROUTER.as_posix()}:generic router prefix must be exactly /api/routedeck"
         )
     for generic_path in generic_paths:
         generic_tree = _parse_python(generic_path)
@@ -601,7 +666,18 @@ def check_product_transport_separation(
     }
     if not product_prefixes or product_prefixes != {"/api/medusa-agent"}:
         violations.append(
-            f"{PRODUCT_API_ROOT.as_posix()}:product routers must use /api/medusa-agent"
+            f"{PRODUCT_API_ROOT.as_posix()}:product health router must use /api/medusa-agent"
+        )
+    product_route_files = {
+        _relative(path, project_root) for path in product_paths
+    }
+    expected_product_route_files = {
+        (PRODUCT_API_ROOT / "health.py").as_posix()
+    }
+    if product_route_files != expected_product_route_files:
+        violations.append(
+            f"{PRODUCT_API_ROOT.as_posix()}:only product health transport is allowed:"
+            f"found={sorted(product_route_files)!r}"
         )
     for inventory in product:
         path = project_root / inventory["path"]
@@ -610,23 +686,28 @@ def check_product_transport_separation(
                 violations.append(
                     f"{inventory['path']}:{line}:framework/Store path in product API:{value}"
                 )
-    included = _included_router_factories(_parse_python(main_path))
+    included_calls = _included_router_factory_calls(_parse_python(main_path))
+    included = frozenset(included_calls)
     required_includes = {
-        "create_routedeck_router_from_provider",
-        "create_routedeck_conversation_router",
+        "create_routedeck_router_from_runtime_provider",
         "health_router",
     }
-    missing_includes = sorted(required_includes.difference(included))
-    if missing_includes:
+    if included != required_includes or len(included_calls) != len(required_includes):
         violations.append(
-            f"{PRODUCT_MAIN.as_posix()}:missing separate router composition:{','.join(missing_includes)}"
+            f"{PRODUCT_MAIN.as_posix()}:router composition must contain only the generic "
+            f"runtime router and product health:found={sorted(included)!r}"
         )
     return BoundaryCheck(
         name="product_transport_separation",
         evidence={
+            "required_generic_route_modules": sorted(
+                REQUIRED_FASTAPI_ROUTE_MODULES
+            ),
+            "generic_route_module_inventory": sorted(route_module_names),
             "generic_routers": generic,
             "product_routers": product,
             "application_router_includes": sorted(included),
+            "application_router_include_calls": list(included_calls),
         },
         violations=tuple(sorted(violations)),
     )
@@ -669,97 +750,278 @@ def _tree_attribute_chains(tree: ast.AST) -> frozenset[str]:
     )
 
 
-def check_shared_runner(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
-    backend = _project_path(project_root, PRODUCT_BACKEND_ROOT, kind="directory")
-    factory_path = _project_path(
-        project_root, PRODUCT_BACKEND_ROOT / "runtime_factory.py", kind="file"
+def _constructor_calls(tree: ast.AST, constructor: str) -> tuple[ast.Call, ...]:
+    return tuple(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and _call_name(node.func) == constructor
     )
-    runtime_path = _project_path(
-        project_root, PRODUCT_BACKEND_ROOT / "runtime.py", kind="file"
-    )
-    conversation_path = _project_path(
-        project_root, Path("routedeck_fastapi/conversation.py"), kind="file"
-    )
-    conversation_stream_path = _project_path(
-        project_root,
-        Path("routedeck_fastapi/conversation_stream.py"),
-        kind="file",
-    )
-    generic_router_path = _project_path(
-        project_root, Path("routedeck_fastapi/router.py"), kind="file"
-    )
-    main_path = _project_path(project_root, PRODUCT_MAIN, kind="file")
 
-    runner_calls: list[dict[str, Any]] = []
-    for path in _python_files(backend):
-        for line, target, call in _assigned_constructor_calls(
-            _parse_python(path), "RouteDeckOperationRunner"
-        ):
-            runner_calls.append(
-                {
-                    "path": _relative(path, project_root),
-                    "line": line,
-                    "target": target,
-                    "constructor": _call_name(call.func),
-                }
-            )
-    factory = _parse_python(factory_path)
-    navigation_calls = _assigned_constructor_calls(
-        factory, "RouteDeckNavigationRunner"
+
+def _function_definition(
+    tree: ast.Module,
+    name: str,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    return next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ),
+        None,
     )
-    runtime_calls = [
-        node
-        for node in ast.walk(factory)
-        if isinstance(node, ast.Call) and _call_name(node.func) == "MedusaRuntime"
-    ]
-    route_dependencies = [
-        node
-        for node in ast.walk(_parse_python(runtime_path))
-        if isinstance(node, ast.Call)
-        and _call_name(node.func) == "RouteDeckDependencies"
-    ]
-    conversation_chains = _tree_attribute_chains(_parse_python(conversation_path))
-    conversation_stream_chains = _tree_attribute_chains(
-        _parse_python(conversation_stream_path)
+
+
+def _dependency_chains(
+    project_root: Path,
+    paths: Sequence[Path],
+) -> tuple[list[str], frozenset[str]]:
+    displays: list[str] = []
+    chains: set[str] = set()
+    for relative in paths:
+        path = _project_path(project_root, relative, kind="file")
+        displays.append(_relative(path, project_root))
+        chains.update(
+            chain
+            for chain in _tree_attribute_chains(_parse_python(path))
+            if chain.startswith("dependencies.")
+        )
+    return displays, frozenset(chains)
+
+
+def check_runtime_ownership(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
+    """Prove the generic runtime owns construction and every transport plane derives it."""
+
+    backend = _project_path(project_root, PRODUCT_BACKEND_ROOT, kind="directory")
+    main_path = _project_path(project_root, PRODUCT_MAIN, kind="file")
+    core_runtime_path = _project_path(project_root, CORE_RUNTIME, kind="file")
+    fastapi_runtime_path = _project_path(
+        project_root, FASTAPI_RUNTIME, kind="file"
     )
-    generic_chains = _tree_attribute_chains(_parse_python(generic_router_path))
-    main_calls = {
-        _call_name(node.func)
-        for node in ast.walk(_parse_python(main_path))
-        if isinstance(node, ast.Call)
+
+    product_constructor_calls: list[dict[str, Any]] = []
+    product_stream_calls: list[dict[str, Any]] = []
+    product_files = (*_python_files(backend), main_path)
+    for path in product_files:
+        tree = _parse_python(path)
+        display = _relative(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            call = _call_name(node.func)
+            if call in FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS:
+                product_constructor_calls.append(
+                    {"path": display, "line": node.lineno, "constructor": call}
+                )
+            if call == "astream_events":
+                product_stream_calls.append(
+                    {"path": display, "line": node.lineno, "call": call}
+                )
+
+    generic_runner_constructor_sites: dict[str, list[dict[str, Any]]] = {
+        "RouteDeckOperationRunner": [],
+        "RouteDeckNavigationRunner": [],
     }
+    for path in _production_python_files(project_root):
+        tree = _parse_python(path)
+        display = _relative(path, project_root)
+        for constructor in generic_runner_constructor_sites:
+            generic_runner_constructor_sites[constructor].extend(
+                {
+                    "path": display,
+                    "line": call.lineno,
+                }
+                for call in _constructor_calls(tree, constructor)
+            )
+
+    core_tree = _parse_python(core_runtime_path)
+    runtime_builder = _function_definition(core_tree, "build_routedeck_runtime")
+    builder_scope: ast.AST = runtime_builder or ast.Module(body=[], type_ignores=[])
+    runner_calls = _assigned_constructor_calls(
+        builder_scope, "RouteDeckOperationRunner"
+    )
+    navigation_calls = _assigned_constructor_calls(
+        builder_scope, "RouteDeckNavigationRunner"
+    )
+    services_calls = _assigned_constructor_calls(
+        builder_scope, "RouteDeckRuntimeServices"
+    )
+    runner_evidence = [
+        {
+            "line": line,
+            "target": target,
+            "constructor": _call_name(call.func),
+        }
+        for line, target, call in runner_calls
+    ]
+    navigation_evidence = [
+        {
+            "line": line,
+            "target": target,
+            "operation_runner": _keyword_expression(call, "operation_runner"),
+        }
+        for line, target, call in navigation_calls
+    ]
+    services_evidence = [
+        {
+            "line": line,
+            "target": target,
+            "runner": _keyword_expression(call, "runner"),
+            "navigation": _keyword_expression(call, "navigation"),
+        }
+        for line, target, call in services_calls
+    ]
+
+    fastapi_tree = _parse_python(fastapi_runtime_path)
+    dependency_calls = _constructor_calls(fastapi_tree, "RouteDeckDependencies")
+    dependency_expressions = (
+        {
+            name: _keyword_expression(dependency_calls[0], name)
+            for name in ("runner", "navigation", "projector", "store")
+        }
+        if len(dependency_calls) == 1
+        else {}
+    )
+    services_aliases = [
+        ast.unparse(node.value)
+        for node in ast.walk(fastapi_tree)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and any(name == "services" for name in _assigned_names(node))
+    ]
+
+    consumer_groups = {
+        "operations": (FASTAPI_ROUTES_ROOT / "operations.py",),
+        "navigation": (FASTAPI_ROUTES_ROOT / "operations.py",),
+        "conversation": (
+            FASTAPI_ROUTES_ROOT / "conversation.py",
+            Path("routedeck_fastapi/conversation_stream.py"),
+        ),
+        "private_forms": (
+            FASTAPI_ROUTES_ROOT / "private_forms.py",
+            Path("routedeck_fastapi/private_forms.py"),
+        ),
+        "events": (FASTAPI_ROUTES_ROOT / "events.py",),
+    }
+    consumer_evidence: dict[str, Any] = {}
+    consumer_chains: dict[str, frozenset[str]] = {}
+    for name, paths in consumer_groups.items():
+        displays, chains = _dependency_chains(project_root, paths)
+        consumer_chains[name] = chains
+        consumer_evidence[name] = {
+            "paths": displays,
+            "derived_dependencies": sorted(chains),
+        }
 
     invariants = {
-        "one_operation_runner": len(runner_calls) == 1
-        and runner_calls[0]["target"] == "runner",
-        "navigation_uses_operation_runner": len(navigation_calls) == 1
-        and _keyword_expression(navigation_calls[0][2], "operation_runner") == "runner",
-        "runtime_exports_same_runner": len(runtime_calls) == 1
-        and _keyword_expression(runtime_calls[0], "runner") == "runner",
-        "transport_dependencies_use_runtime_runner": len(route_dependencies) == 1
-        and _keyword_expression(route_dependencies[0], "runner") == "runtime.runner",
-        "conversation_uses_transport_runner": (
-            "dependencies.routedeck" in conversation_chains
-            and "dependencies.routedeck" in conversation_stream_chains
-            and "routedeck.runner" in conversation_stream_chains
+        "product_has_no_runtime_constructors": not product_constructor_calls,
+        "product_has_no_astream_events_calls": not product_stream_calls,
+        "core_builds_exactly_one_operation_runner": (
+            len(runner_calls) == 1
+            and runner_calls[0][1] == "runner"
+            and generic_runner_constructor_sites["RouteDeckOperationRunner"]
+            == [{"path": CORE_RUNTIME.as_posix(), "line": runner_calls[0][0]}]
         ),
-        "generic_dispatch_uses_dependency_runner": any(
-            chain.startswith("dependencies.runner.") for chain in generic_chains
+        "core_builds_exactly_one_navigation_runner": (
+            len(navigation_calls) == 1
+            and navigation_calls[0][1] == "navigation"
+            and generic_runner_constructor_sites["RouteDeckNavigationRunner"]
+            == [
+                {
+                    "path": CORE_RUNTIME.as_posix(),
+                    "line": navigation_calls[0][0],
+                }
+            ]
         ),
-        "conversation_dependency_reuses_routedeck_dependency": "_routedeck_dependencies"
-        in main_calls,
+        "navigation_receives_local_runner": (
+            len(navigation_calls) == 1
+            and _keyword_expression(navigation_calls[0][2], "operation_runner")
+            == "runner"
+        ),
+        "runtime_services_receive_local_runner_and_navigation": (
+            len(services_calls) == 1
+            and services_calls[0][1] == "services"
+            and _keyword_expression(services_calls[0][2], "runner") == "runner"
+            and _keyword_expression(services_calls[0][2], "navigation")
+            == "navigation"
+        ),
+        "fastapi_derives_runtime_services": (
+            services_aliases == ["runtime.services"]
+            and dependency_expressions
+            == {
+                "runner": "services.runner",
+                "navigation": "services.navigation",
+                "projector": "services.projector",
+                "store": "services.store",
+            }
+        ),
+        "operation_routes_use_derived_runner": any(
+            chain.startswith("dependencies.runner")
+            for chain in consumer_chains["operations"]
+        ),
+        "navigation_routes_use_derived_navigation": any(
+            chain.startswith("dependencies.navigation")
+            for chain in consumer_chains["navigation"]
+        ),
+        "conversation_uses_derived_runtime_dependencies": (
+            any(
+                chain.startswith("dependencies.runner")
+                for chain in consumer_chains["conversation"]
+            )
+            and any(
+                chain.startswith("dependencies.store")
+                for chain in consumer_chains["conversation"]
+            )
+        ),
+        "private_forms_use_derived_runtime_dependencies": (
+            any(
+                chain.startswith("dependencies.runner")
+                for chain in consumer_chains["private_forms"]
+            )
+            and any(
+                chain.startswith("dependencies.store")
+                for chain in consumer_chains["private_forms"]
+            )
+        ),
+        "events_use_derived_store": any(
+            chain.startswith("dependencies.store")
+            for chain in consumer_chains["events"]
+        ),
     }
     violations = [
-        f"shared runner invariant failed:{name}"
+        f"runtime ownership invariant failed:{name}"
         for name, passed in invariants.items()
         if not passed
     ]
     return BoundaryCheck(
-        name="shared_runner",
+        name="runtime_ownership",
         evidence={
-            "operation_runner_constructors": runner_calls,
+            "forbidden_product_constructors": sorted(
+                FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS
+            ),
+            "product_constructor_calls": product_constructor_calls,
+            "product_astream_events_calls": product_stream_calls,
+            "generic_runner_constructor_sites": generic_runner_constructor_sites,
+            "core_runtime": {
+                "path": CORE_RUNTIME.as_posix(),
+                "builder": (
+                    runtime_builder.name if runtime_builder is not None else None
+                ),
+                "operation_runner_constructors": runner_evidence,
+                "navigation_runner_constructors": navigation_evidence,
+                "runtime_services_constructors": services_evidence,
+            },
+            "fastapi_runtime": {
+                "path": FASTAPI_RUNTIME.as_posix(),
+                "services_aliases": services_aliases,
+                "dependency_expressions": dependency_expressions,
+            },
+            "transport_consumers": consumer_evidence,
             "invariants": invariants,
-            "proof_scope": "Static constructor and dependency identity flow.",
+            "proof_scope": (
+                "AST constructor, event-stream call, runtime-service derivation, "
+                "and transport dependency-consumption proof."
+            ),
         },
         violations=tuple(sorted(violations)),
     )
@@ -1041,7 +1303,7 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
         project_root
     )
     transport = check_product_transport_separation(project_root)
-    runner = check_shared_runner(project_root)
+    runtime_ownership = check_runtime_ownership(project_root)
     invariants = {
         "framework_core_has_no_product_imports": not core_product_violations,
         "feature_declarations_have_no_transport": not feature_violations,
@@ -1049,8 +1311,8 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
         "standalone_medusa_demo_uses_repo_local_pinned_server": (
             not standalone_violations
         ),
-        "transport_composition_uses_shared_runner_and_separate_routers": (
-            not transport.violations and not runner.violations
+        "generic_runtime_supplies_all_transport_planes": (
+            not transport.violations and not runtime_ownership.violations
         ),
     }
     violations = [
@@ -1059,7 +1321,10 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
         *(f"langgraph_topology:{item}" for item in topology_violations),
         *(f"standalone_medusa_server:{item}" for item in standalone_violations),
         *(f"transport_separation:{item}" for item in transport.violations),
-        *(f"shared_runner:{item}" for item in runner.violations),
+        *(
+            f"runtime_ownership:{item}"
+            for item in runtime_ownership.violations
+        ),
     ]
     return BoundaryCheck(
         name="architectural_review",
@@ -1069,7 +1334,7 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
             "langgraph_adapter": topology_evidence,
             "standalone_medusa_server": standalone_evidence,
             "transport_router_inventory": transport.evidence,
-            "shared_runner_flow": runner.evidence,
+            "runtime_ownership": runtime_ownership.evidence,
         },
         violations=tuple(sorted(violations)),
     )
@@ -1083,7 +1348,7 @@ def build_boundary_report(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         check_handler_client_port(resolved_root),
         check_browser_network(resolved_root),
         check_product_transport_separation(resolved_root),
-        check_shared_runner(resolved_root),
+        check_runtime_ownership(resolved_root),
         check_source_policy_scan(resolved_root),
         check_architectural_review(resolved_root),
     )
@@ -1093,7 +1358,7 @@ def build_boundary_report(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         )
     violation_count = sum(len(check.violations) for check in checks)
     return {
-        "schema_version": 2,
+        "schema_version": BOUNDARY_REPORT_SCHEMA_VERSION,
         "status": "pass" if violation_count == 0 else "fail",
         "violation_count": violation_count,
         "checks": [check.as_dict() for check in checks],

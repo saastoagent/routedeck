@@ -27,6 +27,7 @@ GENERIC_ROUTEDECK_ENDPOINTS = (
     "/api/routedeck/events",
     "/api/routedeck/private-forms/{form_id}",
     "/api/routedeck/inspect",
+    "/api/routedeck/conversation/assistant-turn",
 )
 RETIRED_PRODUCT_ENDPOINTS = (
     "/api/medusa-agent/state",
@@ -36,6 +37,24 @@ RETIRED_PRODUCT_ENDPOINTS = (
     "/api/medusa-agent/action",
     "/api/medusa-agent/agent/stream",
     "/api/medusa-agent/inspect",
+    "/api/medusa-agent/conversation/entry",
+)
+DELETED_RUNTIME_AND_TRANSPORT_PATHS = (
+    "examples/medusa-agent/backend/medusa_agent/runtime_factory.py",
+    "examples/medusa-agent/backend/medusa_agent/agent_driver.py",
+    "examples/medusa-agent/backend/medusa_agent/api/entry.py",
+    "examples/medusa-agent/backend/medusa_agent/entry_conversation.py",
+    "examples/medusa-agent/frontend/src/app/conversationEntryClient.ts",
+    "routedeck_fastapi/conversation.py",
+    "routedeck_fastapi/conversation_dependencies.py",
+    "packages/react/src/conversation/state.ts",
+    "packages/react/src/conversation/transitions.ts",
+)
+FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS = (
+    "RouteDeckOperationRunner(",
+    "RouteDeckNavigationRunner(",
+    "RouteDeckDependencies(",
+    "RouteDeckLangGraphAgentDriver(",
 )
 PRODUCT_SPECIFIC_ROUTEDECK_ROUTE = re.compile(
     r"/api/routedeck/(?:medusa|catalog|product|cart|checkout|shipping|payment|order|fulfillment)(?:/|\b)",
@@ -94,35 +113,76 @@ def test_active_references_name_only_the_current_public_api_planes() -> None:
 
 def test_routedeck_routers_and_product_entry_are_composed_once() -> None:
     router = _read("routedeck_fastapi/router.py")
-    conversation = _read("routedeck_fastapi/conversation.py")
+    route_modules = {
+        name: _read(f"routedeck_fastapi/routes/{name}.py")
+        for name in (
+            "contract",
+            "sessions",
+            "operations",
+            "conversation",
+            "events",
+            "private_forms",
+            "inspection",
+        )
+    }
     main = _read("examples/medusa-agent/backend/main.py")
 
     assert 'APIRouter(prefix="/api/routedeck"' in router
-    for decorator in (
-        '@router.get("/contract")',
-        '@router.post("/sessions", status_code=201)',
-        '@router.get("/session")',
-        '@router.post("/navigation")',
-        '@router.post("/dispatch")',
-        '@router.get("/events")',
-        '@router.get("/private-forms/{form_id}")',
-        '@router.put("/private-forms/{form_id}")',
-        '@router.get("/inspect")',
-    ):
-        assert decorator in router
+    expected_factories = (
+        "create_contract_routes",
+        "create_session_routes",
+        "create_operation_routes",
+        "create_conversation_routes",
+        "create_event_routes",
+        "create_private_form_routes",
+        "create_inspection_routes",
+    )
+    for factory in expected_factories:
+        assert router.count(f"{factory}(") == 1
+    expected_decorators = {
+        "contract": ('@router.get("/contract")',),
+        "sessions": (
+            '@router.post("/sessions", status_code=201)',
+            '@router.get("/session")',
+        ),
+        "operations": (
+            '@router.post("/navigation")',
+            '@router.post("/dispatch")',
+            '@router.post("/reviews/{review_id}/accept")',
+            '@router.post("/reviews/{review_id}/reject")',
+        ),
+        "conversation": (
+            '@router.get("/conversation")',
+            '@router.post("/chat")',
+            '@router.post("/conversation/assistant-turn")',
+        ),
+        "events": ('@router.get("/events")',),
+        "private_forms": (
+            '@router.get("/private-forms/{form_id}")',
+            '@router.put("/private-forms/{form_id}")',
+        ),
+        "inspection": ('@router.get("/inspect")',),
+    }
+    for module, decorators in expected_decorators.items():
+        for decorator in decorators:
+            assert decorator in route_modules[module]
 
-    assert 'APIRouter(prefix="/api/routedeck"' in conversation
-    assert '@router.post("/chat")' in conversation
-    assert main.count("create_routedeck_router_from_provider(") == 1
-    assert main.count("create_routedeck_conversation_router(") == 1
-    assert "application.include_router(health_router)" in main
+    assert main.count("create_routedeck_router_from_runtime_provider(") == 1
+    assert "create_routedeck_router_from_provider" not in main
+    assert "create_routedeck_conversation_router" not in main
+    assert main.count("application.include_router(health_router)") == 1
 
 
 def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
     composition = _read("examples/medusa-agent/backend/medusa_agent/composition.py")
     bindings = _read("examples/medusa-agent/backend/medusa_agent/bindings.py")
-    runtime_factory = _read(
-        "examples/medusa-agent/backend/medusa_agent/runtime_factory.py"
+    runtime = _read("examples/medusa-agent/backend/medusa_agent/runtime.py")
+    core_runtime = _read("routedeck_core/runtime.py")
+    product_backend = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(
+            (ROOT / "examples/medusa-agent/backend/medusa_agent").rglob("*.py")
+        )
     )
     feature_paths = sorted(
         (ROOT / "examples/medusa-agent/backend/medusa_agent/features").glob(
@@ -145,9 +205,36 @@ def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
     assert "compile_app(" in composition
     assert "bind_app(" in bindings
     assert "MedusaStoreClient" in bindings
-    assert "RouteDeckOperationRunner(" in runtime_factory
-    assert "RouteDeckNavigationRunner(" in runtime_factory
-    assert "MedusaStoreClient" in runtime_factory
+    assert "open_sqlalchemy_routedeck_runtime(" in runtime
+    assert "compile_medusa_app_spec()" in runtime
+    assert "bind_medusa_app(" in runtime
+    assert "RouteDeckLangGraphDriverFactory(" in runtime
+    assert "HttpMedusaStoreClient(" in runtime
+    assert "runner = RouteDeckOperationRunner(" in core_runtime
+    assert "navigation = RouteDeckNavigationRunner(" in core_runtime
+    assert "services = RouteDeckRuntimeServices(" in core_runtime
+    for constructor in FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS:
+        assert constructor not in product_backend
+    assert ".astream_events(" not in product_backend
+
+
+def test_deleted_product_runtime_and_transport_paths_stay_absent() -> None:
+    for relative_path in DELETED_RUNTIME_AND_TRANSPORT_PATHS:
+        assert not (ROOT / relative_path).exists(), relative_path
+
+
+def test_medusa_frontend_uses_only_the_generic_conversation_client() -> None:
+    frontend_root = ROOT / "examples/medusa-agent/frontend/src"
+    production = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(frontend_root.rglob("*.ts*"))
+        if "tests" not in path.relative_to(frontend_root).parts
+        and ".test." not in path.name
+    )
+
+    assert "createRouteDeckAgentClient" in production
+    assert "conversationEntryClient" not in production
+    assert "/api/medusa-agent/conversation/entry" not in production
 
 
 def test_langgraph_adapter_wraps_execution_without_owning_topology() -> None:
@@ -173,7 +260,10 @@ def test_langgraph_adapter_wraps_execution_without_owning_topology() -> None:
 
 def test_private_forms_and_exact_browser_history_are_framework_owned() -> None:
     private_contract = _read("routedeck_core/contracts/surfaces.py")
-    router = _read("routedeck_fastapi/router.py")
+    private_form_transport = _combined(
+        "routedeck_fastapi/routes/private_forms.py",
+        "routedeck_fastapi/private_forms.py",
+    )
     navigation = _read("routedeck_core/navigation/transactions.py")
     browser_history = _read("packages/core/src/routing/history.ts")
     browser_navigation = _read("packages/core/src/store/navigation.ts")
@@ -186,10 +276,13 @@ def test_private_forms_and_exact_browser_history_are_framework_owned() -> None:
     assert (
         contact_feature.count("private_form_binding=CHECKOUT_PRIVATE_FORM_BINDING") == 2
     )
-    assert '@router.get("/private-forms/{form_id}")' in router
-    assert '@router.put("/private-forms/{form_id}")' in router
-    assert "save_private_blob(" in router
-    assert "revision = current_draft.revision + 1 if current_draft else 1" in router
+    assert '@router.get("/private-forms/{form_id}")' in private_form_transport
+    assert '@router.put("/private-forms/{form_id}")' in private_form_transport
+    assert "save_private_blob(" in private_form_transport
+    assert (
+        "revision = current_draft.revision + 1 if current_draft else 1"
+        in private_form_transport
+    )
 
     for intent in (
         'OPEN_PATH = "open_path"',

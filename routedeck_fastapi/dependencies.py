@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -10,18 +9,13 @@ from routedeck_core.app import CompiledRouteDeckApp
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
-from routedeck_core.ports import RouteDeckSessionStore
+from routedeck_core.ports import (
+    RouteDeckAgentDriver,
+    RouteDeckSessionStore,
+    SensitiveCodec,
+)
 from routedeck_core.navigation.transactions import RouteDeckNavigationRunner
 from routedeck_core.supervision import RouteDeckOperationRunner
-
-
-@runtime_checkable
-class SensitiveCodec(Protocol):
-    """Encrypt and decrypt private-form bytes without a plaintext mode."""
-
-    def encrypt(self, value: bytes) -> bytes: ...
-
-    def decrypt(self, value: bytes) -> bytes: ...
 
 
 @runtime_checkable
@@ -97,68 +91,29 @@ class RouteDeckDependencies:
     projector: SessionProjector
     private_form_codec: SensitiveCodec
     session_factory: SessionFactory
+    agent_driver: RouteDeckAgentDriver | None = None
     navigation: RouteDeckNavigationRunner | None = None
     session_initializer: SessionInitializer | None = None
     cookie: GuestCookieSettings = field(default_factory=GuestCookieSettings)
     sse: SseSettings = field(default_factory=SseSettings)
 
     def __post_init__(self) -> None:
+        if self.agent_driver is not None and not isinstance(
+            self.agent_driver,
+            RouteDeckAgentDriver,
+        ):
+            raise TypeError("RouteDeck conversation requires an agent driver")
         if self.sse.follow and not isinstance(self.notifier, EventWakeupNotifier):
             raise TypeError(
                 "followed SSE requires a notifier with wait_for_events support"
             )
 
 
-@dataclass
-class InProcessEventNotifier:
-    """Cursor-aware wakeups; durable events remain in the injected store."""
-
-    _condition: asyncio.Condition = field(default_factory=asyncio.Condition)
-    _latest_cursor: dict[str, int] = field(default_factory=dict)
-
-    async def notify(
-        self,
-        session_id: str,
-        events: Sequence[RouteDeckEvent],
-    ) -> None:
-        if not events:
-            return
-        latest = max(event.cursor for event in events)
-        async with self._condition:
-            self._latest_cursor[session_id] = max(
-                latest,
-                self._latest_cursor.get(session_id, 0),
-            )
-            self._condition.notify_all()
-
-    async def wait_for_events(
-        self,
-        session_id: str,
-        after_cursor: int,
-        timeout: timedelta,
-    ) -> bool:
-        async with self._condition:
-            if self._latest_cursor.get(session_id, 0) > after_cursor:
-                return True
-            try:
-                await asyncio.wait_for(
-                    self._condition.wait_for(
-                        lambda: self._latest_cursor.get(session_id, 0) > after_cursor
-                    ),
-                    timeout=timeout.total_seconds(),
-                )
-            except TimeoutError:
-                return False
-            return True
-
-
 __all__ = [
     "EventWakeupNotifier",
     "GuestCookieSettings",
-    "InProcessEventNotifier",
     "RouteDeckDependencies",
     "RouteDeckDependencyUnavailable",
-    "SensitiveCodec",
     "SessionFactory",
     "SessionInitializer",
     "SessionProjector",

@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "story_id": "US-01",
+  "title": "Curious Newcomer",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "video_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "started_at": "2026-07-15T15:49:54.343Z",
+  "duration_ms": 171197,
+  "outcome": "failed",
+  "error": {
+    "name": "Error",
+    "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 4,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+  },
+  "events": [
+    {
+      "at_ms": 43,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 473,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/contract",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 509,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 404
+      }
+    },
+    {
+      "at_ms": 509,
+      "kind": "console",
+      "detail": {
+        "level": "error",
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    },
+    {
+      "at_ms": 997,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/sessions",
+        "status": 201
+      }
+    },
+    {
+      "at_ms": 998,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1057,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1109,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1236,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/conversation/assistant-turn",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1371,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 1372,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 1417,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 5031,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 5031,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 5087,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 5168,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/conversation",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 5458,
+      "kind": "assertion",
+      "detail": {
+        "name": "viewport",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "at_ms": 6647,
+      "kind": "user",
+      "detail": {
+        "message": "Hey, I just landed here. What is this?"
+      }
+    },
+    {
+      "at_ms": 8589,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 8806,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 8807,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 8890,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 11651,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 11655,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 11720,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 12710,
+      "kind": "assistant",
+      "detail": {
+        "message": "BUYER ASSISTANT\n\nHi! You’re in the Medusa shopping session—basically a guided storefront where I can help you browse products and narrow choices based on what you want. Tell me what you’re shopping for (e.g., skincare, snacks, supplements, electronics, etc.), and if you have a budget or preferences (brand/flavor/dietary/size). Then I’ll suggest some good options."
+      }
+    },
+    {
+      "at_ms": 13939,
+      "kind": "user",
+      "detail": {
+        "message": "Okay, what can you actually help me do?"
+      }
+    },
+    {
+      "at_ms": 15845,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 16157,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 16160,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 16353,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 18610,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 18611,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 18682,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 18927,
+      "kind": "assistant",
+      "detail": {
+        "message": "BUYER ASSISTANT\n\nI can help you shop end-to-end in this Medusa session, for example: - **Browse products** by category (and filter by things like brand, price, dietary needs, size, etc.) - **Compare options** and help you pick based on your goals - **Build a cart** for your session (so you can review everything together) - **Answer product questions** and help narrow down “best” choices for what you want What are you shopping for today, and do you have a rough budget or any must-haves?"
+      }
+    },
+    {
+      "at_ms": 20144,
+      "kind": "user",
+      "detail": {
+        "message": "Cool. Show me what you have."
+      }
+    },
+    {
+      "at_ms": 21601,
+      "kind": "network",
+      "detail": {
+        "method": "POST",
+        "path_template": "/api/routedeck/chat",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 21777,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 21779,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 22027,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 24339,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/session",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 24339,
+      "kind": "route",
+      "detail": {
+        "path": "/"
+      }
+    },
+    {
+      "at_ms": 24444,
+      "kind": "network",
+      "detail": {
+        "method": "GET",
+        "path_template": "/api/routedeck/events",
+        "status": 200
+      }
+    },
+    {
+      "at_ms": 171036,
+      "kind": "assertion",
+      "detail": {
+        "name": "story_failure",
+        "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[2m    \"assistantCount\": 4,\u001b[22m\n\u001b[2m    \"chatErrors\": 0,\u001b[22m\n\u001b[32m-   \"path\": \"/products\",\u001b[39m\n\u001b[31m+   \"path\": \"/\",\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+      }
+    }
+  ],
+  "visible_failures": []
+}

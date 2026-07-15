@@ -1,23 +1,34 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from itertools import count
-from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessage, AIMessageChunk
 from pydantic import SecretStr
 
-from medusa_agent.agent_driver import MedusaLangGraphAgentDriver
+from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.session import BuyerMarket, create_medusa_session
+from routedeck_core.contracts.conversation import (
+    ConversationRole,
+    FinalizedConversationTurn,
+)
+from routedeck_core.contracts.session import SessionSnapshot
+from routedeck_core.ports import (
+    AgentTurnCompleted,
+    AssistantTextDelta,
+    RouteDeckAgentEvent,
+    RouteDeckAgentTurn,
+    UserMessageTrigger,
+)
+from routedeck_core.state.leases import TurnLease
 from routedeck_fastapi import (
-    ChatStreamRequest,
-    RouteDeckConversationDependencies,
-    stream_agent_chat,
+    ConversationTurnRequest,
+    RouteDeckDependencies,
+    SseSettings,
+    stream_agent_turn,
 )
 from routedeck_fastapi.conversation_stream import _log_failure
-from medusa_agent.session import BuyerMarket, create_medusa_session
-from routedeck_core.contracts.session import SessionSnapshot
-from routedeck_core.state.leases import TurnLease
 
 
 class _FailingInterruptStore:
@@ -49,15 +60,14 @@ class _FailingInterruptRunner:
         raise RuntimeError("interruption persistence unavailable")
 
 
-class _FailingAgent:
-    def astream_events(self, *args, **kwargs):
-        del args, kwargs
-
-        async def events():
-            raise RuntimeError("model stream unavailable")
-            yield {}
-
-        return events()
+class _FailingDriver:
+    async def stream(
+        self,
+        turn: RouteDeckAgentTurn,
+    ) -> AsyncIterator[RouteDeckAgentEvent]:
+        del turn
+        raise RuntimeError("model stream unavailable")
+        yield AssistantTextDelta("unreachable")
 
 
 class _StreamingStore:
@@ -96,59 +106,35 @@ class _StreamingRunner:
         return self.store.snapshot
 
 
-class _StreamingAgent:
-    def astream_events(self, input, *args, **kwargs):
-        del args, kwargs
-        user_message = input["messages"][0]
-
-        async def events():
-            policy_run_id = "turn-policy-model-run"
-            policy_output = AIMessage(content='{"mode":"conversation"}')
-            yield {
-                "event": "on_chat_model_stream",
-                "run_id": policy_run_id,
-                "tags": ["medusa.turn_policy"],
-                "data": {
-                    "chunk": AIMessageChunk(content='{"mode":"conversation"}')
-                },
-            }
-            yield {
-                "event": "on_chat_model_end",
-                "run_id": policy_run_id,
-                "tags": ["medusa.turn_policy"],
-                "data": {"output": policy_output},
-            }
-            run_id = "direct-response-model-run"
-            yield {
-                "event": "on_chat_model_stream",
-                "run_id": run_id,
-                "data": {"chunk": AIMessageChunk(content="Hello ")},
-            }
-            yield {
-                "event": "on_chat_model_stream",
-                "run_id": run_id,
-                "data": {"chunk": AIMessageChunk(content="there.")},
-            }
-            assistant = AIMessage(content="Hello there.", id="assistant-stream")
-            yield {
-                "event": "on_chat_model_end",
-                "run_id": run_id,
-                "data": {"output": assistant},
-            }
-            yield {
-                "event": "on_chain_end",
-                "data": {"output": {"messages": [user_message, assistant]}},
-            }
-
-        return events()
+class _StreamingDriver:
+    async def stream(
+        self,
+        turn: RouteDeckAgentTurn,
+    ) -> AsyncIterator[RouteDeckAgentEvent]:
+        assert isinstance(turn.trigger, UserMessageTrigger)
+        yield AssistantTextDelta("Hello ")
+        yield AssistantTextDelta("there.")
+        assistant = FinalizedConversationTurn(
+            turn_id="assistant-stream",
+            role=ConversationRole.ASSISTANT,
+            content="Hello there.",
+            request_id=turn.request_id,
+        )
+        yield AgentTurnCompleted(
+            turns=(turn.trigger.user_turn, assistant),
+            assistant_turn_id=assistant.turn_id,
+        )
 
 
 def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -> None:
     secret = "private-cart-id-must-not-enter-logs"
 
-    with caplog.at_level(logging.ERROR, logger="routedeck_fastapi.conversation"):
+    with caplog.at_level(
+        logging.ERROR,
+        logger="routedeck_fastapi.conversation_stream",
+    ):
         _log_failure(
-            "routedeck_chat_stream_failed",
+            "routedeck_conversation_stream_failed",
             request_id="chat-safe-log",
             error=RuntimeError(secret),
         )
@@ -157,7 +143,7 @@ def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -
         record
         for record in caplog.records
         if record.getMessage()
-        == "routedeck_chat_stream_failed error_type=RuntimeError"
+        == "routedeck_conversation_stream_failed error_type=RuntimeError"
     ]
     assert len(records) == 1
     record = records[0]
@@ -171,24 +157,42 @@ def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -
 async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
     buyer_market: BuyerMarket,
 ) -> None:
+    app = compile_medusa_app_spec()
     session = create_medusa_session(
+        app=app,
         session_id="session-live-assistant-stream",
         market=buyer_market,
     )
     snapshot = SessionSnapshot(state=session)
     store = _StreamingStore(snapshot)
     runner = _StreamingRunner(store)
-    dependencies = RouteDeckConversationDependencies(
-        routedeck=SimpleNamespace(runner=runner, store=store),  # type: ignore[arg-type]
-        agent=MedusaLangGraphAgentDriver(agent=_StreamingAgent(), runner=runner),  # type: ignore[arg-type]
+    dependencies = RouteDeckDependencies(
+        app=app,
+        runner=runner,  # type: ignore[arg-type]
+        store=store,  # type: ignore[arg-type]
+        notifier=object(),  # type: ignore[arg-type]
+        projector=object(),  # type: ignore[arg-type]
+        private_form_codec=object(),  # type: ignore[arg-type]
+        session_factory=lambda _session_id: session,
+        agent_driver=_StreamingDriver(),
+        sse=SseSettings(follow=False),
     )
-    stream = stream_agent_chat(
+    request_id = "chat-live-assistant-stream"
+    stream = stream_agent_turn(
         dependencies=dependencies,
         session_id=session.session_id,
-        request=ChatStreamRequest(
-            request_id="chat-live-assistant-stream",
+        request=ConversationTurnRequest(
+            request_id=request_id,
             expected_session_version=session.session_version,
-            message="Hello",
+            trigger=UserMessageTrigger(
+                message="Hello",
+                user_turn=FinalizedConversationTurn(
+                    turn_id="user-live-assistant-stream",
+                    role=ConversationRole.USER,
+                    content="Hello",
+                    request_id=request_id,
+                ),
+            ),
         ),
         initial_snapshot=snapshot,
     )
@@ -208,27 +212,45 @@ async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
 async def test_interrupt_persistence_failure_is_reported_as_outcome_unknown(
     buyer_market: BuyerMarket,
 ) -> None:
+    app = compile_medusa_app_spec()
     session = create_medusa_session(
+        app=app,
         session_id="session-chat-interrupt-failure",
         market=buyer_market,
     )
     snapshot = SessionSnapshot(state=session)
     store = _FailingInterruptStore(snapshot)
     runner = _FailingInterruptRunner(store)
-    dependencies = RouteDeckConversationDependencies(
-        routedeck=SimpleNamespace(runner=runner, store=store),  # type: ignore[arg-type]
-        agent=MedusaLangGraphAgentDriver(agent=_FailingAgent(), runner=runner),  # type: ignore[arg-type]
+    dependencies = RouteDeckDependencies(
+        app=app,
+        runner=runner,  # type: ignore[arg-type]
+        store=store,  # type: ignore[arg-type]
+        notifier=object(),  # type: ignore[arg-type]
+        projector=object(),  # type: ignore[arg-type]
+        private_form_codec=object(),  # type: ignore[arg-type]
+        session_factory=lambda _session_id: session,
+        agent_driver=_FailingDriver(),
+        sse=SseSettings(follow=False),
     )
+    request_id = "chat-interrupt-failure"
 
     frames = [
         frame
-        async for frame in stream_agent_chat(
+        async for frame in stream_agent_turn(
             dependencies=dependencies,
             session_id=session.session_id,
-            request=ChatStreamRequest(
-                request_id="chat-interrupt-failure",
+            request=ConversationTurnRequest(
+                request_id=request_id,
                 expected_session_version=session.session_version,
-                message="Hello",
+                trigger=UserMessageTrigger(
+                    message="Hello",
+                    user_turn=FinalizedConversationTurn(
+                        turn_id="user-interrupt-failure",
+                        role=ConversationRole.USER,
+                        content="Hello",
+                        request_id=request_id,
+                    ),
+                ),
             ),
             initial_snapshot=snapshot,
         )

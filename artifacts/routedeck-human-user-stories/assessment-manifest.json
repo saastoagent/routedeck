@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "video_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "story_count": 5,
+  "stories": [
+    {
+      "story_id": "US-01",
+      "title": "US-01 Curious Newcomer",
+      "playwright_status": "failed",
+      "duration_ms": 206491,
+      "video_path": "videos/01-curious-newcomer.webm",
+      "video_byte_count": 10071705,
+      "video_sha256": "2fcdf0285351de83c1dc954ccdd19ddf20c25754caafbdea09b4a2f47c57b183",
+      "evidence_path": "evidence/01-curious-newcomer.json",
+      "evidence_byte_count": 9346,
+      "evidence_sha256": "96ae16ef2f99bf38058a4634b548fdd3e6367745827e202ee2efc43ec7aa0796"
+    },
+    {
+      "story_id": "US-02",
+      "title": "US-02 Goal-Led Discovery and Clarification",
+      "playwright_status": "failed",
+      "duration_ms": 52167,
+      "video_path": "videos/02-goal-led-discovery.webm",
+      "video_byte_count": 2964449,
+      "video_sha256": "1b703988b47c24dd69c33edc5da8c63f83014379f619d2336e05b8a614124faf",
+      "evidence_path": "evidence/02-goal-led-discovery.json",
+      "evidence_byte_count": 9101,
+      "evidence_sha256": "2de8d865057fe8babc5240673c30fbce17b22fef00c581e6c6320e9230de775f"
+    },
+    {
+      "story_id": "US-03",
+      "title": "US-03 Shopper Changes Their Mind",
+      "playwright_status": "failed",
+      "duration_ms": 195894,
+      "video_path": "videos/03-changes-mind.webm",
+      "video_byte_count": 7294910,
+      "video_sha256": "4e83c468fbcbda54666b7c3aae8e87673cec9bb5eefbd1c0ada5e0395e7daf4b",
+      "evidence_path": "evidence/03-changes-mind.json",
+      "evidence_byte_count": 5742,
+      "evidence_sha256": "2b8527e50fbcc1b8f5adca05dfc1862c554a5c9448bd045bc2c9c424fd6e83bd"
+    },
+    {
+      "story_id": "US-04",
+      "title": "US-04 Hybrid Cart Management",
+      "playwright_status": "failed",
+      "duration_ms": 193661,
+      "video_path": "videos/04-hybrid-cart-management.webm",
+      "video_byte_count": 7236830,
+      "video_sha256": "6aa204035c6b3dde1536ee4e57f71d0bae0a1bffb0e80211b7c853de2ec19ba9",
+      "evidence_path": "evidence/04-hybrid-cart-management.json",
+      "evidence_byte_count": 5748,
+      "evidence_sha256": "587a5507c2fe9ead4b30e13e89edf2d8efcbd71103ae473f77c7a80a094d1517"
+    },
+    {
+      "story_id": "US-05",
+      "title": "US-05 Thoughtful Full Checkout",
+      "playwright_status": "failed",
+      "duration_ms": 197519,
+      "video_path": "videos/05-thoughtful-checkout.webm",
+      "video_byte_count": 9012862,
+      "video_sha256": "3953d391d21f8d15d529ad7b1fa36f778e8d1f6b97d0a552073c80c55007c230",
+      "evidence_path": "evidence/05-thoughtful-checkout.json",
+      "evidence_byte_count": 7555,
+      "evidence_sha256": "766512271bb58c0ebee97facdffa9e2a36e77d440c60d4ee76cb15264492abb4"
+    }
+  ]
+}

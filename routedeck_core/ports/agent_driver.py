@@ -3,10 +3,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable
 
 from ..contracts.conversation import FinalizedConversationTurn
 from ..state.leases import TurnLease
+
+if TYPE_CHECKING:
+    from ..runtime import RouteDeckRuntimeServices
 
 
 class RouteDeckAgentStreamError(RuntimeError):
@@ -19,12 +22,27 @@ class RouteDeckAgentStreamError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class UserMessageTrigger:
+    message: str
+    user_turn: FinalizedConversationTurn
+
+
+@dataclass(frozen=True)
+class AssistantInitiatedTrigger:
+    pass
+
+
+RouteDeckConversationTrigger: TypeAlias = (
+    UserMessageTrigger | AssistantInitiatedTrigger
+)
+
+
+@dataclass(frozen=True)
 class RouteDeckAgentTurn:
     session_id: str
     request_id: str
-    message: str
-    turn: TurnLease
-    user_turn: FinalizedConversationTurn
+    lease: TurnLease
+    trigger: RouteDeckConversationTrigger
 
 
 @dataclass(frozen=True)
@@ -77,13 +95,27 @@ class RouteDeckAgentDriver(Protocol):
     ) -> AsyncIterator[RouteDeckAgentEvent]: ...
 
 
+@runtime_checkable
+class RouteDeckAgentDriverFactory(Protocol):
+    """Create an optional conversation driver after runtime services exist."""
+
+    def create(
+        self,
+        services: "RouteDeckRuntimeServices",
+    ) -> RouteDeckAgentDriver | None: ...
+
+
 __all__ = [
     "AgentReviewRequired",
     "AgentTurnCompleted",
+    "AssistantInitiatedTrigger",
     "AssistantTextDelta",
     "AssistantTextReset",
     "RouteDeckAgentDriver",
+    "RouteDeckAgentDriverFactory",
     "RouteDeckAgentEvent",
     "RouteDeckAgentStreamError",
     "RouteDeckAgentTurn",
+    "RouteDeckConversationTrigger",
+    "UserMessageTrigger",
 ]

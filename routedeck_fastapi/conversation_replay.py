@@ -11,15 +11,23 @@ from routedeck_core.contracts.conversation import (
 )
 from routedeck_core.contracts.mutations import MutationRecord, MutationStatus
 from routedeck_core.contracts.session import SessionSnapshot
-from routedeck_core.ports import RouteDeckAgentStreamError
+from routedeck_core.ports import (
+    RouteDeckAgentStreamError,
+    RouteDeckConversationTrigger,
+    UserMessageTrigger,
+)
 
-from .contracts import ChatStreamRequest
 from .conversation_projection import public_conversation
 
 
-def chat_fingerprint(request: ChatStreamRequest) -> str:
+def conversation_fingerprint(trigger: RouteDeckConversationTrigger) -> str:
+    payload = (
+        {"kind": "user_message", "message": trigger.message}
+        if isinstance(trigger, UserMessageTrigger)
+        else {"kind": "assistant_initiated"}
+    )
     canonical = json.dumps(
-        {"message": request.message},
+        payload,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
@@ -27,7 +35,7 @@ def chat_fingerprint(request: ChatStreamRequest) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def chat_replay_frames(
+def conversation_replay_frames(
     record: MutationRecord,
     snapshot: SessionSnapshot,
 ) -> tuple[str, ...]:
@@ -98,7 +106,7 @@ def chat_replay_frames(
     return _invalid_replay()
 
 
-def chat_stream_headers() -> dict[str, str]:
+def conversation_stream_headers() -> dict[str, str]:
     return {
         "Cache-Control": "private, no-store, no-transform",
         "Connection": "keep-alive",
@@ -128,14 +136,14 @@ def _require_replay_result(
 
 def _invalid_replay() -> NoReturn:
     raise RouteDeckAgentStreamError(
-        "chat_replay_invalid",
-        "The saved agent turn could not be replayed.",
+        "conversation_replay_invalid",
+        "The saved conversation turn could not be replayed.",
     )
 
 
 __all__ = [
-    "chat_fingerprint",
-    "chat_replay_frames",
-    "chat_stream_headers",
+    "conversation_fingerprint",
+    "conversation_replay_frames",
+    "conversation_stream_headers",
     "sse",
 ]

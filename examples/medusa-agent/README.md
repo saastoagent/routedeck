@@ -1,5 +1,8 @@
 # Medusa Agent
 
+Authority: ADR-006 for runtime ownership; ADR-005 remains active where ADR-006
+does not supersede it.
+
 This is the standalone RouteDeck reference consumer: a full local guest-buyer
 application backed by a real Medusa Store API. RouteDeck supplies generic state,
 supervision, persistence, transport, navigation, and React primitives. This app
@@ -46,34 +49,35 @@ backend/medusa_agent/
     orders/              # confirmation/reconciliation operation slices
   medusa/client/
     protocol.py          # typed MedusaStoreClient port
-    http.py              # endpoint-oriented Store API facade
+    resources/           # catalog/cart/checkout/order resource owners
+    http.py              # canonical typed Store API facade
     transport.py         # HTTP/auth and delivery classification
     wire.py              # strict response decoding helpers
     evidence.py          # sanitized measured-call evidence port
     models.py            # strict wire and result models
     errors.py            # product client contract errors
   api/
-    entry.py             # product-specific system-prompt welcome entry
     health.py            # product runtime health/readiness
-  agent_driver.py        # LangGraph events -> RouteDeckAgentDriver events
-  entry_conversation.py  # product-specific initial welcome turn
   composition.py         # declarative cross-feature app composition
   bindings.py            # typed product dependency injection
-  runtime_factory.py     # runner, navigation, and persistence assembly
-  runtime.py             # environment-specific live assembly
+  runtime.py             # product configuration passed to framework openers
+  session.py             # buyer market, session factory, and initializer
   agent.py               # prompt, model, and LangGraph agent composition
   identifiers.py         # canonical cross-feature product identifiers
+backend/main.py           # one runtime provider, generic router, health/lifespan
 ```
 
-Generic chat request handling, turn leases, conversation persistence, replay,
-SSE framing, interruption, and the public interaction handshake live in
-`routedeck_fastapi/conversation*.py`, not in this product package. The Medusa
-driver contains only the product-runtime translation needed to execute its
-LangGraph agent behind RouteDeck's `RouteDeckAgentDriver` port.
+Generic user/assistant request handling, graph event translation, turn leases,
+conversation persistence, replay, SSE framing, cancellation, and the public
+interaction handshake live in RouteDeck packages, not in this product package.
+Medusa supplies the product graphs, prompts, models, bindings, and callbacks;
+`RouteDeckLangGraphDriverFactory` constructs the generic driver.
 
 Feature declarations are composed once in `composition.py`, implementations
-are wired once in `bindings.py`, and framework runtime construction lives in
-`runtime_factory.py`. Product behavior is organized under each feature's
+are wired once in `bindings.py`, session callbacks live in `session.py`, and
+`runtime.py` passes those inputs to `open_sqlalchemy_routedeck_runtime(...)`.
+RouteDeck constructs the durable resources, one runner, navigation over that
+runner, projection, and driver. Product behavior is organized under each feature's
 `operations/` package, one module per buyer operation; cross-feature IDs live in
 `identifiers.py`. No global regex router or hardcoded URL branch infers product
 behavior.
@@ -99,13 +103,15 @@ RouteDeck owns:
 - stable/ephemeral surface state and default-deny public projection;
 - shareable versus session-bound routes and resume capabilities;
 - encrypted private-form persistence and generic HTTP/SSE transport.
+- framework runtime/services assembly and the generic LangGraph driver;
+- typed assistant initiation and named React conversation presentation actions.
 
 The Medusa app owns:
 
 - catalog/cart/checkout/order feature declarations and business bindings;
 - Store API transport and all Medusa IDs behind opaque public handles;
 - region, country, sales-channel, and payment-provider configuration;
-- the buyer prompt, OpenAI model, system-prompt-authored entry trigger, and UI components;
+- the buyer prompt, OpenAI models, user/assistant graph construction, and UI components;
 - recovery decisions such as order reconciliation after an uncertain write.
 
 ## Route And Surface Contract
@@ -157,9 +163,12 @@ public state and only currently legal tools into each model call;
 by surface affordances.
 
 Durable conversation turns live in the RouteDeck session and are reconstructed
-for each request. The Medusa LangGraph adapter emits typed agent events while
-RouteDeck owns the turn lease, replay, persistence, and stream at
-`POST /api/routedeck/chat`. Canonical interaction-state events remain on
+for each request. Medusa returns explicit user-message and no-tool
+assistant-initiation graphs; RouteDeck's generic adapter emits typed agent
+events and owns the turn lease, replay, persistence, cleanup, and streams at
+`POST /api/routedeck/chat` and
+`POST /api/routedeck/conversation/assistant-turn`. The assistant path creates
+no synthetic user message and rejects tools/review. Canonical interaction-state events remain on
 `GET /api/routedeck/events` and gate surface dispatch while chat is active.
 Chat SSE responses are `private, no-store, no-transform`; if interruption
 persistence fails, the stream terminates as `outcome_unknown` and the browser
@@ -252,7 +261,6 @@ Product-owned endpoints:
 
 - `GET /api/medusa-agent/health`
 - `GET /api/medusa-agent/ready`
-- `POST /api/medusa-agent/conversation/entry`
 
 Generic RouteDeck endpoints mounted by the product:
 
@@ -261,6 +269,7 @@ Generic RouteDeck endpoints mounted by the product:
 - `GET /api/routedeck/session`
 - `GET /api/routedeck/conversation`
 - `POST /api/routedeck/chat` (`text/event-stream`)
+- `POST /api/routedeck/conversation/assistant-turn` (`text/event-stream`)
 - `POST /api/routedeck/navigation`
 - `POST /api/routedeck/dispatch`
 - `POST /api/routedeck/reviews/{review_id}/accept`

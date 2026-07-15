@@ -4,6 +4,11 @@ export interface AgentChatRequest {
   message: string;
 }
 
+export interface AgentAssistantTurnRequest {
+  request_id: string;
+  expected_session_version: number;
+}
+
 export interface AgentHistoryTurn {
   turn_id: string;
   request_id: string | null;
@@ -65,7 +70,12 @@ export interface RouteDeckConversationClient {
 
 export interface RouteDeckAgentClient
   extends AgentChatClient,
-    RouteDeckConversationClient {}
+    RouteDeckConversationClient {
+  streamAssistantTurn(
+    request: AgentAssistantTurnRequest,
+    signal?: AbortSignal,
+  ): AsyncIterable<AgentStreamEvent>;
+}
 
 export type AgentChatFailureOutcome =
   | "not_sent"

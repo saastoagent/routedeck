@@ -20,8 +20,9 @@ from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
 
 @pytest.mark.asyncio
 async def test_live_readiness_checks_store_and_configured_medusa_market() -> None:
+    market = _buyer_market()
     runtime = _ReadinessRuntime(
-        initial_market=_buyer_market(),
+        initial_market=market,
         store_error=SessionStoreError(SessionStoreErrorCode.SESSION_NOT_FOUND),
     )
     client = _RegionsClient(
@@ -40,6 +41,7 @@ async def test_live_readiness_checks_store_and_configured_medusa_market() -> Non
         runtime=runtime,  # type: ignore[arg-type]
         client=client,  # type: ignore[arg-type]
         settings=_settings(),
+        initial_market=market,
     )
 
     assert await readiness.routedeck_store_ready() is True
@@ -90,6 +92,10 @@ def _buyer_market() -> BuyerMarket:
 class _ReadinessRuntime:
     initial_market: BuyerMarket
     store_error: SessionStoreError | None = None
+
+    @property
+    def services(self) -> "_ReadinessRuntime":
+        return self
 
     @property
     def store(self) -> "_ReadinessRuntime":

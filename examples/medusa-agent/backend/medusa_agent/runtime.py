@@ -1,31 +1,41 @@
 from __future__ import annotations
 
 import os
-import secrets
 from dataclasses import dataclass
 from datetime import timedelta
 from importlib import import_module
 from pathlib import Path
 
-from routedeck_fastapi import InProcessEventNotifier, RouteDeckDependencies
+from routedeck_core import (
+    RouteDeckRuntime,
+    RouteDeckRuntimeServices,
+)
 from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
+from routedeck_langgraph import (
+    RouteDeckLangGraphDriverFactory,
+    RouteDeckLangGraphGraphs,
+)
 from routedeck_sqlalchemy import (
-    FernetSensitiveCodec,
     RouteDeckInstanceLeaseLost,
-    UtcClock,
+    SqlAlchemyRuntimeResources,
+    open_sqlalchemy_routedeck_runtime,
 )
 
 from .agent import create_live_medusa_agent, create_live_medusa_entry_agent
-from .runtime_factory import MedusaRuntime, open_persistent_medusa_runtime
+from .bindings import bind_medusa_app
+from .composition import compile_medusa_app_spec
 from .config import Settings
+from .features.catalog import CatalogRouteKeyValidator
+from .features.checkout import EncryptedCheckoutPrivateFormReader
 from .medusa.client.http import HttpMedusaStoreClient
 from .medusa.client.models import Region
 from .medusa.client.protocol import MedusaStoreClient
 from .session import (
     BuyerMarket,
-    MedusaSessionProjector,
     create_medusa_session,
+    initialize_medusa_session,
 )
+from .turn_policy import TURN_POLICY_EVENT_TAG
 
 
 _READINESS_SESSION_ID = "routedeck-readiness-probe"
@@ -37,13 +47,14 @@ class LiveRuntimeConfigurationError(RuntimeError):
 
 @dataclass(frozen=True)
 class LiveMedusaReadiness:
-    runtime: MedusaRuntime
+    runtime: RouteDeckRuntime
     client: MedusaStoreClient
     settings: Settings
+    initial_market: BuyerMarket
 
     async def routedeck_store_ready(self) -> bool:
         try:
-            await self.runtime.store.load(_READINESS_SESSION_ID)
+            await self.runtime.services.store.load(_READINESS_SESSION_ID)
         except SessionStoreError as error:
             return error.code in {
                 SessionStoreErrorCode.SESSION_NOT_FOUND,
@@ -58,15 +69,12 @@ class LiveMedusaReadiness:
             market = await _resolve_buyer_market(self.client, self.settings)
         except LiveRuntimeConfigurationError:
             return False
-        return market == self.runtime.initial_market
+        return market == self.initial_market
 
 
 @dataclass(frozen=True)
 class LiveMedusaApplication:
-    runtime: MedusaRuntime
-    routedeck: RouteDeckDependencies
-    agent: object | None
-    entry_agent: object | None
+    runtime: RouteDeckRuntime
     readiness: LiveMedusaReadiness
 
     async def close(self) -> None:
@@ -90,99 +98,77 @@ async def open_live_medusa_application(
     else:
         client = HttpMedusaStoreClient(configured)
     market = await _resolve_buyer_market(client, configured)
-    clock = UtcClock()
-    notifier = InProcessEventNotifier()
-    encryption_key = configured.routedeck_state_encryption_key.get_secret_value()
-    runtime = await open_persistent_medusa_runtime(
+    compiled = compile_medusa_app_spec()
+
+    def application_factory(
+        resources: SqlAlchemyRuntimeResources,
+    ):
+        return bind_medusa_app(
+            app=compiled,
+            client=client,
+            private_forms=EncryptedCheckoutPrivateFormReader(
+                resources.store,
+                resources.codec,
+            ),
+            configured_payment_provider_id=configured.medusa_payment_provider_id,
+            buyer_country_code=market.country_code,
+            handlers={},
+            providers={},
+            guards={},
+        )
+
+    runtime = await open_sqlalchemy_routedeck_runtime(
+        compiled_app=compiled,
+        application_factory=application_factory,
+        session_factory=lambda app, session_id: create_medusa_session(
+            app=app,
+            session_id=session_id,
+            market=market,
+        ),
+        session_initializer=initialize_medusa_session,
+        public_key_validator_factory=CatalogRouteKeyValidator.from_session,
+        agent_driver_factory=RouteDeckLangGraphDriverFactory(
+            graph_factory=lambda services: _create_configured_graphs(
+                configured,
+                services,
+            )
+        ),
         database_url=configured.routedeck_database_url,
-        encryption_key=encryption_key,
+        encryption_key=configured.routedeck_state_encryption_key.get_secret_value(),
         instance_id="medusa-agent-local",
-        client=client,
-        configured_payment_provider_id=configured.medusa_payment_provider_id,
-        handlers={},
-        providers={},
-        guards={},
-        clock=clock,
-        notifier=notifier,
-        id_factory=_new_runtime_id,
         review_ttl=timedelta(minutes=15),
+        resume_capability_ttl=timedelta(hours=24),
         default_session_id="medusa-agent-default",
-        market=market,
         worker_count=1,
     )
-    try:
-        projector = MedusaSessionProjector(runtime.app.app, clock)
-        codec = FernetSensitiveCodec(encryption_key)
-        dependencies = RouteDeckDependencies(
-            app=runtime.app.app,
-            runner=runtime.runner,
-            store=runtime.store,
-            notifier=notifier,
-            projector=projector,
-            private_form_codec=codec,
-            session_factory=lambda session_id: create_medusa_session(
-                session_id=session_id,
-                market=market,
-            ),
-            navigation=runtime.navigation,
-            session_initializer=runtime.initialize_session,
-        )
-        agent = _create_configured_agent(configured, runtime)
-        entry_agent = _create_configured_entry_agent(configured)
-        return LiveMedusaApplication(
+    return LiveMedusaApplication(
+        runtime=runtime,
+        readiness=LiveMedusaReadiness(
             runtime=runtime,
-            routedeck=dependencies,
-            agent=agent,
-            entry_agent=entry_agent,
-            readiness=LiveMedusaReadiness(
-                runtime=runtime,
-                client=client,
-                settings=configured,
-            ),
-        )
-    except BaseException:
-        await runtime.close()
-        raise
-
-
-def _create_configured_agent(
-    settings: Settings, runtime: MedusaRuntime
-) -> object | None:
-    """Select the explicit agent execution mode without a fallback path."""
-
-    mode = os.environ.get("ROUTEDECK_MODEL_MODE", "live")
-    if mode == "live":
-        return (
-            None
-            if settings.openai_api_key is None
-            else create_live_medusa_agent(settings=settings, runtime=runtime)
-        )
-    if mode == "scripted-test-only":
-        if os.environ.get("ROUTEDECK_TEST_ONLY") != "1":
-            raise LiveRuntimeConfigurationError(
-                "scripted-test-only model mode requires ROUTEDECK_TEST_ONLY=1"
-            )
-        support = import_module("routedeck_release_scripted_agent")
-        factory = getattr(support, "create_scripted_test_agent", None)
-        if factory is None or not callable(factory):
-            raise LiveRuntimeConfigurationError(
-                "scripted-test-only model support is not installed"
-            )
-        return factory(runtime=runtime)
-    raise LiveRuntimeConfigurationError(
-        "ROUTEDECK_MODEL_MODE must be 'live' or 'scripted-test-only'"
+            client=client,
+            settings=configured,
+            initial_market=market,
+        ),
     )
 
 
-def _create_configured_entry_agent(settings: Settings) -> object | None:
-    """Select the explicit entry-agent execution mode without a fallback path."""
+def _create_configured_graphs(
+    settings: Settings,
+    services: RouteDeckRuntimeServices,
+) -> RouteDeckLangGraphGraphs | None:
+    """Select one explicit product graph set without a fallback path."""
 
     mode = os.environ.get("ROUTEDECK_MODEL_MODE", "live")
     if mode == "live":
-        return (
-            None
-            if settings.openai_api_key is None
-            else create_live_medusa_entry_agent(settings=settings)
+        if settings.openai_api_key is None:
+            return None
+        return RouteDeckLangGraphGraphs(
+            user_message=create_live_medusa_agent(
+                settings=settings,
+                runtime=services,
+            ),
+            assistant_initiated=create_live_medusa_entry_agent(settings=settings),
+            ignored_event_tags=frozenset({TURN_POLICY_EVENT_TAG}),
         )
     if mode == "scripted-test-only":
         if os.environ.get("ROUTEDECK_TEST_ONLY") != "1":
@@ -190,12 +176,17 @@ def _create_configured_entry_agent(settings: Settings) -> object | None:
                 "scripted-test-only model mode requires ROUTEDECK_TEST_ONLY=1"
             )
         support = import_module("routedeck_release_scripted_agent")
-        factory = getattr(support, "create_scripted_test_entry_agent", None)
+        factory = getattr(support, "create_scripted_test_graphs", None)
         if factory is None or not callable(factory):
             raise LiveRuntimeConfigurationError(
-                "scripted-test-only entry-agent support is not installed"
+                "scripted-test-only graph support is not installed"
             )
-        return factory()
+        graphs = factory(runtime=services)
+        if not isinstance(graphs, RouteDeckLangGraphGraphs):
+            raise LiveRuntimeConfigurationError(
+                "scripted-test-only graph support returned an invalid graph set"
+            )
+        return graphs
     raise LiveRuntimeConfigurationError(
         "ROUTEDECK_MODEL_MODE must be 'live' or 'scripted-test-only'"
     )
@@ -239,12 +230,6 @@ def _require_country(region: Region, configured_country: str) -> None:
         raise LiveRuntimeConfigurationError(
             "MEDUSA_COUNTRY_CODE must identify one country in MEDUSA_REGION_ID."
         )
-
-
-def _new_runtime_id(kind: str) -> str:
-    if not kind:
-        raise ValueError("RouteDeck runtime ID kind must be non-empty")
-    return f"{kind}_{secrets.token_urlsafe(18)}"
 
 
 __all__ = [

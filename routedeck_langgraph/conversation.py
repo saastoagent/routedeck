@@ -132,6 +132,39 @@ def extract_conversation_turns(
     )
 
 
+def extract_assistant_initiated_turn(
+    messages: Sequence[BaseMessage],
+    *,
+    request_id: str,
+    id_factory: Callable[[str], str],
+) -> ExtractedConversation:
+    """Extract one no-tool assistant turn without inventing a user marker."""
+
+    if len(messages) != 1 or not isinstance(messages[0], AIMessage):
+        raise RouteDeckValidationError(
+            "Assistant-initiated results require exactly one assistant message"
+        )
+    assistant = messages[0]
+    if assistant.tool_calls:
+        raise RouteDeckValidationError(
+            "Assistant-initiated results cannot contain tool calls"
+        )
+    if not assistant.text:
+        raise RouteDeckValidationError(
+            "Assistant-initiated results require non-empty assistant text"
+        )
+    return ExtractedConversation(
+        turns=(
+            FinalizedConversationTurn(
+                turn_id=_message_turn_id(assistant, id_factory),
+                role=ConversationRole.ASSISTANT,
+                content=assistant.text,
+                request_id=request_id,
+            ),
+        )
+    )
+
+
 def messages_from_agent_state(state: object) -> tuple[BaseMessage, ...]:
     """Read the documented MessagesState shapes without guessing or coercion."""
 
@@ -198,6 +231,7 @@ def _message_turn_id(
 
 __all__ = [
     "ExtractedConversation",
+    "extract_assistant_initiated_turn",
     "extract_conversation_turns",
     "messages_from_agent_state",
 ]

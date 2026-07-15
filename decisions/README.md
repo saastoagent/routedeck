@@ -11,16 +11,29 @@ boundaries.
 - [ADR-003: RouteDeck Governs Agentic Interaction State](./ADR-003-agentic-interaction-state-governor.md)
 - [ADR-004: RouteDeck And Medusa Advance Through Consumer-Driven Runtime Slices](./ADR-004-routedeck-medusa-consumer-driven-runtime.md)
 - [ADR-005: RouteDeck Uses Named State Actions And Operation-Centric Consumers](./ADR-005-operation-centric-state-and-consumer-structure.md)
+- [ADR-006: RouteDeck Owns Runtime Assembly And The Generic Conversation Boundary](./ADR-006-framework-owned-runtime-and-conversation-boundary.md)
 
-ADR-005 is the current structural implementation decision. It preserves the
-ADR-004 product/framework boundary and buyer behavior while replacing reducer
-APIs, standardizing event identifiers, making SQLAlchemy persistence portable,
-and fixing the Medusa and Navgraph module boundaries.
+ADR-006 is the current authority for runtime assembly, generic conversation
+driving, and typed assistant initiation/presentation. RouteDeck owns that
+reusable infrastructure; Medusa owns only product logic, configuration, graphs,
+prompts, models, its Store client, readiness, and UI. ADR-006 partially
+supersedes the ADR-005 clause that assigned RouteDeck infrastructure assembly to
+Medusa's `runtime_factory.py`.
 
-ADR-004 remains the controlling scope and migration decision. It
-links the approved
+The executable implementation of that decision is tracked in the
+[runtime-boundary refactor plan](../docs/superpowers/plans/2026-07-15-routedeck-runtime-boundary-refactor.md).
+Earlier completed plans remain historical records and do not override ADR-006.
+
+ADR-005 remains the structural implementation authority for named state
+actions, canonical event identifiers, SQLAlchemy repository portability,
+operation-centric product slices, modular RouteDeck orchestration, and Navgraph
+behavior. Its superseded runtime-assembly clause is retained as historical
+record.
+
+ADR-004 remains the controlling scope and local-execution decision. It links
+the approved
 [RouteDeck and Medusa buyer-agent design](../docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
-to its active
+to its completed historical
 [implementation plan](../docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md)
 and fixes execution to the local Windows development machine.
 

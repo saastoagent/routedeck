@@ -1,7 +1,15 @@
 from .conversation import (
     ExtractedConversation,
+    extract_assistant_initiated_turn,
     extract_conversation_turns,
     messages_from_agent_state,
+)
+from .agent_driver import (
+    GraphFactory,
+    LangGraphEventStream,
+    RouteDeckLangGraphAgentDriver,
+    RouteDeckLangGraphDriverFactory,
+    RouteDeckLangGraphGraphs,
 )
 from .middleware import RouteDeckMiddleware
 from .model_context import (
@@ -33,6 +41,8 @@ from .tool_wrapper import (
 
 __all__ = [
     "ExtractedConversation",
+    "GraphFactory",
+    "LangGraphEventStream",
     "ModelContextEntity",
     "ModelContextObservation",
     "ModelContextPolicy",
@@ -42,6 +52,9 @@ __all__ = [
     "ModelContextTool",
     "ModelContextValue",
     "RouteDeckInvocationContext",
+    "RouteDeckLangGraphAgentDriver",
+    "RouteDeckLangGraphDriverFactory",
+    "RouteDeckLangGraphGraphs",
     "RouteDeckMiddleware",
     "RouteDeckModelContext",
     "RouteDeckRunnerRuntime",
@@ -51,6 +64,7 @@ __all__ = [
     "ROUTEDECK_POLICY_SECTION",
     "awrap_tool_call",
     "build_model_context",
+    "extract_assistant_initiated_turn",
     "extract_conversation_turns",
     "messages_from_agent_state",
     "operation_tool_name",

@@ -107,6 +107,60 @@ def test_release_gate_names_match_the_approved_design() -> None:
     )
 
 
+def test_release_boundary_fixture_requires_schema_v3_runtime_ownership() -> None:
+    assert release_summary.BOUNDARY_REPORT_SCHEMA_VERSION == 3
+    assert release_summary.REQUIRED_BOUNDARY_CHECKS == (
+        "core_imports",
+        "store_endpoint_inventory",
+        "handler_client_port",
+        "browser_network",
+        "product_transport_separation",
+        "runtime_ownership",
+        "source_policy_scan",
+        "architectural_review",
+    )
+
+    def report(
+        *,
+        schema_version: int = 3,
+        names: tuple[str, ...] | None = None,
+    ) -> dict[str, object]:
+        check_names = names or release_summary.REQUIRED_BOUNDARY_CHECKS
+        return {
+            "schema_version": schema_version,
+            "status": "pass",
+            "violation_count": 0,
+            "checks": [
+                {
+                    "name": name,
+                    "status": "pass",
+                    "evidence": {"verified": True},
+                    "violations": [],
+                }
+                for name in check_names
+            ],
+        }
+
+    release_summary._validate_boundary_report(report())
+    with pytest.raises(
+        release_summary.IncompleteReleaseEvidence,
+        match="schema version 3",
+    ):
+        release_summary._validate_boundary_report(report(schema_version=2))
+    with pytest.raises(
+        release_summary.IncompleteReleaseEvidence,
+        match="inventory or order drifted",
+    ):
+        release_summary._validate_boundary_report(
+            report(
+                names=tuple(
+                    "shared_runner" if name == "runtime_ownership" else name
+                    for name in release_summary.REQUIRED_BOUNDARY_CHECKS
+                )
+            )
+        )
+
+
 def test_release_summary_requires_every_gate_to_pass() -> None:
     with pytest.raises(release_summary.IncompleteReleaseEvidence, match="missing"):
         release_summary.build_release_summary(

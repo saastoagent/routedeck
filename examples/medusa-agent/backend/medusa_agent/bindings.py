@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 from routedeck_core.app import (
     BoundRouteDeckApp,
+    CompiledRouteDeckApp,
     ContextProvider,
     FeatureBindings,
     Guard,
@@ -12,7 +13,6 @@ from routedeck_core.app import (
 )
 from routedeck_core.contracts.operations import GuardRef, OperationRef, ProviderRef
 
-from .composition import compile_medusa_app_spec
 from .features.cart import create_cart_bindings
 from .features.catalog import create_catalog_bindings
 from .features.checkout import CheckoutPrivateFormReader, create_checkout_bindings
@@ -22,6 +22,7 @@ from .medusa.client.protocol import MedusaStoreClient
 
 def bind_medusa_app(
     *,
+    app: CompiledRouteDeckApp,
     client: MedusaStoreClient,
     private_forms: CheckoutPrivateFormReader,
     configured_payment_provider_id: str,
@@ -47,7 +48,7 @@ def bind_medusa_app(
         ),
         FeatureBindings(handlers=handlers, providers=providers, guards=guards),
     )
-    return bind_app(compile_medusa_app_spec(), bindings)
+    return bind_app(app, bindings)
 
 
 __all__ = ["bind_medusa_app"]

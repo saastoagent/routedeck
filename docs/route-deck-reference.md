@@ -2,9 +2,11 @@
 
 Status: canonical framework reference
 
-Implementation authority: `routedeck_core/app`, `routedeck_core/contracts`,
-`routedeck_core/state`, `routedeck_core/supervision`, and
-`routedeck_core/navigation`.
+Decision authority:
+[`ADR-006`](../decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md).
+Implementation authority spans `routedeck_core/runtime.py` and the core
+compiler/state/supervision/navigation packages plus the SQLAlchemy, LangGraph,
+FastAPI, headless TypeScript, and React adapters named below.
 
 This document describes the one standalone compiled RouteDeck runtime and its
 canonical contracts.
@@ -24,13 +26,17 @@ The framework owns:
 - durable state, attempts, results, events, replay, leases, and private blobs;
 - default-deny public projection and model context;
 - shareable/session-bound deep links and exact history;
-- generic HTTP/SSE, headless TypeScript, and React primitives.
+- one immutable framework-built runtime and explicit lifecycle;
+- generic user/assistant LangGraph driving and conversation persistence;
+- generic HTTP/SSE, headless TypeScript, and named React presentation
+  primitives.
 
 The consuming application owns:
 
 - domain APIs, typed adapters, wire models, business validation, and side
   effects;
-- prompts, model selection, LangGraph topology, and public chat behavior;
+- prompts, model selection, LangGraph topology, graph factories, assistant
+  wording, and public chat behavior;
 - product copy, recovery wording, route-entry resolution, and visual
   components;
 - authentication and deployment policy around the generic RouteDeck ports.
@@ -116,6 +122,32 @@ second execution path.
 provider implementation for every provider, and guard implementation for every
 guard. Missing, extra, synchronous, or incorrectly shaped bindings are startup
 errors.
+
+## Framework Runtime
+
+`RouteDeckRuntimeServices` is the immutable adapter-facing container. It holds
+the bound app, session store, clock, notifier, ID factory, one
+`RouteDeckOperationRunner`, `RouteDeckNavigationRunner` over that exact runner,
+and `ConfiguredSessionProjector`.
+
+`RouteDeckRuntime` adds the sensitive codec, product-supplied session factory
+and initializer, optional configured `RouteDeckAgentDriver`, and explicit
+lifecycle. `build_routedeck_runtime(...)` constructs the runner exactly once,
+passes it into navigation, builds projection, then invokes an optional driver
+factory exactly once after services exist. `close()` delegates to the declared
+lifecycle; there is no dynamic or alternate cleanup path.
+
+`open_sqlalchemy_routedeck_runtime(...)` opens
+`SqlAlchemySessionStore` and `FernetSensitiveCodec`, gives those resources to
+the product binding factory, and calls the core builder. A construction failure
+closes the opened store before propagating. Optional clock, notifier, and ID
+factory arguments are explicit host/test overrides; a supplied failure never
+selects a fallback.
+
+Products provide declarations/bindings, session callbacks, public-key
+validation, graph factory, and explicit configuration. They do not construct
+generic runners, navigation, store/codec resources, driver implementations, or
+FastAPI dependency bundles.
 
 ## Surface Contract
 
@@ -215,7 +247,7 @@ Repeated request IDs with the same fingerprint are idempotent. Reuse with a
 different fingerprint, concurrent ownership, stale versions, stale/expired
 review, or an invalid effect is a typed conflict.
 
-Session creation, navigation, private-form saves, and chat turns use the same
+Session creation, navigation, private-form saves, and conversation turns use the same
 request-identity rule through a durable mutation journal. Their public-safe
 terminal result, committed session/projection versions, and event cursor are
 stored atomically with canonical state. Exact replay returns the recorded
@@ -335,6 +367,20 @@ the model's tools to currently legal RouteDeck operations.
 through `RouteDeckOperationRunner`. Tool observations become durable turns only
 through the supervised parent-turn lifecycle.
 
+The product graph factory receives `RouteDeckRuntimeServices` and returns
+`RouteDeckLangGraphGraphs` with explicit `user_message` and
+`assistant_initiated` event streams plus ignored event tags, or returns `None`
+to declare conversation unavailable. `RouteDeckLangGraphDriverFactory`
+constructs the generic `RouteDeckLangGraphAgentDriver`; product modules do not
+call `astream_events(...)` or construct that driver.
+
+`UserMessageTrigger` carries the exact message and finalized user marker.
+Extraction requires exactly one matching `HumanMessage` and retains that turn.
+`AssistantInitiatedTrigger` sends no `HumanMessage`, accepts exactly one
+streamed non-tool assistant result, persists only that assistant turn, and
+rejects tool calls or review output. Both triggers use the same RouteDeck turn
+lease, completion, interruption, cleanup, and replay model.
+
 The application retains its existing `create_agent(...)` or raw `StateGraph`.
 For raw graphs, use the wrapper around `ToolNode` tool calls. RouteDeck does not
 accept a `StateGraph` and does not synthesize or mutate topology. No topology
@@ -352,6 +398,7 @@ remain separate authorities for separate concerns.
 | `GET /session` | Current public projection. |
 | `GET /conversation` | Finalized public user/assistant conversation projection. |
 | `POST /chat` | Durable agent turn over an injected product-neutral driver. |
+| `POST /conversation/assistant-turn` | Durable assistant-only turn with no synthetic user message. |
 | `POST /navigation` | Versioned exact navigation transaction. |
 | `POST /dispatch` | Versioned surface operation. |
 | `POST /reviews/{id}/accept` | Accept a current proposal. |
@@ -360,25 +407,29 @@ remain separate authorities for separate concerns.
 | `GET|PUT /private-forms/{id}` | No-store encrypted private-form channel. |
 | `GET /inspect` | Public runtime topology and diagnostics. |
 
-The product injects the compiled app, runner, store, notifier, projector,
-private-form codec, session factory, initializer, and navigation runner through
-`RouteDeckDependencies`. A missing dependency returns a visible unavailable
-failure; the transport never constructs a hidden store, model, or product
-adapter.
+The host supplies a `RuntimeProvider` to
+`create_routedeck_router_from_runtime_provider(...)`. FastAPI derives the app,
+runner, navigation, store, notifier, projector, codec, session callbacks, and
+agent driver from that one runtime and mounts contract, sessions, operations,
+conversation, events, private forms, and inspection exactly once. A missing
+runtime or driver returns a visible unavailable failure; the transport never
+constructs a hidden store, model, or product adapter.
 
-The prompt, model, graph, and business tools remain product-owned. RouteDeck
-owns the surrounding conversation transaction: request identity, parent turn
-lease, public interaction state, persistence/replay, interruption semantics,
-and assistant SSE. The product supplies a `RouteDeckAgentDriver` that emits
-typed text/reset/review/completion events and contains no HTTP or session-commit
-logic.
+The prompt, model, graph set, and business tools remain product-owned.
+RouteDeck owns the generic driver and surrounding transaction: typed trigger,
+request fingerprint, parent lease, public interaction state, event translation,
+persistence/replay, interruption/cancellation cleanup, and assistant SSE.
+Fingerprints are exactly `{"kind":"user_message","message":...}` or
+`{"kind":"assistant_initiated"}` before canonical JSON hashing. Exact replay
+does not invoke a graph; cross-trigger request-ID reuse is
+`request_id_reused`, and stale versions fail before graph invocation.
 
 `GET /api/routedeck/events` is the canonical interaction-state handshake. A
-chat begins by committing `interaction={phase: active, owner: chat}` and a
-`turn_started` event before the product driver runs. Surfaces and suggested
-actions remain inert until a finalized, interrupted, or review-staged state is
-projected. `POST /api/routedeck/chat` streams conversational text, but it is not
-a second state authority.
+user or assistant turn begins by committing
+`interaction={phase: active, owner: chat}` and a `turn_started` event before
+the product graph runs. Surfaces and suggested actions remain inert until a
+finalized, interrupted, or review-staged state is projected. Conversation SSE
+is not a second state authority.
 
 ## Headless And React Packages
 
@@ -397,6 +448,9 @@ a second state authority.
 - `RouteDeckSurfaceHost` plus a product component registry;
 - private-form, review, navigation, status, and error primitives;
 - `useRouteDeckConversation` for the browser turn lifecycle;
+- `ConversationPresentationActions`, whose named methods own rendered
+  conversation/status/review/failure presentation without exposing a generic
+  reducer or transition callback;
 - a lazy React Flow navgraph primitive that renders the complete compiled
   transition sitemap, highlights the current and currently reachable nodes,
   and inspects each node's route, deep-link policy, surfaces, operations, and
@@ -411,6 +465,9 @@ inspection.
 
 React owns rendering and component-local interaction state. It does not own
 canonical operation state, infer legal actions, or call product domain APIs.
+`createRouteDeckAgentClient(...)` loads canonical history and streams both user
+chat and assistant initiation. `RouteDeckObservableState` remains the canonical
+session/projection authority; presentation messages never replace it.
 
 ## Failure Semantics
 
@@ -423,6 +480,11 @@ contract or caller choice.
 Failures exposed publicly contain a stable kind/code/phase, correlation ID, and
 safe message. Raw exceptions, HTTP response bodies, private IDs, credentials,
 and private-form values stay server-side.
+
+Graph or stream failure persists an interrupted marker before emitting
+`chat_error` and `stream_end: turn_interrupted`. If interruption persistence
+fails, the only terminal frame is `stream_end: outcome_unknown`. Cancellation
+shields interruption persistence and closes the LangGraph async event stream.
 
 ## Medusa Reference Proof
 

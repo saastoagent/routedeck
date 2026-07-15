@@ -21,8 +21,14 @@ from .context import ContextScopeBuilder, OperationContextScope
 from .handles import new_opaque_handle
 from .navigation.deep_links import DeepLinkEngine
 from .navigation.engine import NavigationEngine
-from .ports import RouteDeckNotifier, RouteDeckSessionStore
-from .projection import ProjectionProjector
+from .ports import RouteDeckNotifier, RouteDeckSessionStore, SensitiveCodec
+from .projection import ConfiguredSessionProjector, ProjectionProjector
+from .runtime import (
+    RouteDeckRuntime,
+    RouteDeckRuntimeLifecycle,
+    RouteDeckRuntimeServices,
+    build_routedeck_runtime,
+)
 from .state import RouteDeckSessionAggregate
 from .supervision import RouteDeckOperationRunner
 
@@ -30,6 +36,7 @@ __all__ = [
     "ApplicationSpec",
     "BoundRouteDeckApp",
     "CompiledRouteDeckApp",
+    "ConfiguredSessionProjector",
     "ContextScopeBuilder",
     "DeepLinkEngine",
     "FailureKind",
@@ -45,13 +52,18 @@ __all__ = [
     "RouteDeckFailure",
     "RouteDeckNotifier",
     "RouteDeckOperationRunner",
+    "RouteDeckRuntime",
+    "RouteDeckRuntimeLifecycle",
+    "RouteDeckRuntimeServices",
     "RouteDeckRetentionPolicy",
     "RouteDeckSession",
     "RouteDeckSessionAggregate",
     "RouteDeckSessionStore",
+    "SensitiveCodec",
     "SessionEffects",
     "SessionSnapshot",
     "bind_app",
     "compile_app",
+    "build_routedeck_runtime",
     "new_opaque_handle",
 ]
