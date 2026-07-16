@@ -1,57 +1,57 @@
-/* Shared surface controls */
-
 [data-agent-shell] button {
-  min-height: 2.4rem;
-  border: 1px solid transparent;
-  border-radius: 0.75rem;
-  background: var(--accent);
-  padding: 0.5rem 0.75rem;
+  min-height: 32px;
+  border: 1px solid var(--medusa-bg-contrast);
+  border-radius: var(--medusa-radius-control);
+  background: var(--medusa-bg-contrast);
+  padding: 5px 10px;
+  box-shadow: var(--medusa-shadow-control);
   color: white;
-  font-size: 0.82rem;
-  font-weight: 800;
-  line-height: 1.2;
-  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 [data-agent-shell] button:not(:disabled):hover {
-  background: var(--accent-strong);
-  box-shadow: 0 0.5rem 1rem rgba(15, 79, 68, 0.16);
-  transform: translateY(-1px);
+  border-color: var(--medusa-bg-contrast-hover);
+  background: var(--medusa-bg-contrast-hover);
 }
 
 [data-agent-shell] button:not(:disabled):active {
-  box-shadow: none;
-  transform: translateY(0);
+  background: #3f3f46;
 }
 
 [data-agent-shell] :where(input:not([type="radio"]):not([type="checkbox"]), textarea, select) {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 34px;
   border: 1px solid var(--line-strong);
-  border-radius: 0.72rem;
+  border-radius: var(--medusa-radius-control);
   background: var(--paper);
-  padding: 0.5rem 0.65rem;
+  padding: 5px 8px;
   color: var(--ink);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  font-size: 13px;
+  line-height: 20px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 [data-agent-shell] :where(input:not([type="radio"]):not([type="checkbox"]), textarea, select):hover {
-  border-color: #96a69d;
+  border-color: #a1a1aa;
 }
 
 [data-agent-shell] :where(input:not([type="radio"]):not([type="checkbox"]), textarea, select):focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.11);
+  border-color: var(--medusa-interactive);
+  outline: 0;
+  box-shadow: var(--medusa-focus);
 }
 
 [data-agent-shell] :where(input, textarea, select):disabled {
-  background: #edf0ed;
+  background: var(--medusa-bg-hover);
   color: var(--muted);
 }
 
 [data-agent-shell] input[type="radio"] {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 16px;
+  height: 16px;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--medusa-interactive);
 }

@@ -1,61 +1,55 @@
-/* Private checkout form */
-
 [data-private-form] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 10px;
 }
 
-[data-private-form] > h1,
-[data-private-form] > label,
-[data-private-form] > fieldset,
-[data-private-form] > div,
-[data-private-form] > [data-routedeck-error],
-[data-private-form] > button {
+[data-private-form] > :where(h1, label, fieldset, div, [data-routedeck-error], button) {
   grid-column: 1 / -1;
 }
 
 [data-private-form] label {
   display: grid;
   align-content: start;
-  gap: 0.38rem;
+  gap: 4px;
   color: var(--ink-soft);
-  font-size: 0.78rem;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 [data-private-form] fieldset {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem 1rem;
+  gap: 8px 10px;
   min-width: 0;
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 0.95rem;
-  padding: 1rem;
+  border-radius: var(--medusa-radius-card);
+  padding: 10px;
 }
 
 [data-private-form] legend {
-  padding: 0 0.35rem;
+  padding: 0 4px;
   color: var(--ink);
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 [data-private-form] fieldset label:has(> input[type="radio"]) {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  min-height: 2.8rem;
+  min-height: 36px;
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: var(--paper-soft);
-  padding: 0.65rem 0.75rem;
+  border-radius: var(--medusa-radius-control);
+  background: var(--paper);
+  padding: 5px 8px;
   cursor: pointer;
 }
 
 [data-private-form] fieldset label:has(> input[type="radio"]:checked) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--medusa-interactive);
+  background: #eff6ff;
 }
 
 [data-private-form] > div[hidden] {
@@ -64,15 +58,13 @@
 
 [data-private-form] > button[type="submit"] {
   justify-self: start;
-  min-width: 12rem;
+  min-width: 10rem;
 }
-
-/* Delivery, payment, review, recovery, and confirmation */
 
 section[aria-labelledby="shipping-options-title"],
 section[aria-labelledby="payment-method-title"] {
   display: grid;
-  gap: 1rem;
+  gap: 10px;
 }
 
 section[aria-labelledby="shipping-options-title"] > :where(h1, p),
@@ -83,33 +75,33 @@ section[aria-labelledby="payment-method-title"] > :where(h1, p) {
 section[aria-labelledby="shipping-options-title"] > div,
 section[aria-labelledby="payment-method-title"] > div {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 8px;
 }
 
 section[aria-labelledby="shipping-options-title"] > div > button,
 section[aria-labelledby="payment-method-title"] > div > button {
   display: flex;
-  min-height: 4.25rem;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 8px;
   border-color: var(--line-strong);
-  background: var(--paper-soft);
-  padding: 0.9rem 1rem;
+  background: var(--paper);
+  padding: 8px 10px;
   color: var(--ink);
   text-align: left;
 }
 
 section[aria-labelledby="shipping-options-title"] > div > button:not(:disabled):hover,
 section[aria-labelledby="payment-method-title"] > div > button:not(:disabled):hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  border-color: var(--medusa-interactive);
+  background: #eff6ff;
+  color: var(--medusa-interactive-hover);
 }
 
 section[aria-labelledby="shipping-options-title"] > div > button span:nth-child(2) {
-  color: var(--accent-strong);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -117,7 +109,7 @@ section[aria-labelledby="shipping-options-title"] > div > button span:nth-child(
 section[aria-labelledby="order-review-title"],
 [data-confirmation] {
   display: grid;
-  gap: 0.8rem;
+  gap: 8px;
 }
 
 section[aria-labelledby="order-review-title"] > :where(h1, p),
@@ -129,9 +121,9 @@ section[aria-labelledby="order-review-title"] > ul,
 [data-confirmation] > ul {
   display: grid;
   gap: 0;
-  margin: 0.4rem 0 0;
+  margin: 4px 0 0;
   border: 1px solid var(--line);
-  border-radius: 0.9rem;
+  border-radius: var(--medusa-radius-card);
   padding: 0;
   list-style: none;
 }
@@ -140,8 +132,8 @@ section[aria-labelledby="order-review-title"] > ul > li,
 [data-confirmation] > ul > li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.12rem 1rem;
-  padding: 0.78rem 0.9rem;
+  gap: 2px 12px;
+  padding: 7px 9px;
 }
 
 section[aria-labelledby="order-review-title"] > ul > li + li,
@@ -151,14 +143,14 @@ section[aria-labelledby="order-review-title"] > ul > li + li,
 
 section[aria-labelledby="order-review-title"] > ul > li span:first-child,
 [data-confirmation] > ul > li span:first-child {
-  font-weight: 800;
+  font-weight: 500;
 }
 
 section[aria-labelledby="order-review-title"] > ul > li span:not(:first-child):not(:last-child),
 [data-confirmation] > ul > li span:not(:first-child):not(:last-child) {
   grid-column: 1;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 12px;
 }
 
 section[aria-labelledby="order-review-title"] > ul > li span:last-child,
@@ -166,29 +158,27 @@ section[aria-labelledby="order-review-title"] > ul > li span:last-child,
   grid-column: 2;
   grid-row: 1;
   color: var(--ink);
-  font-weight: 800;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 section[aria-labelledby="private-address-summary-title"] {
-  border: 1px solid #cfe2d9;
-  border-radius: 0.9rem;
-  background: var(--accent-soft);
-  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--medusa-radius-card);
+  background: var(--medusa-bg-subtle);
+  padding: 9px 10px;
 }
 
 section[aria-labelledby="private-address-summary-title"] h2 {
-  margin-bottom: 0.45rem;
+  margin-bottom: 4px;
   font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 850;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 section[aria-labelledby="private-address-summary-title"] address {
   color: var(--ink-soft);
-  font-size: 0.86rem;
+  font-size: 13px;
   font-style: normal;
 }
 
@@ -196,48 +186,43 @@ section[aria-labelledby="order-review-title"] > button,
 [data-confirmation] > button,
 section[aria-labelledby="unknown-order-title"] > button {
   justify-self: start;
-  margin-top: 0.35rem;
+  margin-top: 4px;
 }
 
 [data-confirmation] {
-  border-color: #b9d7c7 !important;
-  background:
-    radial-gradient(circle at 100% 0, rgba(35, 113, 79, 0.13), transparent 18rem),
-    var(--paper) !important;
+  border-color: #bbf7d0 !important;
+  background: var(--paper) !important;
 }
 
 .order-confirmation-icon {
   display: inline-grid;
-  width: 2.2rem;
-  height: 2.2rem;
-  margin-right: 0.65rem;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
   place-items: center;
   border-radius: 50%;
   background: var(--success-soft);
   color: var(--success);
-  font-family: inherit;
-  font-size: 1.1rem;
-  vertical-align: 0.18em;
+  font-size: 13px;
+  vertical-align: 1px;
 }
 
 section[aria-labelledby="unknown-order-title"] {
   display: grid;
-  gap: 0.9rem;
-  border-color: #ead5aa !important;
+  gap: 8px;
+  border-color: #fde68a !important;
   background: var(--warning-soft) !important;
 }
 
 section[aria-labelledby="unknown-order-title"] > h2 {
-  color: #65440f;
+  color: #713f12;
 }
 
 [data-routedeck-slot] > section:has(> h2[id^="review-"]) {
   display: grid;
-  gap: 0.8rem;
-  border-color: #c9dcd4;
-  background:
-    linear-gradient(135deg, rgba(228, 242, 237, 0.68), transparent 55%),
-    var(--paper);
+  gap: 8px;
+  border-color: var(--line-strong);
+  background: var(--medusa-bg-subtle);
 }
 
 [data-routedeck-slot] > section:has(> h2[id^="review-"]) > :where(h2, p) {
@@ -247,8 +232,8 @@ section[aria-labelledby="unknown-order-title"] > h2 {
 [data-routedeck-slot] > section:has(> h2[id^="review-"]) > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 0.35rem;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 [data-routedeck-slot] > section:has(> h2[id^="review-"]) > div button:last-child {
@@ -258,7 +243,7 @@ section[aria-labelledby="unknown-order-title"] > h2 {
 }
 
 [data-routedeck-slot] > section:has(> h2[id^="review-"]) > div button:last-child:not(:disabled):hover {
-  border-color: #d28d7d;
+  border-color: #fecaca;
   background: var(--danger-soft);
   color: var(--danger);
 }

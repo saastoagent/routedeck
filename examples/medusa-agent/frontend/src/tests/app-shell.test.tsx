@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type {
   FrontendContract,
@@ -26,6 +26,7 @@ import {
 import type { AgentChatClient } from "@routedeck/core";
 import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
 import { AgentShell } from "../ui/AgentShell";
+import { BuyerNavigation } from "../ui/BuyerNavigation";
 import { NavgraphSidebar } from "../ui/NavgraphSidebar";
 
 const REVIEW_ID = "review_opaque_shell_82c4";
@@ -73,6 +74,22 @@ it("places the home suggestion after the model greeting without a welcome surfac
   expect(chip.closest("[data-agent-input-dock]")).not.toBeNull();
   expect(chip.closest("[data-agent-conversation]")).toBeNull();
   expect(document.querySelector('[data-routedeck-surface="buyer.welcome"]')).toBeNull();
+
+  harness.dispose();
+});
+
+it("uses the official Medusa mark without changing the brand label", async () => {
+  const harness = await renderRouteDeckComponent(<BuyerNavigation />, {
+    contract: frontendContract(),
+    projection: routeDeckProjectionFixture({ nodeId: "buyer.home" }),
+  });
+
+  const brand = screen.getByLabelText("Medusa Agent home");
+  expect(within(brand).getByText("Medusa Agent")).toBeVisible();
+  expect(brand.querySelector("svg.buyer-brand-mark")).toHaveAttribute(
+    "viewBox",
+    "0 0 64 64",
+  );
 
   harness.dispose();
 });

@@ -4,6 +4,8 @@ import {
   useRouteDeckCurrentNode,
 } from "@routedeck/react";
 
+import { MedusaMark } from "./MedusaMark";
+
 export function BuyerNavigation() {
   const contract = useRouteDeckContract();
   const currentNode = useRouteDeckCurrentNode();
@@ -13,7 +15,7 @@ export function BuyerNavigation() {
   return (
     <header className="buyer-nav">
       <div className="buyer-brand" aria-label="Medusa Agent home">
-        <span className="buyer-brand-mark" aria-hidden="true">M</span>
+        <MedusaMark />
         <span>
           <strong>Medusa Agent</strong>
           <small>Commerce, supervised by RouteDeck</small>

@@ -1,23 +1,21 @@
-/* Cart */
-
 [data-cart-summary] > header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.2rem;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 [data-cart-summary] > header p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 [data-cart-summary] > ul {
   display: grid;
-  gap: 0.8rem;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -26,41 +24,39 @@
 [data-cart-line] article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.65rem 1rem;
-  border: 1px solid #dfe4e0;
-  border-radius: 0.95rem;
-  background: var(--paper-soft);
-  padding: 1rem;
+  gap: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--medusa-radius-card);
+  background: var(--medusa-bg-subtle);
+  padding: 10px;
 }
 
-[data-cart-line] header,
-[data-cart-line] dl,
-[data-cart-line] article > p,
-[data-cart-line] [data-routedeck-error] {
+[data-cart-line] :where(header, dl, article > p, [data-routedeck-error]) {
   grid-column: 1;
 }
 
 [data-cart-line] h2 {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 
 [data-cart-line] header p,
 [data-cart-line] article > p {
-  margin: 0.2rem 0 0;
+  margin: 2px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 12px;
 }
 
 [data-cart-line] dl {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 12px;
 }
 
 [data-cart-line] dl div {
   display: flex;
-  gap: 0.35rem;
+  gap: 4px;
 }
 
 [data-cart-line] dl dt {
@@ -75,57 +71,56 @@
   display: grid;
   grid-column: 2;
   grid-row: 1 / span 2;
-  grid-template-columns: 2.5rem 2.8rem 2.5rem;
+  grid-template-columns: 32px 36px 32px;
   align-self: start;
   align-items: center;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 0.72rem;
+  border-radius: var(--medusa-radius-control);
   background: var(--paper);
 }
 
 [data-cart-line] [role="group"] button {
-  min-height: 2.5rem;
+  min-height: 32px;
   border: 0;
   border-radius: 0;
   background: transparent;
   padding: 0;
-  color: var(--accent-strong);
-  font-size: 1.15rem;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 16px;
 }
 
 [data-cart-line] [role="group"] button:not(:disabled):hover {
-  background: var(--accent-soft);
-  box-shadow: none;
-  transform: none;
+  background: var(--medusa-bg-hover);
 }
 
 [data-cart-line] [role="group"] output {
   text-align: center;
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 [data-cart-line] article > button {
-  min-height: 2.35rem;
+  min-height: 30px;
   grid-column: 2;
   align-self: end;
-  border-color: #e2b5aa;
-  background: transparent;
-  padding: 0.48rem 0.7rem;
+  border-color: var(--line);
+  background: var(--paper);
+  padding: 4px 8px;
   color: var(--danger);
 }
 
 [data-cart-line] article > button:not(:disabled):hover {
-  border-color: #d28d7d;
+  border-color: #fecaca;
   background: var(--danger-soft);
-  box-shadow: none;
 }
 
 [data-cart-summary] > dl,
 section[aria-labelledby="order-review-title"] > dl,
 [data-confirmation] > dl {
   width: min(100%, 29rem);
-  margin: 1.25rem 0 0 auto;
+  margin: 12px 0 0 auto;
   border-top: 1px solid var(--line);
 }
 
@@ -134,8 +129,9 @@ section[aria-labelledby="order-review-title"] > dl > div,
 [data-confirmation] > dl > div {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.48rem 0;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
 }
 
 [data-cart-summary] > dl dt,
@@ -155,9 +151,8 @@ section[aria-labelledby="order-review-title"] > dl dd,
 [data-cart-summary] > dl > div:last-child,
 section[aria-labelledby="order-review-title"] > dl > div:last-child,
 [data-confirmation] > dl > div:last-child {
-  margin-top: 0.25rem;
+  margin-top: 2px;
   border-top: 1px solid var(--line);
-  padding-top: 0.72rem;
-  font-size: 1.05rem;
-  font-weight: 850;
+  padding-top: 7px;
+  font-weight: 500;
 }

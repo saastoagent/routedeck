@@ -1,5 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import "@fontsource-variable/inter/index.css";
+import "@fontsource/roboto-mono/latin-400.css";
+import "@fontsource/roboto-mono/latin-500.css";
 import {
   AgentChatError,
   createRouteDeckAgentClient,

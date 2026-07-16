@@ -178,11 +178,11 @@ pnpm --filter @routedeck/medusa-agent typecheck
 ### Task 3: Compact the conversation, surfaces, catalog, cart, and checkout
 
 **Files:**
-- Modify: `examples/medusa-agent/frontend/src/styles/conversation.css`
-- Modify: `examples/medusa-agent/frontend/src/styles/surfaces.css`
-- Modify: `examples/medusa-agent/frontend/src/styles/catalog.css`
-- Modify: `examples/medusa-agent/frontend/src/styles/cart.css`
-- Modify: `examples/medusa-agent/frontend/src/styles/checkout.css`
+- Modify: `examples/medusa-agent/frontend/src/app/styles/conversation.css`
+- Modify: `examples/medusa-agent/frontend/src/app/styles/surfaces.css`
+- Modify: `examples/medusa-agent/frontend/src/app/styles/catalog.css`
+- Modify: `examples/medusa-agent/frontend/src/app/styles/cart.css`
+- Modify: `examples/medusa-agent/frontend/src/app/styles/checkout.css`
 - Modify: `examples/medusa-agent/frontend/src/ui/navgraph-sidebar.css`
 
 - [ ] **Step 1: Compact conversation and Markdown rhythm**
@@ -206,7 +206,7 @@ Use a white panel with zinc dividers and compact facts. Product-scope graph node
 Run:
 
 ```powershell
-pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/app-shell.test.tsx src/tests/assistant-markdown.test.tsx src/tests/catalog-surface.test.tsx src/tests/cart-surface.test.tsx src/tests/checkout-surface.test.tsx src/tests/review-surface.test.tsx
+pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/app-shell.test.tsx src/tests/assistant-markdown.test.tsx src/tests/catalog-flow.test.tsx src/tests/cart-checkout-flow.test.tsx src/tests/contact-delivery-flow.test.tsx src/tests/review-confirmation-flow.test.tsx
 pnpm --filter @routedeck/medusa-agent typecheck
 ```
 
