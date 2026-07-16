@@ -8,6 +8,7 @@
     "test:persistence": "playwright test --config playwright.config.ts --project=desktop-chromium --grep @persistence-restart",
     "test:live-model": "playwright test --config playwright.config.ts --project=desktop-chromium --grep @live-model",
     "test:human-stories": "playwright test human-user-stories.spec.ts --config human-stories.playwright.config.ts",
+    "test:human-checkout-video": "playwright test --config live-checkout-video.playwright.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

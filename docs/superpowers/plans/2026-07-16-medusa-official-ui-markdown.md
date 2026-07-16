@@ -221,8 +221,8 @@ Commit: `style(medusa): align buyer UI with official design system`
 **Files:**
 - Modify: `examples/medusa-agent/e2e/human-checkout-flow.spec.ts`
 - Modify: `examples/medusa-agent/e2e/support/buyer-flow.ts`
-- Create: `examples/medusa-agent/live-checkout-video.playwright.config.ts`
-- Modify: `examples/medusa-agent/package.json`
+- Create: `examples/medusa-agent/e2e/live-checkout-video.playwright.config.ts`
+- Modify: `examples/medusa-agent/e2e/package.json`
 
 - [ ] **Step 1: Add observation-only helpers**
 
@@ -268,7 +268,7 @@ Require an absolute `ROUTEDECK_E2E_ARTIFACTS` directory outside the repository. 
 
 - [ ] **Step 7: Run E2E type-level discovery only**
 
-Run: `pnpm --filter @routedeck/example-medusa-agent exec playwright test --config live-checkout-video.playwright.config.ts --list`
+Run: `pnpm --filter @routedeck/medusa-agent-e2e exec playwright test --config live-checkout-video.playwright.config.ts --list`
 
 - [ ] **Step 8: Commit the E2E evidence harness**
 
@@ -323,7 +323,7 @@ Save the latest implementation screenshots outside the repo and inspect them at 
 Set a timestamped absolute `ROUTEDECK_E2E_ARTIFACTS` directory under the Codex visualization workspace and run:
 
 ```powershell
-pnpm --filter @routedeck/example-medusa-agent test:human-checkout-video
+pnpm --filter @routedeck/medusa-agent-e2e test:human-checkout-video
 ```
 
 The recording must visibly show fresh home, general discovery, Catalog, product deep-link reload, product/cart transitions, checkout stages, session-bound delivery reload, review, explicit approval, confirmation, confirmation reload, and the matching Navgraph current node throughout.

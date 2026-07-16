@@ -5,6 +5,7 @@ import {
   expectCart,
   expectProduct,
   selectVariantAndAddToCart,
+  type CheckoutFlowStage,
 } from "./support/buyer-flow";
 import { expect, test } from "./support/fixtures";
 import { PRODUCT, buyerForProject } from "./support/test-data";
@@ -15,8 +16,18 @@ const FINALIZED_ASSISTANT_SELECTOR =
   '[data-agent-message="assistant"][data-agent-message-status="finalized"]';
 const CHAT_ERROR_SELECTOR = "[data-agent-chat-error]";
 const CHAT_TIMEOUT_MS = 150_000;
+const NAVGRAPH_READING_PAUSE_MS = 650;
 
-test("@human-checkout completes one live conversational hybrid purchase", async ({
+const CHECKOUT_NODES: Readonly<Record<CheckoutFlowStage, string>> = {
+  contact: "checkout.contact",
+  delivery: "checkout.delivery",
+  payment: "checkout.payment",
+  review: "checkout.review",
+  approval: "checkout.review",
+  confirmation: "orders.confirmation",
+};
+
+test("@human-checkout completes one curious conversational hybrid purchase with visible navigation proof", async ({
   browserSafety,
   page,
 }, testInfo) => {
@@ -25,7 +36,7 @@ test("@human-checkout completes one live conversational hybrid purchase", async 
     testInfo.project.use.baseURL,
     "The recorded human checkout must target the approved local RouteDeck stack.",
   ).toBe(LOCAL_APP_ORIGIN);
-  test.setTimeout(360_000);
+  test.setTimeout(420_000);
   const buyer = buyerForProject(testInfo.project.name);
 
   await page.goto("/");
@@ -33,35 +44,163 @@ test("@human-checkout completes one live conversational hybrid purchase", async 
   await expect(page.locator(FINALIZED_ASSISTANT_SELECTOR)).toHaveCount(1, {
     timeout: CHAT_TIMEOUT_MS,
   });
+  await showCurrentNavgraphNode(page, "buyer.home");
+  await closeNavgraph(page);
 
   await sendCasualChat(
     page,
-    "Hey — I'm looking for a black tee. Can you show me what you've got?",
+    "Hey! I'm new here. What can I actually shop for on this site?",
     "/products",
   );
+  await expect(
+    page.getByRole("heading", { name: "Products", exact: true }),
+  ).toBeVisible();
+  await showCurrentNavgraphNode(page, "catalog.products");
+  await closeNavgraph(page);
 
-  await page
-    .getByRole("link", { name: PRODUCT.catalogLinkLabel, exact: true })
-    .click();
+  const productLink = page.getByRole("link", {
+    name: PRODUCT.catalogLinkLabel,
+    exact: true,
+  });
+  const productHref = await productLink.getAttribute("href");
+  expect(productHref).not.toBeNull();
+  const productDeepLink = new URL(productHref!, page.url()).toString();
+
+  await page.goto(productDeepLink);
   await expectProduct(page);
-  await selectVariantAndAddToCart(page);
+  await showCurrentNavgraphNode(page, "catalog.product");
+  await closeNavgraph(page);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  expect(page.url()).toBe(productDeepLink);
+  await expectProduct(page);
+  await showCurrentNavgraphNode(page, "catalog.product");
+  await closeNavgraph(page);
 
   await sendCasualChat(
     page,
-    "Nice, that works for me. Can you take me to my cart?",
+    "This one caught my eye, but I'm not settled yet. What size and color options does it come in?",
+    PRODUCT.path,
+  );
+  await selectVariantAndAddToCart(page, ["2", "1"]);
+
+  await sendCasualChat(
+    page,
+    "Actually, let's keep it to one. Please take me to my cart.",
     "/cart",
   );
   await expectCart(page);
+  await showCurrentNavgraphNode(page, "cart.summary");
+  await closeNavgraph(page);
 
-  const confirmationUrl = await completeGuestCheckout(page, buyer);
+  let deliveryDeepLink: string | null = null;
+  let deliveryResumeHandle: string | null = null;
+  const confirmationUrl = await completeGuestCheckout(
+    page,
+    buyer,
+    undefined,
+    {
+      async onStage(stage, checkoutPage) {
+        await showCurrentNavgraphNode(checkoutPage, CHECKOUT_NODES[stage]);
+        await closeNavgraph(checkoutPage);
+
+        if (stage !== "delivery" || deliveryDeepLink !== null) return;
+
+        const deliveryUrl = new URL(checkoutPage.url());
+        expect(deliveryUrl.pathname).toBe("/checkout/delivery");
+        deliveryResumeHandle = deliveryUrl.searchParams.get("resume_handle");
+        expect(deliveryResumeHandle).toBeTruthy();
+        deliveryDeepLink = deliveryUrl.toString();
+
+        await checkoutPage.reload({ waitUntil: "domcontentloaded" });
+        expect(checkoutPage.url()).toBe(deliveryDeepLink);
+        await expect(
+          checkoutPage.getByRole("heading", {
+            name: "Delivery options",
+            exact: true,
+          }),
+        ).toBeVisible();
+        expect(new URL(checkoutPage.url()).searchParams.get("resume_handle")).toBe(
+          deliveryResumeHandle,
+        );
+        await showCurrentNavgraphNode(checkoutPage, "checkout.delivery");
+        await closeNavgraph(checkoutPage);
+      },
+    },
+  );
+
+  expect(deliveryDeepLink).not.toBeNull();
+  expect(deliveryResumeHandle).not.toBeNull();
   expect(new URL(confirmationUrl).pathname).toMatch(
     /^\/orders\/[^/]+\/confirmation$/,
   );
   await expect(
     page.getByRole("heading", { name: "Order confirmed", exact: true }),
   ).toBeVisible();
+  await showCurrentNavgraphNode(page, "orders.confirmation");
+  await closeNavgraph(page);
+
+  const confirmationHandle = await page
+    .locator("section[data-confirmation]")
+    .getAttribute("data-confirmation");
+  expect(confirmationHandle).toBeTruthy();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  expect(page.url()).toBe(confirmationUrl);
+  await expect(page.locator("section[data-confirmation]")).toHaveAttribute(
+    "data-confirmation",
+    confirmationHandle!,
+  );
+  await showCurrentNavgraphNode(page, "orders.confirmation");
+
+  await expect(
+    page.locator(`${FINALIZED_ASSISTANT_SELECTOR} > article > .assistant-markdown`),
+  ).toHaveCount(await page.locator(FINALIZED_ASSISTANT_SELECTOR).count());
+  await expect(
+    page.locator(`${FINALIZED_ASSISTANT_SELECTOR} > article > p`),
+  ).toHaveCount(0);
+  for (const content of await page
+    .locator(FINALIZED_ASSISTANT_SELECTOR)
+    .allTextContents()) {
+    expect(content).not.toMatch(/(?:tool_call|function_call|"arguments"\s*:)/i);
+  }
   browserSafety.assertClean();
 });
+
+async function showCurrentNavgraphNode(
+  page: Page,
+  nodeId: string,
+): Promise<void> {
+  const navgraph = page.getByRole("complementary", {
+    name: "Navgraph",
+    exact: true,
+  });
+  const open = page.getByRole("button", { name: "Open Navgraph", exact: true });
+
+  if (await open.isVisible()) {
+    await open.click();
+  }
+
+  await expect(
+    navgraph.getByRole("button", { name: "Close Navgraph", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(navgraph.locator(".navgraph-session-facts")).toContainText(nodeId);
+  await expect(
+    navgraph.locator(
+      `[data-routedeck-navgraph-node="${nodeId}"][data-node-tone="current"]`,
+    ),
+  ).toHaveCount(1);
+  await page.waitForTimeout(NAVGRAPH_READING_PAUSE_MS);
+}
+
+async function closeNavgraph(page: Page): Promise<void> {
+  const close = page.getByRole("button", {
+    name: "Close Navgraph",
+    exact: true,
+  });
+  if (await close.isVisible()) {
+    await close.click();
+  }
+}
 
 async function sendCasualChat(
   page: Page,

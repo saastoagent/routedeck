@@ -16,6 +16,18 @@ const ROUTEDECK_DISPATCH_PATH = "/api/routedeck/dispatch";
 const ROUTEDECK_SESSIONS_PATH = "/api/routedeck/sessions";
 const ORDER_CONFIRMED_HEADING = "Order confirmed";
 
+export type CheckoutFlowStage =
+  | "contact"
+  | "delivery"
+  | "payment"
+  | "review"
+  | "approval"
+  | "confirmation";
+
+export interface CheckoutFlowObserver {
+  onStage(stage: CheckoutFlowStage, page: Page): Promise<void>;
+}
+
 export async function openProductFromCatalog(
   page: Page,
   evidence?: BrowserFlowEvidence,
@@ -44,7 +56,10 @@ export async function expectProduct(page: Page): Promise<void> {
   await expectRouteDeckLive(page);
 }
 
-export async function selectVariantAndAddToCart(page: Page): Promise<void> {
+export async function selectVariantAndAddToCart(
+  page: Page,
+  quantityValues: readonly string[] = ["1"],
+): Promise<void> {
   const variant = page.getByRole("radio", {
     name: PRODUCT.variantLabel,
     exact: true,
@@ -63,7 +78,12 @@ export async function selectVariantAndAddToCart(page: Page): Promise<void> {
     exact: true,
   });
   await expect(quantity).toBeEnabled();
-  await quantity.fill("1");
+  for (const [index, value] of quantityValues.entries()) {
+    await quantity.fill(value);
+    if (index < quantityValues.length - 1) {
+      await page.waitForTimeout(350);
+    }
+  }
 
   const addForm = page.locator("form[data-catalog-add-to-cart]");
   const addButton = page.getByRole("button", {
@@ -108,6 +128,7 @@ export async function completeGuestCheckout(
   page: Page,
   buyer: BuyerProfile,
   evidence?: BrowserFlowEvidence,
+  observer?: CheckoutFlowObserver,
 ): Promise<string> {
   evidence?.registerSensitiveValues([
     buyer.email,
@@ -135,6 +156,7 @@ export async function completeGuestCheckout(
     }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
+  await observeStage(observer, "contact", page);
 
   await page.getByLabel("Email", { exact: true }).fill(buyer.email);
   const shipping = page.getByRole("group", {
@@ -173,6 +195,7 @@ export async function completeGuestCheckout(
     page.getByRole("heading", { name: "Delivery options", exact: true }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
+  await observeStage(observer, "delivery", page);
 
   await page
     .getByRole("button", { name: PRODUCT.shippingLabel, exact: true })
@@ -181,6 +204,7 @@ export async function completeGuestCheckout(
     page.getByRole("heading", { name: "Payment method", exact: true }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
+  await observeStage(observer, "payment", page);
 
   await page
     .getByRole("button", { name: PRODUCT.paymentLabel, exact: true })
@@ -192,6 +216,7 @@ export async function completeGuestCheckout(
   await expect(
     page.getByRole("heading", { name: "Delivery address", exact: true }),
   ).toBeVisible();
+  await observeStage(observer, "review", page);
 
   await page
     .getByRole("button", { name: "Review and place order", exact: true })
@@ -205,6 +230,7 @@ export async function completeGuestCheckout(
   ).toBeVisible();
   await captureEvidence(evidence, page, "review-pending");
   expect(approvalRequests).toHaveLength(0);
+  await observeStage(observer, "approval", page);
 
   await page
     .getByRole("button", { name: "Place order", exact: true })
@@ -216,6 +242,7 @@ export async function completeGuestCheckout(
     }),
   ).toBeVisible({ timeout: 60_000 });
   await expectRouteDeckLive(page);
+  await observeStage(observer, "confirmation", page);
   page.off("request", trackApproval);
 
   expect(approvalRequests).toHaveLength(1);
@@ -318,6 +345,14 @@ async function captureEvidence(
   stage: BrowserEvidenceStage,
 ): Promise<void> {
   await evidence?.capture(page, stage);
+}
+
+async function observeStage(
+  observer: CheckoutFlowObserver | undefined,
+  stage: CheckoutFlowStage,
+  page: Page,
+): Promise<void> {
+  await observer?.onStage(stage, page);
 }
 
 function isReviewAcceptance(request: Request): boolean {
