@@ -46,13 +46,11 @@ class InProcessEventNotifier:
             if self._latest_cursor.get(session_id, 0) > after_cursor:
                 return True
             try:
-                await asyncio.wait_for(
-                    self._condition.wait_for(
+                async with asyncio.timeout(timeout.total_seconds()):
+                    await self._condition.wait_for(
                         lambda: self._latest_cursor.get(session_id, 0)
                         > after_cursor
-                    ),
-                    timeout=timeout.total_seconds(),
-                )
+                    )
             except TimeoutError:
                 return False
             return True

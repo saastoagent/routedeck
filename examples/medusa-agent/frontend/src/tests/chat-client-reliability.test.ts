@@ -128,6 +128,41 @@ it("streams an assistant-initiated turn through the generic RouteDeck endpoint",
 });
 
 
+it("preserves a typed in-stream RouteDeck rejection", async () => {
+  const client = createRouteDeckAgentClient({
+    baseUrl: "https://agent.test/api/routedeck/",
+    fetch: async () =>
+      new Response(
+        `${[
+          "event: chat_error",
+          'data: {"code":"operation_in_progress","message":"The RouteDeck session request could not be completed."}',
+          "",
+          "event: stream_end",
+          'data: {"request_id":"assistant-http-stable","status":"rejected"}',
+          "",
+        ].join("\n")}\n`,
+        {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        },
+      ),
+  });
+
+  await expect(collect(client.streamAssistantTurn(ASSISTANT_REQUEST))).resolves.toEqual([
+    {
+      type: "chat_error",
+      code: "operation_in_progress",
+      message: "The RouteDeck session request could not be completed.",
+    },
+    {
+      type: "stream_end",
+      request_id: "assistant-http-stable",
+      status: "rejected",
+    },
+  ]);
+});
+
+
 it("classifies a received chat 5xx as outcome unknown", async () => {
   const client = createRouteDeckAgentClient({
     baseUrl: "https://agent.test",

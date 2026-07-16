@@ -23,6 +23,7 @@ from routedeck_core.ports import (
     RouteDeckAgentStreamError,
     RouteDeckAgentTurn,
     RouteDeckConversationTrigger,
+    SessionStoreError,
     UserMessageTrigger,
 )
 from routedeck_core.state.leases import TurnClaim, TurnLease, TurnOwnerKind
@@ -30,6 +31,7 @@ from routedeck_core.state.leases import TurnClaim, TurnLease, TurnOwnerKind
 from .conversation_projection import public_conversation
 from .conversation_replay import conversation_fingerprint, sse
 from .dependencies import RouteDeckDependencies, RouteDeckDependencyUnavailable
+from .responses import failure_for_exception
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -231,20 +233,28 @@ async def stream_agent_turn(
                 {"request_id": request.request_id, "status": "outcome_unknown"},
             )
             return
-        code = (
-            error.code
-            if isinstance(error, RouteDeckAgentStreamError)
-            else "agent_error"
-        )
-        message = (
-            error.public_message
-            if isinstance(error, RouteDeckAgentStreamError)
-            else "The agent could not complete this turn."
-        )
+        if isinstance(error, SessionStoreError):
+            _, failure = failure_for_exception(error)
+            code = failure.code
+            message = failure.public_message
+            if turn is None and failure.kind is FailureKind.STATE_CONFLICT:
+                stream_status = "rejected"
+            elif turn is None:
+                stream_status = "outcome_unknown"
+            else:
+                stream_status = "turn_interrupted"
+        elif isinstance(error, RouteDeckAgentStreamError):
+            code = error.code
+            message = error.public_message
+            stream_status = "turn_interrupted"
+        else:
+            code = "agent_error"
+            message = "The agent could not complete this turn."
+            stream_status = "turn_interrupted"
         yield sse("chat_error", {"code": code, "message": message})
         yield sse(
             "stream_end",
-            {"request_id": request.request_id, "status": "turn_interrupted"},
+            {"request_id": request.request_id, "status": stream_status},
         )
 
 

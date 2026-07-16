@@ -53,6 +53,7 @@ export type AgentStreamEvent =
       status:
         | "completed"
         | "requires_review"
+        | "rejected"
         | "turn_interrupted"
         | "outcome_unknown";
     };

@@ -246,10 +246,16 @@ function literalValue<T extends string>(
 function streamStatus(
   value: unknown,
   path: string,
-): "completed" | "requires_review" | "turn_interrupted" | "outcome_unknown" {
+):
+  | "completed"
+  | "requires_review"
+  | "rejected"
+  | "turn_interrupted"
+  | "outcome_unknown" {
   if (
     value !== "completed" &&
     value !== "requires_review" &&
+    value !== "rejected" &&
     value !== "turn_interrupted" &&
     value !== "outcome_unknown"
   ) {

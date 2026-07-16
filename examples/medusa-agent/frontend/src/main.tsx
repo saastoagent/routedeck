@@ -6,15 +6,20 @@ import "@fontsource/roboto-mono/latin-500.css";
 import {
   AgentChatError,
   createRouteDeckAgentClient,
-  type AgentHistoryTurn,
-  type RouteDeckAgentClient,
 } from "@routedeck/core";
 
 import { App } from "./app/App";
+import {
+  BootstrapLoadingShell,
+  type BootstrapLoadingPhase,
+} from "./app/BootstrapLoadingShell";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
 import { loadMedusaRouteDeck } from "./app/config";
 import type { MedusaRouteDeck } from "./app/createRouteDeck";
-import { MedusaMark } from "./ui/MedusaMark";
+import {
+  createGreetingRetryRequestId,
+  loadInitialConversation,
+} from "./app/initialConversation";
 import "./app/app.css";
 
 const rootElement = document.getElementById("root");
@@ -23,15 +28,7 @@ if (rootElement === null) {
 }
 const root = createRoot(rootElement);
 
-root.render(
-  <section className="bootstrap-loading" role="status" aria-live="polite">
-    <MedusaMark />
-    <span>
-      <strong>Medusa Agent</strong>
-      <small>Restoring your buyer session</small>
-    </span>
-  </section>,
-);
+renderLoading("storefront");
 
 void start();
 
@@ -58,10 +55,14 @@ async function start(): Promise<void> {
     once: true,
   });
   const chatClient = createRouteDeckAgentClient();
-  const renderApp = async () => {
+  const renderApp = async (requestId?: string) => {
     const initialConversation = await loadInitialConversation(
       routeDeck,
       chatClient,
+      {
+        ...(requestId === undefined ? {} : { requestId }),
+        onPhase: renderLoading,
+      },
     );
     root.render(
       <React.StrictMode>
@@ -93,10 +94,24 @@ async function start(): Promise<void> {
             "The saved buyer conversation could not be restored.",
           )}
         </p>
+        <div className="bootstrap-actions">
+          <button
+            type="button"
+            onClick={() => {
+              renderLoading("checkout");
+              void renderApp(createGreetingRetryRequestId()).catch(
+                renderConversationError,
+              );
+            }}
+          >
+            Retry buyer conversation
+          </button>
+        </div>
       </section>,
     );
   };
   const restoreConversation = async () => {
+    renderLoading("checkout");
     try {
       await renderApp();
     } catch (error) {
@@ -114,6 +129,7 @@ async function start(): Promise<void> {
   };
 
   try {
+    renderLoading("session");
     await routeDeck.store.bootstrap();
     await restoreConversation();
   } catch {
@@ -121,128 +137,8 @@ async function start(): Promise<void> {
   }
 }
 
-async function loadInitialConversation(
-  routeDeck: MedusaRouteDeck,
-  chatClient: RouteDeckAgentClient,
-): Promise<readonly AgentHistoryTurn[]> {
-  const existing = await chatClient.loadConversation();
-  if (existing.length > 0) return existing;
-  const sessionVersion = routeDeck.store.getState().sessionVersion;
-  if (sessionVersion === null) {
-    throw new AgentChatError(
-      "routedeck_session_unavailable",
-      "The RouteDeck session is unavailable for the buyer greeting.",
-    );
-  }
-  const requestId = entryRequestId();
-  let completedVersions:
-    | { sessionVersion: number; projectionVersion: number }
-    | null = null;
-  let streamCompleted = false;
-  try {
-    for await (const event of chatClient.streamAssistantTurn({
-      request_id: requestId,
-      expected_session_version: sessionVersion,
-    })) {
-      if (streamCompleted) {
-        throw assistantTurnFailure(
-          "assistant_turn_event_after_end",
-          "The buyer greeting emitted an event after its terminal frame.",
-        );
-      }
-      switch (event.type) {
-        case "stream_start":
-          requireAssistantRequestId(event.request_id, requestId);
-          break;
-        case "conversation_snapshot":
-          break;
-        case "assistant_delta":
-        case "assistant_reset":
-          requireAssistantRequestId(event.request_id, requestId);
-          break;
-        case "assistant_end":
-          requireAssistantRequestId(event.request_id, requestId);
-          if (completedVersions !== null) {
-            throw assistantTurnFailure(
-              "assistant_turn_completion_duplicate",
-              "The buyer greeting emitted more than one assistant completion.",
-            );
-          }
-          completedVersions = {
-            sessionVersion: event.session_version,
-            projectionVersion: event.projection_version,
-          };
-          break;
-        case "stream_end":
-          requireAssistantRequestId(event.request_id, requestId);
-          if (event.status !== "completed") {
-            throw assistantTurnFailure(
-              "assistant_turn_not_completed",
-              "The buyer greeting did not complete successfully.",
-            );
-          }
-          streamCompleted = true;
-          break;
-        case "chat_error":
-          throw new AgentChatError(
-            event.code,
-            event.message,
-            null,
-            "rejected",
-          );
-        case "user_message":
-          throw assistantTurnFailure(
-            "assistant_turn_user_message_forbidden",
-            "The buyer greeting emitted an unexpected user message.",
-          );
-        case "review_required":
-          throw assistantTurnFailure(
-            "assistant_turn_review_forbidden",
-            "The buyer greeting unexpectedly requested review.",
-          );
-      }
-    }
-  } catch (error) {
-    if (error instanceof AgentChatError && error.status === 409) {
-      return chatClient.loadConversation();
-    }
-    throw error;
-  }
-  if (!streamCompleted || completedVersions === null) {
-    throw assistantTurnFailure(
-      "assistant_turn_stream_incomplete",
-      "The buyer greeting ended without a durable assistant completion.",
-    );
-  }
-  await routeDeck.store.synchronizeTo({
-    sessionVersion: completedVersions.sessionVersion,
-    projectionVersion: completedVersions.projectionVersion,
-  });
-  return chatClient.loadConversation();
-}
-
-function requireAssistantRequestId(actual: string, expected: string): void {
-  if (actual !== expected) {
-    throw assistantTurnFailure(
-      "assistant_turn_request_identity_mismatch",
-      "The buyer greeting stream does not match the active request.",
-    );
-  }
-}
-
-function assistantTurnFailure(code: string, message: string): AgentChatError {
-  return new AgentChatError(code, message, null, "unknown");
-}
-
-function entryRequestId(): string {
-  const identifier = globalThis.crypto.randomUUID();
-  if (!identifier) {
-    throw new AgentChatError(
-      "entry_request_id_unavailable",
-      "The browser could not create a buyer greeting request ID.",
-    );
-  }
-  return `entry_${identifier}`;
+function renderLoading(phase: BootstrapLoadingPhase): void {
+  root.render(<BootstrapLoadingShell phase={phase} />);
 }
 
 function isMissingOrExpiredSession(error: unknown): boolean {

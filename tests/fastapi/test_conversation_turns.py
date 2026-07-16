@@ -474,3 +474,65 @@ async def test_cancellation_closes_graph_and_shields_interruption_persistence(
     assert snapshot.state.conversation[-1].status is (
         ConversationTurnStatus.INTERRUPTED
     )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_assistant_turn_preserves_typed_store_conflict(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+) -> None:
+    graphs.assistant.wait_forever = True
+    session_id = runtime_session_id(client)
+    dependencies = dependencies_from_runtime(
+        runtime,
+        sse=SseSettings(follow=False),
+    )
+    initial = await runtime.services.store.load(session_id)
+    first = stream_agent_turn(
+        dependencies=dependencies,
+        session_id=session_id,
+        request=ConversationTurnRequest(
+            request_id="medusa.initial-greeting.v1",
+            expected_session_version=initial.session_version,
+            trigger=AssistantInitiatedTrigger(),
+        ),
+        initial_snapshot=initial,
+    )
+    assert "event: stream_start" in await anext(first)
+    assert "event: conversation_snapshot" in await anext(first)
+    first_pending = asyncio.create_task(anext(first))
+    await graphs.assistant.started.wait()
+
+    current = await runtime.services.store.load(session_id)
+    second = stream_agent_turn(
+        dependencies=dependencies,
+        session_id=session_id,
+        request=ConversationTurnRequest(
+            request_id="medusa.initial-greeting.v1",
+            expected_session_version=current.session_version,
+            trigger=AssistantInitiatedTrigger(),
+        ),
+        initial_snapshot=current,
+    )
+    second_events: list[dict[str, object]] = []
+    async for frame in second:
+        second_events.extend(sse_events(frame))
+
+    assert second_events == [
+        {
+            "event": "chat_error",
+            "code": "operation_in_progress",
+            "message": "The RouteDeck session request could not be completed.",
+        },
+        {
+            "event": "stream_end",
+            "request_id": "medusa.initial-greeting.v1",
+            "status": "rejected",
+        },
+    ]
+    assert len(graphs.assistant.calls) == 1
+
+    first_pending.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first_pending
