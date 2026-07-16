@@ -13,8 +13,6 @@ from routedeck_langgraph import (
     RouteDeckToolWrapper,
 )
 
-from .turn_policy import MedusaTurnPolicyMiddleware, ModelTurnPolicy, TurnPolicy
-
 if TYPE_CHECKING:
     from .config import Settings
 
@@ -24,6 +22,12 @@ You are the Medusa buyer assistant for one guest shopping session.
 
 Help the buyer shop in a concise, friendly, and practical voice. Use the
 RouteDeck capabilities and current context supplied to you at runtime.
+
+Treat each buyer turn independently for operation intent.
+Respond directly to social or explanatory turns when the current context is
+sufficient. Call a commerce tool only when fulfilling the current buyer turn
+requires reading or changing application state; never infer another operation
+from prior turns.
 
 At a fresh buyer.home session, the product may invoke you before the buyer
 sends a message. In that invocation, begin the conversation with a concise,
@@ -40,17 +44,15 @@ def create_medusa_agent(
     *,
     model: BaseChatModel,
     runtime: RouteDeckRunnerRuntime,
-    turn_policy: TurnPolicy,
 ) -> Any:
     """Create a request-scoped Medusa agent with an injected model and runtime."""
 
     wrapper = RouteDeckToolWrapper(runtime)
     middleware = RouteDeckMiddleware(runtime)
-    turn_policy_middleware = MedusaTurnPolicyMiddleware(turn_policy)
     agent = create_agent(
         model=model,
         tools=wrapper.tools,
-        middleware=(middleware, turn_policy_middleware),
+        middleware=(middleware,),
         system_prompt=BUYER_AGENT_PROMPT,
         context_schema=RouteDeckInvocationContext,
         name="medusa_buyer_agent",
@@ -58,12 +60,8 @@ def create_medusa_agent(
     # Public composition evidence for contract tests and developer inspection.
     # These attributes do not participate in execution; create_agent owns the
     # unchanged LangGraph topology and the middleware owns the RouteDeck seam.
-    agent.middleware_types = (  # type: ignore[attr-defined]
-        RouteDeckMiddleware,
-        MedusaTurnPolicyMiddleware,
-    )
+    agent.middleware_types = (RouteDeckMiddleware,)  # type: ignore[attr-defined]
     agent.route_deck_middleware = middleware  # type: ignore[attr-defined]
-    agent.turn_policy_middleware = turn_policy_middleware  # type: ignore[attr-defined]
     return agent
 
 
@@ -88,7 +86,6 @@ def create_live_medusa_agent(
     return create_medusa_agent(
         model=_create_live_tool_model(settings=settings),
         runtime=runtime,
-        turn_policy=ModelTurnPolicy(_create_live_turn_policy_model(settings=settings)),
     )
 
 
@@ -119,16 +116,6 @@ def _create_live_entry_model(*, settings: Settings) -> BaseChatModel:
         model=settings.openai_entry_model,
         api_key=settings.openai_api_key,
         streaming=True,
-    )
-
-
-def _create_live_turn_policy_model(*, settings: Settings) -> BaseChatModel:
-    """Construct the no-tool structured model that classifies buyer turns."""
-
-    _require_live_model_settings(settings)
-    return ChatOpenAI(
-        model=settings.openai_turn_policy_model,
-        api_key=settings.openai_api_key,
     )
 
 

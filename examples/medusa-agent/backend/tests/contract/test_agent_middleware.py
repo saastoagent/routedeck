@@ -13,6 +13,7 @@ from medusa_agent.agent import (
     create_medusa_agent,
 )
 from medusa_agent.config import Settings
+from medusa_agent.features.catalog import CATALOG_LIST
 from medusa_agent.features.checkout.feature import PROTECTED_CHECKOUT_INPUT_POLICY
 from medusa_agent.medusa.client.models import CreateCartResult
 from routedeck_core.contracts.operations import DeliveryPhase
@@ -54,7 +55,6 @@ def test_live_entry_model_omits_the_tool_only_parallel_call_option(
             openai_api_key=SecretStr("openai-key"),
             openai_buyer_model="buyer-model",
             openai_entry_model="entry-model",
-            openai_turn_policy_model="policy-model",
         )
     )
 
@@ -64,6 +64,10 @@ def test_live_entry_model_omits_the_tool_only_parallel_call_option(
 
 def test_buyer_prompt_keeps_product_identity_while_framework_rules_are_resolved() -> None:
     assert 'starts with "Hi"' in BUYER_AGENT_PROMPT
+    assert "Treat each buyer turn independently for operation intent" in (
+        BUYER_AGENT_PROMPT
+    )
+    assert "Respond directly to social or explanatory turns" in BUYER_AGENT_PROMPT
     assert "Use only the tools listed" not in BUYER_AGENT_PROMPT
     assert "An operation being legal" not in BUYER_AGENT_PROMPT
     assert "Direct the buyer to the rendered protected contact form" not in (
@@ -93,18 +97,13 @@ def test_buyer_prompt_keeps_product_identity_while_framework_rules_are_resolved(
     )
 
 
-class _ConversationTurnPolicy:
-    async def decide(self, _messages) -> str:
-        return "conversation"
-
-
-class _ActionTurnPolicy:
-    async def decide(self, _messages) -> str:
-        return "action"
+def test_catalog_list_tool_requires_current_turn_catalog_intent() -> None:
+    assert "current buyer turn requests the catalog" in CATALOG_LIST.description
+    assert "must not run merely because it is legal" in CATALOG_LIST.description
 
 
 @pytest.mark.asyncio
-async def test_conversation_turn_policy_hides_all_commerce_tools() -> None:
+async def test_conversational_response_keeps_legal_tools_available_without_executing_them() -> None:
     client = RecordingMedusaStoreClient(
         CreateCartResult(
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
@@ -116,7 +115,6 @@ async def test_conversation_turn_policy_hides_all_commerce_tools() -> None:
     agent = create_medusa_agent(
         model=model,
         runtime=runtime.services,
-        turn_policy=_ConversationTurnPolicy(),
     )
 
     result = await agent.ainvoke(
@@ -127,7 +125,8 @@ async def test_conversation_turn_policy_hides_all_commerce_tools() -> None:
         },
     )
 
-    assert model.calls[0].tool_names == ()
+    assert model.calls[0].tool_names
+    assert operation_tool_name("cart.open") in model.calls[0].tool_names
     assert result["messages"][-1].content == "Hello. How can I help?"
     assert client.calls == []
     assert "Do not enumerate, request, restate, accept, or summarize" not in (
@@ -190,7 +189,6 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
     agent = create_medusa_agent(
         model=model,
         runtime=runtime.services,
-        turn_policy=_ActionTurnPolicy(),
     )
 
     result = await agent.ainvoke(
@@ -201,7 +199,7 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
         },
     )
 
-    assert agent.middleware_types[0] is RouteDeckMiddleware
+    assert agent.middleware_types == (RouteDeckMiddleware,)
     assert len(model.calls) == 2
     assert set(model.calls[0].tool_names) == {
         operation_tool_name("catalog.open_product_by_route"),
@@ -252,7 +250,6 @@ async def test_agent_tool_execution_requires_explicit_session_context() -> None:
             ]
         ),
         runtime=runtime.services,
-        turn_policy=_ActionTurnPolicy(),
     )
 
     with pytest.raises(RouteDeckToolConfigurationError, match="session_id"):
@@ -283,7 +280,6 @@ async def test_agent_tool_execution_requires_explicit_parent_request_prefix() ->
             ]
         ),
         runtime=runtime.services,
-        turn_policy=_ActionTurnPolicy(),
     )
 
     with pytest.raises(RouteDeckToolConfigurationError, match="request_id_prefix"):

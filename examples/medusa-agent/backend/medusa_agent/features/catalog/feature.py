@@ -74,7 +74,11 @@ VARIANT_ALLOWED_GUARD = GuardSpec(
 CATALOG_LIST = OperationSpec(
     id=MedusaOperationType.CATALOG_LIST,
     title="Browse products",
-    description="Load the authoritative product collection for browsing.",
+    description=(
+        "Load the authoritative product collection when the current buyer turn "
+        "requests the catalog or available product facts. This operation must not "
+        "run merely because it is legal or was used in a prior turn."
+    ),
     input_schema=FrozenJsonObject(
         {"type": "object", "properties": {}, "additionalProperties": False}
     ),

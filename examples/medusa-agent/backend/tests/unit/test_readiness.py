@@ -75,7 +75,6 @@ def _settings() -> Settings:
         openai_api_key=SecretStr("openai-key"),
         openai_buyer_model="buyer-model",
         openai_entry_model="entry-model",
-        openai_turn_policy_model="policy-model",
     )
 
 

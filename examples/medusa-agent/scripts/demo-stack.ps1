@@ -90,7 +90,6 @@ function Ensure-EnvironmentFile {
             "ROUTEDECK_DATABASE_URL=$SqliteUrl",
             "OPENAI_BUYER_MODEL=gpt-5.4-nano",
             "OPENAI_ENTRY_MODEL=gpt-5.4-nano",
-            "OPENAI_TURN_POLICY_MODEL=gpt-5.4-nano",
             "OPENAI_API_KEY="
         )
         [IO.File]::WriteAllLines($EnvironmentFile, $lines, [Text.UTF8Encoding]::new($false))
@@ -191,8 +190,7 @@ function Assert-RuntimeEnvironment {
         "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
         "OPENAI_BUYER_MODEL",
-        "OPENAI_ENTRY_MODEL",
-        "OPENAI_TURN_POLICY_MODEL"
+        "OPENAI_ENTRY_MODEL"
     )
     $values = @{}
     foreach ($line in Get-Content -LiteralPath $EnvironmentFile) {

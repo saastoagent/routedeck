@@ -44,7 +44,6 @@ from medusa_agent.medusa.client.models import (
     StoreAddress,
 )
 from medusa_agent.session import BuyerMarket, create_medusa_session
-from medusa_agent.turn_policy import TURN_POLICY_EVENT_TAG
 from routedeck_core.app import ContextProvider, Guard, OperationHandler
 from routedeck_core.contracts.conversation import (
     ConversationRole,
@@ -335,11 +334,6 @@ class _StreamingScriptedToolModel(ScriptedToolModel):
         )
 
 
-class _ActionTurnPolicy:
-    async def decide(self, _messages) -> str:
-        return "action"
-
-
 @pytest.mark.asyncio
 async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
     tmp_path: Path,
@@ -424,12 +418,11 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             user_message=create_medusa_agent(
                 model=model,
                 runtime=services,
-                turn_policy=_ActionTurnPolicy(),
             ),
             assistant_initiated=create_medusa_entry_agent(
                 model=ScriptedTextModel("Hi from the explicit entry test graph.")
             ),
-            ignored_event_tags=frozenset({TURN_POLICY_EVENT_TAG}),
+            ignored_event_tags=frozenset(),
         )
 
     async def keep_created_session(_services, snapshot):

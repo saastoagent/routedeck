@@ -261,6 +261,11 @@ current default-deny public context, and filters tools to legal operations.
 `RouteDeckToolWrapper` executes each tool through the same runner as UI
 affordances. Parallel tool calls are disabled and rejected.
 
+The tool-enabled buyer model makes one semantic decision: respond directly or
+emit a structured call to one currently legal tool. There is no pre-agent turn
+classifier. RouteDeck owns legality and supervision; the Medusa buyer model
+owns current-turn relevance and conversation behavior.
+
 `runtime.py` supplies `RouteDeckLangGraphGraphs` containing the product's
 tool-enabled user graph and no-tool assistant-initiation graph.
 `RouteDeckLangGraphDriverFactory` constructs the framework-owned driver and
@@ -288,12 +293,12 @@ assistant text/reset/finalization, review, completion, and failure. The network
 hook retains abort/retry/discard/resync ownership, and
 `RouteDeckObservableState` remains canonical session/projection state.
 
-`OPENAI_API_KEY` plus the required `OPENAI_BUYER_MODEL`, `OPENAI_ENTRY_MODEL`,
-and `OPENAI_TURN_POLICY_MODEL` settings select the live OpenAI path. No key means no
+`OPENAI_API_KEY` plus the required `OPENAI_BUYER_MODEL` and
+`OPENAI_ENTRY_MODEL` settings select the live OpenAI path. No key means no
 chat agent is composed; the chat endpoint returns a visible 503 unavailable
 failure and full application readiness remains false. Liveness and direct
 non-model API checks remain available, but the Compose-gated buyer frontend
-waits for a callable agent. The roles do not inherit from one another. There is
+waits for a callable agent. The two roles do not inherit from one another. There is
 no model fallback or canned response.
 
 ## API Planes

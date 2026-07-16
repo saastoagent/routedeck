@@ -35,9 +35,6 @@ from .session import (
     create_medusa_session,
     initialize_medusa_session,
 )
-from .turn_policy import TURN_POLICY_EVENT_TAG
-
-
 _READINESS_SESSION_ID = "routedeck-readiness-probe"
 
 
@@ -168,7 +165,7 @@ def _create_configured_graphs(
                 runtime=services,
             ),
             assistant_initiated=create_live_medusa_entry_agent(settings=settings),
-            ignored_event_tags=frozenset({TURN_POLICY_EVENT_TAG}),
+            ignored_event_tags=frozenset(),
         )
     if mode == "scripted-test-only":
         if os.environ.get("ROUTEDECK_TEST_ONLY") != "1":

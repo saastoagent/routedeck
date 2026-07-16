@@ -399,7 +399,6 @@ try {
     $openAi = Resolve-RequiredSetting "OPENAI_API_KEY" $fileValues
     $buyerModel = Resolve-RequiredSetting "OPENAI_BUYER_MODEL" $fileValues
     $entryModel = Resolve-RequiredSetting "OPENAI_ENTRY_MODEL" $fileValues
-    $turnPolicyModel = Resolve-RequiredSetting "OPENAI_TURN_POLICY_MODEL" $fileValues
     $encryption = Resolve-RequiredSetting "ROUTEDECK_STATE_ENCRYPTION_KEY" $fileValues
     foreach ($requiredName in @(
         "MEDUSA_PUBLISHABLE_KEY",
@@ -463,7 +462,6 @@ try {
         models = [ordered]@{
             buyer = [string]$buyerModel.value
             entry = [string]$entryModel.value
-            turn_policy = [string]$turnPolicyModel.value
         }
         model_credential_source = [string]$openAi.source
         secrets_redacted = $true
