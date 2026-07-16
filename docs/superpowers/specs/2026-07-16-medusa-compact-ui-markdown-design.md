@@ -1,7 +1,7 @@
 # Medusa Compact UI And Markdown Design
 
 Date: 2026-07-16
-Status: approved visual direction; written-spec review pending
+Status: approved compact direction; official Medusa brand revision under review
 Runtime location: local Windows only
 
 ## Goal
@@ -36,22 +36,59 @@ The implementation must not change:
 - current labels used by accessibility and E2E contracts unless a visual-only
   wrapper can preserve their accessible names.
 
+## Official Medusa Design References
+
+The visual system is grounded in the current official Medusa properties,
+inspected on 2026-07-16:
+
+- `https://medusajs.com/` for the public brand, Medusa mark, marketing layout,
+  and compact header/control treatment;
+- `https://docs.medusajs.com/` for documentation typography, grid structure,
+  code treatment, and information density;
+- `https://docs.medusajs.com/ui` for the official React design-system
+  principles and component language;
+- `https://docs.medusajs.com/ui/colors/overview` for the official semantic
+  color-token families;
+- the official Button, Heading, and Text component documentation for variants,
+  sizing, typography, and compact-leading conventions.
+
+Medusa UI describes itself as the React implementation of Medusa's design
+system and emphasizes simple, composable components that preserve native HTML
+behavior. RouteDeck's Medusa consumer should adopt that visual language without
+replacing its existing semantic elements or RouteDeck interaction contracts.
+
 ## Visual Direction
 
 Use a compact professional workspace rather than a spacious marketing surface
 or dense developer console.
 
-### Palette
+### Official Medusa Palette
 
-- Use a quiet cool-neutral canvas with true-white primary work surfaces.
-- Retain Medusa coral as a restrained brand accent rather than a large ambient
-  glow.
-- Use deep sea green for interactive emphasis and current RouteDeck state.
-- Use graphite text, neutral gray borders, and low-opacity shadows.
-- Keep semantic success, warning, and error colors distinct and accessible.
-- Remove decorative background gradients where they compete with content;
-  subtle tonal variation may remain only where it helps separate workspace
-  regions.
+Use the measured light-theme Medusa UI tokens rather than a custom commerce
+palette:
+
+- `--bg-base: #ffffff` for the primary page and work surfaces;
+- `--bg-subtle` and `--bg-component: #fafafa` for secondary regions;
+- `--bg-base-hover` and `--bg-component-hover: #f4f4f5` for neutral hover;
+- `--bg-base-pressed` and disabled neutral borders: `#e4e4e7`;
+- `--border-base: #e4e4e7` and `--border-strong: #d4d4d8`;
+- `--fg-base: #18181b`, `--fg-subtle: #52525b`, and
+  `--fg-muted: #71717a`;
+- `--contrast-bg-base: #18181b`, `--contrast-bg-hover: #27272a`, and
+  `--contrast-bg-pressed: #3f3f46` for primary inverted controls;
+- `--fg-interactive: #3b82f6` with `#2563eb` hover and the official blue focus
+  ring treatment;
+- official rose danger, amber/orange warning, emerald success, and neutral tag
+  families only for matching semantic states.
+
+The buyer application is therefore predominantly white, black, and zinc—not
+coral or green. Remove the existing coral/green ambient gradients and decorative
+color washes. Color is semantic or interactive, never decorative filler.
+
+Use the official Medusa monochrome mark from `medusajs.com` in application
+chrome: the black hexagonal-ring glyph with its circular center, rendered as an
+inline accessible SVG at an optically balanced compact size. Keep the adjacent
+`Medusa Agent` name and RouteDeck ownership copy as code-native text.
 
 ### Density And Geometry
 
@@ -60,21 +97,49 @@ or dense developer console.
   targets and keyboard focus visibility.
 - Use a compact spacing scale centered on 4, 6, 8, 12, 16, and 24 pixels.
 - Reduce message, surface, form, and checkout padding by roughly 20-30 percent.
-- Prefer 8-12 pixel radii and restrained borders over large pill/card geometry.
+- Use Medusa's 6-pixel radius for buttons and compact controls, and 8 pixels for
+  code blocks, messages, containers, and larger surfaces. Avoid oversized
+  pill/card geometry.
+- Use Medusa's neutral button elevation (`0 1px 2px rgba(0,0,0,.12)` plus a
+  subtle 1-pixel outline) and card elevation only where separation requires it.
+- Prefer the official grid language: thin zinc rules, aligned columns, flat
+  surfaces, and whitespace used for hierarchy instead of floating cards.
 - Keep the composer continuously usable without allowing it to dominate the
   viewport.
 - Preserve the existing responsive layout and prevent horizontal overflow at
   narrow widths.
 
-### Typography
+### Official Medusa Typography
 
-- Use one disciplined system-sans family for interface and content text.
-- Keep the Medusa wordmark distinctive through weight and tracking rather than
-  mixing an unrelated display serif into application chrome.
-- Use compact but readable line heights: approximately 1.35 for conversation
-  content and 1.2-1.3 for headings and controls.
-- Make message-role labels quieter and smaller than message content.
-- Give controls explicit type size and weight; do not rely on browser defaults.
+- Use Inter for headings, body, controls, labels, conversation, and commerce
+  surfaces. Bundle the font locally so the local demo does not depend on a
+  third-party font request.
+- Use Roboto Mono for operation IDs, routes, Navgraph identifiers, code, and
+  other technical tokens. Bundle it locally for the same reason.
+- Match the measured public-site baseline: 14-pixel body text with a 21-22
+  pixel line height, 13-pixel controls at weight 500, and headings at weight
+  500 rather than heavy display weights.
+- Use compact text leading where the official Text component language calls for
+  it, while keeping assistant prose around 1.45 for readability.
+- Keep role labels and metadata at 11-12 pixels in muted zinc.
+- Remove the current Georgia display treatment from the application wordmark
+  and confirmation heading.
+- Use slightly negative tracking only for large headings; normal tracking for
+  body and controls.
+
+### Official Component Language
+
+- Buttons use Medusa's primary inverted, secondary neutral, transparent, and
+  danger hierarchy rather than bespoke green/coral variants.
+- Fields use true-white or `#fafafa` backgrounds, zinc borders, 6-pixel radii,
+  compact padding, and the official blue focus treatment.
+- Containers remain simple and composable, following Medusa UI's native-HTML
+  bias. Do not introduce a new wrapper component where existing semantic HTML
+  already provides the correct behavior.
+- Use the official monochrome icon/line language for navigation and status
+  controls. Keep icon use sparse and functional.
+- Code and technical details use dark zinc contrast surfaces or restrained
+  zinc inline-code treatments modeled on Medusa Docs.
 
 ## Markdown Rendering
 
