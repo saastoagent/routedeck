@@ -5,6 +5,8 @@ import type {
   AgentStreamStatus,
 } from "@routedeck/react";
 
+import { AssistantMarkdown } from "./AssistantMarkdown";
+
 export interface ConversationProps {
   messages: readonly AgentConversationMessage[];
   status: AgentStreamStatus;
@@ -56,7 +58,11 @@ function ConversationMessage({
     >
       <article>
         <header>{message.role === "user" ? "You" : "Buyer assistant"}</header>
-        <p>{message.content}</p>
+        {message.role === "user" ? (
+          <p>{message.content}</p>
+        ) : (
+          <AssistantMarkdown>{message.content}</AssistantMarkdown>
+        )}
         {message.status === "streaming" ? (
           <ThinkingDots label="Assistant is responding" />
         ) : null}

@@ -35,7 +35,7 @@ Cover headings, paragraphs, lists, tables, inline/fenced code, local links, exte
 
 - [ ] **Step 2: Run the focused test and confirm it fails because the component is missing**
 
-Run: `pnpm --filter @routedeck/example-medusa-frontend exec vitest run src/tests/assistant-markdown.test.tsx`
+Run: `pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/assistant-markdown.test.tsx`
 
 - [ ] **Step 3: Install exact renderer dependencies and implement the component**
 
@@ -97,8 +97,8 @@ Keep user messages as the existing literal `<p>{message.content}</p>`. Use `Assi
 Run:
 
 ```powershell
-pnpm --filter @routedeck/example-medusa-frontend exec vitest run src/tests/assistant-markdown.test.tsx src/tests/app-shell.test.tsx
-pnpm --filter @routedeck/example-medusa-frontend typecheck
+pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/assistant-markdown.test.tsx src/tests/app-shell.test.tsx
+pnpm --filter @routedeck/medusa-agent typecheck
 ```
 
 - [ ] **Step 6: Commit the passing slice**
@@ -169,8 +169,8 @@ Remove decorative green/coral gradients from the shell. Set a white canvas, 48-5
 Run:
 
 ```powershell
-pnpm --filter @routedeck/example-medusa-frontend exec vitest run src/tests/app-shell.test.tsx
-pnpm --filter @routedeck/example-medusa-frontend typecheck
+pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/app-shell.test.tsx
+pnpm --filter @routedeck/medusa-agent typecheck
 ```
 
 ---
@@ -206,8 +206,8 @@ Use a white panel with zinc dividers and compact facts. Product-scope graph node
 Run:
 
 ```powershell
-pnpm --filter @routedeck/example-medusa-frontend exec vitest run src/tests/app-shell.test.tsx src/tests/assistant-markdown.test.tsx src/tests/catalog-surface.test.tsx src/tests/cart-surface.test.tsx src/tests/checkout-surface.test.tsx src/tests/review-surface.test.tsx
-pnpm --filter @routedeck/example-medusa-frontend typecheck
+pnpm --filter @routedeck/medusa-agent exec vitest run src/tests/app-shell.test.tsx src/tests/assistant-markdown.test.tsx src/tests/catalog-surface.test.tsx src/tests/cart-surface.test.tsx src/tests/checkout-surface.test.tsx src/tests/review-surface.test.tsx
+pnpm --filter @routedeck/medusa-agent typecheck
 ```
 
 - [ ] **Step 6: Commit the visual slice**
@@ -298,9 +298,9 @@ If any real dependency is unavailable, stop and report the blocker instead of su
 Run:
 
 ```powershell
-pnpm --filter @routedeck/example-medusa-frontend test
-pnpm --filter @routedeck/example-medusa-frontend typecheck
-pnpm --filter @routedeck/example-medusa-frontend build
+pnpm --filter @routedeck/medusa-agent test
+pnpm --filter @routedeck/medusa-agent typecheck
+pnpm --filter @routedeck/medusa-agent build
 ```
 
 - [ ] **Step 3: Inspect the live page with the browser plugin**
