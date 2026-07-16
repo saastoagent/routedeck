@@ -55,7 +55,7 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
   await expect(
     page.getByRole("heading", { name: "Products", exact: true }),
   ).toBeVisible();
-  await showCurrentNavgraphNode(page, "catalog.products");
+  await showCurrentNavgraphNode(page, "catalog.browse");
   await closeNavgraph(page);
 
   const productLink = page.getByRole("link", {

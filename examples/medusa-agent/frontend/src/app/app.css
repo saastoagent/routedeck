@@ -376,6 +376,37 @@ a {
   color: #991b1b;
 }
 
+.bootstrap-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--medusa-bg-base);
+  color: var(--ink);
+}
+
+.bootstrap-loading > span {
+  display: grid;
+}
+
+.bootstrap-loading strong {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.bootstrap-loading small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.bootstrap-loading .buyer-brand-mark {
+  animation: bootstrap-pulse 1.2s ease-in-out infinite;
+}
+
 .bootstrap-error code {
   overflow-wrap: anywhere;
   font-family: "Roboto Mono", ui-monospace, monospace;
@@ -414,6 +445,11 @@ a {
 @keyframes agent-thinking {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-2px); }
+}
+
+@keyframes bootstrap-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
 }
 
 @media (max-width: 760px) {

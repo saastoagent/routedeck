@@ -14,6 +14,7 @@ import { App } from "./app/App";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
 import { loadMedusaRouteDeck } from "./app/config";
 import type { MedusaRouteDeck } from "./app/createRouteDeck";
+import { MedusaMark } from "./ui/MedusaMark";
 import "./app/app.css";
 
 const rootElement = document.getElementById("root");
@@ -21,6 +22,16 @@ if (rootElement === null) {
   throw new Error("Medusa Agent requires a #root element.");
 }
 const root = createRoot(rootElement);
+
+root.render(
+  <section className="bootstrap-loading" role="status" aria-live="polite">
+    <MedusaMark />
+    <span>
+      <strong>Medusa Agent</strong>
+      <small>Restoring your buyer session</small>
+    </span>
+  </section>,
+);
 
 void start();
 
