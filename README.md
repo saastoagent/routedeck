@@ -48,7 +48,7 @@ payments, or orders. The Medusa app keeps those concerns in:
   business slices;
 - `medusa_agent/medusa/client` for the typed Store API port, HTTP adapter, wire
   models, delivery evidence, and sanitized failures;
-- `medusa_agent/composition.py` for the declarative cross-feature app spec;
+- `medusa_agent/composition.py` for selecting features and the entry node;
 - `medusa_agent/bindings.py` for product dependency injection;
 - `medusa_agent/agent.py` for product prompts, models, and graph construction;
 - `medusa_agent/session.py` for buyer market/session callbacks;
@@ -77,27 +77,29 @@ abandonment and never silently substitute a new ID.
 Ordinary feature work is declarative and feature-local:
 
 ```python
-from routedeck_core.app import FeatureSpec
+from routedeck_core.app import Feature
 from routedeck_core.contracts.application import (
-    NodeSpec,
-    RouteEntrySpec,
+    Node,
+    RouteEntry,
     RouteParameterBinding,
 )
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
-    RouteSpec,
+    NodeRef,
+    Route,
+    Transition,
 )
 
-product_node = NodeSpec(
+product_node = Node(
     id="catalog.product",
     title="Product",
     kind=NodeKind.DETAIL,
-    route=RouteSpec(
+    route=Route(
         template="/products/{product_handle}",
         deep_link_policy=DeepLinkPolicy.SHAREABLE,
     ),
-    entry=RouteEntrySpec(
+    entry=RouteEntry(
         operation=open_product_by_route.ref,
         outcome="opened",
         bindings=(
@@ -108,11 +110,22 @@ product_node = NodeSpec(
         ),
     ),
     operations=(open_product_by_route,),
+    outgoing=(
+        Transition(
+            operation=open_product_by_route.ref,
+            outcome="opened",
+            target=NodeRef(id="catalog.product"),
+        ),
+    ),
     surfaces=product_surface_slots,
 )
 
-catalog = FeatureSpec(namespace="catalog", nodes=(product_node,))
+catalog = Feature(namespace="catalog", nodes=(product_node,))
 ```
+
+Composition selects independently authored features and the entry node.
+RouteDeck resolves feature-owned nodes and their outgoing transitions, derives
+incoming transitions, validates the complete graph, and compiles it.
 
 `compile_app(...)` validates identifiers, route overlap, exact route-entry
 bindings, provider and guard scope, operation outcomes, transitions,
@@ -120,11 +133,11 @@ reachability, surface affordances, and recovery declarations. `bind_app(...)`
 then requires an exact set of typed async handlers, providers, and guards.
 Missing, extra, or incorrectly shaped bindings are configuration errors.
 
-`SurfaceSpec` declares component identity, lifecycle, public JSON schema, and
+`Surface` declares component identity, lifecycle, public JSON schema, and
 operation-backed affordances. Stable surfaces retain canonical public state
 across navigation; ephemeral surfaces retain state only while declared by the
 current node. A private-form surface adds a server-only
-`PrivateFormBindingSpec`; that authorization metadata is not exported to the
+`PrivateFormBinding`; that authorization metadata is not exported to the
 browser contract.
 
 See [`docs/route-deck-reference.md`](docs/route-deck-reference.md) for the full

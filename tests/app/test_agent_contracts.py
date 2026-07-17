@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import pytest
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
-from routedeck_core.contracts.agent import AgentPolicyRef, AgentPolicySpec
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.app import Application, Feature, compile_app
+from routedeck_core.contracts.agent import AgentPolicyRef, AgentPolicy
+from routedeck_core.contracts.application import Capability, Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RouteSpec,
-    TransitionSpec,
+    Route,
+    Transition,
 )
-from routedeck_core.contracts.operations import OperationSpec, SafetyClass
-from routedeck_core.contracts.suggestions import SuggestedActionSpec
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.suggestions import SuggestedAction
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.validation import RouteDeckValidationError
 
 
@@ -25,12 +26,12 @@ def _app(
     capability_policy_refs: tuple[AgentPolicyRef, ...] = (),
     surface_policy_refs: tuple[AgentPolicyRef, ...] = (),
     suggested_operation_id: str = "test.open",
-) -> ApplicationSpec:
-    policy = AgentPolicySpec(
+) -> Application:
+    policy = AgentPolicy(
         id="test.agent_policy",
         instruction="Explain the current test workflow succinctly.",
     )
-    operation = OperationSpec(
+    operation = Operation(
         id="test.open",
         title="Open test workflow",
         description="Open the test-only workflow.",
@@ -38,49 +39,48 @@ def _app(
         outcomes=("opened",),
         policy_refs=operation_policy_refs,
     )
-    surface = SurfaceSpec(
+    surface = Surface(
         id="test.surface",
         component="test.surface",
         policy_refs=surface_policy_refs,
     )
-    capability = CapabilitySpec(
+    capability = Capability(
         id="test.capability",
         title="Test capability",
         operations=(operation.ref,),
         surfaces=(surface.ref,),
         policy_refs=capability_policy_refs,
     )
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Test home",
         kind=NodeKind.SECTION,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=(operation,),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="opened",
+                target=NodeRef(id="test.home"),
+            ),
+        ),
         capabilities=(capability,),
-        surfaces=SurfaceSlotsSpec(active=None, frame=(surface,)),
+        surfaces=SurfaceSlots(active=None, frame=(surface,)),
         policy_refs=node_policy_refs,
         suggested_actions=(
-            SuggestedActionSpec(
+            SuggestedAction(
                 id="test.open_action",
                 operation_id=suggested_operation_id,
             ),
         ),
     )
-    return ApplicationSpec(
+    return Application(
         name="agent-contract-test",
         entry_node=node.ref,
         features=(
-            FeatureSpec(
+            Feature(
                 namespace="test",
                 nodes=(node,),
-                transitions=(
-                    TransitionSpec(
-                        source=node.ref,
-                        operation=operation.ref,
-                        outcome="opened",
-                        target=node.ref,
-                    ),
-                ),
                 agent_policies=(policy,),
                 policy_refs=feature_policy_refs,
             ),

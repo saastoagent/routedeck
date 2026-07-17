@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..app.compiled import CompiledRouteDeckApp
-from ..contracts.application import NodeSpec
+from ..app.compiled import CompiledApplication
+from ..contracts.application import Node
 from ..contracts.failures import FailureKind
-from ..contracts.operations import OperationSpec
+from ..contracts.operations import Operation
 from ..contracts.projection import PublicEntityHandle
 from ..contracts.session import RouteDeckSession
-from ..contracts.suggestions import SuggestedActionSpec
-from ..contracts.surfaces import SurfaceSpec
+from ..contracts.suggestions import SuggestedAction
+from ..contracts.surfaces import Surface
 from ..validation import RouteDeckValidationError
 
 
@@ -17,13 +17,13 @@ from ..validation import RouteDeckValidationError
 class ProjectionMode:
     """Canonical operation and surface policy for one session projection."""
 
-    legal_operations: tuple[OperationSpec, ...]
-    active_surface: SurfaceSpec | None
+    legal_operations: tuple[Operation, ...]
+    active_surface: Surface | None
 
 
 def resolve_projection_mode(
-    app: CompiledRouteDeckApp,
-    node: NodeSpec,
+    app: CompiledApplication,
+    node: Node,
     session: RouteDeckSession,
 ) -> ProjectionMode:
     failure = session.public_state.failure
@@ -85,7 +85,7 @@ def resolve_projection_mode(
             "External-outcome failure surface is not declared at the current node"
         )
 
-    recovery_operations: list[OperationSpec] = []
+    recovery_operations: list[Operation] = []
     for operation_ref in operation.unknown_recovery_operation_refs:
         recovery_operation = _node_operation(node, operation_ref.id)
         if recovery_operation is None:
@@ -129,10 +129,10 @@ def visible_entity_handles(
 
 
 def visible_suggested_actions(
-    node: NodeSpec,
+    node: Node,
     session: RouteDeckSession,
     legal_operation_ids: set[str] | frozenset[str],
-) -> tuple[SuggestedActionSpec, ...]:
+) -> tuple[SuggestedAction, ...]:
     """Resolve actions whose operations and declared state requirements are present."""
 
     bound_entities = {
@@ -152,7 +152,7 @@ def visible_suggested_actions(
     )
 
 
-def _node_operation(node: NodeSpec, operation_id: str) -> OperationSpec | None:
+def _node_operation(node: Node, operation_id: str) -> Operation | None:
     return next(
         (operation for operation in node.operations if operation.id == operation_id),
         None,
@@ -161,7 +161,7 @@ def _node_operation(node: NodeSpec, operation_id: str) -> OperationSpec | None:
 
 def _entity_inputs_are_available(
     session: RouteDeckSession,
-    operation: OperationSpec,
+    operation: Operation,
 ) -> bool:
     public_entities = {
         (entity.entity_kind, entity.handle)

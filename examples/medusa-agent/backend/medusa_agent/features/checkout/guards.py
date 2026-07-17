@@ -10,7 +10,7 @@ from routedeck_core.contracts.failures import (
 from routedeck_core.supervision.guards import GuardDecision, GuardInvocationContext
 
 from ...medusa.client.models import MedusaClientFailureKind
-from .feature import (
+from .declarations import (
     CHECKOUT_FACTS_PROVIDER,
     PAYMENT_PROVIDERS_PROVIDER,
     SHIPPING_OPTIONS_PROVIDER,

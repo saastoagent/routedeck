@@ -45,14 +45,18 @@ RouteDeck contains no Medusa, commerce, or other product-specific branches.
 
 ## Application Contract
 
-### `ApplicationSpec` and `FeatureSpec`
+### `Application` and `Feature`
 
-An application is a name, an entry node, feature modules, and optional
-cross-feature transitions. Each `FeatureSpec` owns a unique namespace, its
-nodes, and only transitions whose source and target both belong to that
-feature. The application composition root declares cross-feature transitions.
+An application is a name, an entry node, and feature modules. Each `Feature`
+owns a unique namespace and complete nodes. Each node owns its outgoing local
+and cross-feature transitions; their source is implicit from the declaring
+node.
 
-`compile_app(...)` produces one `CompiledRouteDeckApp` containing:
+Composition selects independently authored features and the entry node.
+RouteDeck resolves feature-owned nodes and their outgoing transitions, derives
+incoming transitions, validates the complete graph, and compiles it.
+
+`compile_app(...)` produces one `CompiledApplication` containing:
 
 - flattened, validated nodes and transitions;
 - canonical operation, provider, guard, capability, and surface catalogs;
@@ -66,15 +70,16 @@ unknown references, out-of-scope providers/guards, undeclared outcomes,
 ambiguous branches, unreachable nodes, invalid route entries, invalid public
 schemas, or incomplete write-recovery declarations.
 
-### `NodeSpec`
+### `Node`
 
 A node is a product-facing location, not a LangGraph node. It declares:
 
-- stable ID, title, kind, optional parent, and `RouteSpec`;
-- optional `RouteEntrySpec`;
+- stable ID, title, kind, optional parent, and `Route`;
+- optional `RouteEntry`;
 - context and entity providers;
 - guards and operations executable at that location;
-- capabilities and `SurfaceSlotsSpec`;
+- capabilities and `SurfaceSlots`;
+- outgoing transitions, with their source derived from this node;
 - navigation and recovery policies;
 - explicitly public metadata.
 
@@ -83,13 +88,13 @@ transitions. An operation outcome has exactly one target. A node can map to a
 workflow step, section, detail page, or transient result without mirroring any
 model-orchestration graph.
 
-### `RouteEntrySpec`
+### `RouteEntry`
 
 A route entry declares how an incoming path becomes an authoritative product
 operation:
 
 ```python
-entry=RouteEntrySpec(
+entry=RouteEntry(
     operation=OPEN_PRODUCT_BY_ROUTE.ref,
     outcome="opened",
     bindings=(
@@ -109,7 +114,7 @@ entity scan that substitutes for a declared binding.
 
 ### Operations, providers, guards, and capabilities
 
-`OperationSpec` declares an ID, title, description, default-deny input schema,
+`Operation` declares an ID, title, description, default-deny input schema,
 safety class, outcomes, output schemas, provider and guard references, entity
 inputs, review policy, recovery metadata, and public metadata.
 
@@ -151,7 +156,7 @@ FastAPI dependency bundles.
 
 ## Surface Contract
 
-### `SurfaceSpec`
+### `Surface`
 
 A surface declares:
 
@@ -166,7 +171,7 @@ Public object schemas require explicit types, explicit properties, and
 `additionalProperties: false`. Unsupported schema keywords and undeclared
 shape are rejected during construction.
 
-`SurfaceSlotsSpec` places surfaces into `active`, `frame`, `peer`, `detail`,
+`SurfaceSlots` places surfaces into `active`, `frame`, `peer`, `detail`,
 `form`, `review`, `status`, `error`, or `diagnostic`. The frontend contract
 exports IDs, components, lifecycles, public schemas, affordances, routes, and
 operations. Product React components are registered separately by component
@@ -193,7 +198,7 @@ unknown surface state fails validation.
 ### Private forms
 
 Private fields are not public surface props. A private-form surface declares a
-`PrivateFormBindingSpec` containing:
+`PrivateFormBinding` containing:
 
 - the exact public prop that carries its opaque form handle;
 - the exact allowed top-level private field names.
@@ -352,6 +357,24 @@ confirmed transitions push; bootstrap/reconnect and explicit replacement use
 replace. Back/forward operate through browser history and return through exact
 server restoration.
 
+With `resume_or_create_shareable`, the store first tries the selected guest
+session. A missing, expired, or contract-mismatched session creates one new
+session only when the captured incoming route is `shareable`; the new session
+then enters that route through normal supervised navigation. A session-bound
+route never creates replacement state. An outcome-unknown create or navigation
+request retains its exact request identity for explicit retry or abandonment.
+
+### Session selection
+
+RouteDeck owns one selected session's durable interaction state. Authentication,
+users, tenants, session listing, and authorization remain consumer-owned. The
+Medusa reference uses one HTTP-only guest cookie: separate browser profiles are
+isolated and tabs in one profile share the guest session. An authenticated
+multi-session resolver is not implemented. A future adapter must authorize a
+consumer-facing opaque session handle before returning an internal `session_id`
+to RouteDeck persistence; it must not trust a raw browser-supplied internal ID
+or silently select a replacement session.
+
 ## LangGraph Adapter
 
 RouteDeck's navgraph and a LangGraph model graph have different jobs.
@@ -488,7 +511,7 @@ shields interruption persistence and closes the LangGraph async event stream.
 
 ## Medusa Reference Proof
 
-The reference app composes catalog, cart, checkout, and order `FeatureSpec`s
+The reference app selects catalog, cart, checkout, and order `Feature`s
 over this kernel. Its real local flow covers product browse/detail, exact
 variant selection, cart mutation, private contact, shipping, system/manual demo
 payment, reviewed order placement, uncertain-write reconciliation,

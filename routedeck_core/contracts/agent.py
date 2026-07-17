@@ -11,7 +11,7 @@ class AgentPolicyRef(_FrozenContract):
     id: str = Field(min_length=1)
 
 
-class AgentPolicySpec(_FrozenContract):
+class AgentPolicy(_FrozenContract):
     """Trusted model guidance declared by RouteDeck or one product feature."""
 
     id: str = Field(min_length=1)
@@ -22,4 +22,4 @@ class AgentPolicySpec(_FrozenContract):
         return AgentPolicyRef(id=self.id)
 
 
-__all__ = ["AgentPolicyRef", "AgentPolicySpec"]
+__all__ = ["AgentPolicyRef", "AgentPolicy"]

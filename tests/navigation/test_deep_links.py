@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.contracts.session import LocationParameter, ResumeCapabilityBinding
 from routedeck_core.navigation.deep_links import DeepLinkEngine
 from routedeck_core.navigation.routes import (
@@ -48,7 +48,7 @@ def _capability(
 
 
 def test_public_and_session_bound_deep_links_are_distinct() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = DeepLinkEngine(app)
     public = engine.open(
         "/products/t-shirt",
@@ -91,7 +91,7 @@ def test_public_and_session_bound_deep_links_are_distinct() -> None:
 )
 def test_representative_session_bound_routes_require_a_session(path: str) -> None:
     with pytest.raises(RouteSessionRequired):
-        DeepLinkEngine(compile_medusa_app_spec()).open(
+        DeepLinkEngine(compile_medusa_app()).open(
             path,
             session=None,
             now=NOW,
@@ -99,7 +99,7 @@ def test_representative_session_bound_routes_require_a_session(path: str) -> Non
 
 
 def test_valid_cart_and_confirmation_capabilities_open_bound_routes() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     cart_capability = _capability()
     confirmation_capability = _capability(
         handle="confirmation-capability",
@@ -132,7 +132,7 @@ def test_valid_cart_and_confirmation_capabilities_open_bound_routes() -> None:
 
 
 def test_session_capability_rejects_path_parameter_substitution() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     capability = _capability(
         handle="confirmation-capability",
         node_id="orders.confirmation",
@@ -162,7 +162,7 @@ def test_session_capability_rejects_path_parameter_substitution() -> None:
 
 
 def test_shareable_link_generation_requires_an_injected_public_key_validator() -> None:
-    engine = DeepLinkEngine(compile_medusa_app_spec())
+    engine = DeepLinkEngine(compile_medusa_app())
 
     with pytest.raises(RouteDeckValidationError):
         engine.encode("catalog.product", {"product_handle": "t-shirt"})
@@ -204,7 +204,7 @@ def test_expired_wrong_node_and_unknown_capabilities_fail_explicitly(
     capabilities: tuple[ResumeCapabilityBinding, ...],
     path: str,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     with pytest.raises(RouteCapabilityMismatch):
         DeepLinkEngine(app).open(
             path,
@@ -214,7 +214,7 @@ def test_expired_wrong_node_and_unknown_capabilities_fail_explicitly(
 
 
 def test_invalid_public_binding_and_missing_resume_handle_fail_explicitly() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = DeepLinkEngine(app)
 
     with pytest.raises(RouteDeckValidationError):
@@ -236,7 +236,7 @@ def test_invalid_public_binding_and_missing_resume_handle_fail_explicitly() -> N
 
 
 def test_generated_session_link_contains_no_session_or_private_id() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = DeepLinkEngine(app)
     session = session_factory(app=app, resume_capabilities=(_capability(),))
 
@@ -298,7 +298,7 @@ def test_generated_session_link_contains_no_session_or_private_id() -> None:
 
 
 def test_session_bound_links_reject_an_incompatible_navgraph_session() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     stale = session_factory(resume_capabilities=(_capability(),))
 
     with pytest.raises(RouteDeckValidationError, match="session_upgrade_required"):

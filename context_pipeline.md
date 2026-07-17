@@ -1,84 +1,87 @@
 # Context Pipeline - RouteDeck
 
-RouteDeck uses a structured context pipeline for continuity, planning,
-code-referenced architecture, and clean handoffs.
+RouteDeck separates durable architecture, current restart state, validation,
+and history so an old plan cannot become accidental authority.
 
-## Layers
+## Canonical Layers
 
-### Vision
+### Authority And Contracts
 
-- `critical_prompt.md` - stable north star and boundaries.
-- `docs/route-deck-reference.md` - canonical framework reference.
+- `critical_prompt.md` - product identity, invariants, authority, stop rules.
+- `decisions/` - accepted architectural decisions and supersession history.
+- `docs/route-deck-reference.md` - canonical framework vocabulary/semantics.
 
-### State
+### Coverage And Ownership
 
-- `context.md` - concise live restart snapshot.
-- `context_history/` - archived prior `context.md` snapshots.
-- `context_checkpoints/` - end-of-session handoff snapshots.
-- `structure.md` - maintained project tree and source ownership snapshot.
+- `architecture/feature-coverage.md` - all live capabilities and their owners,
+  code, docs, and focused proof.
+- `architecture/code-map.md` - machine-readable subsystem source globs.
+- `architecture/components/` - focused subsystem maintenance contracts.
+- `architecture/documentation-map.md` - canonical/historical classification.
+- `structure.md` - maintained live source tree and dependency direction.
 
-### Process
+### Flow And Validation
 
-- `instructions.md` - documentation workflow.
-- `work_prompt.md` - session start/end prompts.
-- `context_pipeline.md` - this file.
+- `SYSTEM_FLOW_INDEX.md` - compact implemented runtime/UX sequences.
+- `test_index/README.md` - validation commands and supported claims.
 
-### Architecture And Validation
+### Current State And Process
 
-- `architecture/code-map.md` - source-to-doc/test ownership map.
-- `architecture/components/` - focused component contracts.
-- `SYSTEM_FLOW_INDEX.md` - compact runtime and UX flow index.
-- `test_index/README.md` - validation ownership and commands.
+- `context.md` - concise live restart snapshot and known gaps.
+- `work_prompt.md` - start/completion/closeout prompts.
+- `instructions.md` - documentation placement and maintenance rules.
+- `context_pipeline.md` - this lifecycle definition.
 
-### History, Decisions, And Knowledge
+## Historical Layers
 
-- `logs/` - session activity history.
-- `decisions/` - ADRs for durable implementation choices.
-- `knowledgebase/` - verified reusable findings.
-- `plans/` - active plans that are not already under `docs/superpowers/plans/`.
-- `audits/` - read-only audit reports.
-- `errors/` - resolved hard debugging notes.
-- `skills/` - reusable workflows only.
+- `context_history/` - prior `context.md` snapshots.
+- `context_checkpoints/` - dated session handoffs.
+- `logs/` - dated session evidence.
+- `docs/archive/` - completed/superseded plans, designs, concepts, reports,
+  handoffs, and narrative material.
+- `audits/`, `docs/migration/`, `errors/`, `knowledgebase/` - point-in-time
+  findings or verified reusable knowledge.
+- `plans/` - currently active decision-complete plans only.
+
+Historical material never overrides the canonical layers.
 
 ## Session Lifecycle
 
 ### Start
 
-Read, in order:
+Read in order:
 
-1. `critical_prompt.md`
-2. `context.md`
-3. `docs/route-deck-reference.md`
-4. Latest `context_checkpoints/` file if resuming
-5. `architecture/code-map.md` when source, tests, examples, or docs are in scope
-6. Relevant `architecture/components/` doc
-7. Relevant plan or repo-local skill
+1. `critical_prompt.md`;
+2. `context.md`;
+3. `docs/route-deck-reference.md`;
+4. newest checkpoint when resuming;
+5. `architecture/feature-coverage.md` and owning `code-map.md` row;
+6. relevant component contract;
+7. `test_index/README.md` and an active plan/skill when applicable.
 
-### Plan
-
-1. Verify uncertain facts from the repo.
-2. Keep product and framework boundaries explicit.
-3. Use the locked reference for framework meaning.
-4. Record durable choices in `decisions/` when they affect future work.
+State the current authority, product/framework boundary, known gap, and next
+concrete step before implementation.
 
 ### Implement
 
-1. Change the smallest coherent slice.
-2. Track changed files against `architecture/code-map.md`.
-3. Update docs/tests only where contracts moved.
-4. Keep `context.md` concise and current.
+1. Verify uncertain facts from live source.
+2. Change the smallest coherent feature/architecture slice.
+3. Keep every changed live source mapped to an ownership row and feature.
+4. Update contract, flow, component, and test docs only where meaning moved.
+5. Demote completed planning material rather than leaving it active.
 
 ### Close
 
-1. Create a log in `logs/`.
-2. Create a checkpoint in `context_checkpoints/`.
-3. Archive old `context.md` into `context_history/` if materially changed.
-4. Rewrite `context.md` as the current restart snapshot.
-5. Run `python scripts/check_doc_coverage.py`.
-6. Run the fastest meaningful validation command.
+1. Add a dated log and checkpoint.
+2. Archive the previous `context.md` when its material state changed.
+3. Rewrite `context.md` as the concise current restart snapshot.
+4. Run `python scripts/check_doc_coverage.py`.
+5. Run `python scripts/check_context_architecture.py`.
+6. Run the fastest meaningful focused behavior/boundary validation.
+7. Record commands, results, changed ownership rows, and any remaining gap.
 
 ## Working Rule
 
-Do not turn `context.md` into an architecture document. Put durable framework
-meaning in `docs/route-deck-reference.md`, subsystem ownership in
-`architecture/`, and validation meaning in `test_index/`.
+`context.md` links to durable detail; it does not duplicate an architecture
+document. Plans explain intended work, never current truth. Test indexes explain
+what a command proves, never claim that it passed without a current run.

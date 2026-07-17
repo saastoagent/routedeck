@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..contracts.application import NodeSpec
-from ..contracts.navigation import TransitionSpec
-from ..contracts.surfaces import SurfaceSlotsSpec
+from ..contracts.application import Node
+from ..contracts.navigation import CompiledTransition
+from ..contracts.surfaces import SurfaceSlots
 from .compiled import (
     FrontendContract,
     FrontendNodeContract,
@@ -12,19 +12,19 @@ from .compiled import (
     FrontendSurfaceSlots,
     FrontendTransitionContract,
 )
-from .feature import ApplicationSpec
+from .feature import Application
 
 
 def _build_frontend_contract(
     *,
-    source_spec: ApplicationSpec,
-    nodes: tuple[NodeSpec, ...],
-    transitions: tuple[TransitionSpec, ...],
+    application: Application,
+    nodes: tuple[Node, ...],
+    transitions: tuple[CompiledTransition, ...],
     surfaces: Mapping[str, FrontendSurfaceContract],
 ) -> FrontendContract:
     return FrontendContract(
-        name=source_spec.name,
-        entry_node_id=source_spec.entry_node.id,
+        name=application.name,
+        entry_node_id=application.entry_node.id,
         nodes={
             node.id: FrontendNodeContract(
                 id=node.id,
@@ -49,7 +49,7 @@ def _build_frontend_contract(
     )
 
 
-def _frontend_surface_slots(slots: SurfaceSlotsSpec) -> FrontendSurfaceSlots:
+def _frontend_surface_slots(slots: SurfaceSlots) -> FrontendSurfaceSlots:
     return FrontendSurfaceSlots(
         active=slots.active.id if slots.active is not None else None,
         frame=tuple(surface.id for surface in slots.frame),

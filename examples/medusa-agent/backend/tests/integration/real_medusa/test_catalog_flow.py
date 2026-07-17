@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 import pytest
 
 from medusa_agent.config import Settings
-from medusa_agent.features.catalog import (
+from medusa_agent.features.catalog.declarations import (
     CATALOG_LIST,
     CATALOG_SEARCH,
     OPEN_PRODUCT,
     SELECT_VARIANT,
-    CatalogRouteKeyValidator,
 )
+from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
 from medusa_agent.medusa.client import HttpMedusaStoreClient, ProductQuery
 from medusa_agent.medusa.client.models import ProductPageResult, ProductResult
 from medusa_agent.session import BuyerMarket

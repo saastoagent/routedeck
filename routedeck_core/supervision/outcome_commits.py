@@ -13,7 +13,7 @@ from ..contracts.operations import (
     OperationPhase,
     OperationRequest,
     OperationResult,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.session import (
     AttemptTerminalState,
@@ -40,7 +40,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt: OperationAttempt,
         session: RouteDeckSession,
         commit_session: RouteDeckSession | None = None,
@@ -115,7 +115,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
             result.effects,
         )
         target_node = next(
-            node for node in self.app.app.spec.nodes if node.id == transition.target.id
+            node for node in self.app.app.graph.nodes if node.id == transition.target.id
         )
         target_surface_state = surface_state_for_node(
             self.app.app,
@@ -354,7 +354,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt: OperationAttempt,
         claim: Any,
         reason_code: str,
@@ -394,7 +394,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
         )
         current_node = next(
             node
-            for node in self.app.app.spec.nodes
+            for node in self.app.app.graph.nodes
             if node.id == current.current.node_id
         )
         current_surface_ids = {

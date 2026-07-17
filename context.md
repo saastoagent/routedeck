@@ -1,159 +1,96 @@
 # RouteDeck Context
 
-Last updated: 2026-07-14
-Status: the standalone RouteDeck framework and Medusa buyer agent are in
-architecture-cleanup closeout. Execution is local Windows only.
+Last updated: 2026-07-17
+Status: standalone framework and Medusa reference architecture are implemented;
+context architecture now reflects the live clean-break source. Execution is
+local Windows only.
 
 ## Start Here
 
 1. [Critical prompt](./critical_prompt.md)
-2. [ADR-004: RouteDeck And Medusa Advance Through Consumer-Driven Runtime Slices](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
-3. [Approved RouteDeck and Medusa buyer-agent design](./docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
-4. [Active architecture-cleanup plan](./docs/superpowers/plans/2026-07-14-routedeck-architecture-cleanup.md)
-5. [Current context](./context.md)
-6. [Decision index](./decisions/README.md)
-7. [RouteDeck reference](./docs/route-deck-reference.md) for existing feature vocabulary and payloads,
-   subject to ADR-004 and the approved design where older target language conflicts
-8. [Architecture code map](./architecture/code-map.md)
-9. [Test index](./test_index/README.md)
-10. [Approved RouteDeck and Medusa implementation plan](./docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md) for completed slice history
+2. [ADR-006 runtime/conversation boundary](./decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md)
+3. [RouteDeck reference](./docs/route-deck-reference.md)
+4. [Feature and architecture coverage](./architecture/feature-coverage.md)
+5. [Subsystem code map](./architecture/code-map.md)
+6. [System flow index](./SYSTEM_FLOW_INDEX.md)
+7. [Test index](./test_index/README.md)
+8. [Documentation authority map](./architecture/documentation-map.md)
 
-Do not resume the
-[retired full-stack refactor plan](./docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md).
-It is retained as historical material only.
+ADR-006 controls runtime assembly and generic conversation. Non-superseded
+ADR-005 controls named state/feature structure. ADR-004 controls scope,
+product/framework separation, and local execution. Completed plans/designs are
+under `docs/archive/` and are not active authority.
 
-## Active Implementation Authority
+## Current Implementation
 
-The authority chain is ADR-004 -> ADR-005 -> approved design -> active cleanup
-plan. ADR-003 remains historical rationale for RouteDeck's product identity and
-tool-supervision boundary.
+- Product developers author `Feature` modules with complete `Node` objects and
+  node-owned outgoing transitions. A small `Application` selects features and
+  the entry node; RouteDeck derives incoming adjacency and compiles one graph
+  and frontend contract.
+- Exact `FeatureBindings` supply product handlers/providers/guards. Duplicate,
+  missing, extra, synchronous, or malformed ownership fails at startup.
+- One `RouteDeckRuntime` owns canonical sessions, projection, one operation
+  runner, navigation over that runner, optional agent driver, and lifecycle.
+- SQLAlchemy supports explicit SQLite/PostgreSQL URLs with leases, journals,
+  events, encrypted blobs, retention, reopen, and restart recovery.
+- FastAPI exposes one runtime-derived `/api/routedeck` plane for contract,
+  sessions, operations/reviews, navigation, conversation, events, private
+  forms, and inspection.
+- The optional LangGraph adapter drives product-supplied user/assistant graphs,
+  rebuilds durable conversation, filters model context/tools, and supervises
+  every product tool through the same runner. RouteDeck owns no product graph
+  topology, prompt, model, or wording.
+- `@routedeck/core` owns strict browser contracts, bootstrap/resync, retained
+  request identity, routing/history, forms, and the authoritative browser
+  mirror. `@routedeck/react` supplies product-neutral presentation and UI
+  primitives, including the read-only Navgraph.
 
-## Locked Product Direction
+## Medusa Reference Consumer
 
-RouteDeck is state management and interaction governance for agentic
-applications.
+The Medusa app owns real Store API transport and all catalog, cart, checkout,
+order, market, prompt/model/graph, product session, readiness, component, and
+local-stack behavior. RouteDeck contains no commerce endpoint or fallback path.
 
-Its job is to keep the agent grounded in the current application state:
+Its four feature modules declare the buyer navgraph. Chat, surfaces, and hybrid
+interactions converge on the framework runner. The browser never calls
+`/store/*`; real IDs remain behind scoped opaque handles. Checkout private
+values remain encrypted and excluded from public/model state. Order placement
+uses required review and explicit delivery/reconciliation semantics.
 
-- give the agent only the context it currently needs
-- expose only currently legal tools/operations
-- preserve product identity grounding through scoped opaque handles
-- reject fabricated, stale, hidden, or ineligible handles before private ID
-  resolution
-- apply product-supplied guards and review requirements
-- manage navgraph location, navigation history, active surfaces, selections,
-  feedback, and relevant tool-result context
-- keep backend interaction state, SSE updates, and frontend projection aligned
+The browser automatically creates a guest session on a missing, expired, or
+contract-mismatched bootstrap only when the incoming route is shareable. It
+then enters the captured path through normal supervised navigation. A
+session-bound link never creates replacement state. Initial greeting starts
+through the generic assistant-initiated conversation path after bootstrap when
+durable conversation is empty.
 
-The navgraph is the application's interaction map, not the agent's execution
-graph. It describes user-facing states, transitions, tools, surfaces, deep
-links, and recovery behavior.
+## Known Gaps
 
-## Tool Supervision Boundary
+- The current FastAPI/Medusa guest adapter selects one session through an
+  HTTP-only cookie. Separate browser profiles are isolated; tabs in one profile
+  share the guest session. Authenticated user/tenant authorization and an
+  opaque multi-session resolver are not implemented.
+- Public release remains unclaimed until a current clean-install/package and
+  consolidated release run produces sanitized evidence.
+- No test, real-commerce, or live-model E2E pass is implied by this context.
+  Use the exact current command output and artifact path for any such claim.
 
-Every application-semantic read or write tool call must cross RouteDeck before
-execution.
+## Current Maintenance Contract
 
-```text
-agent proposes tool call
-  -> RouteDeck allows, blocks, requests input, or requires review
-  -> host agent runtime invokes the product tool only when allowed
-  -> host reports result/failure to RouteDeck
-  -> RouteDeck updates interaction/session state, context, surfaces, and events
-```
+- `architecture/feature-coverage.md` must cover every supported feature.
+- `architecture/code-map.md` maps every maintained live source file to an owner.
+- `python scripts/check_doc_coverage.py` scans live source without Git.
+- `python scripts/check_context_architecture.py` checks canonical links and
+  retired vocabulary.
+- Only active decision-complete work belongs in `plans/` or current
+  `docs/superpowers/`; completed material is archived.
 
-RouteDeck does not call the tool. It oversees the call and returns structured
-feedback. The host application owns the agent runtime, product tools, domain
-records, authentication system, prompts, model calls, and side effects.
+## Next Step
 
-## Identifier Rule
+No implementation plan is active. Select the next product/framework feature
+from the coverage matrix, verify its live source and owning component, then run
+only the focused validation lane listed in `test_index/README.md`.
 
-Medusa is authoritative for real product, variant, cart, line-item, shipping,
-payment-provider, and order IDs. RouteDeck stores those IDs only in classified
-private entity bindings and exposes scoped opaque handles in public projections,
-model context, URLs, and surface props. At execution, RouteDeck resolves an
-opaque handle only when its private binding is currently allowlisted for the
-operation, entity kind, node, and session version. The Medusa handler receives
-the resolved private ID; neither the browser nor the model does.
-
-## Medusa Is The First Consumer
-
-The standalone Medusa guest-buyer agent now drives RouteDeck development
-through consumer-driven vertical slices. Each slice introduces only the
-framework capability immediately consumed by matching Medusa behavior. A
-RouteDeck-only result never completes a slice; the corresponding Medusa backend
-and browser behavior must also work at the plan's required gates.
-
-The Medusa application owns Store API access, commerce models, providers,
-guards, handlers, LangGraph prompt/model behavior, and product surfaces.
-RouteDeck owns product-neutral feature composition, interaction/session state,
-supervision, persistence, transport, and frontend synchronization. Product
-handlers execute only through the injected host executor.
-
-Corpus remains an existing integration and useful historical behavior
-reference, but it no longer controls implementation sequencing. Preserve the
-Medusa **2026-06-10 gap audit** and its **chat-to-projection convergence** rule
-as acceptance evidence for the standalone buyer agent.
-
-## Current Implementation Reality
-
-- `ApplicationSpec`/`FeatureSpec` compile into one immutable application and
-  frontend contract; `FeatureBindings.merge(...)` composes feature-owned
-  implementations and rejects duplicate ownership.
-- One canonical session aggregate and `RouteDeckOperationRunner` govern
-  navigation, providers, guards, reviews, effects, events, and projections.
-- SQLAlchemy provides SQLite and PostgreSQL persistence behind the same store
-  contract; FastAPI provides generic HTTP, private forms, and public SSE.
-- LangGraph middleware injects active RouteDeck context/policies and exposes
-  structured runner-owned tools without owning product topology.
-- `packages/core` and `packages/react` provide the headless store and React
-  primitives, including dynamic surfaces, history, review, forms, and Navgraph.
-- The Medusa consumer owns all Store API transport and commerce logic in
-  operation-centric features. Its chat-driven and surface-driven paths converge
-  on the same runner.
-- Model roles are explicit, and the live product path has no canned response,
-  phrase router, substitute data source, or hidden execution path.
-
-The remaining work in the active plan is focused verification, live buyer-flow
-proof, diff review, and the requested RouteDeck-only commit.
-
-## Approved Runtime Scope
-
-ADR-004 authorizes feature-composed authoring, durable RouteDeck session and
-event state, generic FastAPI/SSE and SQLAlchemy SQLite/PostgreSQL adapters, optional LangGraph
-middleware, headless/React packages, and the standalone Medusa buyer-agent
-portability proof.
-
-RouteDeck still does not own product tool execution or Medusa business logic.
-The product supplies an injected executor, real Store API data, and explicit
-handlers/providers/guards. Missing data, credentials, dependencies, or
-invariants fail visibly; product paths do not substitute fixtures, canned
-responses, heuristic routing, or silent fallbacks.
-
-## Migration And Validation Rule
-
-1. Write the focused failing framework or consumer test for the slice.
-2. Add only the RouteDeck capability immediately consumed by Medusa.
-3. Route both agent and UI operations through the same supervised runner.
-4. Prove the matching Medusa backend and browser behavior against real local
-   sources of truth at the plan's required integration gates.
-5. Delete superseded or duplicate paths after replacement and boundary proof.
-
-Implementation, databases, services, test stacks, browser automation, and
-release verification run on the local Windows development machine. Do not
-probe, select, or fall back to the Mac mini. Start services only in an active
-plan task that expressly authorizes them, and report the exact command and
-smoke URL.
-
-## Historical Decisions
-
-- `ADR-001-langgraph-native-routedeck.md`: historical rationale for not
-  reinventing execution graphs; superseded for required LangGraph/compiler
-  direction.
-- `ADR-002-two-adoption-modes-one-kernel.md`: historical runtime-neutral ideas;
-  superseded for first-release multi-mode/durability requirements.
-- `ADR-003-agentic-interaction-state-governor.md`: historical rationale for
-  interaction governance and host-owned product-tool execution; superseded by
-  ADR-004 for sequencing and approved runtime scope.
-- `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`:
-  retired and must not be executed.
+Services, databases, tests, and browser automation run locally on Windows. Do
+not probe or fall back to another host. When starting the protected Medusa
+stack, report the command and smoke URLs from the test index.

@@ -53,23 +53,36 @@ def test_retired_runtime_subclass_is_not_available_from_the_public_package() -> 
 def test_current_core_authoring_surface_is_canonical() -> None:
     import routedeck_core
     from routedeck_core.app import (
-        ApplicationSpec,
-        CompiledRouteDeckApp,
-        FeatureSpec,
+        Application,
+        CompiledApplication,
+        Feature,
         bind_app,
         compile_app,
     )
 
     current = {
-        "ApplicationSpec": ApplicationSpec,
-        "CompiledRouteDeckApp": CompiledRouteDeckApp,
-        "FeatureSpec": FeatureSpec,
+        "Application": Application,
+        "CompiledApplication": CompiledApplication,
+        "Feature": Feature,
         "bind_app": bind_app,
         "compile_app": compile_app,
     }
     for name, value in current.items():
         assert name in routedeck_core.__all__
         assert getattr(routedeck_core, name) is value
+
+
+def test_clean_break_removes_legacy_authoring_names() -> None:
+    import routedeck_core
+
+    for name in (
+        "ApplicationSpec",
+        "FeatureSpec",
+        "CompiledRouteDeckApp",
+        "BoundRouteDeckApp",
+    ):
+        assert name not in routedeck_core.__all__
+        assert not hasattr(routedeck_core, name)
 
 
 def test_retired_core_authoring_is_not_available_from_the_public_package() -> None:
@@ -93,17 +106,17 @@ def test_root_all_contains_only_the_compiled_framework_surface() -> None:
     import routedeck_core
 
     assert set(routedeck_core.__all__) == {
-        "ApplicationSpec",
-        "BoundRouteDeckApp",
+        "Application",
+        "BoundApplication",
         "RouteDeckEvent",
-        "CompiledRouteDeckApp",
+        "CompiledApplication",
         "ConfiguredSessionProjector",
         "ContextScopeBuilder",
         "DeepLinkEngine",
         "FailureKind",
         "FailureSafeDetails",
         "FeatureBindings",
-        "FeatureSpec",
+        "Feature",
         "NavigationEngine",
         "OperationContextScope",
         "ProjectionProjector",

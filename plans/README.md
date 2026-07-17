@@ -1,7 +1,8 @@
-# Plans
+# Active Plans
 
-Active implementation and architecture plans live here when they are not already
-stored under `docs/superpowers/plans/`.
+Only currently active, decision-complete implementation or architecture plans
+belong here. There is no active plan in this directory at present.
 
-Plans should be decision-complete before implementation and should preserve the
-RouteDeck product/framework boundary from `critical_prompt.md`.
+Completed or superseded plans belong under `docs/archive/`; they are historical
+records and never override `critical_prompt.md`, accepted ADRs, or current
+reference/architecture documents.

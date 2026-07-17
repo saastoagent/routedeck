@@ -15,7 +15,7 @@ from routedeck_core.contracts.mutations import (
 )
 from routedeck_core.contracts.projection import ProjectedSurface, PublicProjection
 from routedeck_core.contracts.session import PrivateDraft, SessionSnapshot
-from routedeck_core.contracts.surfaces import PrivateFormBindingSpec
+from routedeck_core.contracts.surfaces import PrivateFormBinding
 
 from .contracts import PrivateFormWriteRequest, RouteDeckHttpProblem
 from routedeck_core.ports import SensitiveCodec
@@ -40,12 +40,12 @@ def authorized_private_form(
     dependencies: RouteDeckDependencies,
     snapshot: SessionSnapshot,
     form_id: str,
-) -> PrivateFormBindingSpec:
+) -> PrivateFormBinding:
     projection = project(dependencies, snapshot)
     node = next(
         (
             candidate
-            for candidate in dependencies.app.spec.nodes
+            for candidate in dependencies.app.graph.nodes
             if candidate.id == snapshot.state.current.node_id
         ),
         None,
@@ -61,7 +61,7 @@ def authorized_private_form(
     surface_specs = {
         surface.id: surface for surface in node.surfaces.declared_surfaces()
     }
-    matches: list[PrivateFormBindingSpec] = []
+    matches: list[PrivateFormBinding] = []
     seen_surface_ids: set[str] = set()
     for surface in projected_surfaces(projection):
         if surface.surface_id in seen_surface_ids:
@@ -121,7 +121,7 @@ async def private_form_state(
     dependencies: RouteDeckDependencies,
     snapshot: SessionSnapshot,
     form_id: str,
-    binding: PrivateFormBindingSpec,
+    binding: PrivateFormBinding,
 ) -> tuple[PrivateDraft | None, bytes | None, dict[str, Any] | None]:
     draft = private_draft(snapshot, form_id)
     encrypted = await dependencies.store.load_private_blob(
@@ -156,7 +156,7 @@ async def private_form_state(
 
 
 def require_allowed_private_form_fields(
-    binding: PrivateFormBindingSpec,
+    binding: PrivateFormBinding,
     field_names: tuple[str, ...],
     *,
     stored: bool,

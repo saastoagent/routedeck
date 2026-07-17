@@ -85,9 +85,10 @@ The Python backend declares
 installs the local core distribution and backend together; root extras are not
 used to conceal backend runtime requirements.
 
-Adding a product feature normally means declaring its `FeatureSpec`, typed
-models/schemas, operation handlers, providers/guards, and React surfaces. The
-declarations are composed in `composition.py`, implementations are wired in
+Adding a product feature normally means declaring its `Feature`, complete
+nodes with outgoing transitions, typed models/schemas, operation handlers,
+providers/guards, and React surfaces. `composition.py` only selects features
+and the entry node, implementations are wired in
 `bindings.py`, session callbacks live in `session.py`, and product graphs live
 in `agent.py`. `runtime.py` passes those product inputs and strict configuration
 to `open_sqlalchemy_routedeck_runtime(...)`; RouteDeck constructs persistence,
@@ -107,7 +108,7 @@ endpoint; there is no Medusa entry route.
 
 ## Compiled Buyer Graph
 
-`MEDUSA_APP_SPEC` composes four product features.
+`MEDUSA_APP` composes four product features.
 
 | Feature | Nodes | Principal operations |
 | --- | --- | --- |
@@ -140,7 +141,7 @@ never completes the cart again.
 | `checkout.review` | `/checkout/review?resume_handle=...` | session-bound | current reviewed cart |
 | `orders.confirmation` | `/orders/{confirmation_handle}/confirmation?resume_handle=...` | session-bound | current verified order |
 
-The product route declares `RouteEntrySpec` and `RouteParameterBinding` instead
+The product route declares `RouteEntry` and `RouteParameterBinding` instead
 of duplicating route parsing in the app. RouteDeck performs structural/canonical
 validation and dispatches the declared operation. `OpenProductByRouteHandler`
 uses the typed Store client to resolve the public handle. A missing or ambiguous
@@ -151,6 +152,15 @@ to the exact session, node, and route parameters. Browser history carries the
 server's unique entry ID. Back, forward, cancel, reload, and `popstate` reconcile
 through `/api/routedeck/navigation`; the browser cannot manufacture a canonical
 checkout or confirmation entry.
+
+The browser uses `resume_or_create_shareable` bootstrap. It captures the
+address-bar path, tries the HTTP-only guest cookie session, and creates one real
+session only when a `404`, `410`, or contract-mismatch occurs on a shareable
+incoming route. It then enters the captured route through normal supervised
+navigation. A session-bound URL never creates replacement state. Separate
+browser profiles receive isolated guest sessions; tabs in one profile share the
+cookie/session. Authenticated user or multi-session authorization is not part of
+this guest reference adapter.
 
 ## Surface Contract
 
@@ -194,7 +204,7 @@ Medusa-specific graph logic or hardcoded edges to the frontend.
 ## Private Checkout
 
 `checkout.contact_form` and the reloadable `checkout.order_review` surface
-declare the same server-only `PrivateFormBindingSpec` with:
+declare the same server-only `PrivateFormBinding` with:
 
 - public handle prop `form_handle`;
 - exact top-level checkout field allowlist.
@@ -329,6 +339,12 @@ product graphs/prompts/models and the frontend bootstrap chooses when to call
 the typed assistant operation; RouteDeck owns the driver, transport, and
 durable conversation state. `main.py` mounts exactly one generic router from a
 runtime provider plus the product health router.
+
+After successful session/navigation bootstrap, the frontend loads durable
+conversation. When it is empty, it starts one assistant-initiated turn through
+the generic conversation route. The loading shell does not expose internal
+restore phases, and reload does not manufacture a greeting when conversation is
+already durable.
 
 `health` is process liveness. `ready` verifies the RouteDeck store and real
 Medusa dependency and returns `503` until the buyer application can serve real

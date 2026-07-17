@@ -13,9 +13,9 @@ injected host executor; RouteDeck contains no Medusa business logic.
 ## Active Authority
 
 The complete requirements and boundaries live in the approved
-[RouteDeck and Medusa buyer-agent design](../docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md).
+[RouteDeck and Medusa buyer-agent design](../docs/archive/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md).
 Its executable sequence is the
-[RouteDeck and Medusa buyer-agent implementation plan](../docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md).
+[RouteDeck and Medusa buyer-agent implementation plan](../docs/archive/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md).
 
 Implementation, services, test stacks, browser automation, and release
 verification run locally on the Windows development machine. The Mac mini is

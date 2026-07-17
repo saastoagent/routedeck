@@ -7,22 +7,22 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
-from ..contracts.agent import AgentPolicySpec
-from ..contracts.application import CompiledApplicationSpec
+from ..contracts.agent import AgentPolicy
+from ..contracts.application import CompiledGraph
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.operations import (
-    GuardSpec,
-    OperationSpec,
-    ProviderSpec,
+    Guard,
+    Operation,
+    Provider,
     SafetyClass,
 )
 from ..contracts.projection import FrozenJsonObject
 from ..contracts.surfaces import (
-    SurfaceAffordanceSpec,
+    SurfaceAffordance,
     SurfaceLifecycle,
-    SurfaceSpec,
+    Surface,
 )
-from .feature import ApplicationSpec
+from .feature import Application
 
 if TYPE_CHECKING:
     from ..navigation.routes import CompiledRoutes
@@ -64,7 +64,7 @@ class FrontendSurfaceContract(_FrozenContract):
     id: str
     component: str
     lifecycle: SurfaceLifecycle
-    affordances: tuple[SurfaceAffordanceSpec, ...] = ()
+    affordances: tuple[SurfaceAffordance, ...] = ()
     public_props_schema: FrozenJsonObject
 
 
@@ -107,25 +107,25 @@ class ExecutableTestPath(_FrozenContract):
 
 
 @dataclass(frozen=True)
-class CompiledRouteDeckApp:
-    source_spec: ApplicationSpec
-    spec: CompiledApplicationSpec
-    operations: Mapping[str, OperationSpec]
-    providers: Mapping[str, ProviderSpec]
-    guards: Mapping[str, GuardSpec]
-    agent_policies: Mapping[str, AgentPolicySpec]
-    surfaces: Mapping[str, SurfaceSpec]
+class CompiledApplication:
+    application: Application
+    graph: CompiledGraph
+    operations: Mapping[str, Operation]
+    providers: Mapping[str, Provider]
+    guards: Mapping[str, Guard]
+    agent_policies: Mapping[str, AgentPolicy]
+    surfaces: Mapping[str, Surface]
     routes: CompiledRoutes
     frontend_contract: FrontendContract
     executable_test_paths: tuple[ExecutableTestPath, ...]
 
     def contract_documents(self) -> dict[str, str]:
         documents = {
-            "compiled-navgraph.json": self.spec.model_dump(mode="json"),
+            "compiled-navgraph.json": self.graph.model_dump(mode="json"),
             "frontend-contract.json": self.frontend_contract.model_dump(mode="json"),
             "contract-schema.json": {
-                "application_spec": ApplicationSpec.model_json_schema(),
-                "compiled_application": CompiledApplicationSpec.model_json_schema(),
+                "application": Application.model_json_schema(),
+                "compiled_graph": CompiledGraph.model_json_schema(),
                 "frontend_contract": FrontendContract.model_json_schema(),
             },
             "executable-test-paths.json": [
@@ -145,7 +145,7 @@ class CompiledRouteDeckApp:
 
 
 __all__ = [
-    "CompiledRouteDeckApp",
+    "CompiledApplication",
     "ExecutableTestPath",
     "FrontendContract",
     "FrontendNodeContract",

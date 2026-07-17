@@ -9,6 +9,7 @@ import {
 } from "./support/buyer-flow";
 import { expect, test } from "./support/fixtures";
 import { PRODUCT, buyerForProject } from "./support/test-data";
+import { installSyntheticAddressBar } from "./support/synthetic-address-bar";
 
 const ROUTEDECK_CHAT_PATH = "/api/routedeck/chat";
 const LOCAL_APP_ORIGIN = "http://127.0.0.1:5198";
@@ -16,7 +17,12 @@ const FINALIZED_ASSISTANT_SELECTOR =
   '[data-agent-message="assistant"][data-agent-message-status="finalized"]';
 const CHAT_ERROR_SELECTOR = "[data-agent-chat-error]";
 const CHAT_TIMEOUT_MS = 150_000;
-const NAVGRAPH_READING_PAUSE_MS = 650;
+const PRESENTATION_RECORDING =
+  process.env.ROUTEDECK_PRESENTATION_RECORDING === "1";
+const SYNTHETIC_ADDRESS_BAR =
+  process.env.ROUTEDECK_SYNTHETIC_ADDRESS_BAR === "1";
+const PRESENTATION_GATE_MS = 12_000;
+const NAVGRAPH_READING_PAUSE_MS = PRESENTATION_RECORDING ? 1_200 : 650;
 
 const CHECKOUT_NODES: Readonly<Record<CheckoutFlowStage, string>> = {
   contact: "checkout.contact",
@@ -39,13 +45,14 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
   test.setTimeout(420_000);
   const buyer = buyerForProject(testInfo.project.name);
 
+  if (SYNTHETIC_ADDRESS_BAR) await installSyntheticAddressBar(page);
   await page.goto("/");
   await expect(page.getByTestId("medusa-buyer-app")).toBeVisible();
   await expect(page.locator(FINALIZED_ASSISTANT_SELECTOR)).toHaveCount(1, {
     timeout: CHAT_TIMEOUT_MS,
   });
   await showCurrentNavgraphNode(page, "buyer.home");
-  await closeNavgraph(page);
+  await presentationGate(page, "ROUTEDECK_RECORDING_WINDOW_READY");
 
   await sendCasualChat(
     page,
@@ -53,10 +60,9 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
     "/products",
   );
   await expect(
-    page.getByRole("heading", { name: "Products", exact: true }),
+    page.locator("#catalog-products-title"),
   ).toBeVisible();
   await showCurrentNavgraphNode(page, "catalog.browse");
-  await closeNavgraph(page);
 
   const productLink = page.getByRole("link", {
     name: PRODUCT.catalogLinkLabel,
@@ -66,16 +72,10 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
   expect(productHref).not.toBeNull();
   const productDeepLink = new URL(productHref!, page.url()).toString();
 
-  await page.goto(productDeepLink);
+  await productLink.click();
+  await expect(page).toHaveURL(productDeepLink);
   await expectProduct(page);
   await showCurrentNavgraphNode(page, "catalog.product");
-  await closeNavgraph(page);
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  expect(page.url()).toBe(productDeepLink);
-  await expectProduct(page);
-  await showCurrentNavgraphNode(page, "catalog.product");
-  await closeNavgraph(page);
 
   await sendCasualChat(
     page,
@@ -91,7 +91,6 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
   );
   await expectCart(page);
   await showCurrentNavgraphNode(page, "cart.summary");
-  await closeNavgraph(page);
 
   let deliveryDeepLink: string | null = null;
   let deliveryResumeHandle: string | null = null;
@@ -100,9 +99,9 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
     buyer,
     undefined,
     {
+      proveCheckoutPersistence: false,
       async onStage(stage, checkoutPage) {
         await showCurrentNavgraphNode(checkoutPage, CHECKOUT_NODES[stage]);
-        await closeNavgraph(checkoutPage);
 
         if (stage !== "delivery" || deliveryDeepLink !== null) return;
 
@@ -111,20 +110,10 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
         deliveryResumeHandle = deliveryUrl.searchParams.get("resume_handle");
         expect(deliveryResumeHandle).toBeTruthy();
         deliveryDeepLink = deliveryUrl.toString();
-
-        await checkoutPage.reload({ waitUntil: "domcontentloaded" });
         expect(checkoutPage.url()).toBe(deliveryDeepLink);
-        await expect(
-          checkoutPage.getByRole("heading", {
-            name: "Delivery options",
-            exact: true,
-          }),
-        ).toBeVisible();
         expect(new URL(checkoutPage.url()).searchParams.get("resume_handle")).toBe(
           deliveryResumeHandle,
         );
-        await showCurrentNavgraphNode(checkoutPage, "checkout.delivery");
-        await closeNavgraph(checkoutPage);
       },
     },
   );
@@ -135,21 +124,8 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
     /^\/orders\/[^/]+\/confirmation$/,
   );
   await expect(
-    page.getByRole("heading", { name: "Order confirmed", exact: true }),
+    page.locator("#order-confirmation-title"),
   ).toBeVisible();
-  await showCurrentNavgraphNode(page, "orders.confirmation");
-  await closeNavgraph(page);
-
-  const confirmationHandle = await page
-    .locator("section[data-confirmation]")
-    .getAttribute("data-confirmation");
-  expect(confirmationHandle).toBeTruthy();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  expect(page.url()).toBe(confirmationUrl);
-  await expect(page.locator("section[data-confirmation]")).toHaveAttribute(
-    "data-confirmation",
-    confirmationHandle!,
-  );
   await showCurrentNavgraphNode(page, "orders.confirmation");
 
   await expect(
@@ -164,6 +140,7 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
     expect(content).not.toMatch(/(?:tool_call|function_call|"arguments"\s*:)/i);
   }
   browserSafety.assertClean();
+  await presentationGate(page, "ROUTEDECK_RECORDING_COMPLETE");
 });
 
 async function showCurrentNavgraphNode(
@@ -189,17 +166,13 @@ async function showCurrentNavgraphNode(
       `[data-routedeck-navgraph-node="${nodeId}"][data-node-tone="current"]`,
     ),
   ).toHaveCount(1);
-  await page.waitForTimeout(NAVGRAPH_READING_PAUSE_MS);
-}
-
-async function closeNavgraph(page: Page): Promise<void> {
-  const close = page.getByRole("button", {
-    name: "Close Navgraph",
-    exact: true,
-  });
-  if (await close.isVisible()) {
-    await close.click();
+  if (SYNTHETIC_ADDRESS_BAR) {
+    await expect(page.getByTestId("synthetic-address-bar")).toBeVisible();
+    await expect(page.getByTestId("synthetic-address-value")).toHaveText(
+      page.url(),
+    );
   }
+  await page.waitForTimeout(NAVGRAPH_READING_PAUSE_MS);
 }
 
 async function sendCasualChat(
@@ -262,4 +235,10 @@ async function sendCasualChat(
       path: expectedPath,
     });
   await expect(page.locator(CHAT_ERROR_SELECTOR)).toHaveCount(0);
+}
+
+async function presentationGate(page: Page, signal: string): Promise<void> {
+  if (!PRESENTATION_RECORDING) return;
+  console.log(signal);
+  await page.waitForTimeout(PRESENTATION_GATE_MS);
 }

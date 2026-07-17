@@ -60,13 +60,13 @@ def inspection(
 ) -> dict[str, Any]:
     current_node_id = projection.current.node_id
     node = next(
-        node for node in dependencies.app.spec.nodes if node.id == current_node_id
+        node for node in dependencies.app.graph.nodes if node.id == current_node_id
     )
     legal_ids = set(projection.legal_operation_ids)
     reachable = sorted(
         {
             transition.target.id
-            for transition in dependencies.app.spec.transitions
+            for transition in dependencies.app.graph.transitions
             if transition.source.id == current_node_id
         }
     )
@@ -77,7 +77,7 @@ def inspection(
             "outcome": transition.outcome,
             "target": transition.target.id,
         }
-        for transition in dependencies.app.spec.transitions
+        for transition in dependencies.app.graph.transitions
         if transition.source.id == current_node_id
     ]
     return {

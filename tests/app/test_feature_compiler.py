@@ -3,30 +3,35 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from medusa_agent.composition import compile_medusa_app_spec
 from routedeck_core.app import (
-    ApplicationSpec,
+    Application,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.operations import (
     OperationRef,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import invalid_app, invalid_bindings
+
+
+def compile_medusa_app():
+    from medusa_agent.composition import compile_medusa_app as compile_application
+
+    return compile_application()
 
 
 EXPECTED_NODE_IDS = (
@@ -43,9 +48,9 @@ EXPECTED_NODE_IDS = (
 
 
 def test_medusa_features_compile_to_the_nine_node_graph() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
-    assert tuple(node.id for node in app.spec.nodes) == EXPECTED_NODE_IDS
+    assert tuple(node.id for node in app.graph.nodes) == EXPECTED_NODE_IDS
     assert (
         app.routes.encode("catalog.product", {"product_handle": "t-shirt"})
         == "/products/t-shirt"
@@ -54,6 +59,58 @@ def test_medusa_features_compile_to_the_nine_node_graph() -> None:
         app.frontend_contract.surfaces["catalog.product_detail"].component
         == "catalog.product_detail"
     )
+
+
+def test_node_owns_outgoing_and_compiler_derives_incoming() -> None:
+    advance = Operation(
+        id="test.advance",
+        title="Advance",
+        description="Advance once.",
+        safety_class=SafetyClass.NAVIGATION,
+        outcomes=("advanced",),
+    )
+    end = Node(
+        id="test.end",
+        title="End",
+        kind=NodeKind.WORKFLOW,
+        route=Route(
+            template="/end",
+            deep_link_policy=DeepLinkPolicy.SHAREABLE,
+        ),
+        surfaces=SurfaceSlots(
+            active=Surface(id="test.end", component="test.end")
+        ),
+    )
+    start = Node(
+        id="test.start",
+        title="Start",
+        kind=NodeKind.WORKFLOW,
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        operations=(advance,),
+        outgoing=(
+            Transition(
+                operation=advance.ref,
+                outcome="advanced",
+                target=end.ref,
+            ),
+        ),
+        surfaces=SurfaceSlots(
+            active=Surface(id="test.start", component="test.start")
+        ),
+    )
+    application = Application(
+        name="node-owned",
+        entry_node=start.ref,
+        features=(Feature(namespace="test", nodes=(start, end)),),
+    )
+
+    compiled = compile_app(application)
+
+    edge = compiled.graph.transitions[0]
+    assert edge.source == start.ref
+    assert edge.target == end.ref
+    assert compiled.graph.incoming[end.id] == (edge,)
+    assert compiled.graph.incoming[start.id] == ()
 
 
 @pytest.mark.parametrize(
@@ -78,6 +135,17 @@ def test_compiler_rejects_invalid_specs(mutation: str) -> None:
         compile_app(invalid_app(mutation))
 
 
+def test_transition_error_identifies_the_complete_source_branch() -> None:
+    with pytest.raises(
+        RouteDeckValidationError,
+        match=(
+            "feature='test'.*source='test.start'.*operation='test.advance'.*"
+            "outcome='advanced'.*target='test.missing'"
+        ),
+    ):
+        compile_app(invalid_app("dangling_transition"))
+
+
 @pytest.mark.parametrize(
     "schemas",
     (
@@ -96,7 +164,7 @@ def test_operation_specs_reject_malformed_json_schemas(
     schemas: dict[str, object],
 ) -> None:
     with pytest.raises(ValidationError, match="valid JSON Schema"):
-        OperationSpec(
+        Operation(
             id="test.invalid_schema",
             title="Invalid schema",
             description="Deliberately malformed contract.",
@@ -134,7 +202,7 @@ def test_compiler_rejects_incomplete_write_recovery_contracts(
 
 
 def test_compiler_rejects_repeat_write_graph_missing_one_node_transition() -> None:
-    operation = OperationSpec(
+    operation = Operation(
         id="test.repeat_write",
         title="Repeat write",
         description="The same canonical write is executable at two nodes.",
@@ -142,55 +210,58 @@ def test_compiler_rejects_repeat_write_graph_missing_one_node_transition() -> No
         outcomes=("written",),
         unknown_recovery_directive="reconcile_repeat_write",
     )
-    error_surface = SurfaceSpec(id="test.error", component="test.error")
-    first_surface = SurfaceSpec(id="test.first", component="test.first")
-    second_surface = SurfaceSpec(id="test.second", component="test.second")
-    recovery = RecoveryPolicySpec(
+    error_surface = Surface(id="test.error", component="test.error")
+    first_surface = Surface(id="test.first", component="test.first")
+    second_surface = Surface(id="test.second", component="test.second")
+    recovery = RecoveryPolicy(
         directives=("reconcile_repeat_write",),
         failure_surface=error_surface.ref,
     )
-    first = NodeSpec(
+    first = Node(
         id="test.first",
         title="First",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=(operation,),
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=first_surface,
             error=(error_surface,),
         ),
         recovery=recovery,
     )
-    second = NodeSpec(
+    second = Node(
         id="test.second",
         title="Second",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/second",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
         operations=(operation,),
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=second_surface,
             error=(error_surface,),
         ),
         recovery=recovery,
     )
-    app = ApplicationSpec(
+    first = first.model_copy(
+        update={
+            "outgoing": (
+                Transition(
+                    operation=operation.ref,
+                    outcome="written",
+                    target=second.ref,
+                ),
+            )
+        }
+    )
+    app = Application(
         name="repeat-write-test",
         entry_node=first.ref,
         features=(
-            FeatureSpec(
+            Feature(
                 namespace="test",
                 nodes=(first, second),
-                transitions=(
-                    TransitionSpec(
-                        source=first.ref,
-                        operation=operation.ref,
-                        outcome="written",
-                        target=second.ref,
-                    ),
-                ),
             ),
         ),
     )
@@ -226,7 +297,7 @@ def test_compiler_rejects_distinct_definitions_reusing_an_id(
 def test_binding_requires_exactly_one_implementation_per_declaration(
     mutation: str,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     with pytest.raises(RouteDeckValidationError):
         bind_app(app, invalid_bindings(app, mutation))
@@ -237,7 +308,7 @@ def test_binding_requires_exactly_one_implementation_per_declaration(
     ("sync_handler", "sync_provider", "sync_guard"),
 )
 def test_binding_requires_async_product_implementations(mutation: str) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     with pytest.raises(RouteDeckValidationError, match="async"):
         bind_app(app, invalid_bindings(app, mutation))
@@ -248,16 +319,16 @@ def test_binding_requires_async_product_implementations(mutation: str) -> None:
     ("wrong_handler_signature", "wrong_handler_return"),
 )
 def test_binding_rejects_nonconforming_async_handlers(mutation: str) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     with pytest.raises(RouteDeckValidationError, match="signature|return"):
         bind_app(app, invalid_bindings(app, mutation))
 
 
 def test_declared_objects_are_canonical_across_nodes_and_catalogs() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
-    for node in app.spec.nodes:
+    for node in app.graph.nodes:
         for operation in node.operations:
             assert app.operations[operation.id] is operation
         for provider in (*node.context_providers, *node.entity_providers):
@@ -272,7 +343,7 @@ def test_declared_objects_are_canonical_across_nodes_and_catalogs() -> None:
 
 
 def test_feature_binding_merge_rejects_duplicate_ownership() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     bindings = invalid_bindings(app, "missing_handler")
     ref, handler = next(iter(bindings.handlers.items()))
 
@@ -283,8 +354,8 @@ def test_feature_binding_merge_rejects_duplicate_ownership() -> None:
         )
 
 
-def _write_recovery_app(mutation: str) -> ApplicationSpec:
-    recovery_operation = OperationSpec(
+def _write_recovery_app(mutation: str) -> Application:
+    recovery_operation = Operation(
         id="test.reconcile",
         title="Reconcile",
         description="Read authoritative state after an uncertain write.",
@@ -298,7 +369,7 @@ def _write_recovery_app(mutation: str) -> ApplicationSpec:
     elif mutation == "foreign_recovery_operation":
         recovery_refs = (recovery_operation.ref,)
 
-    write_operation = OperationSpec(
+    write_operation = Operation(
         id="test.write",
         title="Write",
         description="Perform one externally mutating request.",
@@ -311,11 +382,11 @@ def _write_recovery_app(mutation: str) -> ApplicationSpec:
             else recovery_refs
         ),
     )
-    active_surface = SurfaceSpec(id="test.active", component="test.active")
-    result_surface = SurfaceSpec(id="test.result", component="test.result")
-    error_surface = SurfaceSpec(id="test.error", component="test.error")
+    active_surface = Surface(id="test.active", component="test.active")
+    result_surface = Surface(id="test.result", component="test.result")
+    error_surface = Surface(id="test.error", component="test.error")
     write_node_operations = (write_operation, recovery_operation)
-    result_node_operations: tuple[OperationSpec, ...] = ()
+    result_node_operations: tuple[Operation, ...] = ()
     write_node_error_surfaces = (error_surface,)
     if mutation == "foreign_failure_surface":
         write_node_error_surfaces = ()
@@ -323,35 +394,34 @@ def _write_recovery_app(mutation: str) -> ApplicationSpec:
         write_node_operations = (write_operation,)
         result_node_operations = (recovery_operation,)
 
-    write_node = NodeSpec(
+    write_node = Node(
         id="test.write_node",
         title="Write node",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=write_node_operations,
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=active_surface,
             error=write_node_error_surfaces,
         ),
-        recovery=RecoveryPolicySpec(
+        recovery=RecoveryPolicy(
             directives=node_directives,
             failure_surface=error_surface.ref,
         ),
     )
-    result_node = NodeSpec(
+    result_node = Node(
         id="test.result_node",
         title="Result node",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/result",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
         operations=result_node_operations,
-        surfaces=SurfaceSlotsSpec(active=result_surface, error=(error_surface,)),
+        surfaces=SurfaceSlots(active=result_surface, error=(error_surface,)),
     )
     transitions = [
-        TransitionSpec(
-            source=write_node.ref,
+        Transition(
             operation=write_operation.ref,
             outcome="written",
             target=result_node.ref,
@@ -361,21 +431,27 @@ def _write_recovery_app(mutation: str) -> ApplicationSpec:
         result_node if mutation == "foreign_recovery_operation" else write_node
     )
     transitions.append(
-        TransitionSpec(
-            source=recovery_source.ref,
+        Transition(
             operation=recovery_operation.ref,
             outcome="reconciled",
             target=result_node.ref,
         )
     )
-    return ApplicationSpec(
+    write_outgoing = (transitions[0],)
+    result_outgoing: tuple[Transition, ...] = ()
+    if recovery_source is write_node:
+        write_outgoing = tuple(transitions)
+    else:
+        result_outgoing = (transitions[1],)
+    write_node = write_node.model_copy(update={"outgoing": write_outgoing})
+    result_node = result_node.model_copy(update={"outgoing": result_outgoing})
+    return Application(
         name="write-recovery-test",
         entry_node=write_node.ref,
         features=(
-            FeatureSpec(
+            Feature(
                 namespace="test",
                 nodes=(write_node, result_node),
-                transitions=tuple(transitions),
             ),
         ),
     )

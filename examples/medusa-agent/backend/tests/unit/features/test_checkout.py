@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import pytest
 from pydantic import SecretStr
 
-from medusa_agent.features.checkout.feature import CHECKOUT_FACTS_PROVIDER
+from medusa_agent.features.checkout.declarations import CHECKOUT_FACTS_PROVIDER
 from medusa_agent.features.checkout.operations import (
     SaveContactHandler,
     StartCheckoutHandler,

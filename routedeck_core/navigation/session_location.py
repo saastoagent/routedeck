@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..app import CompiledRouteDeckApp
+from ..app import CompiledApplication
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, RouteDeckSession
 from ..state.session import require_current_session
@@ -11,7 +11,7 @@ from .routes import PublicRouteKeyValidator
 
 
 def validate_session_location(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     session: RouteDeckSession,
     *,
     location: Location | None = None,

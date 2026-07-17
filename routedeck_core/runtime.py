@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Protocol, runtime_checkable
 
-from .app import BoundRouteDeckApp, CompiledRouteDeckApp
+from .app import BoundApplication, CompiledApplication
 from .contracts.session import RouteDeckSession, SessionSnapshot
 from .navigation import RouteDeckNavigationRunner
 from .navigation.transactions import PublicKeyValidatorFactory
@@ -23,7 +23,7 @@ from .supervision import RouteDeckOperationRunner
 
 
 SessionFactory = Callable[
-    [CompiledRouteDeckApp, str],
+    [CompiledApplication, str],
     RouteDeckSession | Awaitable[RouteDeckSession],
 ]
 SessionInitializer = Callable[
@@ -39,7 +39,7 @@ class RouteDeckRuntimeLifecycle(Protocol):
 
 @dataclass(frozen=True)
 class RouteDeckRuntimeServices:
-    app: BoundRouteDeckApp
+    app: BoundApplication
     store: RouteDeckSessionStore
     clock: Clock
     notifier: RouteDeckNotifier
@@ -64,7 +64,7 @@ class RouteDeckRuntime:
 
 def build_routedeck_runtime(
     *,
-    app: BoundRouteDeckApp,
+    app: BoundApplication,
     store: RouteDeckSessionStore,
     private_form_codec: SensitiveCodec,
     session_factory: SessionFactory,

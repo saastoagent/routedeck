@@ -6,18 +6,19 @@ code-referenced ownership and maintenance.
 
 ## Structure
 
-- `code-map.md` - canonical subsystem-to-code/test/doc ownership map
-- `components/` - focused component docs for active/high-risk areas
+- `feature-coverage.md` - complete capability-to-owner/code/doc/proof matrix
+- `code-map.md` - canonical subsystem-to-source/test/doc ownership table
+- `documentation-map.md` - canonical versus historical document authority
+- `components/` - focused contracts for active/high-risk subsystems
 
 ## Current Architecture
 
-RouteDeck is a product-neutral graph-backed state runtime for agentic UI:
+RouteDeck is a product-neutral compiled interaction runtime for agentic UI:
 
 ```text
-Product graph/runtime owns truth.
-RouteDeck owns generic manifests, runtime state, projections, operations, surfaces, events, diagnostics, and React store/debugger primitives.
-Product adapters translate product state into RouteDeck contracts.
-Product UI and product agents consume RouteDeck state and dispatch typed operations.
+Product features own domain truth, declarations, implementations, prompts/graphs, and components.
+RouteDeck compiles feature-owned nodes and owns generic session state, supervision, navigation, projection, persistence ports, transport, and browser synchronization.
+Product UI and agents consume the same projection and dispatch the same typed operations.
 ```
 
 ## Source Coverage Rule
@@ -26,4 +27,5 @@ Before editing package, example, or test code, check `code-map.md`. During
 closeout, name changed source files and either update their architecture/test
 anchors or explicitly state why the documented contract is unchanged.
 
-Run `python scripts/check_doc_coverage.py` for an advisory report.
+Run `python scripts/check_doc_coverage.py` for whole-tree advisory coverage or
+pass explicit paths with `--files`. Neither mode invokes Git.

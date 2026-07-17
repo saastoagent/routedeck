@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from routedeck_core.app.bindings import BoundRouteDeckApp
+from routedeck_core.app.bindings import BoundApplication
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.operations import (
     OperationDisposition,
@@ -117,7 +117,7 @@ async def test_missing_handler_binding_after_validation_is_durable(
             if ref != OperationRef(id="test.write")
         },
     )
-    malformed = BoundRouteDeckApp(app=bound_app.app, bindings=bindings)
+    malformed = BoundApplication(app=bound_app.app, bindings=bindings)
     runner = runner_factory(app=malformed)
 
     blocked = await runner.run(request())

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..app import CompiledRouteDeckApp
+from ..app import CompiledApplication
 from ..contracts.projection import PublicProjection
 from ..contracts.session import RouteDeckSession
 from ..navigation.transactions import PublicKeyValidatorFactory
@@ -14,7 +14,7 @@ from .projector import ProjectionProjector
 class ConfiguredSessionProjector:
     """Project each session with the configured clock and route-key policy."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
     clock: Clock
     public_key_validator_factory: PublicKeyValidatorFactory
 

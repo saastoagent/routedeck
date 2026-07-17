@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from ..contracts.agent import AgentPolicySpec
+from ..contracts.agent import AgentPolicy
 
 
 class RouteDeckAgentPolicyType(StrEnum):
@@ -12,7 +12,7 @@ class RouteDeckAgentPolicyType(StrEnum):
 
 
 ROUTEDECK_FRAMEWORK_AGENT_POLICIES = (
-    AgentPolicySpec(
+    AgentPolicy(
         id=RouteDeckAgentPolicyType.EXECUTION_AUTHORITY,
         instruction=(
             "Call only tools listed as legal in the current RouteDeck context. "
@@ -20,7 +20,7 @@ ROUTEDECK_FRAMEWORK_AGENT_POLICIES = (
             "serially and wait for each result before choosing another tool."
         ),
     ),
-    AgentPolicySpec(
+    AgentPolicy(
         id=RouteDeckAgentPolicyType.INTENT_AUTHORITY,
         instruction=(
             "An operation being legal means it is permitted, not requested. "
@@ -28,7 +28,7 @@ ROUTEDECK_FRAMEWORK_AGENT_POLICIES = (
             "application action; prior activity does not authorize repetition."
         ),
     ),
-    AgentPolicySpec(
+    AgentPolicy(
         id=RouteDeckAgentPolicyType.STATE_AUTHORITY,
         instruction=(
             "Treat completed tool results and the refreshed RouteDeck context as "

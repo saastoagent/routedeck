@@ -79,7 +79,7 @@ class RunnerSupportMixin(RunnerRuntimePorts):
         node = next(
             (
                 candidate
-                for candidate in self.app.app.spec.nodes
+                for candidate in self.app.app.graph.nodes
                 if candidate.id == location.node_id
             ),
             None,

@@ -1,25 +1,25 @@
 """Application declaration, compilation, and runtime binding APIs."""
 
 from .bindings import (
-    BoundRouteDeckApp,
-    ContextProvider,
+    BoundApplication,
+    ContextProviderHandler,
     FeatureBindings,
-    Guard,
+    GuardHandler,
     OperationHandler,
     bind_app,
 )
-from .compiled import CompiledRouteDeckApp
+from .compiled import CompiledApplication
 from .compiler import compile_app
-from .feature import ApplicationSpec, FeatureSpec
+from .feature import Application, Feature
 
 __all__ = [
-    "ApplicationSpec",
-    "BoundRouteDeckApp",
-    "CompiledRouteDeckApp",
-    "ContextProvider",
+    "Application",
+    "BoundApplication",
+    "CompiledApplication",
+    "ContextProviderHandler",
     "FeatureBindings",
-    "FeatureSpec",
-    "Guard",
+    "Feature",
+    "GuardHandler",
     "OperationHandler",
     "bind_app",
     "compile_app",

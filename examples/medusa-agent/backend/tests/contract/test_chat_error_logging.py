@@ -7,7 +7,7 @@ from itertools import count
 import pytest
 from pydantic import SecretStr
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.conversation import (
     ConversationRole,
@@ -157,7 +157,7 @@ def test_chat_failure_logging_excludes_exception_message_and_traceback(caplog) -
 async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
     buyer_market: BuyerMarket,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = create_medusa_session(
         app=app,
         session_id="session-live-assistant-stream",
@@ -212,7 +212,7 @@ async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
 async def test_interrupt_persistence_failure_is_reported_as_outcome_unknown(
     buyer_market: BuyerMarket,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = create_medusa_session(
         app=app,
         session_id="session-chat-interrupt-failure",

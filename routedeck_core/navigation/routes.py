@@ -10,7 +10,7 @@ from urllib.parse import quote, unquote_to_bytes, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..contracts.application import NodeSpec
+from ..contracts.application import Node
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import LocationParameter, ResumeCapabilityBinding
 from ..validation import RouteDeckValidationError
@@ -116,7 +116,7 @@ class CompiledRoutes:
         self._by_node = {route.node_id: route for route in routes}
 
     @classmethod
-    def from_nodes(cls, nodes: tuple[NodeSpec, ...]) -> CompiledRoutes:
+    def from_nodes(cls, nodes: tuple[Node, ...]) -> CompiledRoutes:
         routes: list[_CompiledRoute] = []
         for node in nodes:
             route = _compile_route(

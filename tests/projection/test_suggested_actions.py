@@ -1,46 +1,54 @@
 from __future__ import annotations
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.app import Application, Feature, compile_app
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RouteSpec,
-    TransitionSpec,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.operations import (
-    EntityProviderSpec,
-    OperationSpec,
+    EntityProvider,
+    Operation,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
 from routedeck_core.contracts.session import PrivateEntityBinding
 from routedeck_core.contracts.suggestions import (
-    SuggestedActionSpec,
-    SuggestedActionVisibilitySpec,
+    SuggestedAction,
+    SuggestedActionVisibility,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_testing.factories import session_factory
 
 
 def _compiled_app(*, require_collection: bool = False):
-    operation = OperationSpec(
+    operation = Operation(
         id="test.browse",
         title="Browse tests",
         description="Load the current test collection.",
         safety_class=SafetyClass.READ_EXTERNAL,
         outcomes=("listed",),
     )
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Test home",
         kind=NodeKind.SECTION,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=(operation,),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="listed",
+                target=NodeRef(id="test.home"),
+            ),
+        ),
         entity_providers=(
             (
-                EntityProviderSpec(
+                EntityProvider(
                     id="test.collection",
                     entity_kind="collection",
                     description="Current test collection.",
@@ -49,33 +57,25 @@ def _compiled_app(*, require_collection: bool = False):
             if require_collection
             else ()
         ),
-        surfaces=SurfaceSlotsSpec(active=None),
+        surfaces=SurfaceSlots(active=None),
         suggested_actions=(
-            SuggestedActionSpec(
+            SuggestedAction(
                 id="test.browse_action",
                 operation_id=operation.id,
-                visibility=SuggestedActionVisibilitySpec(
+                visibility=SuggestedActionVisibility(
                     required_entity_kinds=("collection",) if require_collection else ()
                 ),
             ),
         ),
     )
     return compile_app(
-        ApplicationSpec(
+        Application(
             name="suggested-action-test",
             entry_node=node.ref,
             features=(
-                FeatureSpec(
+                Feature(
                     namespace="test",
                     nodes=(node,),
-                    transitions=(
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=operation.ref,
-                            outcome="listed",
-                            target=node.ref,
-                        ),
-                    ),
                 ),
             ),
         )

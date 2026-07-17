@@ -1,120 +1,147 @@
 # System Flow Index - RouteDeck
 
-Last updated: 2026-07-10
-Status: Target flow accepted; implementation is transitional
+Last updated: 2026-07-17
+Status: current implemented flow
 
-This is the compact source of truth for intended runtime and UX flows. Use
-`context.md` for the current implementation snapshot and
-`architecture/components/` for subsystem detail.
+This is the compact sequence index. Contract meaning lives in
+`docs/route-deck-reference.md`; ownership and proof live in
+`architecture/feature-coverage.md` and `architecture/code-map.md`.
 
-## Framework Spine
-
-```text
-Product RouteDeck application specification
-  -> compile-time contract validation
-  -> Full Flow LangGraph executor OR existing-agent executor adapter
-  -> shared RouteDeck interaction kernel
-  -> server-authoritative session and guarded/reviewed dispatch
-  -> declared outcome and state commit
-  -> projection and active surfaces
-  -> ordered typed event log
-  -> filtered/multiplexed SSE channel views
-  -> RouteDeck React store, product surfaces, assistant, and diagnostics
-```
-
-The application specification is the single source for public nodes, flows,
-operations, surface identity/placement, affordances, and event schemas. Private
-execution topology and domain state remain behind the executor/product boundary.
-
-## Adoption Flows
-
-### Full Flow
+## Authoring And Compilation
 
 ```text
-product declarations and domain handlers
-  -> RouteDeck Full Flow compiler
-  -> LangGraph-backed RouteDeck executor
-  -> shared kernel and full-stack transport/store path
+product Feature modules
+  -> complete Nodes with operations/providers/guards/surfaces/outgoing edges
+  -> small Application composition root selects features + entry node
+  -> compile_app validates names, routes, bindings, outcomes, reachability
+  -> RouteDeck derives incoming adjacency + frontend contract + test paths
+  -> bind_app validates exact async product implementations
 ```
 
-### Core Integration
+The product does not maintain a separate transition graph. RouteDeck does not
+generate the product's LangGraph topology.
+
+## Runtime Assembly
 
 ```text
-unchanged existing/custom agent
-  -> typed RouteDeck executor adapter
-  -> shared kernel and full-stack transport/store path
+compiled app + product binding/session/validation/graph callbacks
+  -> explicit SQLAlchemy URL + encryption key
+  -> open_sqlalchemy_routedeck_runtime
+  -> one store + codec + application lease
+  -> build_routedeck_runtime
+  -> one operation runner
+  -> navigation over that exact runner
+  -> configured projector + optional generic agent driver
+  -> one RouteDeckRuntime exposed to adapters
 ```
 
-Both flows must pass the same runtime, event, projection, guard, review, surface,
-and React conformance assertions.
+Failure closes opened resources and propagates. No alternate dependency is
+selected.
 
-## Dispatch Flow
+## Browser Bootstrap
 
 ```text
-session id + expected projection version + idempotency key + typed intent
-  -> load authoritative session
-  -> validate operation/input/auth/guard/review policy
-  -> atomically claim dispatch
-  -> invoke executor once with correlation/idempotency context
-  -> validate declared outcome and public node
-  -> commit authoritative state and projection
-  -> persist ordered terminal events
-  -> return/replay the recorded result
+capture current address-bar path and history entry
+  -> load compiled frontend contract
+  -> try current guest session
+  -> if 404/410/409 and incoming route is shareable: create session once
+  -> reconcile captured path through RouteDeck navigation
+  -> commit confirmed projection to browser history with replace
+  -> start event stream and load durable conversation
+  -> if conversation is empty: request one assistant-initiated greeting
+  -> render product shell
 ```
 
-Rules:
+Session-bound routes never auto-create replacement state. Outcome-unknown
+session creation or navigation retains the exact request for explicit recovery.
 
-- Clients never submit authoritative graph state.
-- Duplicate dispatch keys never invoke the executor twice.
-- Interrupted external work is explicit; RouteDeck does not silently rerun it.
-- Product handlers propagate the idempotency key to downstream side effects.
-- A blocked guard or staged review never reaches the executor.
-
-## Event And SSE Flow
+## User Conversation
 
 ```text
-runtime, executor, assistant, tool, or surface emission
-  -> validate event type, payload schema, channel, and visibility
-  -> allocate session-scoped sequence
-  -> persist before fan-out
-  -> assistant | runtime | tool | surface | diagnostic channel view
-  -> SSE id/event/data frame and replay after Last-Event-ID
-  -> client dedupe/order/stale-projection reduction
+typed user message + request id + expected session version
+  -> claim durable turn and publish interaction-active state
+  -> reconstruct finalized conversation + scoped model context/legal tools
+  -> product LangGraph streams through generic RouteDeck driver
+  -> tool calls cross the one operation runner
+  -> persist user/assistant/tool turns and terminal event
+  -> publish projection/session versions and finish SSE
 ```
 
-Diagnostic and hidden execution data never leak into public assistant or runtime
-views. Network close without a terminal semantic event is interrupted, not
-successful.
-
-## Surface Flow
+## Assistant-Initiated Conversation
 
 ```text
-declared surface identity and node placement
-  -> product provider resolves dynamic props only
-  -> projection selects legal active surface
-  -> React component registry renders product component
-  -> typed affordance intent returns through shared dispatch
+assistant trigger + request id + expected session version
+  -> same turn lease/replay/interruption lifecycle
+  -> product entry graph, without synthetic HumanMessage
+  -> exactly one streamed non-tool assistant result
+  -> persist assistant turn + terminal event
 ```
 
-The frontend registry maps component keys to React components; it does not
-duplicate node, flow, operation, or surface policy.
+Tools or review output on this path are contract failures.
 
-## Current Compatibility Debt
+## Operation And Review
 
-- `RouteDeckApp.compile()` does not yet build the target compiler/runtime.
-- Existing dispatch still permits client-provided graph state in legacy paths.
-- The shared typed event backend and `routedeck_fastapi` package do not yet
-  exist.
-- `routedeck_langgraph` currently provides validation/common wiring, not the
-  complete Full Flow compiler or existing-agent executor.
-- Corpus still owns generic runtime/event/projection mechanics pending vertical
-  migration.
+```text
+session + expected version + request id + declared operation + arguments
+  -> load session and claim request fingerprint
+  -> populate declared providers and entity allowlists
+  -> evaluate declared guards
+  -> block | needs_input | stage review | claim execution
+  -> allowed product handler executes once
+  -> record delivery evidence and typed outcome/failure
+  -> validate/apply effects and navigation outcome
+  -> atomically commit session + journals + public events
+  -> notify subscribers after persistence
+```
 
-## Authorities And Validation
+Review acceptance rechecks current context before execution. An uncertain
+external outcome exposes declared reconciliation; it is not replayed silently.
 
-- Reference: `docs/route-deck-reference.md`
-- Decisions: `decisions/ADR-001-langgraph-native-routedeck.md` and
-  `decisions/ADR-002-two-adoption-modes-one-kernel.md`
-- Plan: `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`
-- Ownership: `architecture/code-map.md`
-- Validation commands and meaning: `test_index/README.md`
+## Navigation And History
+
+```text
+open_path | back | forward | cancel | restore_history_entry
+  -> validate expected version and canonical path
+  -> enforce shareable/session-bound policy and resume capability
+  -> execute declared route-entry operation when present
+  -> commit exact location + unique entry identity + retained surface state
+  -> browser pushes/replaces only confirmed canonical URL
+```
+
+Browser `popstate` restores an exact server entry. It never guesses direction or
+replays commerce actions.
+
+## Projection, Events, And Browser State
+
+```text
+committed runtime mutation
+  -> default-deny public projection
+  -> ordered event persisted before fanout
+  -> SSE replay after cursor or explicit reset
+  -> strict TypeScript decode
+  -> authoritative observable state
+  -> product React surfaces + conversation + read-only Navgraph
+```
+
+Private IDs/form values and diagnostic-only data do not enter public event or
+model channels.
+
+## Current Session Selection
+
+```text
+Medusa guest HTTP-only cookie
+  -> server-selected internal session id
+  -> RouteDeck store access
+```
+
+An authenticated `(principal, opaque session handle) -> authorized session_id`
+resolver is future work. RouteDeck does not currently provide user, tenant, or
+multi-session authorization.
+
+## Authorities
+
+- Decisions: ADR-006, non-superseded ADR-005, ADR-004.
+- Contracts: `docs/route-deck-reference.md`.
+- Coverage: `architecture/feature-coverage.md`.
+- Ownership: `architecture/code-map.md` and `architecture/components/`.
+- Validation: `test_index/README.md`.

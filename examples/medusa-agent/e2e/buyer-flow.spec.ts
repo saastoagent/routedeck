@@ -29,6 +29,7 @@ test("@scripted completes one real Medusa guest order through RouteDeck UI", asy
     page,
     buyer,
     releaseEvidence,
+    { proveCheckoutPersistence: true },
   );
   const confirmationPath = new URL(confirmationUrl).pathname
     .split("/")

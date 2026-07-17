@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import SecretStr
 
-from medusa_agent.composition import compile_medusa_app_spec
-from routedeck_core.app import BoundRouteDeckApp, FeatureBindings
+from medusa_agent.composition import compile_medusa_app
+from routedeck_core.app import BoundApplication, FeatureBindings
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
@@ -127,11 +127,11 @@ class RecordingNotifier:
 
 
 def _runner(session: RouteDeckSession):
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     store = RecordingStore(session)
     operations = UnexpectedEntryRunner()
     runner = RouteDeckNavigationRunner(
-        app=BoundRouteDeckApp(
+        app=BoundApplication(
             app=app,
             bindings=FeatureBindings(handlers={}, providers={}, guards={}),
         ),
@@ -146,7 +146,7 @@ def _runner(session: RouteDeckSession):
 
 
 def _product_timeline(*, return_home: bool) -> RouteDeckSession:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     home = session_factory(app=app, node_id="buyer.home")
     product = engine.open(

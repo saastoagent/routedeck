@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.contracts.session import LocationParameter, ResumeCapabilityBinding
 from routedeck_core.navigation.routes import (
     PublicRouteKeyValidator,
@@ -64,7 +64,7 @@ def _context(
 
 
 def test_routes_encode_and_decode_by_declared_segments() -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
 
     assert (
         routes.encode("catalog.product", {"product_handle": "cafe mug"})
@@ -95,7 +95,7 @@ def test_encode_rejects_missing_or_extra_parameters(
     params: dict[str, str],
 ) -> None:
     with pytest.raises(RouteDeckValidationError):
-        compile_medusa_app_spec().routes.encode(node_id, params)
+        compile_medusa_app().routes.encode(node_id, params)
 
 
 @pytest.mark.parametrize(
@@ -111,16 +111,16 @@ def test_encode_rejects_missing_or_extra_parameters(
 )
 def test_decode_rejects_extra_or_unknown_segments(path: str) -> None:
     with pytest.raises(RouteDeckValidationError):
-        compile_medusa_app_spec().routes.decode(path, _context())
+        compile_medusa_app().routes.decode(path, _context())
 
 
 def test_product_handle_must_be_in_the_caller_supplied_public_binding() -> None:
     with pytest.raises(RouteDeckValidationError):
-        compile_medusa_app_spec().routes.decode("/products/unknown", _context())
+        compile_medusa_app().routes.decode("/products/unknown", _context())
 
 
 def test_structural_match_exposes_unseen_shareable_route_arguments() -> None:
-    match = compile_medusa_app_spec().routes.match("/products/unseen-handle")
+    match = compile_medusa_app().routes.match("/products/unseen-handle")
 
     assert match.node_id == "catalog.product"
     assert match.route_bindings == {"product_handle": "unseen-handle"}
@@ -128,7 +128,7 @@ def test_structural_match_exposes_unseen_shareable_route_arguments() -> None:
 
 
 def test_structural_match_exposes_an_unvalidated_session_resume_handle() -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
 
     match = routes.match("/cart?resume_handle=unregistered%2Bhandle")
 
@@ -149,11 +149,11 @@ def test_structural_match_exposes_an_unvalidated_session_resume_handle() -> None
 )
 def test_structural_match_rejects_malformed_route_queries(path: str) -> None:
     with pytest.raises(RouteDeckValidationError):
-        compile_medusa_app_spec().routes.match(path)
+        compile_medusa_app().routes.match(path)
 
 
 def test_route_matching_normalizes_repeated_and_trailing_slashes() -> None:
-    decoded = compile_medusa_app_spec().routes.decode("/products//t-shirt/", _context())
+    decoded = compile_medusa_app().routes.decode("/products//t-shirt/", _context())
 
     assert decoded.node_id == "catalog.product"
     assert decoded.route_bindings == {"product_handle": "t-shirt"}
@@ -173,7 +173,7 @@ def test_route_matching_normalizes_repeated_and_trailing_slashes() -> None:
 def test_private_routes_require_a_matching_session_bound_capability(
     node_id: str,
 ) -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
     path = routes.encode(
         node_id,
         {
@@ -210,7 +210,7 @@ def test_private_routes_require_a_matching_session_bound_capability(
 
 
 def test_decoding_is_pure_and_never_creates_replacement_state() -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
     context = _context(node_id="checkout.review")
     before = (
         context.guest_session_id,

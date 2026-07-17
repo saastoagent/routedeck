@@ -4,10 +4,10 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.context.scope import ContextScopeBuilder
 from routedeck_core.contracts.projection import PublicEntityHandle, PublicValue
-from routedeck_core.contracts.operations import EntityProviderSpec
+from routedeck_core.contracts.operations import EntityProvider
 from routedeck_core.contracts.session import LocationParameter, PrivateEntityBinding
 from routedeck_core.navigation.routes import PublicRouteKeyValidator
 from routedeck_core.validation import RouteDeckValidationError
@@ -34,7 +34,7 @@ def _product_route() -> tuple[LocationParameter, ...]:
 
 
 def test_context_is_scoped_to_current_node_and_requested_operation() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(
         app=app,
         node_id="catalog.product",
@@ -110,7 +110,7 @@ def test_context_is_scoped_to_current_node_and_requested_operation() -> None:
 
 
 def test_undeclared_operation_has_no_context_fallback() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     with pytest.raises(RouteDeckValidationError):
         ContextScopeBuilder(app).build(
             session_factory(app=app, node_id="buyer.home"),
@@ -119,7 +119,7 @@ def test_undeclared_operation_has_no_context_fallback() -> None:
 
 
 def test_cross_feature_operation_receives_only_its_allowlisted_node_entity() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(
         app=app,
         node_id="catalog.product",
@@ -144,8 +144,8 @@ def test_cross_feature_operation_receives_only_its_allowlisted_node_entity() -> 
 
 
 def test_context_entity_join_requires_both_handle_and_kind() -> None:
-    app = compile_medusa_app_spec()
-    line_items = EntityProviderSpec(
+    app = compile_medusa_app()
+    line_items = EntityProvider(
         id="test.line_items",
         entity_kind="line_item",
         description="Test-only second entity kind.",
@@ -158,9 +158,9 @@ def test_context_entity_join_requires_both_handle_and_kind() -> None:
         )
         if node.id == "catalog.product"
         else node
-        for node in app.spec.nodes
+        for node in app.graph.nodes
     )
-    app = replace(app, spec=app.spec.model_copy(update={"nodes": nodes}))
+    app = replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
     session = session_factory(
         app=app,
         node_id="catalog.product",

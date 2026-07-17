@@ -10,7 +10,7 @@ from ..contracts.failures import FailureKind, RouteDeckFailure
 from ..contracts.operations import (
     OperationDisposition,
     OperationRequest,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.projection import FrozenJsonObject
 from ..contracts.session import RouteDeckSession
@@ -94,7 +94,7 @@ class SupervisionPolicyMixin:
         *,
         session: RouteDeckSession,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
     ) -> RouteDeckFailure | None:
         try:
             require_current_session(self.app.app, session)
@@ -174,7 +174,7 @@ class SupervisionPolicyMixin:
         *,
         session: RouteDeckSession,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
     ) -> tuple[ResolvedEntityInput, ...] | None:
         node = self._current_node(session)
         declared_kinds = {provider.entity_kind for provider in node.entity_providers}
@@ -216,7 +216,7 @@ class SupervisionPolicyMixin:
         *,
         session: RouteDeckSession,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt_id: str,
     ) -> tuple[FrozenJsonObject, RouteDeckFailure | None]:
         values: dict[str, object] = {}
@@ -290,7 +290,7 @@ class SupervisionPolicyMixin:
         *,
         session: RouteDeckSession,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt_id: str,
         provider_values: FrozenJsonObject,
         resolved_entities: tuple[ResolvedEntityInput, ...],
@@ -372,7 +372,7 @@ class SupervisionPolicyMixin:
     def _current_node(self, session: RouteDeckSession) -> Any:
         return next(
             node
-            for node in self.app.app.spec.nodes
+            for node in self.app.app.graph.nodes
             if node.id == session.current.node_id
         )
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 from routedeck_core.app import FeatureBindings
 
 from ...medusa.client.protocol import MedusaStoreClient
-from ..catalog.feature import CONTINUE_SHOPPING
-from ..checkout.feature import PLACE_ORDER
-from .feature import ORDER_PROVIDER, RECONCILE_ORDER
+from ..catalog.declarations import CONTINUE_SHOPPING
+from ..checkout.declarations import PLACE_ORDER
+from .declarations import ORDER_PROVIDER, RECONCILE_ORDER
 from .handlers import (
     OrdersContinueShoppingHandler,
     PlaceOrderHandler,

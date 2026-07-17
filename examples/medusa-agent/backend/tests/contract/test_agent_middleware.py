@@ -13,8 +13,8 @@ from medusa_agent.agent import (
     create_medusa_agent,
 )
 from medusa_agent.config import Settings
-from medusa_agent.features.catalog import CATALOG_LIST
-from medusa_agent.features.checkout.feature import PROTECTED_CHECKOUT_INPUT_POLICY
+from medusa_agent.features.catalog.declarations import CATALOG_LIST
+from medusa_agent.features.checkout.declarations import PROTECTED_CHECKOUT_INPUT_POLICY
 from medusa_agent.medusa.client.models import CreateCartResult
 from routedeck_core.contracts.operations import DeliveryPhase
 from routedeck_core.context.framework_policies import RouteDeckAgentPolicyType

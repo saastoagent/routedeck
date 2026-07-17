@@ -4,34 +4,34 @@ from __future__ import annotations
 
 from typing import cast
 
-from routedeck_core.app import ApplicationSpec, FeatureBindings, FeatureSpec
-from routedeck_core.app.bindings import ContextProvider, Guard
-from routedeck_core.app.compiled import CompiledRouteDeckApp
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.app import Application, FeatureBindings, Feature
+from routedeck_core.app.bindings import ContextProviderHandler, GuardHandler
+from routedeck_core.app.compiled import CompiledApplication
+from routedeck_core.contracts.application import Capability, Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
     NodeRef,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.operations import (
-    ContextProviderSpec,
-    EntityInputSpec,
+    ContextProvider,
+    EntityInput,
     GuardRef,
-    GuardSpec,
+    Guard,
     OperationRef,
     OperationOutcome,
-    OperationSpec,
+    Operation,
     ProviderRef,
     ReviewPolicy,
     SafetyClass,
 )
 from routedeck_core.contracts.surfaces import (
     SurfaceRef,
-    SurfaceSlotsSpec,
-    SurfaceSpec,
+    SurfaceSlots,
+    Surface,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
 from routedeck_core.contracts.session import (
@@ -48,15 +48,15 @@ from routedeck_core.ports.executor import OperationHandler
 from routedeck_core.state.session import SESSION_SCHEMA_VERSION, navgraph_version
 
 
-_PROVIDER = ContextProviderSpec(
+_PROVIDER = ContextProvider(
     id="test.context",
     description="Test-only context provider declaration.",
 )
-_GUARD = GuardSpec(
+_GUARD = Guard(
     id="test.allowed",
     description="Test-only guard declaration.",
 )
-_ADVANCE = OperationSpec(
+_ADVANCE = Operation(
     id="test.advance",
     title="Advance",
     description="Advance the test-only graph.",
@@ -65,7 +65,7 @@ _ADVANCE = OperationSpec(
     provider_refs=(_PROVIDER.ref,),
     guard_refs=(_GUARD.ref,),
 )
-_FINISH = OperationSpec(
+_FINISH = Operation(
     id="test.finish",
     title="Finish",
     description="Finish the test-only graph.",
@@ -76,12 +76,12 @@ _FINISH = OperationSpec(
     provider_refs=(_PROVIDER.ref,),
     guard_refs=(_GUARD.ref,),
 )
-_FRAME = SurfaceSpec(id="test.frame", component="test.frame")
-_START_SURFACE = SurfaceSpec(id="test.start", component="test.start")
-_MIDDLE_SURFACE = SurfaceSpec(id="test.middle", component="test.middle")
-_END_SURFACE = SurfaceSpec(id="test.end", component="test.end")
-_ERROR_SURFACE = SurfaceSpec(id="test.error", component="test.error")
-_CAPABILITY = CapabilitySpec(
+_FRAME = Surface(id="test.frame", component="test.frame")
+_START_SURFACE = Surface(id="test.start", component="test.start")
+_MIDDLE_SURFACE = Surface(id="test.middle", component="test.middle")
+_END_SURFACE = Surface(id="test.end", component="test.end")
+_ERROR_SURFACE = Surface(id="test.error", component="test.error")
+_CAPABILITY = Capability(
     id="test.flow",
     title="Test-only flow",
     operations=(_ADVANCE.ref, _FINISH.ref),
@@ -92,73 +92,72 @@ _CAPABILITY = CapabilitySpec(
         _ERROR_SURFACE.ref,
     ),
 )
-_START = NodeSpec(
+_START = Node(
     id="test.start",
     title="Start",
     kind=NodeKind.WORKFLOW,
-    route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(_PROVIDER,),
     guards=(_GUARD,),
     operations=(_ADVANCE,),
     capabilities=(_CAPABILITY,),
-    surfaces=SurfaceSlotsSpec(
+    surfaces=SurfaceSlots(
         active=_START_SURFACE,
         frame=(_FRAME,),
         error=(_ERROR_SURFACE,),
     ),
-    recovery=RecoveryPolicySpec(
+    recovery=RecoveryPolicy(
         directives=("retry",), failure_surface=_ERROR_SURFACE.ref
     ),
 )
-_MIDDLE = NodeSpec(
+_MIDDLE = Node(
     id="test.middle",
     title="Middle",
     kind=NodeKind.WORKFLOW,
-    route=RouteSpec(template="/middle", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    route=Route(template="/middle", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(_PROVIDER,),
     guards=(_GUARD,),
     operations=(_FINISH,),
     capabilities=(_CAPABILITY,),
-    surfaces=SurfaceSlotsSpec(
+    surfaces=SurfaceSlots(
         active=_MIDDLE_SURFACE,
         frame=(_FRAME,),
         error=(_ERROR_SURFACE,),
     ),
-    recovery=RecoveryPolicySpec(
+    recovery=RecoveryPolicy(
         directives=("reconcile_finish",), failure_surface=_ERROR_SURFACE.ref
     ),
 )
-_END = NodeSpec(
+_END = Node(
     id="test.end",
     title="End",
     kind=NodeKind.TRANSIENT,
-    route=RouteSpec(template="/end", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    route=Route(template="/end", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     capabilities=(_CAPABILITY,),
-    surfaces=SurfaceSlotsSpec(
+    surfaces=SurfaceSlots(
         active=_END_SURFACE,
         frame=(_FRAME,),
         error=(_ERROR_SURFACE,),
     ),
 )
-_TO_MIDDLE = TransitionSpec(
-    source=_START.ref,
+_TO_MIDDLE = Transition(
     operation=_ADVANCE.ref,
     outcome="advanced",
     target=_MIDDLE.ref,
 )
-_TO_END = TransitionSpec(
-    source=_MIDDLE.ref,
+_TO_END = Transition(
     operation=_FINISH.ref,
     outcome="completed",
     target=_END.ref,
 )
+_START = _START.model_copy(update={"outgoing": (_TO_MIDDLE,)})
+_MIDDLE = _MIDDLE.model_copy(update={"outgoing": (_TO_END,)})
 
 
-def invalid_app(mutation: str) -> ApplicationSpec:
+def invalid_app(mutation: str) -> Application:
     """Return one deliberately invalid application for compiler tests."""
 
-    nodes: tuple[NodeSpec, ...] = (_START, _MIDDLE, _END)
-    transitions: tuple[TransitionSpec, ...] = (_TO_MIDDLE, _TO_END)
+    nodes: tuple[Node, ...] = (_START, _MIDDLE, _END)
 
     if mutation == "duplicate_node":
         nodes = (*nodes, _START)
@@ -173,7 +172,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _START,
             _MIDDLE.model_copy(
                 update={
-                    "route": RouteSpec(
+                    "route": Route(
                         template="/products/new",
                         deep_link_policy=DeepLinkPolicy.SHAREABLE,
                     )
@@ -181,7 +180,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             ),
             _END.model_copy(
                 update={
-                    "route": RouteSpec(
+                    "route": Route(
                         template="/products/{product_handle}",
                         deep_link_policy=DeepLinkPolicy.SHAREABLE,
                     )
@@ -189,15 +188,31 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             ),
         )
     elif mutation == "ambiguous_transition":
-        transitions = (
-            _TO_MIDDLE,
-            _TO_MIDDLE.model_copy(update={"target": _END.ref}),
-            _TO_END,
+        nodes = (
+            _START.model_copy(
+                update={
+                    "outgoing": (
+                        _TO_MIDDLE,
+                        _TO_MIDDLE.model_copy(update={"target": _END.ref}),
+                    )
+                }
+            ),
+            _MIDDLE,
+            _END,
         )
     elif mutation == "dangling_transition":
-        transitions = (
-            _TO_MIDDLE.model_copy(update={"target": NodeRef(id="test.missing")}),
-            _TO_END,
+        nodes = (
+            _START.model_copy(
+                update={
+                    "outgoing": (
+                        _TO_MIDDLE.model_copy(
+                            update={"target": NodeRef(id="test.missing")}
+                        ),
+                    )
+                }
+            ),
+            _MIDDLE,
+            _END,
         )
     elif mutation == "missing_surface":
         capability = _CAPABILITY.model_copy(
@@ -207,9 +222,16 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             node.model_copy(update={"capabilities": (capability,)}) for node in nodes
         )
     elif mutation == "missing_outcome":
-        transitions = (
-            _TO_MIDDLE.model_copy(update={"outcome": "undeclared"}),
-            _TO_END,
+        nodes = (
+            _START.model_copy(
+                update={
+                    "outgoing": (
+                        _TO_MIDDLE.model_copy(update={"outcome": "undeclared"}),
+                    )
+                }
+            ),
+            _MIDDLE,
+            _END,
         )
     elif mutation == "missing_provider":
         operation = _ADVANCE.model_copy(
@@ -233,7 +255,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
                     }
                 ),
                 "entity_inputs": (
-                    EntityInputSpec(
+                    EntityInput(
                         argument_name="item_ref",
                         entity_kind="item",
                     ),
@@ -242,7 +264,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
         )
         nodes = (_START.model_copy(update={"operations": (operation,)}), _MIDDLE, _END)
     elif mutation == "provider_not_on_node":
-        middle_only_provider = ContextProviderSpec(
+        middle_only_provider = ContextProvider(
             id="test.middle_only",
             description="Provider deliberately scoped to another test node.",
         )
@@ -267,9 +289,9 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _END,
         )
     elif mutation == "guard_not_on_node":
-        middle_only_guard = GuardSpec(
+        middle_only_guard = Guard(
             id="test.middle_only",
-            description="Guard deliberately scoped to another test node.",
+            description="GuardHandler deliberately scoped to another test node.",
         )
         operation = _ADVANCE.model_copy(
             update={
@@ -285,7 +307,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _END,
         )
     elif mutation == "unreachable_node":
-        transitions = (_TO_MIDDLE,)
+        nodes = (_START, _MIDDLE.model_copy(update={"outgoing": ()}), _END)
     elif mutation == "hierarchy_cycle":
         nodes = (
             _START.model_copy(update={"parent": _END.ref}),
@@ -295,7 +317,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
     elif mutation == "parameterized_cancel_target":
         parameterized_middle = _MIDDLE.model_copy(
             update={
-                "route": RouteSpec(
+                "route": Route(
                     template="/middle/{item_handle}",
                     deep_link_policy=DeepLinkPolicy.SHAREABLE,
                 )
@@ -348,7 +370,7 @@ def invalid_app(mutation: str) -> ApplicationSpec:
             _END,
         )
     elif mutation == "unexecutable_path":
-        operation = OperationSpec.model_construct(
+        operation = Operation.model_construct(
             id="test.unexecutable",
             title="Unexecutable",
             description="Test-only operation without an executable outcome.",
@@ -363,21 +385,20 @@ def invalid_app(mutation: str) -> ApplicationSpec:
     else:
         raise ValueError(f"Unknown invalid application mutation: {mutation}")
 
-    return ApplicationSpec(
+    return Application(
         name="invalid-test-application",
         entry_node=_START.ref,
         features=(
-            FeatureSpec(
+            Feature(
                 namespace="test",
                 nodes=nodes,
-                transitions=transitions,
             ),
         ),
     )
 
 
 def invalid_bindings(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     mutation: str,
 ) -> FeatureBindings:
     """Return one deliberately inexact binding set using test doubles only."""
@@ -386,12 +407,12 @@ def invalid_bindings(
         operation.ref: cast(OperationHandler, _async_handler_test_double)
         for operation in app.operations.values()
     }
-    providers: dict[ProviderRef, ContextProvider] = {
-        provider.ref: cast(ContextProvider, _async_provider_test_double)
+    providers: dict[ProviderRef, ContextProviderHandler] = {
+        provider.ref: cast(ContextProviderHandler, _async_provider_test_double)
         for provider in app.providers.values()
     }
-    guards: dict[GuardRef, Guard] = {
-        guard.ref: cast(Guard, _async_guard_test_double)
+    guards: dict[GuardRef, GuardHandler] = {
+        guard.ref: cast(GuardHandler, _async_guard_test_double)
         for guard in app.guards.values()
     }
 
@@ -402,21 +423,21 @@ def invalid_bindings(
     elif mutation == "missing_provider":
         providers.pop(min(providers, key=lambda ref: ref.id))
     elif mutation == "extra_provider":
-        providers[ProviderRef(id="test.extra")] = cast(ContextProvider, _test_double)
+        providers[ProviderRef(id="test.extra")] = cast(ContextProviderHandler, _test_double)
     elif mutation == "missing_guard":
         guards.pop(min(guards, key=lambda ref: ref.id))
     elif mutation == "extra_guard":
-        guards[GuardRef(id="test.extra")] = cast(Guard, _test_double)
+        guards[GuardRef(id="test.extra")] = cast(GuardHandler, _test_double)
     elif mutation == "sync_handler":
         handlers[min(handlers, key=lambda ref: ref.id)] = cast(
             OperationHandler, _test_double
         )
     elif mutation == "sync_provider":
         providers[min(providers, key=lambda ref: ref.id)] = cast(
-            ContextProvider, _test_double
+            ContextProviderHandler, _test_double
         )
     elif mutation == "sync_guard":
-        guards[min(guards, key=lambda ref: ref.id)] = cast(Guard, _test_double)
+        guards[min(guards, key=lambda ref: ref.id)] = cast(GuardHandler, _test_double)
     elif mutation == "wrong_handler_signature":
         handlers[min(handlers, key=lambda ref: ref.id)] = cast(
             OperationHandler, _wrong_handler_signature
@@ -472,7 +493,7 @@ async def _wrong_handler_return(
 
 def session_factory(
     *,
-    app: CompiledRouteDeckApp | None = None,
+    app: CompiledApplication | None = None,
     session_id: str = "session-1",
     node_id: str = "buyer.home",
     route_params: tuple[LocationParameter, ...] = (),

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, replace
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from medusa_agent.features.cart import CreateCartHandler
+from medusa_agent.features.cart.operations import CreateCartHandler
 from medusa_agent.medusa.client.models import (
     CreateCartRequest,
     CreateCartResult,

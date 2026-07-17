@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..app import CompiledRouteDeckApp
-from ..contracts.application import NodeSpec
+from ..app import CompiledApplication
+from ..contracts.application import Node
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.projection import (
     FrozenJson,
@@ -24,7 +24,7 @@ from ..contracts.session import (
     ReviewResolution,
     RouteDeckSession,
 )
-from ..contracts.surfaces import SurfaceSpec
+from ..contracts.surfaces import Surface
 from ..navigation.routes import PublicRouteKeyValidator
 from ..navigation.session_location import validate_session_location
 from ..state.surfaces import validate_canonical_surface_state
@@ -41,7 +41,7 @@ from .redaction import project_public_values
 class ProjectionProjector:
     """Derive the complete public view from one canonical RouteDeck session."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
     public_key_validator: PublicRouteKeyValidator | None = None
     now: datetime | None = None
 
@@ -193,7 +193,7 @@ class ProjectionProjector:
     def _current_resume_handle(
         self,
         session: RouteDeckSession,
-        node: NodeSpec,
+        node: Node,
     ) -> str | None:
         if node.route.deep_link_policy is DeepLinkPolicy.SHAREABLE:
             return None
@@ -217,7 +217,7 @@ class ProjectionProjector:
 
     @staticmethod
     def _project_surface(
-        surface: SurfaceSpec,
+        surface: Surface,
         state: PublicSurfaceState | None,
     ) -> ProjectedSurface:
         return ProjectedSurface(
@@ -231,13 +231,13 @@ class ProjectionProjector:
 
     def _surface_slots(
         self,
-        node: NodeSpec,
+        node: Node,
         state: dict[str, PublicSurfaceState],
         *,
-        active_surface: SurfaceSpec | None,
+        active_surface: Surface | None,
         review_active: bool,
     ) -> ProjectedSurfaceSlots:
-        def project(surface: SurfaceSpec) -> ProjectedSurface:
+        def project(surface: Surface) -> ProjectedSurface:
             return self._project_surface(surface, state.get(surface.id))
 
         surfaces = node.surfaces
@@ -259,11 +259,11 @@ class ProjectionProjector:
             diagnostic=tuple(project(surface) for surface in surfaces.diagnostic),
         )
 
-    def _current_node(self, session: RouteDeckSession) -> NodeSpec:
+    def _current_node(self, session: RouteDeckSession) -> Node:
         node = next(
             (
                 candidate
-                for candidate in self.app.spec.nodes
+                for candidate in self.app.graph.nodes
                 if candidate.id == session.current.node_id
             ),
             None,

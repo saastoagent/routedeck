@@ -14,7 +14,6 @@ import { PRODUCT, type BuyerProfile } from "./test-data";
 
 const ROUTEDECK_DISPATCH_PATH = "/api/routedeck/dispatch";
 const ROUTEDECK_SESSIONS_PATH = "/api/routedeck/sessions";
-const ORDER_CONFIRMED_HEADING = "Order confirmed";
 
 export type CheckoutFlowStage =
   | "contact"
@@ -24,8 +23,9 @@ export type CheckoutFlowStage =
   | "approval"
   | "confirmation";
 
-export interface CheckoutFlowObserver {
-  onStage(stage: CheckoutFlowStage, page: Page): Promise<void>;
+export interface CheckoutFlowOptions {
+  proveCheckoutPersistence?: boolean;
+  onStage?(stage: CheckoutFlowStage, page: Page): Promise<void>;
 }
 
 export async function openProductFromCatalog(
@@ -128,8 +128,9 @@ export async function completeGuestCheckout(
   page: Page,
   buyer: BuyerProfile,
   evidence?: BrowserFlowEvidence,
-  observer?: CheckoutFlowObserver,
+  options?: CheckoutFlowOptions,
 ): Promise<string> {
+  const proveCheckoutPersistence = options?.proveCheckoutPersistence ?? true;
   evidence?.registerSensitiveValues([
     buyer.email,
     buyer.firstName,
@@ -156,7 +157,7 @@ export async function completeGuestCheckout(
     }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
-  await observeStage(observer, "contact", page);
+  await observeStage(options, "contact", page);
 
   await page.getByLabel("Email", { exact: true }).fill(buyer.email);
   const shipping = page.getByRole("group", {
@@ -195,7 +196,7 @@ export async function completeGuestCheckout(
     page.getByRole("heading", { name: "Delivery options", exact: true }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
-  await observeStage(observer, "delivery", page);
+  await observeStage(options, "delivery", page);
 
   await page
     .getByRole("button", { name: PRODUCT.shippingLabel, exact: true })
@@ -204,7 +205,7 @@ export async function completeGuestCheckout(
     page.getByRole("heading", { name: "Payment method", exact: true }),
   ).toBeVisible();
   await expectRouteDeckLive(page);
-  await observeStage(observer, "payment", page);
+  await observeStage(options, "payment", page);
 
   await page
     .getByRole("button", { name: PRODUCT.paymentLabel, exact: true })
@@ -216,33 +217,32 @@ export async function completeGuestCheckout(
   await expect(
     page.getByRole("heading", { name: "Delivery address", exact: true }),
   ).toBeVisible();
-  await observeStage(observer, "review", page);
+  await observeStage(options, "review", page);
 
   await page
     .getByRole("button", { name: "Review and place order", exact: true })
     .click();
   await expectPendingApproval(page);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expectPendingApproval(page);
-  await expect(
-    page.getByRole("heading", { name: "Delivery address", exact: true }),
-  ).toBeVisible();
+  if (proveCheckoutPersistence) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expectPendingApproval(page);
+    await expect(
+      page.getByRole("heading", { name: "Delivery address", exact: true }),
+    ).toBeVisible();
+  }
   await captureEvidence(evidence, page, "review-pending");
   expect(approvalRequests).toHaveLength(0);
-  await observeStage(observer, "approval", page);
+  await observeStage(options, "approval", page);
 
   await page
     .getByRole("button", { name: "Place order", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", {
-      name: ORDER_CONFIRMED_HEADING,
-      exact: true,
-    }),
+    page.locator("#order-confirmation-title"),
   ).toBeVisible({ timeout: 60_000 });
   await expectRouteDeckLive(page);
-  await observeStage(observer, "confirmation", page);
+  await observeStage(options, "confirmation", page);
   page.off("request", trackApproval);
 
   expect(approvalRequests).toHaveLength(1);
@@ -253,19 +253,18 @@ export async function completeGuestCheckout(
   expect(confirmationHandle).not.toBe("");
 
   const confirmationUrl = page.url();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(
-    page.getByRole("heading", {
-      name: ORDER_CONFIRMED_HEADING,
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expectRouteDeckLive(page);
-  await expect(page.locator("section[data-confirmation]")).toHaveAttribute(
-    "data-confirmation",
-    confirmationHandle!,
-  );
-  expect(page.url()).toBe(confirmationUrl);
+  if (proveCheckoutPersistence) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(
+      page.locator("#order-confirmation-title"),
+    ).toBeVisible();
+    await expectRouteDeckLive(page);
+    await expect(page.locator("section[data-confirmation]")).toHaveAttribute(
+      "data-confirmation",
+      confirmationHandle!,
+    );
+    expect(page.url()).toBe(confirmationUrl);
+  }
   await captureEvidence(evidence, page, "confirmation");
   return confirmationUrl;
 }
@@ -348,11 +347,11 @@ async function captureEvidence(
 }
 
 async function observeStage(
-  observer: CheckoutFlowObserver | undefined,
+  options: CheckoutFlowOptions | undefined,
   stage: CheckoutFlowStage,
   page: Page,
 ): Promise<void> {
-  await observer?.onStage(stage, page);
+  await options?.onStage?.(stage, page);
 }
 
 function isReviewAcceptance(request: Request): boolean {

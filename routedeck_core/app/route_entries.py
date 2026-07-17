@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from ..contracts.application import NodeSpec
-from ..contracts.navigation import TransitionSpec
+from ..contracts.application import Node
+from ..contracts.navigation import CompiledTransition
 from ..navigation.routes import CompiledRoutes
 from ..validation import RouteDeckValidationError
 
 
 def _compile_route_entry_transitions(
     *,
-    nodes: tuple[NodeSpec, ...],
-    declared_transitions: tuple[TransitionSpec, ...],
+    nodes: tuple[Node, ...],
+    declared_transitions: tuple[CompiledTransition, ...],
     routes: CompiledRoutes,
-) -> tuple[TransitionSpec, ...]:
+) -> tuple[CompiledTransition, ...]:
     """Validate declarative route entries and materialize exact self branches."""
 
     transitions = list(declared_transitions)
@@ -91,7 +91,7 @@ def _compile_route_entry_transitions(
             )
         if not declared_targets:
             transitions.append(
-                TransitionSpec(
+                CompiledTransition(
                     source=node.ref,
                     operation=operation.ref,
                     outcome=entry.outcome,

@@ -1,246 +1,182 @@
 # Critical Prompt - RouteDeck
 
-The controlling decisions are
-[ADR-004](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md) and
-[ADR-005](./decisions/ADR-005-operation-centric-state-and-consumer-structure.md),
-which activate and refine the approved
-[RouteDeck and Medusa buyer-agent design](./docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
-and the active
-[architecture-cleanup plan](./docs/superpowers/plans/2026-07-14-routedeck-architecture-cleanup.md).
-
 RouteDeck is state management and interaction governance for agentic
 applications. It gives an agent only the context it currently needs, supervises
-every application-semantic tool call, and keeps navigation, private entity
-bindings, scoped public handles, guards, surfaces, tool results, SSE updates,
-and frontend state coherent.
+every application-semantic operation, and keeps navigation, private bindings,
+opaque handles, guards, surfaces, results, events, and browser state coherent.
 
-RouteDeck is not the agent, model, graph engine, product tool executor, product
-database, or authentication system.
+RouteDeck is not the product agent, model, LangGraph topology, product tool
+executor, product database, authentication system, or visual design system.
+
+## Current Authority
+
+1. [ADR-006](./decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md)
+   controls runtime assembly and generic conversation ownership.
+2. [ADR-005](./decisions/ADR-005-operation-centric-state-and-consumer-structure.md)
+   controls non-superseded named-state and feature structure.
+3. [ADR-004](./decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
+   controls scope, the product/framework boundary, and local execution.
+4. [RouteDeck reference](./docs/route-deck-reference.md) defines current
+   framework contracts.
+5. [Feature coverage](./architecture/feature-coverage.md), the
+   [code map](./architecture/code-map.md), and component docs map those
+   contracts to source and proof.
+
+Completed plans, older designs, handoffs, context history, and reports are
+historical evidence only. Their classification is defined in
+`architecture/documentation-map.md`.
 
 ## North Star
 
 ```text
-trusted product facts + navgraph declaration
-  -> RouteDeck interaction/session projection
-  -> scoped agent context with opaque public handles and legal tools
-  -> agent proposes a tool call
+trusted product facts + feature-owned nodes
+  -> RouteDeck compiles one immutable application/navgraph
+  -> RouteDeck builds one durable runtime and scoped projection
+  -> browser or agent proposes a declared operation
   -> RouteDeck allows, blocks, requests input, or requires review
-  -> host agent runtime executes an allowed product tool
-  -> host reports the result/failure to RouteDeck
-  -> RouteDeck updates context, surfaces, events, feedback, and client state
+  -> an allowed product handler executes through the host boundary
+  -> the host reports a typed result/failure and delivery evidence
+  -> RouteDeck commits state, events, surfaces, feedback, and client versions
 ```
 
-The navgraph is the agentic application's interaction map: user-facing states,
-reachable transitions, tools, surfaces, deep links, and recovery paths. It is
-not the agent's private execution graph.
+The navgraph is the product's durable interaction map. It is not the product
+agent's private model/tool execution graph.
 
 ## Ownership
 
 RouteDeck owns reusable:
 
-- interaction and session state
-- navgraph validation and guarded navigation
-- scoped planning/context projection
-- legal/blocked tool metadata and structured feedback
-- current-operation private-binding and public-handle allowlists
-- before/after tool-call supervision
-- needs-input and review interaction state
-- active/frame/peer/detail/form/review surface mechanics
-- surface selection, affordance, and dirty-state coordination
-- back/forward/cancel/recovery and product-owned deep-link integration
-- relevant tool-result observation and projection updates
-- existing typed interaction events and SSE framing demonstrated by Corpus
-- frontend projection/store synchronization
-- read-only diagnostics and public/private information separation
+- `Application`/`Feature` compilation and complete graph validation;
+- canonical session, conversation, operation, review, navigation, and surface
+  state;
+- one supervised operation runner and navigation over that exact runner;
+- provider, guard, needs-input, review, effect, and recovery mechanics;
+- operation-scoped context, private entity bindings, and opaque public handles;
+- default-deny projection and model context;
+- exact deep-link/history transactions and resume capabilities;
+- durable request identity, replay/collision, leases, events, and persistence
+  ports;
+- framework runtime construction and lifecycle;
+- generic FastAPI/SSE and optional LangGraph conversation integration;
+- authoritative browser synchronization and product-neutral React primitives;
+- read-only inspection and Navgraph diagnostics.
 
-Products own:
+The consuming product owns:
 
-- domain records and business truth
-- authentication and trusted actor facts
-- product-supplied guard functions and policy facts
-- prompts, model calls, agent personality, and response wording
-- product tool implementations and actual tool invocation
-- external side effects
-- product surface components, props, copy, and visual design
-- private agent-runtime state
+- domain records, APIs, wire models, business validation, and side effects;
+- authentication, users, tenants, session authorization, and deployment policy;
+- feature declarations, implementations, product session initialization, and
+  trusted facts;
+- prompts, model selection, LangGraph topology, policy, personality, and copy;
+- product components, props, affordance wording, and visual design;
+- product recovery decisions and independent source-of-truth verification.
 
-RouteDeck evaluates and enforces product-supplied guards before the host runtime
-invokes a tool. Product code remains responsible for the tool's domain
-correctness and effects.
-
-## Tool Supervision
-
-Every application-semantic read and write tool call crosses RouteDeck.
-RouteDeck does not invoke the tool. It returns one of:
-
-- `allowed`, with validated/normalized arguments
-- `blocked`, with a reason and currently available alternatives
-- `needs_input`, with missing fields
-- `requires_review`, with review state/surface information
-
-The host integration invokes only allowed tools and reports every result or
-failure back through RouteDeck. An integration that deliberately bypasses this
-gate is outside the RouteDeck guarantee.
-
-## Identifier Rule
-
-The product remains authoritative for real entity IDs. RouteDeck stores those
-IDs only in classified private bindings and exposes scoped opaque handles in
-public projections, model context, URLs, and surface props.
-
-RouteDeck resolves an agent- or browser-supplied handle only when its private
-binding is allowed for the requested operation, entity kind, node, and current
-session version. Fabricated, stale, hidden, cross-context, or currently
-ineligible handles are blocked before the host tool runner sees a private ID.
+RouteDeck evaluates the declared boundary and coordinates execution. It never
+becomes the commerce or product tool implementation.
 
 ## Declarative Authoring
 
-Developers describe the interaction map once: nodes, transitions, available
-tools, required selections, surfaces, deep links, and recovery behavior.
+Developers work feature-first:
 
-Ordinary product functions supply changing facts and behavior: load visible
-records, calculate guards, populate product surfaces, run tools in the host
-runtime, and interpret results. Products must not recreate generic context
-filtering, navigation history, surface lifecycle, ID allowlisting, feedback, or
-SSE framing.
+1. A feature owns complete `Node` declarations.
+2. Each node owns its available operations, providers, guards, surfaces,
+   capabilities, route entry, and outgoing transitions.
+3. A small composition root selects `Feature` objects and one entry node in an
+   `Application`.
+4. `compile_app(...)` derives incoming adjacency and validates the complete
+   interaction graph.
+5. `bind_app(...)` requires an exact implementation for every declared handler,
+   provider, and guard.
 
-## Consumer-Driven Medusa Rule
+Products do not maintain a second transition table or recreate generic
+context, navigation, surface, feedback, event, or SSE behavior.
 
-The standalone Medusa guest-buyer agent is the first consumer of the approved
-runtime. Work advances through vertical slices: add only the RouteDeck
-capability immediately required by the matching Medusa behavior, then prove
-both sides. A framework-only test result never completes a slice.
+## Supervision And Identity
 
-Medusa owns Store API transport, commerce truth, feature handlers/providers/
-guards, LangGraph prompt/model behavior, and product surfaces. RouteDeck owns
-product-neutral feature composition, interaction/session state, supervision,
-persistence, transport, and frontend synchronization. RouteDeck contains no
-Medusa endpoint templates or commerce behavior.
+Every application-semantic read or write operation crosses
+`RouteDeckOperationRunner`. The runner returns a typed disposition and only an
+allowed invocation reaches the product handler.
 
-Corpus remains an existing integration and historical behavior reference. It
-does not control the active implementation sequence.
+Real entity IDs remain product-owned and server-private. Browser/model inputs
+use opaque handles. Resolution succeeds only when the binding is currently
+allowed for the session, operation, entity kind, node, and version. Fabricated,
+stale, hidden, or cross-context handles fail before product execution.
 
-## Runtime Neutrality
+External writes record delivery as `not_sent`, `possibly_sent`, or
+`response_received`. An uncertain outcome becomes explicit recovery state; it
+is never silently retried or reported as success.
 
-RouteDeck core must not require LangGraph. The approved optional
-`routedeck_langgraph` middleware translates model/tool calls into the same
-supervised operation runner used by UI actions. The standalone Medusa product
-owns its prompt, model, and LangGraph graph. Product handlers still execute
-through the injected host executor; RouteDeck never invokes commerce behavior
-directly.
+## Runtime And Adapter Boundary
 
-## Non-Negotiable Product Rules
+`build_routedeck_runtime(...)` constructs one runtime services container, one
+runner, navigation over that runner, projection, and optional agent driver.
+`open_sqlalchemy_routedeck_runtime(...)` opens explicit SQLite/PostgreSQL
+resources and delegates assembly to the core builder.
 
-- LLMs do not patch application state directly; they request supervised tools.
-- Assistant prose alone is not a state update.
-- Public chat must not invent product facts.
-- Anything semantic that a surface can do must also be representable to the
-  agent through current scoped context.
-- A chat statement is not a state change. Browse/open/select/compare/tool claims
-  must cross the same supervised interaction boundary as the equivalent UI
-  affordance and produce the matching projection update.
-- Hidden `route.*` operations stay out of normal product UI and agent context.
-- Legal tools are not rendered wholesale as one-click actions. Form, selector,
-  review, hidden, and blocked posture must be respected.
-- Product facts must come from current projection/context or a reported product
-  tool result. The agent must not invent products, prices, variants,
-  availability, selections, permissions, or current surface state.
-- Product surfaces are separate from navgraph diagnostics. Surface controls
-  request supervised tools; diagnostic navgraph selection is read-only.
-- Visual navgraph surfaces are read-only orientation/inspection UI. Selecting a
-  graph node must not dispatch, navigate, mutate graph state, or change the
-  browser URL.
-- Product action chips come from product-curated projected capabilities,
-  operations, affordances, or agent proposals.
-- Product action chips belong to the product chat/assistant experience, not the
-  navgraph.
-- Agent-first reference apps should open with an assistant chat turn when legal
-  starter actions exist.
-- Internal `route.*` operations are never ordinary product chips.
-- Do not render `legal_operations` wholesale as chips.
-- Product surfaces and navgraph/inspector surfaces must stay separate. In
-  agent-centric apps, the active product surface belongs inside the chat or
-  workbench stream, not in a detached side panel.
-- Address-bar deeplinks are product-owned URL codecs. Do not make
-  `?rd_node=...` the canonical public URL for a new product.
-- Diagnostics never become public chat, a product action source, or a mutation
-  control.
-- Assistant, interaction-state, tool/surface, and diagnostic events retain
-  explicit semantic and visibility separation even when transported through
-  SSE.
-- RouteDeck frontend state mirrors the supervised runtime; it does not invent
-  legal tools, results, or product truth.
-- Product-specific APIs and tool behavior stay product-owned.
-- Missing real data, dependencies, guards, tool runners, or invariants fail
-  loudly. No fake, canned, heuristic, or silent fallback may make a product
-  path look grounded.
+The FastAPI adapter derives every generic route from one runtime. The optional
+LangGraph adapter consumes product-supplied graphs, reconstructs durable
+conversation, filters model context/tools, and routes tools through the one
+runner. RouteDeck never compiles a product LangGraph topology.
 
-## Approved Runtime And Portability Scope
+## Session Selection Boundary
 
-ADR-004 authorizes immutable feature composition, one supervised operation
-runner, durable RouteDeck session/conversation/navigation/review/operation/
-projection/event state, the generic FastAPI/SSE and SQLAlchemy persistence adapters, optional
-LangGraph middleware, headless/React packages, and the standalone Medusa buyer
-agent. ADR-005 refines the implementation to named state actions,
-operation-centric consumer slices, SQLAlchemy ORM repositories, and the
-collapsible read-only Navgraph without changing that ownership boundary.
+A RouteDeck session is one durable interaction context. RouteDeck owns the
+selected session's state; the consumer owns users and authorization.
 
-This approval does not move product tool execution or Medusa business logic
-into RouteDeck. The host executor remains injected. Product paths use real
-local Medusa data and fail visibly when required data, credentials,
-dependencies, guards, or invariants are missing. Fixtures, canned responses,
-heuristic routing, and silent fallback behavior remain prohibited outside
-explicitly isolated tests.
+The Medusa reference currently selects one guest session through an HTTP-only
+cookie. Separate browser profiles are isolated; tabs in one profile share that
+guest session. An authenticated multi-session resolver is not implemented.
+Future adapters must authorize a consumer-facing opaque handle before exposing
+an internal `session_id` to RouteDeck persistence. They must not trust raw
+browser-supplied internal IDs or fall back to a default session after denial.
+
+## Non-Negotiable Rules
+
+- LLM prose is not an application state change.
+- UI affordances and agent tools use the same supervised operation path.
+- Product facts come only from current projection/context or reported product
+  tool results.
+- Private IDs, credentials, private form values, diagnostics, and hidden
+  operations never enter normal public/model context.
+- Product surfaces and read-only Navgraph diagnostics remain separate.
+- Navgraph selection never navigates, mutates state, or changes the URL.
+- Route entry is structural and declared; no regex/phrase heuristic substitutes
+  for product resolution.
+- Internal `route.*` behavior is not rendered as ordinary product action chips.
+- Legal operations are not rendered wholesale; surface, form, selector, review,
+  hidden, and blocked posture is preserved.
+- Assistant, interaction, tool/surface, and diagnostic events retain explicit
+  semantics and visibility.
+- No compatibility alias, duplicate runtime, alternate state authority, canned
+  response, fixture data, heuristic router, or silent fallback may make a
+  product path appear valid.
+- Missing dependencies, data, bindings, guards, drivers, or invariants fail
+  visibly.
+
+## First Consumer
+
+The standalone Medusa guest-buyer app is the reference consumer. Medusa owns
+Store API transport, commerce truth, catalog/cart/checkout/order features,
+market facts, prompts/models/graphs, and buyer UI. RouteDeck owns only the
+product-neutral contracts and runtime listed above. The browser never calls
+Medusa `/store/*` directly.
 
 ## Stop Conditions
 
-Stop and re-plan if:
+Stop and re-plan if a change:
 
-- a change contradicts ADR-004, ADR-005, or the approved design
-- an agent can invoke an application-semantic tool without RouteDeck oversight
-- RouteDeck begins invoking product tools itself
-- an ID not present in the current tool-specific allowlist reaches the host tool
-  runner
-- hidden entities, credentials, route operations, or diagnostics enter normal
-  agent context
-- product code must rebuild generic RouteDeck context, navigation, surfaces,
-  feedback, or SSE behavior
-- a RouteDeck change breaks an active Corpus route or browser flow
-- a framework capability has no matching Medusa consumer slice or crosses the
-  approved framework/product boundary
-- product chips render current-node no-op operations as ordinary next actions
-- an agent reference app starts from an empty-state panel instead of an
-  assistant chat turn
-- an agent-centric surface becomes a detached side panel instead of being
-  embedded in the chat/workbench stream
-- a new product example exposes query-only `?rd_node=...` links as the canonical
-  copyable browser deeplink
-- assistant prose is accepted as state change without matching supervised
-  execution and projection evidence
-- implementation would overwrite unrelated user work
+- contradicts ADR-006, non-superseded ADR-005, or ADR-004;
+- lets a semantic operation bypass RouteDeck supervision;
+- makes RouteDeck invoke product behavior directly;
+- exposes a private identifier without current operation-specific permission;
+- creates a second runtime, runner, navigation authority, conversation plane,
+  or browser state authority;
+- moves product prompt, graph, API, business logic, or UI into RouteDeck;
+- turns diagnostics into product actions or chat context;
+- introduces hidden fallback or substitute data;
+- claims a test/release result without a current run;
+- overwrites unrelated user work.
 
-## Current Authority
-
-- Controlling decisions:
-  `decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md` and
-  `decisions/ADR-005-operation-centric-state-and-consumer-structure.md`
-- Approved design:
-  `docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md`
-- Active plan:
-  `docs/superpowers/plans/2026-07-14-routedeck-architecture-cleanup.md`
-- Completed slice history:
-  `docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md`
-- Current state: `context.md`
-- Current schema authority: `routedeck_core/contracts/` plus the compiled
-  application contracts in `routedeck_core/app/`
-- Existing feature reference: `docs/route-deck-reference.md`, subject to ADR-004
-  and ADR-005
-- Historical interaction-governance rationale:
-  `decisions/ADR-003-agentic-interaction-state-governor.md`
-- Retired plan:
-  `docs/superpowers/plans/2026-07-10-routedeck-full-stack-framework-refactor.md`
-
-Implementation and verification run only on the local Windows development
-machine. Do not probe, select, or fall back to the Mac mini. Start services only
-when the active plan task expressly authorizes them, and report the exact
-command and smoke URL.
+Implementation and verification run on the local Windows development machine.
+Do not select or fall back to another host. Service commands and smoke URLs must
+be reported whenever an application is started.

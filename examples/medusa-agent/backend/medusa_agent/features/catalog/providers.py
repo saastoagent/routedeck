@@ -20,13 +20,13 @@ from ...medusa.client.models import (
     ProductVariant,
 )
 from ...medusa.client.protocol import MedusaStoreClient
-from .feature import (
+from .declarations import (
     CATALOG_LIST,
     CATALOG_SEARCH,
     CONTINUE_SHOPPING,
     OPEN_PRODUCT,
     OPEN_PRODUCT_BY_ROUTE,
-    PRODUCT_DETAIL,
+    PRODUCT_DETAIL_REF,
 )
 from .models import (
     CatalogCollectionObservation,
@@ -73,7 +73,7 @@ class CatalogRouteKeyValidator:
                 product_handles.update(
                     product.product_handle for product in collection.products
                 )
-            elif surface.surface_id == PRODUCT_DETAIL.id:
+            elif surface.surface_id == PRODUCT_DETAIL_REF.id:
                 detail = CatalogProductObservation.model_validate(values)
                 product_handles.add(detail.product.product_handle)
         return cls(product_handles=frozenset(product_handles))
@@ -218,7 +218,7 @@ class CurrentCatalogProductProvider:
             (
                 candidate
                 for candidate in context.session.public_state.surface_state
-                if candidate.surface_id == PRODUCT_DETAIL.id
+                if candidate.surface_id == PRODUCT_DETAIL_REF.id
             ),
             None,
         )
@@ -424,7 +424,7 @@ def _current_selected_variant(
         (
             candidate
             for candidate in session.public_state.surface_state
-            if candidate.surface_id == PRODUCT_DETAIL.id
+            if candidate.surface_id == PRODUCT_DETAIL_REF.id
         ),
         None,
     )

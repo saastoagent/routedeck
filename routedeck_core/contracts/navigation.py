@@ -38,12 +38,12 @@ class NodeRef(_FrozenContract):
         return self.id.partition(".")[0]
 
 
-class RouteSpec(_FrozenContract):
+class Route(_FrozenContract):
     template: str = Field(min_length=1)
     deep_link_policy: DeepLinkPolicy
 
 
-class NavigationPolicySpec(_FrozenContract):
+class NavigationPolicy(_FrozenContract):
     dirty_state: DirtyStatePolicy = DirtyStatePolicy.NONE
     can_back: bool = True
     can_forward: bool = True
@@ -51,12 +51,18 @@ class NavigationPolicySpec(_FrozenContract):
     cancel_target: NodeRef | None = None
 
 
-class RecoveryPolicySpec(_FrozenContract):
+class RecoveryPolicy(_FrozenContract):
     directives: tuple[str, ...] = ()
     failure_surface: SurfaceRef | None = None
 
 
-class TransitionSpec(_FrozenContract):
+class Transition(_FrozenContract):
+    operation: OperationRef
+    outcome: str = Field(min_length=1)
+    target: NodeRef
+
+
+class CompiledTransition(_FrozenContract):
     source: NodeRef
     operation: OperationRef
     outcome: str = Field(min_length=1)
@@ -64,12 +70,13 @@ class TransitionSpec(_FrozenContract):
 
 
 __all__ = [
+    "CompiledTransition",
     "DeepLinkPolicy",
     "DirtyStatePolicy",
-    "NavigationPolicySpec",
+    "NavigationPolicy",
     "NodeKind",
     "NodeRef",
-    "RecoveryPolicySpec",
-    "RouteSpec",
-    "TransitionSpec",
+    "RecoveryPolicy",
+    "Route",
+    "Transition",
 ]

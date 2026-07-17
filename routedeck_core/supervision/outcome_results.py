@@ -21,7 +21,7 @@ from ..contracts.operations import (
     OperationRequest,
     OperationResult,
     OperationReview,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
 from ..contracts.session import (
@@ -43,7 +43,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         self,
         request: OperationRequest,
         attempt: OperationAttempt,
-        operation: OperationSpec,
+        operation: Operation,
         outcome: OperationOutcome,
     ) -> JournaledExecutionResult:
         value = {
@@ -80,7 +80,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         self,
         *,
         session: RouteDeckSession,
-        operation: OperationSpec,
+        operation: Operation,
         outcome: OperationOutcome,
     ) -> bool:
         if outcome.outcome is None:
@@ -97,7 +97,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
             current = next(
                 (
                     node
-                    for node in self.app.app.spec.nodes
+                    for node in self.app.app.graph.nodes
                     if node.id == session.current.node_id
                 ),
                 None,
@@ -120,7 +120,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         target = next(
             (
                 node
-                for node in self.app.app.spec.nodes
+                for node in self.app.app.graph.nodes
                 if node.id == transition.target.id
             ),
             None,
@@ -211,7 +211,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         return next(
             (
                 candidate
-                for candidate in self.app.app.spec.transitions
+                for candidate in self.app.app.graph.transitions
                 if candidate.source.id == node_id
                 and candidate.operation.id == operation_id
                 and candidate.outcome == outcome
@@ -221,7 +221,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
 
     def _unknown_write_outcome(
         self,
-        operation: OperationSpec,
+        operation: Operation,
         outcome: OperationOutcome,
     ) -> bool:
         if not self._is_external_write(operation):
@@ -240,7 +240,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
 
     @staticmethod
     def _valid_outcome_observation(
-        operation: OperationSpec,
+        operation: Operation,
         outcome: OperationOutcome,
     ) -> bool:
         values = outcome.observation.to_dict()
@@ -267,7 +267,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
             return False
 
     @staticmethod
-    def _is_external_write(operation: OperationSpec) -> bool:
+    def _is_external_write(operation: Operation) -> bool:
         return operation.safety_class in {
             SafetyClass.WRITE_EXTERNAL,
             SafetyClass.DESTRUCTIVE,

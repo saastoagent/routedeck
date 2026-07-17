@@ -13,8 +13,9 @@ Candidate distribution: `routedeck-core`.
   extras.
 - Importing `routedeck_core` must not import optional frameworks or product
   modules.
-- `ApplicationSpec` composes product-owned `FeatureSpec` modules.
-- `compile_app(...)` validates and produces `CompiledRouteDeckApp`.
+- `Application` selects product-owned `Feature` modules and the entry node.
+- `compile_app(...)` resolves node-owned transitions, validates, and produces
+  `CompiledApplication`.
 - `FeatureBindings.merge(...)` composes feature implementations and rejects
   duplicate ownership.
 - `bind_app(...)` requires exactly one handler/provider/guard implementation for
@@ -25,7 +26,7 @@ subclass runtimes, flat models, and topology-parity helpers are not importable.
 
 ```powershell
 python -m pip install -e .
-python -c "from routedeck_core import ApplicationSpec, FeatureSpec, CompiledRouteDeckApp, compile_app, bind_app, RouteDeckOperationRunner, RouteDeckSession; print(ApplicationSpec.__name__, FeatureSpec.__name__, CompiledRouteDeckApp.__name__, RouteDeckOperationRunner.__name__, RouteDeckSession.__name__)"
+python -c "from routedeck_core import Application, Feature, CompiledApplication, compile_app, bind_app, RouteDeckOperationRunner, RouteDeckSession; print(Application.__name__, Feature.__name__, CompiledApplication.__name__, RouteDeckOperationRunner.__name__, RouteDeckSession.__name__)"
 python -m pytest tests/test_public_api.py tests/app -q
 ```
 

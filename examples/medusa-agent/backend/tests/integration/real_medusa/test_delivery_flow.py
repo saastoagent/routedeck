@@ -12,11 +12,11 @@ from uuid import uuid4
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from medusa_agent.config import Settings
 from medusa_agent.medusa.client import HttpMedusaStoreClient
 from medusa_agent.session import BuyerMarket
-from routedeck_core.app import ContextProvider, Guard, OperationHandler
+from routedeck_core.app import ContextProviderHandler, GuardHandler, OperationHandler
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.mutations import (
     MutationCommit,
@@ -223,18 +223,18 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         sales_channel_handle=settings.medusa_sales_channel_id,
     )
 
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     handlers: dict[OperationRef, OperationHandler] = {
         operation.ref: _UnexpectedHandler()
         for operation in compiled.operations.values()
         if operation.id not in _OWNED_OPERATION_IDS
     }
-    providers: dict[ProviderRef, ContextProvider] = {
+    providers: dict[ProviderRef, ContextProviderHandler] = {
         provider.ref: _UnexpectedProvider()
         for provider in compiled.providers.values()
         if provider.id not in _OWNED_PROVIDER_IDS
     }
-    guards: dict[GuardRef, Guard] = {
+    guards: dict[GuardRef, GuardHandler] = {
         guard.ref: _UnexpectedGuard()
         for guard in compiled.guards.values()
         if guard.id not in _OWNED_GUARD_IDS

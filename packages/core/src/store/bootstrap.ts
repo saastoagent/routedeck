@@ -4,7 +4,6 @@ import {
   type RouteDeckSessionCreateRequest,
 } from "../client/client";
 import {
-  RouteDeckHttpError,
   RouteDeckOutcomeUnknownError,
   RouteDeckStateError,
 } from "../client/errors";
@@ -170,9 +169,9 @@ export class RouteDeckBootstrapCoordinator {
     } catch (error) {
       if (
         mode !== "resume_or_create_shareable" ||
-        !(error instanceof RouteDeckHttpError) ||
-        error.status !== 404 ||
-        error.failure?.code !== "session_not_found"
+        (!isMissingBootstrapError(error) &&
+          !isExpiredBootstrapError(error) &&
+          !isUpgradeBootstrapError(error))
       ) {
         throw error;
       }

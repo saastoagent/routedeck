@@ -5,14 +5,18 @@ from dataclasses import dataclass
 import pytest
 from pydantic import SecretStr
 
-from medusa_agent.features.catalog import (
-    CATALOG_BROWSE_NODE,
+from medusa_agent.features.catalog.declarations import (
     CATALOG_LIST,
     CATALOG_PRODUCT_PROVIDER,
-    CATALOG_PRODUCT_NODE,
     CATALOG_SEARCH,
     OPEN_PRODUCT_BY_ROUTE,
+)
+from medusa_agent.features.catalog.feature import (
+    CATALOG_BROWSE_NODE,
+    CATALOG_PRODUCT_NODE,
     PRODUCT_GRID,
+)
+from medusa_agent.features.catalog.providers import (
     CatalogProvider,
     CatalogProviderError,
 )

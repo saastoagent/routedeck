@@ -204,7 +204,7 @@ class GuardRef(_FrozenContract):
     id: str = Field(min_length=1)
 
 
-class ContextProviderSpec(_FrozenContract):
+class ContextProvider(_FrozenContract):
     id: str = Field(min_length=1)
     description: str
     output_schema: FrozenJsonObject = Field(
@@ -219,7 +219,7 @@ class ContextProviderSpec(_FrozenContract):
         return ProviderRef(id=self.id)
 
 
-class EntityProviderSpec(_FrozenContract):
+class EntityProvider(_FrozenContract):
     id: str = Field(min_length=1)
     entity_kind: str = Field(min_length=1)
     description: str
@@ -235,7 +235,7 @@ class EntityProviderSpec(_FrozenContract):
         return ProviderRef(id=self.id)
 
 
-class GuardSpec(_FrozenContract):
+class Guard(_FrozenContract):
     id: str = Field(min_length=1)
     description: str
 
@@ -244,12 +244,12 @@ class GuardSpec(_FrozenContract):
         return GuardRef(id=self.id)
 
 
-class EntityInputSpec(_FrozenContract):
+class EntityInput(_FrozenContract):
     argument_name: str = Field(min_length=1)
     entity_kind: str = Field(min_length=1)
 
 
-class OperationSpec(_FrozenContract):
+class Operation(_FrozenContract):
     id: str = Field(min_length=1)
     title: str
     description: str
@@ -260,7 +260,7 @@ class OperationSpec(_FrozenContract):
     outcome_schemas: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
-    entity_inputs: tuple[EntityInputSpec, ...] = ()
+    entity_inputs: tuple[EntityInput, ...] = ()
     provider_refs: tuple[ProviderRef, ...] = ()
     guard_refs: tuple[GuardRef, ...] = ()
     policy_refs: tuple[AgentPolicyRef, ...] = ()
@@ -285,7 +285,7 @@ class OperationSpec(_FrozenContract):
         return schema
 
     @model_validator(mode="after")
-    def _unique_entity_inputs(self) -> OperationSpec:
+    def _unique_entity_inputs(self) -> Operation:
         if not self.outcomes or len(self.outcomes) != len(set(self.outcomes)):
             raise ValueError("operation outcomes must be non-empty and unique")
         _require_valid_json_schema(
@@ -359,7 +359,7 @@ class OperationSpec(_FrozenContract):
         return OperationRef(id=self.id)
 
 
-ProviderSpec = ContextProviderSpec | EntityProviderSpec
+Provider = ContextProvider | EntityProvider
 
 
 def _require_valid_json_schema(schema: dict[str, object], *, label: str) -> None:
@@ -370,12 +370,12 @@ def _require_valid_json_schema(schema: dict[str, object], *, label: str) -> None
 
 
 __all__ = [
-    "ContextProviderSpec",
+    "ContextProvider",
     "DeliveryPhase",
-    "EntityInputSpec",
-    "EntityProviderSpec",
+    "EntityInput",
+    "EntityProvider",
     "GuardRef",
-    "GuardSpec",
+    "Guard",
     "OperationDisposition",
     "OperationEvidence",
     "OperationOutcome",
@@ -385,9 +385,9 @@ __all__ = [
     "OperationResult",
     "OperationReview",
     "OperationSource",
-    "OperationSpec",
+    "Operation",
     "ProviderRef",
-    "ProviderSpec",
+    "Provider",
     "ReviewPolicy",
     "SafetyClass",
 ]

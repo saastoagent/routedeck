@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..app import CompiledRouteDeckApp
-from ..contracts.application import NodeSpec
+from ..app import CompiledApplication
+from ..contracts.application import Node
 from ..contracts.session import RouteDeckSession
 from ..navigation.routes import PublicRouteKeyValidator
 from ..navigation.session_location import validate_session_location
@@ -16,7 +16,7 @@ from .providers import OperationContextScope
 class ContextScopeBuilder:
     """Build model/tool context from declared and currently bound data only."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
     public_key_validator: PublicRouteKeyValidator | None = None
     now: datetime | None = None
 
@@ -83,11 +83,11 @@ class ContextScopeBuilder:
             entities=entities,
         )
 
-    def _current_node(self, session: RouteDeckSession) -> NodeSpec:
+    def _current_node(self, session: RouteDeckSession) -> Node:
         node = next(
             (
                 candidate
-                for candidate in self.app.spec.nodes
+                for candidate in self.app.graph.nodes
                 if candidate.id == session.current.node_id
             ),
             None,

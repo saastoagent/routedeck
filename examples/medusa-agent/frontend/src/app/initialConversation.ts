@@ -14,8 +14,6 @@ const GREETING_CONFLICT_CODES = new Set([
   "version_conflict",
 ]);
 
-export type InitialConversationPhase = "checkout" | "setup";
-
 export interface InitialConversationRouteDeck {
   store: Pick<
     RouteDeckStore,
@@ -25,7 +23,6 @@ export interface InitialConversationRouteDeck {
 
 export interface InitialConversationOptions {
   requestId?: string;
-  onPhase?(phase: InitialConversationPhase): void;
 }
 
 export async function loadInitialConversation(
@@ -33,11 +30,9 @@ export async function loadInitialConversation(
   chatClient: RouteDeckAgentClient,
   options: InitialConversationOptions = {},
 ): Promise<readonly AgentHistoryTurn[]> {
-  options.onPhase?.("checkout");
   const existing = await chatClient.loadConversation();
   if (existing.length > 0) return existing;
 
-  options.onPhase?.("setup");
   const sessionVersion = routeDeck.store.getState().sessionVersion;
   if (sessionVersion === null) {
     throw new AgentChatError(

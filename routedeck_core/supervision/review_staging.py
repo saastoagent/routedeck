@@ -15,7 +15,7 @@ from ..contracts.operations import (
     OperationRequest,
     OperationResult,
     OperationReview,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.mutations import MutationCommit, MutationKind, MutationStatus
 from ..contracts.interactions import RouteDeckInteractionState
@@ -47,7 +47,7 @@ class ReviewStagingMixin(ReviewRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt: OperationAttempt,
         session: RouteDeckSession,
         lease: TurnLease,
@@ -112,7 +112,7 @@ class ReviewStagingMixin(ReviewRuntimePorts):
                 raise RuntimeError("review_surface_id metadata must be a string")
             current_node = next(
                 node
-                for node in self.app.app.spec.nodes
+                for node in self.app.app.graph.nodes
                 if node.id == session.current.node_id
             )
             surfaces = {

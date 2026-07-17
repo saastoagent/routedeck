@@ -1133,31 +1133,66 @@ def _check_feature_declarations(project_root: Path) -> tuple[dict[str, Any], lis
             for line, value in _string_literals(tree)
             if _is_store_path(value)
         ]
-        has_feature_spec = any(
+        has_feature = any(
             isinstance(node, ast.Assign)
             and any(
-                isinstance(target, ast.Name) and target.id == "FEATURE_SPEC"
+                isinstance(target, ast.Name) and target.id == "FEATURE"
                 for target in node.targets
             )
             and isinstance(node.value, ast.Call)
-            and _call_name(node.value.func) == "FeatureSpec"
+            and _call_name(node.value.func) == "Feature"
             for node in ast.walk(tree)
         )
         evidence.append(
             {
                 "path": display,
-                "has_feature_spec": has_feature_spec,
+                "has_feature": has_feature,
                 "forbidden_imports": forbidden_imports,
                 "store_literals": store_literals,
             }
         )
-        if not has_feature_spec:
-            violations.append(f"{display}:missing declarative FEATURE_SPEC")
+        if not has_feature:
+            violations.append(f"{display}:missing declarative FEATURE")
         if forbidden_imports or store_literals:
             violations.append(
                 f"{display}:feature declaration owns transport/client code"
             )
-    return {"declarations": evidence}, violations
+    composition_path = _project_path(
+        project_root,
+        PRODUCT_BACKEND_ROOT / "composition.py",
+        kind="file",
+    )
+    composition_tree = _parse_python(composition_path)
+    forbidden_composition_calls = [
+        {"line": node.lineno, "call": _call_name(node.func)}
+        for node in ast.walk(composition_tree)
+        if isinstance(node, ast.Call)
+        and _call_name(node.func) in {"model_copy", "Transition"}
+    ]
+    forbidden_transition_keywords = [
+        node.lineno
+        for node in ast.walk(composition_tree)
+        if isinstance(node, ast.Call)
+        and any(keyword.arg == "transitions" for keyword in node.keywords)
+    ]
+    composition_source = composition_path.read_text(encoding="utf-8")
+    if (
+        forbidden_composition_calls
+        or forbidden_transition_keywords
+        or "_COMPOSED_" in composition_source
+    ):
+        violations.append(
+            f"{_relative(composition_path, project_root)}:composition owns graph assembly"
+        )
+    return {
+        "declarations": evidence,
+        "composition": {
+            "path": _relative(composition_path, project_root),
+            "forbidden_calls": forbidden_composition_calls,
+            "transition_keywords": forbidden_transition_keywords,
+            "has_composed_prefix": "_COMPOSED_" in composition_source,
+        },
+    }, violations
 
 
 def _check_langgraph_topology(project_root: Path) -> tuple[dict[str, Any], list[str]]:

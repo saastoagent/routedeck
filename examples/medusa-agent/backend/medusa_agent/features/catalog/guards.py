@@ -3,7 +3,7 @@ from __future__ import annotations
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.supervision.guards import GuardDecision, GuardInvocationContext
 
-from .feature import CATALOG_PRODUCT_PROVIDER, CATALOG_VARIANTS_PROVIDER
+from .declarations import CATALOG_PRODUCT_PROVIDER, CATALOG_VARIANTS_PROVIDER
 from .models import (
     CatalogProductObservation,
     CatalogProductProviderValue,

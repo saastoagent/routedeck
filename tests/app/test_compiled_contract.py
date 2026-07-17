@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.app import compile_app
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import invalid_app
@@ -19,8 +19,8 @@ EXPECTED_DOCUMENTS = {
 
 
 def test_contract_documents_are_complete_json_and_deterministic() -> None:
-    first = compile_medusa_app_spec().contract_documents()
-    second = compile_medusa_app_spec().contract_documents()
+    first = compile_medusa_app().contract_documents()
+    second = compile_medusa_app().contract_documents()
 
     assert set(first) == EXPECTED_DOCUMENTS
     assert first == second
@@ -28,7 +28,7 @@ def test_contract_documents_are_complete_json_and_deterministic() -> None:
 
 
 def test_executable_paths_cover_every_declared_branch() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     covered_transitions = {
         (
@@ -50,7 +50,7 @@ def test_executable_paths_cover_every_declared_branch() -> None:
             transition.outcome,
             transition.target.id,
         )
-        for transition in app.spec.transitions
+        for transition in app.graph.transitions
     }
     assert covered_transitions >= declared_transitions
 
@@ -60,7 +60,7 @@ def test_executable_paths_cover_every_declared_branch() -> None:
         if path.node_id is not None and path.deep_link_policy is not None
     }
     assert covered_deep_links >= {
-        (node.id, node.route.deep_link_policy) for node in app.spec.nodes
+        (node.id, node.route.deep_link_policy) for node in app.graph.nodes
     }
 
     covered_safety = {
@@ -79,7 +79,7 @@ def test_executable_paths_cover_every_declared_branch() -> None:
     } >= {"review_approved", "review_rejected"}
     assert {
         path.node_id for path in app.executable_test_paths if path.branch == "recovery"
-    } >= {node.id for node in app.spec.nodes if node.recovery.directives}
+    } >= {node.id for node in app.graph.nodes if node.recovery.directives}
 
 
 def test_compilation_fails_when_an_executable_path_cannot_be_derived() -> None:
@@ -90,14 +90,14 @@ def test_compilation_fails_when_an_executable_path_cannot_be_derived() -> None:
 def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings() -> (
     None
 ):
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     contract = compiled.frontend_contract
     product = contract.nodes["catalog.product"]
     contact_node = next(
-        node for node in compiled.spec.nodes if node.id == "checkout.contact"
+        node for node in compiled.graph.nodes if node.id == "checkout.contact"
     )
     review_node = next(
-        node for node in compiled.spec.nodes if node.id == "checkout.review"
+        node for node in compiled.graph.nodes if node.id == "checkout.review"
     )
     contact_binding = contact_node.surfaces.active.private_form_binding
     review_binding = review_node.surfaces.active.private_form_binding

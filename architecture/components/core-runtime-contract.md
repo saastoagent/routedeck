@@ -21,7 +21,7 @@ runtime-ownership decision.
 
 ## Public Interfaces
 
-- `ApplicationSpec`, `FeatureSpec`, `compile_app(...)`, and `bind_app(...)`.
+- `Application`, `Feature`, `compile_app(...)`, and `bind_app(...)`.
 - Immutable application, session, operation, conversation, event, projection,
   navigation, surface, review, failure, and retention contracts.
 - `RouteDeckSessionAggregate` named actions for canonical state transitions.

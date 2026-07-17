@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from routedeck_core.app import CompiledRouteDeckApp
+from routedeck_core.app import CompiledApplication
 from routedeck_core.app.compiled import FrontendContract
 from routedeck_core.contracts.events import PublicRouteDeckEvent
 from routedeck_core.contracts.failures import RouteDeckFailure
@@ -53,7 +53,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _load_factory(target: str) -> Callable[[], CompiledRouteDeckApp]:
+def _load_factory(target: str) -> Callable[[], CompiledApplication]:
     module_name, separator, attribute_name = target.partition(":")
     if not separator or not module_name or not attribute_name:
         raise ValueError("--app-factory must use module:function form")
@@ -65,12 +65,12 @@ def _load_factory(target: str) -> Callable[[], CompiledRouteDeckApp]:
 
 
 def export_contracts(
-    factory: Callable[[], CompiledRouteDeckApp],
+    factory: Callable[[], CompiledApplication],
     output: Path,
 ) -> tuple[Path, ...]:
     app = factory()
-    if not isinstance(app, CompiledRouteDeckApp):
-        raise TypeError("App factory must return CompiledRouteDeckApp")
+    if not isinstance(app, CompiledApplication):
+        raise TypeError("App factory must return CompiledApplication")
     documents: Mapping[str, str] = app.contract_documents()
     output.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []

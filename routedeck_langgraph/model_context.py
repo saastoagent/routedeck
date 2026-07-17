@@ -6,14 +6,14 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from routedeck_core.app import BoundRouteDeckApp, CompiledRouteDeckApp
+from routedeck_core.app import BoundApplication, CompiledApplication
 from routedeck_core.context import AgentContextLens
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationToolCall,
     ConversationTurnStatus,
 )
-from routedeck_core.contracts.operations import OperationDisposition, OperationSpec
+from routedeck_core.contracts.operations import OperationDisposition, Operation
 from routedeck_core.contracts.projection import DataClassification, FrozenJson
 from routedeck_core.contracts.session import (
     ReviewResolution,
@@ -92,7 +92,7 @@ class RouteDeckModelContext(_FrozenContract):
 
 def build_model_context(
     snapshot: SessionSnapshot | RouteDeckSession,
-    app: BoundRouteDeckApp | CompiledRouteDeckApp,
+    app: BoundApplication | CompiledApplication,
     *,
     observation_limit: int = 8,
 ) -> RouteDeckModelContext:
@@ -106,7 +106,7 @@ def build_model_context(
     if observation_limit < 0:
         raise ValueError("observation_limit must be non-negative")
     session = snapshot.state if isinstance(snapshot, SessionSnapshot) else snapshot
-    compiled = app.app if isinstance(app, BoundRouteDeckApp) else app
+    compiled = app.app if isinstance(app, BoundApplication) else app
     resolved = AgentContextLens(compiled).resolve(session)
     node = resolved.node
     legal_operations = resolved.legal_operations
@@ -297,7 +297,7 @@ def _tool_call_envelope(
     )
 
 
-def _model_tool(operation: OperationSpec) -> ModelContextTool:
+def _model_tool(operation: Operation) -> ModelContextTool:
     return ModelContextTool(
         name=operation.id,
         title=operation.title,

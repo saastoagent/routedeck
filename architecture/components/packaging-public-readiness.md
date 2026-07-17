@@ -16,7 +16,7 @@ readiness evidence for the Python framework plus the `packages/core`,
 ## Public Interfaces
 
 - Python `routedeck-core` with explicit optional extras.
-- `ApplicationSpec`, `FeatureSpec`, `CompiledRouteDeckApp`, `compile_app(...)`,
+- `Application`, `Feature`, `CompiledApplication`, `compile_app(...)`,
   `FeatureBindings`, and `bind_app(...)`.
 - Runner/session/event/projection contracts including
   `RouteDeckOperationRunner`, `RouteDeckSession`, `RouteDeckEvent`, and

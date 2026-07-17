@@ -11,7 +11,7 @@ from routedeck_core.contracts.operations import (
     DeliveryPhase,
     OperationOutcome,
     OperationSource,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
 
@@ -47,16 +47,16 @@ async def test_malformed_node_scope_fails_before_runtime_invocation(
     guard,
     executor,
 ) -> None:
-    from routedeck_core.app import BoundRouteDeckApp
+    from routedeck_core.app import BoundApplication
     from routedeck_core.contracts.operations import OperationRequest
     from routedeck_core.state.session import navgraph_version
 
-    malformed_node = compiled_app.spec.nodes[0].model_copy(update=node_update)
+    malformed_node = compiled_app.graph.nodes[0].model_copy(update=node_update)
     malformed_compiled = replace(
         compiled_app,
-        spec=compiled_app.spec.model_copy(update={"nodes": (malformed_node,)}),
+        graph=compiled_app.graph.model_copy(update={"nodes": (malformed_node,)}),
     )
-    malformed_app = BoundRouteDeckApp(
+    malformed_app = BoundApplication(
         app=malformed_compiled,
         bindings=bound_app.bindings,
     )
@@ -123,7 +123,7 @@ def test_registered_executor_invokes_only_the_explicit_binding() -> None:
             delivery_phase=DeliveryPhase.RESPONSE_RECEIVED,
         )
 
-    operation = OperationSpec(
+    operation = Operation(
         id="test.advance",
         title="Advance",
         description="Test operation.",
@@ -334,7 +334,7 @@ async def test_declared_authority_without_runtime_binding_fails_closed(
     guard,
     executor,
 ) -> None:
-    from routedeck_core.app import BoundRouteDeckApp
+    from routedeck_core.app import BoundApplication
     from routedeck_core.contracts.operations import OperationRequest
 
     bindings = replace(
@@ -342,7 +342,7 @@ async def test_declared_authority_without_runtime_binding_fails_closed(
         providers={} if missing_binding == "provider" else bound_app.bindings.providers,
         guards={} if missing_binding == "guard" else bound_app.bindings.guards,
     )
-    malformed = BoundRouteDeckApp(app=bound_app.app, bindings=bindings)
+    malformed = BoundApplication(app=bound_app.app, bindings=bindings)
 
     result = await runner_factory(app=malformed).run(
         OperationRequest(
@@ -380,7 +380,7 @@ async def test_untyped_authority_result_fails_closed_before_execution(
     runner_factory,
     executor,
 ) -> None:
-    from routedeck_core.app import BoundRouteDeckApp
+    from routedeck_core.app import BoundApplication
     from routedeck_core.contracts.operations import OperationRequest
 
     async def untyped_result(_context):
@@ -399,7 +399,7 @@ async def test_untyped_authority_result_fails_closed_before_execution(
             else bound_app.bindings.guards
         ),
     )
-    malformed = BoundRouteDeckApp(app=bound_app.app, bindings=bindings)
+    malformed = BoundApplication(app=bound_app.app, bindings=bindings)
 
     result = await runner_factory(app=malformed).run(
         OperationRequest(

@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.features.catalog import CatalogRouteKeyValidator
+from medusa_agent.composition import compile_medusa_app
+from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.session import RouteDeckSession
 from routedeck_core.projection import ConfiguredSessionProjector, ProjectionProjector
@@ -21,7 +21,7 @@ class _FixedClock:
 def test_medusa_home_session_uses_compiled_buyer_graph(
     buyer_market: BuyerMarket,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = create_medusa_session(
         app=app,
         session_id="session-1",
@@ -41,7 +41,7 @@ def test_medusa_home_session_uses_compiled_buyer_graph(
 
     assert isinstance(session, RouteDeckSession)
     assert session.session_id == "session-1"
-    assert session.current.node_id == app.spec.entry_node.id
+    assert session.current.node_id == app.graph.entry_node.id
     assert session.current.node_id == "buyer.home"
     assert projection.surfaces.active is None
     assert [

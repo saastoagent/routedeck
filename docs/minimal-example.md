@@ -1,51 +1,49 @@
-# Minimal Example
+# Minimal RouteDeck Example
 
-Two product-neutral standalone examples are now required by
-`decisions/ADR-002-two-adoption-modes-one-kernel.md`. They are separate
-framework-adoption proofs and do not replace the Medusa product reference.
+This is the smallest useful authoring shape: one feature owns its complete node,
+and a tiny composition root selects that feature and entry node.
 
-The previous attempted examples at `examples/minimal-langgraph-adapter` and
-`examples/minimal-fastapi-react` were removed during the 2026-06-09 Medusa
-recalibration because they were being used as substitutes for requested Medusa
-work. The 2026-07-10 framework goal explicitly authorizes new standalone
-examples with their own plans, tests, acceptance criteria, and product-neutral
-boundaries.
+```python
+from routedeck_core import FeatureBindings, bind_app, compile_app
+from routedeck_core.app import Application, Feature
+from routedeck_core.contracts.application import Node
+from routedeck_core.contracts.navigation import (
+    DeepLinkPolicy,
+    NodeKind,
+    NodeRef,
+    Route,
+)
+from routedeck_core.contracts.surfaces import SurfaceSlots
 
-## Required Examples
+HOME = Node(
+    id="home.index",
+    title="Home",
+    kind=NodeKind.SECTION,
+    route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    surfaces=SurfaceSlots(),
+)
 
-1. A Full Flow change-planning application in which RouteDeck compiles and runs
-   the LangGraph-backed backend plus typed SSE and React surfaces.
-2. A Core Integration document-review application whose existing/custom agent
-   remains independent and is wrapped by a RouteDeck executor adapter.
+HOME_FEATURE = Feature(namespace="home", nodes=(HOME,))
 
-Both examples must:
+APP = Application(
+    name="minimal-app",
+    entry_node=NodeRef(id="home.index"),
+    features=(HOME_FEATURE,),
+)
 
-- remain independent of Corpus, SaaStoAgent models, and Medusa behavior
-- use real user-provided input and fail loudly when a required live model is not
-  configured
-- keep deterministic fixtures or model doubles inside tests only
-- include backend tests, frontend tests, README instructions, and smoke commands
-- use the durable SQLite reference backend in the runnable path and load the
-  versioned frontend contract exported from the backend application definition
-- prove the shared operation, guard, event, projection, surface, and store
-  contracts for their adoption mode
-- stay separate from Medusa visible-slice acceptance claims
-
-## Validation Target
-
-```powershell
-cd examples/full-flow-change-planner/backend
-python -m pytest tests -q
+compiled = compile_app(APP)
+bound = bind_app(compiled, FeatureBindings())
 ```
 
-```powershell
-cd examples/full-flow-change-planner/frontend
-npm test
-```
+Real applications add operations, providers, guards, surfaces, route entries,
+and node-owned outgoing transitions inside their owning feature. The composition
+root still only selects features and the entry node.
 
-```powershell
-cd examples/core-integration-document-review/backend
-python -m pytest tests -q
-cd ..\frontend
-npm test
-```
+The host then supplies session callbacks, persistence configuration, optional
+agent graphs, and product implementations to a RouteDeck runtime opener. It
+does not construct its own operation runner, navigation runner, or FastAPI
+dependency bundle.
+
+Use the standalone Medusa app for a complete real-data example. See
+`docs/using-routedeck.md` for the integration sequence and
+`docs/route-deck-reference.md` for all contract rules.

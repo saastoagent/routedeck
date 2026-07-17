@@ -3,34 +3,35 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from routedeck_core.app import (
-    BoundRouteDeckApp,
-    CompiledRouteDeckApp,
-    ContextProvider,
+    BoundApplication,
+    CompiledApplication,
+    ContextProviderHandler,
     FeatureBindings,
-    Guard,
+    GuardHandler,
     OperationHandler,
     bind_app,
 )
 from routedeck_core.contracts.operations import GuardRef, OperationRef, ProviderRef
 
-from .features.cart import create_cart_bindings
-from .features.catalog import create_catalog_bindings
-from .features.checkout import CheckoutPrivateFormReader, create_checkout_bindings
-from .features.orders import create_order_bindings
+from .features.cart.bindings import create_cart_bindings
+from .features.catalog.bindings import create_catalog_bindings
+from .features.checkout.bindings import create_checkout_bindings
+from .features.checkout.providers import CheckoutPrivateFormReader
+from .features.orders.bindings import create_order_bindings
 from .medusa.client.protocol import MedusaStoreClient
 
 
 def bind_medusa_app(
     *,
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     client: MedusaStoreClient,
     private_forms: CheckoutPrivateFormReader,
     configured_payment_provider_id: str,
     buyer_country_code: str,
     handlers: Mapping[OperationRef, OperationHandler],
-    providers: Mapping[ProviderRef, ContextProvider],
-    guards: Mapping[GuardRef, Guard],
-) -> BoundRouteDeckApp:
+    providers: Mapping[ProviderRef, ContextProviderHandler],
+    guards: Mapping[GuardRef, GuardHandler],
+) -> BoundApplication:
     """Compose feature-owned Medusa bindings and validate the complete app."""
 
     bindings = FeatureBindings.merge(

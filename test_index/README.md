@@ -1,255 +1,158 @@
 # Test Index
 
-This index maps validation commands to the behavior they protect. It does not
-record a pass result; report a gate as passed only from a current command run or
-its sanitized release bundle.
+This index maps commands to the behavior they can prove. It never records a
+pass result; claim success only from a current run and identify the exact lane.
 
-All service, database, browser, and release verification is local Windows work.
-Use the protected demo stack and the local Docker engine only.
+All services, databases, browser automation, and release verification run on
+the local Windows development machine. The protected Medusa stack uses the
+local Docker engine.
 
-## Framework Gates
+## Focused Framework Gates
 
-Run from the RouteDeck project directory with the project virtual environment
-active:
+Run from the RouteDeck project root:
 
 | Gate | Command | Protects |
 | --- | --- | --- |
-| Public API | `python -m pytest tests/test_public_api.py -q` | The sole root `ApplicationSpec`/`FeatureSpec` compiler publication and absence of retired imports. |
-| Application contracts | `python -m pytest tests/app -q` | Feature composition, exact route entries, transitions, frontend contract export, and fail-loud compilation. |
-| Canonical state | `python -m pytest tests/state -q` | Immutable session contracts, the transaction-scoped aggregate, leases, ports, effects, and public exports. |
-| Supervision | `python -m pytest tests/supervision -q` | One runner, idempotency, review, crash windows, external-outcome-unknown, recovery, and turn lifecycle. |
-| Navigation | `python -m pytest tests/navigation -q` | Shareable/session-bound routes, resume capabilities, stable/ephemeral surfaces, exact history entry identity, and navigation transactions. |
-| Projection | `python -m pytest tests/projection -q` | Default-deny public projection, context scope, and recovery projection. |
-| Persistence | `python -m pytest tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py -q` | SQLAlchemy SQLite/PostgreSQL portability, reopen, fencing, durable operation/mutation journals, events/private blobs, and schema behavior. |
-| HTTP/SSE | `python -m pytest tests/fastapi -q` | Runtime-derived transport, assistant-only/user turns, exact replay/cross-trigger collision, interruption/cancellation, sessions, dispatch, navigation, review, private forms, inspection, reset, and errors. |
-| Assistant turn | `python -m pytest tests/fastapi/test_conversation_turns.py -q` | `POST /api/routedeck/conversation/assistant-turn`, no synthetic user message, shared lifecycle, replay/collision/version behavior, and production router/runtime/store integration. |
-| LangGraph boundary | `python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q` | Framework-owned driver, typed user/assistant graphs, strict extraction, default-deny context, supervised tools, and product topology ownership. |
-| Boundary rules | `python -m pytest tests/test_boundary_rules.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q` | Product-neutral framework packages and Medusa-owned declarations/bindings/graphs/Store/UI behavior. |
-| Runtime ownership report | `python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json` | Schema 3 report with `runtime_ownership`, one framework-built runner/navigation path, runtime-derived transport, and no product generic constructors or `astream_events(...)` calls. |
-| Full Python | `python -m pytest tests examples/medusa-agent/backend/tests -q` | Consolidated framework and product contract coverage. Real-Medusa tests require the configured local stack. |
+| Public API | `python -m pytest tests/test_public_api.py -q` | Sole `Application`/`Feature` compiler API, canonical exports, and absence of retired aliases/imports. |
+| Application compiler | `python -m pytest tests/app -q` | Feature composition, node-owned transitions, incoming derivation, routes/entry bindings, frontend contract, executable paths, and fail-loud validation. |
+| Context and projection | `python -m pytest tests/context tests/projection -q` | Default-deny context/projection, public/private separation, suggested actions, and recovery projection. |
+| Canonical state | `python -m pytest tests/state -q` | Immutable sessions, named aggregate actions, effects, leases, ports, runtime builder/defaults, and public exports. |
+| Supervision | `python -m pytest tests/supervision -q` | One runner, providers/guards, idempotency, review, crash windows, external-outcome-unknown, recovery, and turn lifecycle. |
+| Navigation | `python -m pytest tests/navigation -q` | Shareable/session-bound routes, resume capability, exact history identity, surface lifecycle, and navigation transactions. |
+| Persistence | `python -m pytest tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py -q` | SQLite/PostgreSQL ORM portability, fencing, durable journals/events/blobs, reopen, and restart recovery. |
+| HTTP/SSE | `python -m pytest tests/fastapi -q` | Runtime-derived routes, sessions, operations/reviews, navigation, typed conversation, replay/collision, cancellation, events, forms, inspection, and errors. |
+| Assistant initiation | `python -m pytest tests/fastapi/test_conversation_turns.py -q` | No synthetic user turn, shared durable lifecycle, replay/collision, interruption, and runtime/router integration. |
+| LangGraph boundary | `python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q` | Product-owned topology, framework-owned driver, typed triggers, strict extraction, default-deny context, and supervised tools. |
+| Boundary rules | `python -m pytest tests/test_boundary_report.py tests/test_boundary_rules.py tests/test_anti_drift_boundaries.py tests/test_medusa_reference_slice0.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q` | Product-neutral framework, one runtime/runner path, no Medusa generic constructors, and no direct product Store path in the browser. |
+| Testing support | `python -m pytest tests/test_testing_factories.py -q` | Test doubles remain explicit and isolated from product runtime. |
 
-## Runtime-Boundary Refactor Targeted Gates
+Use the row matching the changed feature. Do not run the all-up suite when a
+smaller owning lane proves the change and its immediate side effects.
 
-These are the exact focused lanes for the ADR-006 runtime-boundary refactor.
-They do not claim the final all-up or live acceptance has passed.
-
-Slice 1 — framework runtime, LangGraph adapter, persistence, and immediate host:
-
-```powershell
-python -m pytest tests/state/test_runtime_builder.py tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_runner_binding.py examples/medusa-agent/backend/tests/contract/test_home_session.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py examples/medusa-agent/backend/tests/contract/test_chat_error_logging.py examples/medusa-agent/backend/tests/integration/test_agent_chat_flow.py -q
-```
-
-Slice 2 — assistant/chat transport and named React presentation effects:
-
-```powershell
-python -m pytest tests/fastapi/test_conversation_turns.py examples/medusa-agent/backend/tests/integration/test_entry_conversation.py examples/medusa-agent/backend/tests/integration/test_agent_chat_flow.py tests/test_anti_drift_boundaries.py -q
-pnpm --filter @routedeck/core test
-pnpm --filter @routedeck/react typecheck
-pnpm --filter @routedeck/react test
-pnpm --filter @routedeck/medusa-agent exec vitest run --config vitest.config.ts src/tests/chat-client-reliability.test.ts src/tests/agent-stream-reliability.test.tsx src/tests/app-shell.test.tsx
-```
-
-Slice 3 — compiler, FastAPI router, and SQLAlchemy façade splits:
-
-```powershell
-python -m pytest tests/app tests/fastapi tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py tests/test_public_api.py examples/medusa-agent/backend/tests/contract/test_chat_error_logging.py examples/medusa-agent/backend/tests/integration/test_agent_chat_flow.py -q
-```
-
-Slice 4 — TypeScript decoder/store and Medusa Store-resource splits:
-
-```powershell
-pnpm --filter @routedeck/core test
-pnpm --filter @routedeck/core typecheck
-pnpm --filter @routedeck/core build
-pnpm --filter @routedeck/medusa-agent test
-python -m pytest examples/medusa-agent/backend/tests/unit/test_release_evidence.py examples/medusa-agent/backend/tests/unit/features -q
-```
-
-Slice 5 authority and executable boundary gate:
-
-```powershell
-python scripts/check_doc_coverage.py
-python -m pytest tests/test_boundary_report.py tests/test_boundary_rules.py tests/test_anti_drift_boundaries.py tests/test_medusa_reference_slice0.py tests/test_release_harness.py tests/test_active_design_authority.py tests/test_public_api.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q
-python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
-```
-
-The all-up non-real regression runs once only after all five slices are
-assembled:
+The non-real all-up Python regression is:
 
 ```powershell
 python -m pytest tests examples/medusa-agent/backend/tests --ignore=examples/medusa-agent/backend/tests/integration/real_medusa -q
-pnpm test
-pnpm typecheck
-pnpm build
 ```
 
 ## Frontend Gates
 
-The workspace requires Node.js 22.13 or newer and pnpm 11.7.0. From the
-RouteDeck project directory:
+The workspace requires Node.js 22.13 or newer and pnpm 11.7.0.
+
+| Gate | Command | Protects |
+| --- | --- | --- |
+| Headless core | `pnpm --filter @routedeck/core test` | Strict decoding, clients, SSE, bootstrap/resync, retained requests, routing/history, forms, and observable state. |
+| Headless types/build | `pnpm --filter @routedeck/core typecheck` and `pnpm --filter @routedeck/core build` | Public TypeScript API and emitted package. |
+| React | `pnpm --filter @routedeck/react test` and `pnpm --filter @routedeck/react typecheck` | Named conversation presentation, operations, surfaces, forms, review, navigation, status, and inspector primitives. |
+| Testing package | `pnpm --filter @routedeck/testing test` | Explicit frontend test factories/harnesses. |
+| Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Product bootstrap/recovery, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
+| Medusa type/build | `pnpm --filter @routedeck/medusa-agent typecheck` and `pnpm --filter @routedeck/medusa-agent build` | Product/public contract integration and production bundle. |
+
+Root `pnpm test`, `pnpm typecheck`, and `pnpm build` are all-package gates.
+Root Vitest discovery is package-scoped; Playwright E2E is not part of unit
+coverage.
+
+## Documentation And Architecture Gates
 
 ```powershell
-pnpm install --frozen-lockfile
-pnpm test
-pnpm typecheck
-pnpm build
+python scripts/check_doc_coverage.py
+python scripts/check_context_architecture.py
+python -m pytest tests/test_active_design_authority.py tests/test_public_api.py tests/test_medusa_reference_slice0.py -q
 ```
 
-These commands cover generated-contract decoding, event ordering, replay and
-resync, authoritative store behavior, route/history reconciliation, surface
-affordances, stable/ephemeral mounting, private forms, review, React hooks, the
-Medusa buyer surfaces, and production builds.
+- `check_doc_coverage.py` scans all maintained live source by default and maps
+  it to `architecture/code-map.md`. Use `--files <paths...>` for a focused list
+  and `--verbose` for owner/anchor detail. It never invokes Git.
+- `check_context_architecture.py` verifies required canonical documents, local
+  Markdown links, and absence of retired API/architecture language from the
+  active documentation set. It excludes historical/archive and generated
+  material.
+- The focused tests lock public API, current authority, generic endpoint, and
+  product/framework reference boundaries.
 
-Current frontend ownership is `packages/core` (`@routedeck/core`),
-`packages/react` (`@routedeck/react`), and test-only `packages/testing`
-(`@routedeck/testing`). For focused package checks:
+Regenerate contracts only when Python contract meaning changed:
 
 ```powershell
-pnpm --filter @routedeck/core test
-pnpm --filter @routedeck/react test
-pnpm --filter @routedeck/testing test
+pnpm contracts:generate
 ```
 
-`packages/core`, `packages/react`, and `packages/testing` are the complete
-frontend framework workspace. There is no second React test tree.
+Generated output is not a substitute for compiler/decoder tests.
 
-Root Vitest discovery is project-scoped by `vitest.config.ts`: core, React, and
-testing packages run in Node, while the Medusa frontend runs in jsdom. Compiled
-`dist` tests, historical `react/tests`, and Playwright E2E specs are excluded
-from unit coverage and run only in their owning lanes.
-
-For a focused Medusa UI run:
+## Runtime Ownership Report
 
 ```powershell
-pnpm --filter @routedeck/medusa-agent test
-pnpm --filter @routedeck/medusa-agent typecheck
-pnpm --filter @routedeck/medusa-agent build
-```
-
-## Real Local Commerce Gate
-
-Before starting or mutating any protected service, the standalone packaging
-lane can be checked independently:
-
-```powershell
-docker build --tag routedeck-medusa-demo-repro-check .\examples\medusa-agent\medusa
-python -m pip wheel --no-deps --wheel-dir $env:TEMP\routedeck-medusa-wheel-check .\examples\medusa-agent\backend
 python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
 ```
 
-The Docker build installs only the repo-local locked Medusa source. The Python
-wheel metadata must require `routedeck-core[fastapi,langgraph,persistence]`. The
-boundary report verifies both Medusa Compose build contexts, required source
-files, exact runtime pins, lockfile version, and digest-pinned Node base. These
-commands do not start the server, migrate, seed, reset, or create an order.
+The schema-3 report must include a passing `runtime_ownership` result proving
+one framework-built runner/navigation path, runtime-derived transport, no
+product generic constructors, and no product `astream_events(...)` calls. The
+JSON is evidence only for that invocation.
 
-Provision once, then start the complete protected stack:
+## Protected Real Medusa Gate
+
+Provision and start the local stack only when real commerce proof is in scope:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Provision
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services all
-```
-
-The real-Medusa backend lane is:
-
-```powershell
 python -m pytest examples/medusa-agent/backend/tests/integration/real_medusa -q
 ```
 
-It must use the provisioned values in `examples/medusa-agent/.env.local` and
-the real Store API on `http://127.0.0.1:9100`. The lane is invalid if a fixture
-client, synthetic catalog, browser-to-Medusa request, alternate provider, or
-canned response substitutes for that source of truth.
+Smoke URLs:
 
-The protected stack URLs are:
-
+- frontend: `http://127.0.0.1:5198`
+- agent API: `http://127.0.0.1:8098`
 - Medusa: `http://127.0.0.1:9100`
-- Agent API: `http://127.0.0.1:8098`
-- Frontend: `http://127.0.0.1:5198`
 
-Stop the project without deleting its volumes:
+The test must use the configured real Store API on `http://127.0.0.1:9100`.
+Fixtures, synthetic catalog data, browser Store calls, alternate providers, or
+canned responses invalidate the lane.
+
+Stop without deleting protected volumes:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
 ```
 
-`Reset` is a separately authorized destructive gate. It validates the protected
-project, volume labels, database sentinel, generated manifest, and SQLite
-deletion scope before reprovisioning.
+`Reset` is destructive and requires separate explicit authorization.
 
-## Recorded Live Acceptance
+## Targeted Browser Gates
 
-The ADR-006 final browser acceptance uses the existing protected data without a
-reset. It requires a valid `OPENAI_API_KEY`, the real Store API, and live model
-mode; absence of any dependency is a blocker, not permission to use a scripted
-graph, fixture commerce, alternate provider, or another host.
+Use the Playwright story matching the feature. The high-quality synthetic
+address-bar checkout recording is:
 
 ```powershell
 $env:ROUTEDECK_MODEL_MODE = "live"
-powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Up -Services all
 $env:ROUTEDECK_E2E_VIDEO = "on"
-pnpm --filter @routedeck/medusa-agent-e2e exec playwright test --config playwright.config.ts --project=desktop-chromium human-checkout-flow.spec.ts
+pnpm --filter @routedeck/medusa-agent-e2e exec playwright test --config live-checkout-video.playwright.config.ts human-checkout-flow.spec.ts
 ```
 
-The single test must cover the assistant greeting, casual chat, direct product/
-cart/checkout surfaces, explicit review approval, one real cart completion,
-independent order reread, and confirmation, with no browser `/store/*` request
-or fallback. Preserve the one generated video as
-`artifacts/routedeck-runtime-boundary/human-checkout-flow.webm`, then stop
-without deleting volumes:
+It requires the protected stack and a valid configured `OPENAI_API_KEY`. The
+story must use actual Medusa data and live model mode; missing access is a
+blocker. A test-only scripted graph cannot satisfy live acceptance.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\demo-stack.ps1 -Action Down
-```
-
-No successful live acceptance is claimed by this index; report it only from
-the current command output and retained artifact.
+Do not claim the checkout passed or a video is current from this index. Report
+the exact Playwright result and retained absolute artifact path.
 
 ## Release Gate
 
 `examples/medusa-agent/scripts/release-verify.ps1` is the consolidated local
-release harness. It must verify, in order:
+release harness. It covers framework correctness, boundaries, real commerce,
+browser experience, critical coverage groups, packaging, and sanitized
+evidence.
 
-1. framework correctness;
-2. boundary and adapter integrity;
-3. real commerce source of truth;
-4. browser, buyer-agent, and developer experience.
-
-The harness also enforces the configured critical branch-coverage groups,
-creates only sanitized evidence, and stops the scoped demo stack in a `finally`
-path.
-
-The framework coverage command excludes `integration/real_medusa`; that suite
-runs once in the dedicated real-commerce gate so its order mutation begins from
-the freshly reset canonical seed rather than from an earlier test-created order.
-
-The live buyer-agent smoke requires `OPENAI_API_KEY`. Absence of that key is a
-hard release-gate failure, not permission to use a scripted or fallback model.
-Test-only scripted models are valid only in isolated tests. No current pass is
-claimed here.
-
-After explicitly reviewing and approving the protected reset scope, run:
+It requires explicit destructive reset intent:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scripts\release-verify.ps1 -ResetProtectedDemo
 ```
 
-The reset switch is mandatory because release proof includes before/after
-canonical seed evidence. Do not use this command as an ordinary smoke test.
-
-## Documentation And Contract Checks
-
-```powershell
-pnpm contracts:generate
-python scripts/check_doc_coverage.py
-```
-
-The first command regenerates the Python-derived JSON schema and TypeScript
-contracts; a clean release gate requires no unexplained drift afterward. The
-second command is advisory ownership coverage against `architecture/code-map.md`.
+Do not run it as an ordinary smoke test. Missing real dependencies or model
+credentials fail the gate rather than selecting fixture/fallback behavior.
 
 ## Update Rule
 
-When a test, gate, script, or source-of-truth requirement moves, update this
-index and the owning row in `architecture/code-map.md`. Keep temporary probes
-and deterministic test data explicitly isolated from product paths.
+When a test, command, source-of-truth requirement, or supported claim moves,
+update this index, the owning feature-coverage row, and the relevant code-map
+row/component contract.

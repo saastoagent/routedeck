@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from .app import (
-    ApplicationSpec,
-    BoundRouteDeckApp,
-    CompiledRouteDeckApp,
+    Application,
+    BoundApplication,
+    CompiledApplication,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
@@ -33,16 +33,16 @@ from .state import RouteDeckSessionAggregate
 from .supervision import RouteDeckOperationRunner
 
 __all__ = [
-    "ApplicationSpec",
-    "BoundRouteDeckApp",
-    "CompiledRouteDeckApp",
+    "Application",
+    "BoundApplication",
+    "CompiledApplication",
     "ConfiguredSessionProjector",
     "ContextScopeBuilder",
     "DeepLinkEngine",
     "FailureKind",
     "FailureSafeDetails",
     "FeatureBindings",
-    "FeatureSpec",
+    "Feature",
     "NavigationEngine",
     "OperationContextScope",
     "ProjectionProjector",

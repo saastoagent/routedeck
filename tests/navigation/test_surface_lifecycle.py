@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.app import Application, Feature, compile_app
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
-    RouteSpec,
-    TransitionSpec,
+    Route,
+    Transition,
 )
-from routedeck_core.contracts.operations import OperationSpec, SafetyClass
+from routedeck_core.contracts.operations import Operation, SafetyClass
 from routedeck_core.contracts.session import PublicSurfaceState
 from routedeck_core.contracts.surfaces import (
     SurfaceLifecycle,
-    SurfaceSlotsSpec,
-    SurfaceSpec,
+    SurfaceSlots,
+    Surface,
 )
 from routedeck_core.navigation.engine import NavigationEngine
 from routedeck_core.projection.projector import ProjectionProjector
@@ -24,67 +24,70 @@ from routedeck_testing.factories import session_factory
 
 
 def _lifecycle_app(*, share_ephemeral_with_target: bool = False):
-    stable = SurfaceSpec(
+    stable = Surface(
         id="flow.stable",
         component="flow.stable",
         lifecycle=SurfaceLifecycle.STABLE,
     )
-    ephemeral = SurfaceSpec(
+    ephemeral = Surface(
         id="flow.ephemeral",
         component="flow.ephemeral",
         lifecycle=SurfaceLifecycle.EPHEMERAL,
     )
-    end_surface = SurfaceSpec(id="flow.end", component="flow.end")
-    advance = OperationSpec(
+    end_surface = Surface(id="flow.end", component="flow.end")
+    advance = Operation(
         id="flow.advance",
         title="Advance",
         description="Advance the test flow.",
         safety_class=SafetyClass.NAVIGATION,
         outcomes=("advanced",),
     )
-    start = NodeSpec(
+    start = Node(
         id="flow.start",
         title="Start",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
         operations=(advance,),
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=ephemeral,
             frame=(stable,),
         ),
     )
-    end = NodeSpec(
+    end = Node(
         id="flow.end",
         title="End",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/end",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=end_surface,
             frame=(ephemeral,) if share_ephemeral_with_target else (),
         ),
     )
+    start = start.model_copy(
+        update={
+            "outgoing": (
+                Transition(
+                    operation=advance.ref,
+                    outcome="advanced",
+                    target=end.ref,
+                ),
+            )
+        }
+    )
     return compile_app(
-        ApplicationSpec(
+        Application(
             name="surface-lifecycle-test",
             entry_node=start.ref,
             features=(
-                FeatureSpec(
+                Feature(
                     namespace="flow",
                     nodes=(start, end),
-                    transitions=(
-                        TransitionSpec(
-                            source=start.ref,
-                            operation=advance.ref,
-                            outcome="advanced",
-                            target=end.ref,
-                        ),
-                    ),
                 ),
             ),
         )

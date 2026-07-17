@@ -20,9 +20,9 @@ prompts, models, its Store client, readiness, and UI. ADR-006 partially
 supersedes the ADR-005 clause that assigned RouteDeck infrastructure assembly to
 Medusa's `runtime_factory.py`.
 
-The executable implementation of that decision is tracked in the
-[runtime-boundary refactor plan](../docs/superpowers/plans/2026-07-15-routedeck-runtime-boundary-refactor.md).
-Earlier completed plans remain historical records and do not override ADR-006.
+The completed implementation record is archived in the
+[runtime-boundary refactor plan](../docs/archive/superpowers/plans/2026-07-15-routedeck-runtime-boundary-refactor.md).
+Archived plans remain historical and do not override ADR-006.
 
 ADR-005 remains the structural implementation authority for named state
 actions, canonical event identifiers, SQLAlchemy repository portability,
@@ -32,9 +32,9 @@ record.
 
 ADR-004 remains the controlling scope and local-execution decision. It links
 the approved
-[RouteDeck and Medusa buyer-agent design](../docs/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
+[RouteDeck and Medusa buyer-agent design](../docs/archive/superpowers/specs/2026-07-11-routedeck-medusa-agent-design.md)
 to its completed historical
-[implementation plan](../docs/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md)
+[implementation plan](../docs/archive/superpowers/plans/2026-07-11-routedeck-medusa-agent-implementation.md)
 and fixes execution to the local Windows development machine.
 
 ADR-003 remains historical rationale for RouteDeck's interaction-governance

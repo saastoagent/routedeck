@@ -9,7 +9,7 @@ from routedeck_core.contracts.session import AttemptTerminalState
 from routedeck_core.supervision.guards import GuardDecision, GuardInvocationContext
 
 from ...medusa.client.models import MedusaClientFailureKind
-from .feature import (
+from .declarations import (
     CART_ADD_ITEM,
     CART_CREATE,
     CART_CREATE_UNKNOWN_RECOVERY,

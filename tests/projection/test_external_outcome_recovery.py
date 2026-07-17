@@ -5,20 +5,21 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
-from routedeck_core.app.compiled import CompiledRouteDeckApp
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.app import Application, Feature, compile_app
+from routedeck_core.app.compiled import CompiledApplication
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.operations import (
     OperationRef,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
@@ -27,28 +28,28 @@ from routedeck_core.contracts.session import (
     ResumeCapabilityBinding,
     RouteDeckSession,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
 
 
-_ACTIVE_SURFACE = SurfaceSpec(
+_ACTIVE_SURFACE = Surface(
     id="recovery.normal",
     component="recovery.normal",
 )
-_FAILURE_SURFACE = SurfaceSpec(
+_FAILURE_SURFACE = Surface(
     id="recovery.external_outcome_unknown",
     component="recovery.external_outcome_unknown",
 )
-_RECONCILE = OperationSpec(
+_RECONCILE = Operation(
     id="recovery.reconcile",
     title="Reconcile",
     description="Resolve an explicitly unknown external outcome.",
     safety_class=SafetyClass.READ_EXTERNAL,
     outcomes=("reconciled",),
 )
-_UNRELATED_UNSAFE = OperationSpec(
+_UNRELATED_UNSAFE = Operation(
     id="recovery.delete_unrelated",
     title="Delete unrelated resource",
     description="An unsafe operation that must not leak into recovery projection.",
@@ -60,8 +61,8 @@ _UNRELATED_UNSAFE = OperationSpec(
 def _submit_operation(
     *,
     recovery_refs: tuple[OperationRef, ...] = (_RECONCILE.ref,),
-) -> OperationSpec:
-    return OperationSpec(
+) -> Operation:
+    return Operation(
         id="recovery.submit",
         title="Submit",
         description="Perform one externally mutating request.",
@@ -75,54 +76,51 @@ def _submit_operation(
 def _recovery_app(
     *,
     recovery_refs: tuple[OperationRef, ...] = (_RECONCILE.ref,),
-) -> CompiledRouteDeckApp:
+) -> CompiledApplication:
     submit = _submit_operation(recovery_refs=recovery_refs)
-    node = NodeSpec(
+    node = Node(
         id="recovery.node",
         title="Recovery",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/recovery",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
         operations=(submit, _RECONCILE, _UNRELATED_UNSAFE),
-        surfaces=SurfaceSlotsSpec(
+        outgoing=(
+            Transition(
+                operation=submit.ref,
+                outcome="submitted",
+                target=NodeRef(id="recovery.node"),
+            ),
+            Transition(
+                operation=_RECONCILE.ref,
+                outcome="reconciled",
+                target=NodeRef(id="recovery.node"),
+            ),
+            Transition(
+                operation=_UNRELATED_UNSAFE.ref,
+                outcome="deleted",
+                target=NodeRef(id="recovery.node"),
+            ),
+        ),
+        surfaces=SurfaceSlots(
             active=_ACTIVE_SURFACE,
             error=(_FAILURE_SURFACE,),
         ),
-        recovery=RecoveryPolicySpec(
+        recovery=RecoveryPolicy(
             directives=("reconcile_external_outcome",),
             failure_surface=_FAILURE_SURFACE.ref,
         ),
     )
     return compile_app(
-        ApplicationSpec(
+        Application(
             name="recovery-projection-test",
             entry_node=node.ref,
             features=(
-                FeatureSpec(
+                Feature(
                     namespace="recovery",
                     nodes=(node,),
-                    transitions=(
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=submit.ref,
-                            outcome="submitted",
-                            target=node.ref,
-                        ),
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=_RECONCILE.ref,
-                            outcome="reconciled",
-                            target=node.ref,
-                        ),
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=_UNRELATED_UNSAFE.ref,
-                            outcome="deleted",
-                            target=node.ref,
-                        ),
-                    ),
                 ),
             ),
         )
@@ -147,7 +145,7 @@ def _failure(
 
 
 def _session(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     *,
     failure: RouteDeckFailure | None = None,
     disabled_operation_ids: tuple[str, ...] = (),
@@ -226,7 +224,7 @@ def test_unknown_outcome_rejects_missing_or_mismatched_failure_identity(
 
 def test_unknown_outcome_rejects_recovery_operation_not_declared_at_node() -> None:
     app = _recovery_app()
-    node = app.spec.nodes[0]
+    node = app.graph.nodes[0]
     forged_submit = _submit_operation(
         recovery_refs=(OperationRef(id="recovery.not_at_current_node"),)
     )
@@ -244,7 +242,7 @@ def test_unknown_outcome_rejects_recovery_operation_not_declared_at_node() -> No
     )
     forged_app = replace(
         app,
-        spec=app.spec.model_copy(update={"nodes": (forged_node,)}),
+        graph=app.graph.model_copy(update={"nodes": (forged_node,)}),
         operations={**app.operations, forged_submit.id: forged_submit},
     )
 
@@ -267,7 +265,7 @@ def test_unknown_outcome_rejects_forged_compiled_recovery_contract(
     forgery: str,
 ) -> None:
     app = _recovery_app()
-    node = app.spec.nodes[0]
+    node = app.graph.nodes[0]
     operations = node.operations
 
     if forgery == "submit_not_canonical":
@@ -299,7 +297,7 @@ def test_unknown_outcome_rejects_forged_compiled_recovery_contract(
 
     forged_app = replace(
         app,
-        spec=app.spec.model_copy(update={"nodes": (forged_node,)}),
+        graph=app.graph.model_copy(update={"nodes": (forged_node,)}),
     )
 
     with pytest.raises(RouteDeckValidationError):
@@ -309,9 +307,9 @@ def test_unknown_outcome_rejects_forged_compiled_recovery_contract(
 
 
 def test_medusa_checkout_unknown_outcome_hides_recovery_without_order_binding() -> None:
-    from medusa_agent.composition import compile_medusa_app_spec
+    from medusa_agent.composition import compile_medusa_app
 
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     place_order = app.operations["checkout.place_order"]
     assert place_order.unknown_recovery_directive == "reconcile_unknown_order"
 
@@ -345,9 +343,9 @@ def test_medusa_checkout_unknown_outcome_hides_recovery_without_order_binding() 
 
 
 def test_medusa_checkout_unknown_outcome_projects_recovery_for_order_binding() -> None:
-    from medusa_agent.composition import compile_medusa_app_spec
+    from medusa_agent.composition import compile_medusa_app
 
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     place_order = app.operations["checkout.place_order"]
     now = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
     resume_capability = ResumeCapabilityBinding(

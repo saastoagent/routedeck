@@ -605,6 +605,100 @@ describe("headless RouteDeck flow", () => {
     store.dispose();
   });
 
+  it.each([
+    {
+      label: "expired",
+      error: new RouteDeckHttpError(410, null, "The buyer session expired."),
+      requestId: "replacement-expired-shareable-session-1",
+    },
+    {
+      label: "contract-mismatched",
+      error: new RouteDeckHttpError(
+        409,
+        {
+          code: "session_upgrade_required",
+          correlation_id: "correlation-contract-mismatch",
+          kind: "state_conflict",
+          phase: "session_lookup",
+          public_message: "The buyer session contract changed.",
+        },
+        "The buyer session contract changed.",
+      ),
+      requestId: "replacement-contract-shareable-session-1",
+    },
+  ])(
+    "automatically creates a fresh session when a $label session opens a shareable route",
+    async ({ error, requestId }) => {
+      const client = new ScriptedRouteDeckClient();
+      vi.spyOn(client, "getSession").mockRejectedValue(error);
+      client.enqueueCreatedSession(routeDeckProjectionFixture());
+      const history = new MemoryHistoryHarness("/");
+      const routes = createRouteDeckRouteCodec(
+        routeDeckFrontendContractFixture(),
+        { validateResumeCapability: () => false },
+      );
+      const store = createRouteDeckStore({
+        client,
+        history,
+        routes,
+        bootstrapMode: "resume_or_create_shareable",
+        createRequestId: () => requestId,
+      });
+
+      await store.bootstrap();
+
+      expect(client.sessionCreateRequests).toEqual([{ request_id: requestId }]);
+      expect(store.getState().pendingBootstrap).toBeNull();
+      expect(store.getState().syncStatus).toBe("live");
+      expect(history.current()).toBe("/");
+      store.dispose();
+    },
+  );
+
+  it("keeps contract-mismatch replacement explicit on a session-bound route", async () => {
+    const client = new ScriptedRouteDeckClient();
+    vi.spyOn(client, "getSession").mockRejectedValue(
+      new RouteDeckHttpError(
+        409,
+        {
+          code: "session_upgrade_required",
+          correlation_id: "correlation-secure-contract-mismatch",
+          kind: "state_conflict",
+          phase: "session_lookup",
+          public_message: "The buyer session contract changed.",
+        },
+        "The buyer session contract changed.",
+      ),
+    );
+    client.enqueueCreatedSession(routeDeckProjectionFixture());
+    const history = new MemoryHistoryHarness(
+      "/secure?resume_handle=resume-contract-mismatch",
+    );
+    const routes = createRouteDeckRouteCodec(
+      routeDeckFrontendContractFixture(),
+      { validateResumeCapability: () => true },
+    );
+    const store = createRouteDeckStore({
+      client,
+      history,
+      routes,
+      bootstrapMode: "resume_or_create_shareable",
+      createRequestId: () => "replacement-secure-contract-session-1",
+    });
+
+    await expect(store.bootstrap()).rejects.toMatchObject({ status: 409 });
+
+    expect(client.sessionCreateRequests).toHaveLength(0);
+    expect(store.getState().pendingBootstrap).toEqual({
+      kind: "resume_contract_mismatch",
+      status: 409,
+    });
+    expect(history.current()).toBe(
+      "/secure?resume_handle=resume-contract-mismatch",
+    );
+    store.dispose();
+  });
+
   it("finishes bootstrap when an initial retained navigation is abandoned", async () => {
     const client = new ScriptedRouteDeckClient();
     const home = routeDeckProjectionFixture({

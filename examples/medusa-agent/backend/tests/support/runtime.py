@@ -9,8 +9,8 @@ from typing import Any
 from pydantic import SecretStr
 
 from medusa_agent.bindings import bind_medusa_app
-from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.features.cart import (
+from medusa_agent.composition import compile_medusa_app
+from medusa_agent.features.cart.declarations import (
     BUYER_MARKET_PROVIDER,
     CART_ADD_ITEM,
     CART_CREATE,
@@ -18,14 +18,14 @@ from medusa_agent.features.cart import (
     CART_OPEN,
     CART_STATE_PROVIDER,
 )
-from medusa_agent.features.cart.feature import (
+from medusa_agent.features.cart.declarations import (
     CART_ABSENT_GUARD,
     CART_BINDING_PROVIDER,
     CART_ITEMS_PROVIDER,
     CART_REMOVE_ITEM,
     CART_UPDATE_ITEM,
 )
-from medusa_agent.features.catalog import (
+from medusa_agent.features.catalog.declarations import (
     CATALOG_LIST,
     CATALOG_PRODUCTS_PROVIDER,
     CATALOG_PRODUCT_PROVIDER,
@@ -38,8 +38,8 @@ from medusa_agent.features.catalog import (
     SELECT_VARIANT,
     VARIANT_ALLOWED_GUARD,
 )
-from medusa_agent.features.catalog import CatalogRouteKeyValidator
-from medusa_agent.features.checkout import (
+from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
+from medusa_agent.features.checkout.declarations import (
     CHECKOUT_FACTS_PROVIDER,
     CHECKOUT_READY_GUARD,
     CHECKOUT_START,
@@ -49,14 +49,14 @@ from medusa_agent.features.checkout import (
     SHIPPING_OPTIONS_PROVIDER,
     SHIPPING_VALID_GUARD,
 )
-from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
+from medusa_agent.features.checkout.providers import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.protocol import MedusaStoreClient
 from medusa_agent.session import (
     BuyerMarket,
     create_medusa_session,
     initialize_medusa_session,
 )
-from routedeck_core.app import ContextProvider, Guard, OperationHandler
+from routedeck_core.app import ContextProviderHandler, GuardHandler, OperationHandler
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
 from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.failures import RouteDeckFailure
@@ -499,7 +499,7 @@ def build_test_runtime(
     market: BuyerMarket,
     initial_location: Location | None = None,
 ) -> RouteDeckRuntime:
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     location = initial_location or Location(
         node_id="catalog.product",
         route_params=(
@@ -558,7 +558,7 @@ def build_test_runtime(
         "checkout.payment_providers",
         "orders.confirmed_order",
     }
-    providers: dict[ProviderRef, ContextProvider] = {
+    providers: dict[ProviderRef, ContextProviderHandler] = {
         provider.ref: (
             BuyerMarketProvider(market)
             if provider.id == BUYER_MARKET_PROVIDER.id
@@ -578,7 +578,7 @@ def build_test_runtime(
         "checkout.payment_valid",
         "checkout.review_current",
     }
-    guards: dict[GuardRef, Guard] = {
+    guards: dict[GuardRef, GuardHandler] = {
         guard.ref: UnexpectedGuard()
         for guard in compiled.guards.values()
         if guard.id not in composed_guard_ids
@@ -633,8 +633,8 @@ async def open_test_runtime(
     client: MedusaStoreClient,
     configured_payment_provider_id: str,
     handlers: Mapping[OperationRef, OperationHandler],
-    providers: Mapping[ProviderRef, ContextProvider],
-    guards: Mapping[GuardRef, Guard],
+    providers: Mapping[ProviderRef, ContextProviderHandler],
+    guards: Mapping[GuardRef, GuardHandler],
     clock: Clock,
     notifier: RouteDeckNotifier,
     id_factory: Callable[[str], str],
@@ -649,7 +649,7 @@ async def open_test_runtime(
 ) -> RouteDeckRuntime:
     """Open the explicit durable runtime used only by Medusa integration tests."""
 
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
 
     def application_factory(resources: SqlAlchemyRuntimeResources):
         return bind_medusa_app(

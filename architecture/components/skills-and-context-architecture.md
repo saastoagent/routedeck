@@ -11,9 +11,7 @@ session history.
 
 ## Owner Files
 
-- `skills/routedeck-manifest-authoring/SKILL.md`
-- `skills/routedeck-manifest-scaffolder/SKILL.md`
-- `skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py`
+- `skills/routedeck-feature-authoring/SKILL.md`
 - `skills/routedeck-langgraph-integration/SKILL.md`
 - `critical_prompt.md`
 - `context.md`
@@ -22,6 +20,8 @@ session history.
 - `work_prompt.md`
 - `structure.md`
 - `SYSTEM_FLOW_INDEX.md`
+- `architecture/feature-coverage.md`
+- `architecture/documentation-map.md`
 - `test_index/**/*`
 - `logs/**/*`
 - `context_checkpoints/**/*`
@@ -51,7 +51,7 @@ session history.
 - Skill self-review against trigger, input, output, check, and stop-condition rules.
 - `python scripts/check_doc_coverage.py`
 - `python scripts/check_doc_coverage.py --files critical_prompt.md`
-- `python skills/routedeck-manifest-scaffolder/scripts/scaffold_manifest.py skills/routedeck-manifest-scaffolder/examples/basic-flow.json generated_manifest.py --force`
+- `python scripts/check_context_architecture.py`
 
 ## Update Triggers
 
@@ -62,4 +62,4 @@ Update this doc and `architecture/code-map.md` when changing:
 - context file inventory
 - handoff workflow assumptions
 - advisory checker behavior
-- scaffolder inputs or outputs
+- archive classification or canonical feature coverage

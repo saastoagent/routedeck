@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 from pydantic import SecretStr
 
-from medusa_agent.features.checkout.feature import CHECKOUT_FACTS_PROVIDER
+from medusa_agent.features.checkout.declarations import CHECKOUT_FACTS_PROVIDER
 from medusa_agent.features.checkout.models import (
     CheckoutCartFacts,
     CheckoutFactsContext,
@@ -13,7 +13,7 @@ from medusa_agent.features.checkout.models import (
     CheckoutLineFacts,
     CheckoutShippingFacts,
 )
-from medusa_agent.features.orders.feature import ORDER_PROVIDER
+from medusa_agent.features.orders.declarations import ORDER_PROVIDER
 from medusa_agent.features.orders.handlers import (
     PlaceOrderHandler,
     ReconcileOrderHandler,

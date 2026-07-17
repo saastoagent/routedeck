@@ -5,7 +5,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from ..contracts.operations import EntityInputSpec, OperationRequest, OperationSpec
+from ..contracts.operations import EntityInput, OperationRequest, Operation
 
 
 _REQUEST_FINGERPRINT_DOMAIN = "routedeck.operation-request.v1"
@@ -15,7 +15,7 @@ _OPERATION_SPEC_DOMAIN = "routedeck.operation-spec.v1"
 def canonical_request_fingerprint(
     request: OperationRequest,
     *,
-    entity_inputs: Sequence[EntityInputSpec] = (),
+    entity_inputs: Sequence[EntityInput] = (),
     parent_turn_id: str | None = None,
 ) -> str:
     """Fingerprint request identity without coupling retries to a state version."""
@@ -67,7 +67,7 @@ def canonical_json_fingerprint(domain: str, value: Any) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def canonical_operation_spec_version(operation: OperationSpec) -> str:
+def canonical_operation_spec_version(operation: Operation) -> str:
     digest = canonical_json_fingerprint(
         _OPERATION_SPEC_DOMAIN,
         operation.model_dump(mode="json"),

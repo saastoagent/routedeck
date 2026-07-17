@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.contracts.navigation import NodeRef
 from routedeck_core.contracts.session import (
     Location,
@@ -28,7 +28,7 @@ class CatalogValidator:
 
 
 def test_navigation_uses_compiled_nodes_and_immutable_history() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     initial = session_factory(app=app, node_id="buyer.home")
     engine = NavigationEngine(app)
 
@@ -65,7 +65,7 @@ def test_navigation_uses_compiled_nodes_and_immutable_history() -> None:
 
 
 def test_forward_cancel_and_new_open_update_history_without_mutating_inputs() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     home = session_factory(app=app, node_id="buyer.home")
     browsed = engine.open(home, node_id="catalog.browse")
@@ -100,7 +100,7 @@ def test_forward_cancel_and_new_open_update_history_without_mutating_inputs() ->
 
 
 def test_empty_history_navigation_is_an_identity_preserving_noop() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     initial = session_factory(app=app, node_id="buyer.home")
     engine = NavigationEngine(app)
 
@@ -121,18 +121,18 @@ def test_navigation_intents_fail_when_current_node_disables_them(
     intent: str,
     policy_field: str,
 ) -> None:
-    app = compile_medusa_app_spec()
-    home = next(node for node in app.spec.nodes if node.id == "buyer.home")
+    app = compile_medusa_app()
+    home = next(node for node in app.graph.nodes if node.id == "buyer.home")
     disabled_home = home.model_copy(
         update={"navigation": home.navigation.model_copy(update={policy_field: False})}
     )
     forged_app = replace(
         app,
-        spec=app.spec.model_copy(
+        graph=app.graph.model_copy(
             update={
                 "nodes": tuple(
                     disabled_home if node.id == home.id else node
-                    for node in app.spec.nodes
+                    for node in app.graph.nodes
                 )
             }
         ),
@@ -145,7 +145,7 @@ def test_navigation_intents_fail_when_current_node_disables_them(
 
 @pytest.mark.parametrize("entry_id", (True, 0, -1))
 def test_restore_history_rejects_invalid_entry_identity(entry_id: int) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     with pytest.raises(RouteDeckValidationError, match="entry ID is invalid"):
         NavigationEngine(app).restore_history_entry(
@@ -155,7 +155,7 @@ def test_restore_history_rejects_invalid_entry_identity(entry_id: int) -> None:
 
 
 def test_restore_history_rejects_duplicate_entry_identities() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(app=app, node_id="catalog.browse")
     forged = session.model_copy(
         update={
@@ -176,7 +176,7 @@ def test_restore_history_rejects_duplicate_entry_identities() -> None:
 
 
 def test_navigation_rejects_unknown_nodes_and_invalid_route_parameters() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     initial = session_factory(app=app, node_id="buyer.home")
     engine = NavigationEngine(app)
 
@@ -193,7 +193,7 @@ def test_navigation_rejects_unknown_nodes_and_invalid_route_parameters() -> None
 
 
 def test_navigation_validates_public_path_bindings_before_state_changes() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     initial = session_factory(app=app, node_id="catalog.browse")
     engine = NavigationEngine(app)
 
@@ -222,7 +222,7 @@ def test_navigation_validates_public_path_bindings_before_state_changes() -> Non
 
 
 def test_cancel_has_its_own_history_transition_when_back_is_disabled() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     nodes = tuple(
         node.model_copy(
             update={
@@ -233,10 +233,10 @@ def test_cancel_has_its_own_history_transition_when_back_is_disabled() -> None:
         )
         if node.id == "catalog.product"
         else node
-        for node in app.spec.nodes
+        for node in app.graph.nodes
     )
     engine = NavigationEngine(
-        replace(app, spec=app.spec.model_copy(update={"nodes": nodes}))
+        replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
     )
     browsed = session_factory(app=engine.app, node_id="catalog.browse")
     product = engine.open(
@@ -270,7 +270,7 @@ def test_cancel_has_its_own_history_transition_when_back_is_disabled() -> None:
 
 
 def test_cancel_explicit_target_is_resolved_from_the_compiled_graph() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     nodes = tuple(
         node.model_copy(
             update={
@@ -285,10 +285,10 @@ def test_cancel_explicit_target_is_resolved_from_the_compiled_graph() -> None:
         )
         if node.id == "catalog.product"
         else node
-        for node in app.spec.nodes
+        for node in app.graph.nodes
     )
     engine = NavigationEngine(
-        replace(app, spec=app.spec.model_copy(update={"nodes": nodes}))
+        replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
     )
     product = session_factory(
         app=engine.app,
@@ -308,7 +308,7 @@ def test_cancel_explicit_target_is_resolved_from_the_compiled_graph() -> None:
 
 
 def test_navigation_rejects_an_incompatible_navgraph_session() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     stale = session_factory(node_id="buyer.home")
 
     with pytest.raises(RouteDeckValidationError, match="session_upgrade_required"):
@@ -329,7 +329,7 @@ def test_session_bound_navigation_requires_a_valid_same_session_capability(
     node_id: str,
     route_params: dict[str, str] | None,
 ) -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     initial = session_factory(app=app, node_id="buyer.home")
 
@@ -395,7 +395,7 @@ def test_session_bound_navigation_requires_a_valid_same_session_capability(
 
 
 def test_history_navigation_rejects_unknown_and_unbound_destinations() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     initial = session_factory(app=app, node_id="buyer.home")
 
@@ -415,7 +415,7 @@ def test_history_navigation_rejects_unknown_and_unbound_destinations() -> None:
 
 
 def test_history_navigation_revalidates_public_route_bindings() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     forged_product = Location(
         node_id="catalog.product",
@@ -438,7 +438,7 @@ def test_history_navigation_revalidates_public_route_bindings() -> None:
 
 
 def test_open_rejects_an_invalid_current_location_before_pushing_history() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     invalid_current = session_factory(app=app, node_id="catalog.product")
 
     with pytest.raises(RouteDeckValidationError):

@@ -6,7 +6,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..app import BoundRouteDeckApp
+from ..app import BoundApplication
 from ..contracts.events import (
     RouteDeckEvent,
     PublicEventPayload,
@@ -85,7 +85,7 @@ IdFactory = Callable[[str], str]
 class RouteDeckNavigationRunner:
     """Own exact route entry, canonical history, and persisted navigation writes."""
 
-    app: BoundRouteDeckApp
+    app: BoundApplication
     store: RouteDeckSessionStore
     operation_runner: RouteDeckOperationRunner
     clock: Clock
@@ -407,7 +407,7 @@ class RouteDeckNavigationRunner:
         node = next(
             (
                 candidate
-                for candidate in self.app.app.spec.nodes
+                for candidate in self.app.app.graph.nodes
                 if candidate.id == node_id
             ),
             None,

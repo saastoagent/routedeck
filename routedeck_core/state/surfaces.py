@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from ..app.compiled import CompiledRouteDeckApp
-from ..contracts.application import NodeSpec
+from ..app.compiled import CompiledApplication
+from ..contracts.application import Node
 from ..contracts.session import PublicSurfaceState
 from ..contracts.surfaces import SurfaceLifecycle
 from ..validation import RouteDeckValidationError
 
 
 def validate_canonical_surface_state(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     surface_state: tuple[PublicSurfaceState, ...],
 ) -> None:
     """Require every stored surface ID to exist in the compiled global catalog."""
@@ -26,9 +26,9 @@ def validate_canonical_surface_state(
 
 
 def surface_state_for_node(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     surface_state: tuple[PublicSurfaceState, ...],
-    node: NodeSpec,
+    node: Node,
 ) -> tuple[PublicSurfaceState, ...]:
     """Retain stable state globally and ephemeral state only while declared."""
 

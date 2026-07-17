@@ -1,29 +1,30 @@
 from __future__ import annotations
 
-from routedeck_core.app import ApplicationSpec, FeatureSpec, compile_app
+from routedeck_core.app import Application, Feature, compile_app
 from routedeck_core.context.agent import AgentContextLens
 from routedeck_core.context.framework_policies import RouteDeckAgentPolicyType
-from routedeck_core.contracts.agent import AgentPolicySpec
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.contracts.agent import AgentPolicy
+from routedeck_core.contracts.application import Capability, Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RouteSpec,
-    TransitionSpec,
+    Route,
+    Transition,
 )
-from routedeck_core.contracts.operations import OperationSpec, SafetyClass
-from routedeck_core.contracts.suggestions import SuggestedActionSpec
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.suggestions import SuggestedAction
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_testing.factories import session_factory
 
 
 def _compiled_app(*, active_surface: bool):
     policies = tuple(
-        AgentPolicySpec(id=f"test.{name}", instruction=f"{name} instruction")
+        AgentPolicy(id=f"test.{name}", instruction=f"{name} instruction")
         for name in ("feature", "shared", "node", "capability", "surface", "operation")
     )
     by_id = {policy.id: policy for policy in policies}
-    operation = OperationSpec(
+    operation = Operation(
         id="test.open",
         title="Open tests",
         description="Open the current test collection.",
@@ -31,50 +32,49 @@ def _compiled_app(*, active_surface: bool):
         outcomes=("opened",),
         policy_refs=(by_id["test.operation"].ref, by_id["test.shared"].ref),
     )
-    surface = SurfaceSpec(
+    surface = Surface(
         id="test.surface",
         component="test.surface",
         policy_refs=(by_id["test.surface"].ref, by_id["test.shared"].ref),
     )
-    capability = CapabilitySpec(
+    capability = Capability(
         id="test.capability",
         title="Test capability",
         operations=(operation.ref,),
         surfaces=(surface.ref,),
         policy_refs=(by_id["test.capability"].ref, by_id["test.shared"].ref),
     )
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Test home",
         kind=NodeKind.SECTION,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=(operation,),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="opened",
+                target=NodeRef(id="test.home"),
+            ),
+        ),
         capabilities=(capability,),
-        surfaces=SurfaceSlotsSpec(
+        surfaces=SurfaceSlots(
             active=surface if active_surface else None,
             frame=() if active_surface else (surface,),
         ),
         policy_refs=(by_id["test.node"].ref, by_id["test.shared"].ref),
         suggested_actions=(
-            SuggestedActionSpec(id="test.open_action", operation_id=operation.id),
+            SuggestedAction(id="test.open_action", operation_id=operation.id),
         ),
     )
     return compile_app(
-        ApplicationSpec(
+        Application(
             name="agent-context-test",
             entry_node=node.ref,
             features=(
-                FeatureSpec(
+                Feature(
                     namespace="test",
                     nodes=(node,),
-                    transitions=(
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=operation.ref,
-                            outcome="opened",
-                            target=node.ref,
-                        ),
-                    ),
                     agent_policies=policies,
                     policy_refs=(
                         by_id["test.feature"].ref,

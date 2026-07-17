@@ -13,7 +13,7 @@ from ..contracts.operations import (
     OperationRef,
     OperationRequest,
     OperationResult,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.projection import FrozenJsonObject
 from ..contracts.session import (
@@ -34,7 +34,7 @@ class OutcomeExecutionMixin(OutcomeRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         attempt: OperationAttempt,
         session: RouteDeckSession,
         lease: TurnLease,
@@ -339,7 +339,7 @@ class OutcomeExecutionMixin(OutcomeRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec,
+        operation: Operation,
         stored: StoredOperationAttempt,
         session: RouteDeckSession,
         claim: Any,

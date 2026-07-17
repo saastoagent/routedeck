@@ -38,9 +38,9 @@ def test_operation_runner_has_an_intentional_public_supervision_export() -> None
 
 
 def test_entity_inputs_are_explicit_and_unique() -> None:
-    entity_input_type = getattr(operations, "EntityInputSpec")
+    entity_input_type = getattr(operations, "EntityInput")
 
-    operation = operations.OperationSpec(
+    operation = operations.Operation(
         id="cart.add_item",
         title="Add item",
         description="Test operation.",
@@ -118,7 +118,7 @@ def test_operation_outcome_requires_a_typed_success_or_failure() -> None:
 
 def test_write_operations_require_explicit_unknown_outcome_recovery() -> None:
     with pytest.raises(ValidationError, match="unknown recovery directive"):
-        operations.OperationSpec(
+        operations.Operation(
             id="cart.add_item",
             title="Add item",
             description="Test operation.",
@@ -126,7 +126,7 @@ def test_write_operations_require_explicit_unknown_outcome_recovery() -> None:
             outcomes=("added",),
         )
 
-    operation = operations.OperationSpec(
+    operation = operations.Operation(
         id="cart.add_item",
         title="Add item",
         description="Test operation.",
@@ -157,7 +157,7 @@ def test_non_write_operations_reject_unknown_outcome_recovery_fields(
     recovery_fields: dict[str, object],
 ) -> None:
     with pytest.raises(ValidationError, match="only for write_external"):
-        operations.OperationSpec(
+        operations.Operation(
             id="catalog.list",
             title="List catalog",
             description="Test operation.",
@@ -262,7 +262,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
     guard = operations.GuardRef(id="test.guard")
 
     with pytest.raises(ValidationError, match="provider refs"):
-        operations.OperationSpec(
+        operations.Operation(
             id="test.advance",
             title="Advance",
             description="Test operation.",
@@ -272,7 +272,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
             provider_refs=(provider, provider),
         )
     with pytest.raises(ValidationError, match="string schema property"):
-        operations.OperationSpec(
+        operations.Operation(
             id="cart.add_item",
             title="Add",
             description="Test operation.",
@@ -282,7 +282,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
                 "required": ["variant_ref"],
             },
             entity_inputs=(
-                operations.EntityInputSpec(
+                operations.EntityInput(
                     argument_name="variant_ref", entity_kind="variant"
                 ),
             ),
@@ -294,7 +294,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
 
 
 def test_operation_outcome_schemas_are_declared_by_outcome() -> None:
-    operation = operations.OperationSpec(
+    operation = operations.Operation(
         id="cart.create",
         title="Create cart",
         description="Test operation.",
@@ -313,7 +313,7 @@ def test_operation_outcome_schemas_are_declared_by_outcome() -> None:
 
     assert operation.outcome_schema_value("created")["type"] == "object"
     with pytest.raises(ValidationError, match="declared outcomes"):
-        operations.OperationSpec(
+        operations.Operation(
             id="cart.create",
             title="Create cart",
             description="Test operation.",

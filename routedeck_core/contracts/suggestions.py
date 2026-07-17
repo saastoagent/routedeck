@@ -13,13 +13,13 @@ class _FrozenContract(BaseModel):
     )
 
 
-class SuggestedActionVisibilitySpec(_FrozenContract):
+class SuggestedActionVisibility(_FrozenContract):
     """Declarative session-state requirements for projecting one action."""
 
     required_entity_kinds: tuple[str, ...] = ()
 
     @model_validator(mode="after")
-    def _unique_entity_kinds(self) -> SuggestedActionVisibilitySpec:
+    def _unique_entity_kinds(self) -> SuggestedActionVisibility:
         if len(self.required_entity_kinds) != len(set(self.required_entity_kinds)):
             raise ValueError("required entity kinds must be unique")
         if any(not entity_kind for entity_kind in self.required_entity_kinds):
@@ -27,7 +27,7 @@ class SuggestedActionVisibilitySpec(_FrozenContract):
         return self
 
 
-class SuggestedActionSpec(_FrozenContract):
+class SuggestedAction(_FrozenContract):
     """One compact, RouteDeck-supervised operation invitation."""
 
     id: str = Field(min_length=1)
@@ -36,12 +36,12 @@ class SuggestedActionSpec(_FrozenContract):
     arguments: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
-    visibility: SuggestedActionVisibilitySpec = Field(
-        default_factory=SuggestedActionVisibilitySpec
+    visibility: SuggestedActionVisibility = Field(
+        default_factory=SuggestedActionVisibility
     )
 
     def arguments_value(self) -> dict[str, object]:
         return self.arguments.to_dict()
 
 
-__all__ = ["SuggestedActionSpec", "SuggestedActionVisibilitySpec"]
+__all__ = ["SuggestedAction", "SuggestedActionVisibility"]

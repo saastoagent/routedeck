@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Protocol, runtime_checkable
 
-from routedeck_core.app import CompiledRouteDeckApp
+from routedeck_core.app import CompiledApplication
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
@@ -84,7 +84,7 @@ class RouteDeckDependencyUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class RouteDeckDependencies:
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
     runner: RouteDeckOperationRunner
     store: RouteDeckSessionStore
     notifier: EventWakeupNotifier

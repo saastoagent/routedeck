@@ -73,8 +73,9 @@ interaction handshake live in RouteDeck packages, not in this product package.
 Medusa supplies the product graphs, prompts, models, bindings, and callbacks;
 `RouteDeckLangGraphDriverFactory` constructs the generic driver.
 
-Feature declarations are composed once in `composition.py`, implementations
-are wired once in `bindings.py`, session callbacks live in `session.py`, and
+Each feature declares complete nodes and their outgoing transitions.
+`composition.py` selects only the features and entry node; implementations are
+wired once in `bindings.py`, session callbacks live in `session.py`, and
 `runtime.py` passes those inputs to `open_sqlalchemy_routedeck_runtime(...)`.
 RouteDeck constructs the durable resources, one runner, navigation over that
 runner, projection, and driver. Product behavior is organized under each feature's
@@ -122,7 +123,7 @@ Shareable routes:
 - `/products`
 - `/products/{product_handle}`
 
-The product detail route uses a declarative `RouteEntrySpec` that binds the
+The product detail route uses a declarative `RouteEntry` that binds the
 exact `product_handle` segment to `catalog.open_product_by_route`. RouteDeck
 parses the route structurally; the product handler resolves the handle through
 the typed Store client.
@@ -141,9 +142,17 @@ unexpired resume capability, and current RouteDeck session agree. Browser
 back/forward restores an exact server-owned history entry; it does not infer a
 new commerce action from the URL.
 
-Product components register against compiled `SurfaceSpec.component` names in
+On first load the browser captures the address-bar path and tries the HTTP-only
+guest cookie session. If that session is missing, expired, or contract-stale, it
+creates one real session only when the incoming route is shareable, then enters
+the captured route through normal RouteDeck navigation. Session-bound URLs never
+create replacement state. Tabs in one browser profile share the guest cookie;
+separate profiles receive isolated sessions. Authenticated multi-session
+authorization remains a consumer-owned future adapter boundary.
+
+Product components register against compiled `Surface.component` names in
 `frontend/src/routedeck/surfaces.tsx`. Surface affordances dispatch declared
-RouteDeck operations. Checkout contact uses `PrivateFormBindingSpec` to
+RouteDeck operations. Checkout contact uses `PrivateFormBinding` to
 authorize one projected form handle and an exact top-level field allowlist.
 Untouched authorized forms load as revision `0`; the first real save atomically
 stores revision `1` and an encrypted private blob. Private values never enter

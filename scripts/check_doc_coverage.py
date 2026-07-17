@@ -1,18 +1,58 @@
-"""Advisory architecture/test coverage checker for RouteDeck source changes."""
+"""Advisory source-to-architecture coverage checker for RouteDeck."""
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CODE_MAP = PROJECT_ROOT / "architecture" / "code-map.md"
-SOURCE_SUFFIXES = {".py", ".ts", ".tsx", ".mjs", ".js", ".json", ".toml", ".md"}
+SOURCE_SUFFIXES = {
+    ".css",
+    ".js",
+    ".json",
+    ".md",
+    ".mjs",
+    ".py",
+    ".ps1",
+    ".sh",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".yaml",
+    ".yml",
+}
+SOURCE_NAMES = {"Dockerfile"}
+EXCLUDED_PART_NAMES = {
+    ".agents",
+    ".cache",
+    ".codex",
+    ".codex-run",
+    ".demo-data",
+    ".git",
+    ".mypy_cache",
+    ".pnpm-store",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".superpowers",
+    ".venv",
+    "__pycache__",
+    "artifacts",
+    "codex_chats_and_memories",
+    "context_checkpoints",
+    "context_history",
+    "dist",
+    "graphify-out",
+    "logs",
+    "node_modules",
+    "playwright-report",
+    "test-results",
+}
+EXCLUDED_PREFIXES = {"docs/archive"}
 
 
 @dataclass(frozen=True)
@@ -58,49 +98,6 @@ def load_coverage_rows() -> list[CoverageRow]:
     return rows
 
 
-def _run_git(args: list[str]) -> str:
-    completed = subprocess.run(
-        ["git", *args],
-        cwd=PROJECT_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
-    return completed.stdout
-
-
-def _git_root() -> Path:
-    return Path(_run_git(["rev-parse", "--show-toplevel"]).strip()).resolve()
-
-
-def _project_relative_git_path(path: str, git_root: Path) -> str | None:
-    absolute = (git_root / path.replace("\\", "/").strip('"')).resolve()
-    try:
-        return absolute.relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        return None
-
-
-def changed_files_from_git() -> list[str]:
-    git_root = _git_root()
-    files: list[str] = []
-    commands = (
-        ["diff", "--name-only"],
-        ["diff", "--cached", "--name-only"],
-        ["ls-files", "--others", "--exclude-standard"],
-    )
-    for command in commands:
-        for path_text in _run_git(command).splitlines():
-            if not path_text.strip():
-                continue
-            path = _project_relative_git_path(path_text, git_root)
-            if path is not None:
-                files.append(path)
-    return sorted(set(files))
-
-
 def normalize_input_path(path: str) -> str:
     absolute = Path(path)
     if absolute.is_absolute():
@@ -112,8 +109,27 @@ def normalize_input_path(path: str) -> str:
     return normalized[2:] if normalized.startswith("./") else normalized
 
 
+def _excluded(path: Path) -> bool:
+    relative = path.relative_to(PROJECT_ROOT).as_posix()
+    if any(part in EXCLUDED_PART_NAMES for part in Path(relative).parts):
+        return True
+    return any(
+        relative == excluded or relative.startswith(f"{excluded}/")
+        for excluded in EXCLUDED_PREFIXES
+    )
+
+
 def is_source_file(path: str) -> bool:
-    return Path(path).suffix in SOURCE_SUFFIXES
+    candidate = Path(path)
+    return candidate.suffix in SOURCE_SUFFIXES or candidate.name in SOURCE_NAMES
+
+
+def all_source_files() -> list[str]:
+    return sorted(
+        path.relative_to(PROJECT_ROOT).as_posix()
+        for path in PROJECT_ROOT.rglob("*")
+        if path.is_file() and not _excluded(path) and is_source_file(path.as_posix())
+    )
 
 
 def matches_any(path: str, patterns: tuple[str, ...]) -> bool:
@@ -132,80 +148,90 @@ def owners_for(path: str, rows: list[CoverageRow]) -> list[CoverageRow]:
     return [row for row in rows if matches_any(path, row.source_globs)]
 
 
-def touched_anchors(row: CoverageRow, changed_files: list[str]) -> list[str]:
+def touched_anchors(row: CoverageRow, files_to_check: list[str]) -> list[str]:
     anchors = row.architecture_anchors + row.test_anchors
-    touched: list[str] = []
-    for anchor in anchors:
-        for changed in changed_files:
-            if changed == anchor or fnmatch.fnmatch(changed, anchor):
-                touched.append(anchor)
-                break
-    return sorted(set(touched))
+    return sorted(
+        {
+            anchor
+            for anchor in anchors
+            for changed in files_to_check
+            if changed == anchor or fnmatch.fnmatch(changed, anchor)
+        }
+    )
 
 
-def print_report(files_to_check: list[str], changed_files: list[str]) -> None:
+def print_report(files_to_check: list[str], *, verbose: bool) -> None:
     rows = load_coverage_rows()
-    source_files = [path for path in files_to_check if is_source_file(path)]
+    source_files = sorted({path for path in files_to_check if is_source_file(path)})
 
-    print("RouteDeck doc coverage advisory")
+    print("RouteDeck documentation coverage advisory")
     print(f"Code map: {CODE_MAP.relative_to(PROJECT_ROOT).as_posix()}")
-
-    if not source_files:
-        print("No changed source files to map.")
-        print("Result: advisory only; exit code remains 0.")
-        return
+    print(f"Live source files checked: {len(source_files)}")
 
     unmapped: list[str] = []
+    counts = {row.subsystem: 0 for row in rows}
     for path in source_files:
         owned_rows = owners_for(path, rows)
         if not owned_rows:
             unmapped.append(path)
-            print(f"\nWARN: {path}")
-            print("  No subsystem owner found in architecture/code-map.md.")
+            print(f"WARN unmapped: {path}")
             continue
-
-        print(f"\nOK: {path}")
         for row in owned_rows:
-            print(f"  Subsystem: {row.subsystem}")
-            print(
-                "  Architecture anchors: "
-                + (", ".join(row.architecture_anchors) or "(none)")
-            )
-            print("  Test anchors: " + (", ".join(row.test_anchors) or "(none)"))
-            touched = touched_anchors(row, changed_files)
-            if touched:
-                print("  Changed anchors in this worktree: " + ", ".join(touched))
-            else:
+            counts[row.subsystem] += 1
+        if verbose:
+            print(f"\nOK: {path}")
+            for row in owned_rows:
+                print(f"  Subsystem: {row.subsystem}")
                 print(
-                    "  WARN: no related architecture/test anchor is currently changed; "
-                    "closeout should state why the documented contract is unchanged."
+                    "  Architecture anchors: "
+                    + (", ".join(row.architecture_anchors) or "(none)")
                 )
+                print(
+                    "  Test anchors: "
+                    + (", ".join(row.test_anchors) or "(none)")
+                )
+                touched = touched_anchors(row, source_files)
+                if touched:
+                    print("  Anchors in selected set: " + ", ".join(touched))
 
-    if unmapped:
-        print("\nUnmapped source files:")
-        for path in unmapped:
-            print(f"- {path}")
-    print("\nResult: advisory only; exit code remains 0.")
+    print("\nSubsystem coverage:")
+    for subsystem, count in counts.items():
+        print(f"- {subsystem}: {count} files")
+    print(f"\nMapped: {len(source_files) - len(unmapped)}")
+    print(f"Unmapped: {len(unmapped)}")
+    print("Result: advisory only; exit code remains 0.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Map changed RouteDeck source files to architecture/test anchors."
+        description=(
+            "Map RouteDeck live source files to architecture/code-map.md "
+            "without reading Git state."
+        )
     )
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--all",
+        action="store_true",
+        help="Scan maintained live source (the default).",
+    )
+    selection.add_argument(
         "--files",
         nargs="+",
-        help="Specific project-relative source files to check instead of git status.",
+        help="Check only the specified project-relative files.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print owner and anchor detail for every mapped file.",
     )
     args = parser.parse_args()
-
-    changed_files = changed_files_from_git()
     files_to_check = (
         [normalize_input_path(path) for path in args.files]
         if args.files
-        else changed_files
+        else all_source_files()
     )
-    print_report(files_to_check, changed_files)
+    print_report(files_to_check, verbose=args.verbose)
     return 0
 
 

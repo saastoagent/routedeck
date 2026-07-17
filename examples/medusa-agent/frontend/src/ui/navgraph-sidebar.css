@@ -1,12 +1,10 @@
 .navgraph-sidebar {
-  position: fixed;
+  position: relative;
   z-index: 40;
-  top: 62px;
-  right: 10px;
   display: grid;
   width: 44px;
-  max-height: calc(100vh - 72px);
-  max-height: calc(100dvh - 72px);
+  height: 100%;
+  max-height: 100%;
   grid-template-columns: 44px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--line);
@@ -17,9 +15,7 @@
 }
 
 .navgraph-sidebar[data-expanded="true"] {
-  width: min(44rem, calc(100vw - 20px));
-  height: calc(100vh - 72px);
-  height: calc(100dvh - 72px);
+  width: min(44rem, 42vw);
 }
 
 .navgraph-sidebar-toggle {
@@ -325,9 +321,11 @@
 
 @media (max-width: 760px) {
   .navgraph-sidebar {
+    position: fixed;
     top: auto;
     right: 6px;
     bottom: 6px;
+    height: auto;
     max-height: calc(100dvh - 12px);
   }
 

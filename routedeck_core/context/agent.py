@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..app.compiled import CompiledRouteDeckApp
-from ..app.feature import FeatureSpec
-from ..contracts.agent import AgentPolicyRef, AgentPolicySpec
-from ..contracts.application import NodeSpec
-from ..contracts.operations import OperationSpec
+from ..app.compiled import CompiledApplication
+from ..app.feature import Feature
+from ..contracts.agent import AgentPolicyRef, AgentPolicy
+from ..contracts.application import Node
+from ..contracts.operations import Operation
 from ..contracts.projection import PublicEntityHandle
 from ..contracts.session import RouteDeckSession
-from ..contracts.suggestions import SuggestedActionSpec
-from ..contracts.surfaces import SurfaceSpec
+from ..contracts.suggestions import SuggestedAction
+from ..contracts.surfaces import Surface
 from ..projection.policy import (
     resolve_projection_mode,
     visible_entity_handles,
@@ -24,19 +24,19 @@ from .framework_policies import ROUTEDECK_FRAMEWORK_AGENT_POLICIES
 class ResolvedAgentContext:
     """Canonical current scope shared by model adapters and public projection."""
 
-    node: NodeSpec
-    legal_operations: tuple[OperationSpec, ...]
-    active_surface: SurfaceSpec | None
+    node: Node
+    legal_operations: tuple[Operation, ...]
+    active_surface: Surface | None
     visible_entities: tuple[PublicEntityHandle, ...]
-    suggested_actions: tuple[SuggestedActionSpec, ...]
-    policies: tuple[AgentPolicySpec, ...]
+    suggested_actions: tuple[SuggestedAction, ...]
+    policies: tuple[AgentPolicy, ...]
 
 
 @dataclass(frozen=True)
 class AgentContextLens:
     """Resolve only trusted declarations and state legal at the current node."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
 
     def resolve(self, session: RouteDeckSession) -> ResolvedAgentContext:
         node = self._current_node(session)
@@ -83,11 +83,11 @@ class AgentContextLens:
     def _resolve_policies(
         self,
         ref_groups: tuple[tuple[AgentPolicyRef, ...], ...],
-    ) -> tuple[AgentPolicySpec, ...]:
-        resolved: list[AgentPolicySpec] = []
+    ) -> tuple[AgentPolicy, ...]:
+        resolved: list[AgentPolicy] = []
         seen: set[str] = set()
 
-        def add(policy: AgentPolicySpec) -> None:
+        def add(policy: AgentPolicy) -> None:
             if policy.id in seen:
                 return
             seen.add(policy.id)
@@ -105,11 +105,11 @@ class AgentContextLens:
                 add(policy)
         return tuple(resolved)
 
-    def _current_node(self, session: RouteDeckSession) -> NodeSpec:
+    def _current_node(self, session: RouteDeckSession) -> Node:
         node = next(
             (
                 candidate
-                for candidate in self.app.spec.nodes
+                for candidate in self.app.graph.nodes
                 if candidate.id == session.current.node_id
             ),
             None,
@@ -120,10 +120,10 @@ class AgentContextLens:
             )
         return node
 
-    def _current_feature(self, node: NodeSpec) -> FeatureSpec:
+    def _current_feature(self, node: Node) -> Feature:
         matches = tuple(
             feature
-            for feature in self.app.source_spec.features
+            for feature in self.app.application.features
             if any(candidate.id == node.id for candidate in feature.nodes)
         )
         if len(matches) != 1:

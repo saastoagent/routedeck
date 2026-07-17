@@ -78,12 +78,12 @@ def test_active_references_lock_the_compiled_framework_and_product_boundaries() 
     assert "Status: canonical framework reference" in route_deck_reference
     assert "Status: active source of truth" in medusa_reference
     for contract_name in (
-        "ApplicationSpec",
-        "FeatureSpec",
-        "NodeSpec",
-        "SurfaceSpec",
-        "RouteEntrySpec",
-        "PrivateFormBindingSpec",
+        "Application",
+        "Feature",
+        "Node",
+        "Surface",
+        "RouteEntry",
+        "PrivateFormBinding",
         "RouteDeckOperationRunner",
         "RouteDeckMiddleware",
         "RouteDeckToolWrapper",
@@ -173,7 +173,7 @@ def test_routedeck_routers_and_product_entry_are_composed_once() -> None:
     assert main.count("application.include_router(health_router)") == 1
 
 
-def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
+def test_medusa_application_is_compiled_from_modular_features() -> None:
     composition = _read("examples/medusa-agent/backend/medusa_agent/composition.py")
     bindings = _read("examples/medusa-agent/backend/medusa_agent/bindings.py")
     runtime = _read("examples/medusa-agent/backend/medusa_agent/runtime.py")
@@ -192,21 +192,24 @@ def test_medusa_application_is_compiled_from_modular_feature_specs() -> None:
     feature_text = "\n".join(path.read_text(encoding="utf-8") for path in feature_paths)
 
     assert len(feature_paths) == 4
-    assert "MEDUSA_APP_SPEC = ApplicationSpec(" in composition
+    assert "MEDUSA_APP = Application(" in composition
+    assert "model_copy" not in composition
+    assert "Transition(" not in composition
+    assert "_COMPOSED_" not in composition
     for contract_name in (
-        "FeatureSpec(",
-        "NodeSpec(",
-        "SurfaceSpec(",
-        "RouteEntrySpec(",
+        "Feature(",
+        "Node(",
+        "Surface(",
+        "RouteEntry(",
         "RouteParameterBinding(",
-        "PrivateFormBindingSpec(",
+        "PrivateFormBinding(",
     ):
         assert contract_name in feature_text
     assert "compile_app(" in composition
     assert "bind_app(" in bindings
     assert "MedusaStoreClient" in bindings
     assert "open_sqlalchemy_routedeck_runtime(" in runtime
-    assert "compile_medusa_app_spec()" in runtime
+    assert "compile_medusa_app()" in runtime
     assert "bind_medusa_app(" in runtime
     assert "RouteDeckLangGraphDriverFactory(" in runtime
     assert "HttpMedusaStoreClient(" in runtime
@@ -271,8 +274,8 @@ def test_private_forms_and_exact_browser_history_are_framework_owned() -> None:
         "examples/medusa-agent/backend/medusa_agent/features/checkout/feature.py"
     )
 
-    assert "class PrivateFormBindingSpec" in private_contract
-    assert "CHECKOUT_PRIVATE_FORM_BINDING = PrivateFormBindingSpec(" in contact_feature
+    assert "class PrivateFormBinding" in private_contract
+    assert "CHECKOUT_PRIVATE_FORM_BINDING = PrivateFormBinding(" in contact_feature
     assert (
         contact_feature.count("private_form_binding=CHECKOUT_PRIVATE_FORM_BINDING") == 2
     )

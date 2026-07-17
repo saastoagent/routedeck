@@ -7,9 +7,9 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import ValidationError
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from medusa_agent.session import BuyerMarket, create_medusa_session
-from routedeck_core.app import CompiledRouteDeckApp
+from routedeck_core.app import CompiledApplication
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationToolCall,
@@ -133,7 +133,7 @@ def test_model_context_reports_review_pending_only_for_pending_resolution(
     expected: bool,
 ) -> None:
     session = create_medusa_session(
-        app=compile_medusa_app_spec(),
+        app=compile_medusa_app(),
         session_id="session-review-status",
         market=BuyerMarket(
             region_handle="region-public",
@@ -170,13 +170,13 @@ def test_model_context_reports_review_pending_only_for_pending_resolution(
         }
     )
 
-    context = build_model_context(session, compile_medusa_app_spec())
+    context = build_model_context(session, compile_medusa_app())
 
     assert context.status.review_pending is expected
 
 
 def test_unknown_order_context_hides_reconcile_without_authorized_order() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = _unknown_order_session(app)
 
     context = build_model_context(session, app)
@@ -186,7 +186,7 @@ def test_unknown_order_context_hides_reconcile_without_authorized_order() -> Non
 
 
 def test_unknown_order_context_exposes_reconcile_for_authorized_order() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = _unknown_order_session(app)
     session = session.model_copy(
         update={
@@ -224,7 +224,7 @@ def test_unknown_order_context_exposes_reconcile_for_authorized_order() -> None:
     )
 
 
-def _unknown_order_session(app: CompiledRouteDeckApp):
+def _unknown_order_session(app: CompiledApplication):
     session = session_factory(app=app, node_id="checkout.review")
     failure = RouteDeckFailure(
         kind=FailureKind.EXTERNAL_OUTCOME_UNKNOWN,

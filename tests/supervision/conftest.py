@@ -11,35 +11,36 @@ import pytest
 from pydantic import SecretStr
 
 from routedeck_core.app import (
-    ApplicationSpec,
+    Application,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.contracts.application import Capability, Node
 from routedeck_core.contracts.conversation import FinalizedConversationTurn
 from routedeck_core.contracts.events import RouteDeckEvent, EventPage
 from routedeck_core.contracts.failures import RouteDeckFailure
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
 from routedeck_core.contracts.operations import (
-    ContextProviderSpec,
+    ContextProvider,
     DeliveryPhase,
-    EntityInputSpec,
-    EntityProviderSpec,
-    GuardSpec,
+    EntityInput,
+    EntityProvider,
+    Guard,
     OperationEvidence,
     OperationOutcome,
     OperationPhase,
     OperationRef,
-    OperationSpec,
+    Operation,
     ProviderRef,
     ReviewPolicy,
     SafetyClass,
@@ -57,7 +58,7 @@ from routedeck_core.contracts.session import (
     SessionSnapshot,
     StoredOperationAttempt,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.ports.executor import (
     ExecutionContext,
     OperationBinding,
@@ -74,7 +75,7 @@ from routedeck_core.supervision.guards import (
 )
 
 
-CONTEXT_PROVIDER = ContextProviderSpec(
+CONTEXT_PROVIDER = ContextProvider(
     id="test.context",
     description="Mutable test-only authoritative context.",
     output_schema={
@@ -84,7 +85,7 @@ CONTEXT_PROVIDER = ContextProviderSpec(
         "additionalProperties": False,
     },
 )
-ENTITY_PROVIDER = EntityProviderSpec(
+ENTITY_PROVIDER = EntityProvider(
     id="test.items",
     entity_kind="item",
     description="Test-only item bindings.",
@@ -95,11 +96,11 @@ ENTITY_PROVIDER = EntityProviderSpec(
         "additionalProperties": False,
     },
 )
-ALLOWED_GUARD = GuardSpec(
+ALLOWED_GUARD = Guard(
     id="test.allowed",
     description="Mutable test-only guard.",
 )
-WRITE_OPERATION = OperationSpec(
+WRITE_OPERATION = Operation(
     id="test.write",
     title="Write",
     description="Test-only write operation.",
@@ -122,7 +123,7 @@ WRITE_OPERATION = OperationSpec(
     provider_refs=(CONTEXT_PROVIDER.ref,),
     guard_refs=(ALLOWED_GUARD.ref,),
 )
-BOUND_OPERATION = OperationSpec(
+BOUND_OPERATION = Operation(
     id="test.bound_write",
     title="Bound write",
     description="Test-only entity-bound write operation.",
@@ -132,14 +133,14 @@ BOUND_OPERATION = OperationSpec(
         "required": ["item_ref"],
         "additionalProperties": False,
     },
-    entity_inputs=(EntityInputSpec(argument_name="item_ref", entity_kind="item"),),
+    entity_inputs=(EntityInput(argument_name="item_ref", entity_kind="item"),),
     safety_class=SafetyClass.WRITE_EXTERNAL,
     unknown_recovery_directive="Verify the entity write before retrying.",
     outcomes=("bound",),
     provider_refs=(ENTITY_PROVIDER.ref,),
     guard_refs=(ALLOWED_GUARD.ref,),
 )
-REVIEW_OPERATION = OperationSpec(
+REVIEW_OPERATION = Operation(
     id="test.reviewed_write",
     title="Reviewed write",
     description="Test-only reviewed write operation.",
@@ -156,7 +157,7 @@ REVIEW_OPERATION = OperationSpec(
     provider_refs=(CONTEXT_PROVIDER.ref,),
     guard_refs=(ALLOWED_GUARD.ref,),
 )
-READ_OPERATION = OperationSpec(
+READ_OPERATION = Operation(
     id="test.read",
     title="Read",
     description="Test-only external read.",
@@ -165,8 +166,8 @@ READ_OPERATION = OperationSpec(
     provider_refs=(CONTEXT_PROVIDER.ref,),
     guard_refs=(ALLOWED_GUARD.ref,),
 )
-ACTIVE_SURFACE = SurfaceSpec(id="test.active", component="test.active")
-CAPABILITY = CapabilitySpec(
+ACTIVE_SURFACE = Surface(id="test.active", component="test.active")
+CAPABILITY = Capability(
     id="test.operations",
     title="Test operations",
     operations=(
@@ -177,18 +178,31 @@ CAPABILITY = CapabilitySpec(
     ),
     surfaces=(ACTIVE_SURFACE.ref,),
 )
-START_NODE = NodeSpec(
+START_NODE = Node(
     id="test.start",
     title="Start",
     kind=NodeKind.WORKFLOW,
-    route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+    route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
     context_providers=(CONTEXT_PROVIDER,),
     entity_providers=(ENTITY_PROVIDER,),
     guards=(ALLOWED_GUARD,),
     operations=(WRITE_OPERATION, BOUND_OPERATION, REVIEW_OPERATION, READ_OPERATION),
+    outgoing=tuple(
+        Transition(
+            operation=operation.ref,
+            outcome=outcome,
+            target=NodeRef(id="test.start"),
+        )
+        for operation, outcome in (
+            (WRITE_OPERATION, "written"),
+            (BOUND_OPERATION, "bound"),
+            (REVIEW_OPERATION, "reviewed"),
+            (READ_OPERATION, "read"),
+        )
+    ),
     capabilities=(CAPABILITY,),
-    surfaces=SurfaceSlotsSpec(active=ACTIVE_SURFACE),
-    recovery=RecoveryPolicySpec(
+    surfaces=SurfaceSlots(active=ACTIVE_SURFACE),
+    recovery=RecoveryPolicy(
         directives=(
             "Verify the write before retrying.",
             "Verify the entity write before retrying.",
@@ -197,27 +211,13 @@ START_NODE = NodeSpec(
         failure_surface=ACTIVE_SURFACE.ref,
     ),
 )
-TEST_APP_SPEC = ApplicationSpec(
+TEST_APP = Application(
     name="supervision-test",
     entry_node=START_NODE.ref,
     features=(
-        FeatureSpec(
+        Feature(
             namespace="test",
             nodes=(START_NODE,),
-            transitions=tuple(
-                TransitionSpec(
-                    source=START_NODE.ref,
-                    operation=operation.ref,
-                    outcome=outcome,
-                    target=START_NODE.ref,
-                )
-                for operation, outcome in (
-                    (WRITE_OPERATION, "written"),
-                    (BOUND_OPERATION, "bound"),
-                    (REVIEW_OPERATION, "reviewed"),
-                    (READ_OPERATION, "read"),
-                )
-            ),
         ),
     ),
 )
@@ -788,7 +788,7 @@ def handlers() -> dict[str, RecordingHandler]:
 
 @pytest.fixture
 def compiled_app():
-    return compile_app(TEST_APP_SPEC)
+    return compile_app(TEST_APP)
 
 
 @pytest.fixture

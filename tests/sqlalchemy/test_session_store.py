@@ -7,15 +7,15 @@ import pytest
 from cryptography.fernet import Fernet
 
 from routedeck_core.app import (
-    ApplicationSpec,
+    Application,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
-from routedeck_core.contracts.application import NodeSpec
-from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, RouteSpec
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec
+from routedeck_core.contracts.application import Node
+from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, Route
+from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.runtime_defaults import UtcClock
 from routedeck_sqlalchemy import (
     FernetSensitiveCodec,
@@ -34,21 +34,21 @@ class _ClosableOpenedStore:
 
 
 def _compiled_test_app(name: str):
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Test home",
         kind=NodeKind.SECTION,
-        route=RouteSpec(
+        route=Route(
             template="/",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
-        surfaces=SurfaceSlotsSpec(active=None),
+        surfaces=SurfaceSlots(active=None),
     )
     return compile_app(
-        ApplicationSpec(
+        Application(
             name=name,
             entry_node=node.ref,
-            features=(FeatureSpec(namespace="test", nodes=(node,)),),
+            features=(Feature(namespace="test", nodes=(node,)),),
         )
     )
 

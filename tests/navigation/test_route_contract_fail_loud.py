@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.contracts.session import ResumeCapabilityBinding
 from routedeck_core.navigation.deep_links import DeepLinkEngine
 from routedeck_core.navigation.routes import (
@@ -43,14 +43,14 @@ def test_route_session_context_rejects_naive_time_and_duplicate_capabilities() -
 
 def test_session_bound_link_encoding_requires_session_and_clock() -> None:
     with pytest.raises(RouteSessionRequired, match="authenticated session"):
-        DeepLinkEngine(compile_medusa_app_spec()).encode(
+        DeepLinkEngine(compile_medusa_app()).encode(
             "cart.summary",
             {"resume_handle": "resume-1"},
         )
 
 
 def test_route_lookup_helpers_reject_unknown_nodes_and_wrong_binding_shapes() -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
 
     with pytest.raises(RouteDeckValidationError, match="Unknown route node"):
         routes.encode("missing.node", {})
@@ -69,7 +69,7 @@ def test_route_lookup_helpers_reject_unknown_nodes_and_wrong_binding_shapes() ->
 
 
 def test_route_encoding_rejects_empty_resume_and_unsafe_path_segments() -> None:
-    routes = compile_medusa_app_spec().routes
+    routes = compile_medusa_app().routes
 
     with pytest.raises(RouteDeckValidationError, match="resume_handle"):
         routes.encode("cart.summary", {"resume_handle": ""})
@@ -93,7 +93,7 @@ def test_route_parser_rejects_nonlocal_malformed_or_non_utf8_paths(
     expected_error: type[Exception],
 ) -> None:
     with pytest.raises(expected_error):
-        compile_medusa_app_spec().routes.match(path)
+        compile_medusa_app().routes.match(path)
 
 
 def test_session_bound_decode_requires_authenticated_guest_identity() -> None:
@@ -104,7 +104,7 @@ def test_session_bound_decode_requires_authenticated_guest_identity() -> None:
     )
 
     with pytest.raises(RouteSessionRequired, match="authenticated guest"):
-        compile_medusa_app_spec().routes.decode(
+        compile_medusa_app().routes.decode(
             "/cart?resume_handle=resume-1",
             context,
         )
@@ -123,7 +123,7 @@ def test_session_bound_decode_requires_authenticated_guest_identity() -> None:
 def test_route_compilation_rejects_ambiguous_or_noncanonical_templates(
     template: str,
 ) -> None:
-    node = compile_medusa_app_spec().spec.nodes[0]
+    node = compile_medusa_app().graph.nodes[0]
     forged = node.model_copy(
         update={"route": node.route.model_copy(update={"template": template})}
     )

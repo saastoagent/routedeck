@@ -6,7 +6,8 @@ import inspect
 from collections.abc import Mapping
 from types import ModuleType
 
-from medusa_agent.composition import compile_medusa_app_spec
+import medusa_agent.composition as composition
+from medusa_agent.composition import compile_medusa_app
 from medusa_agent.features.cart import feature as cart_feature
 from medusa_agent.features.catalog import feature as catalog_feature
 from medusa_agent.features.checkout import feature as checkout_feature
@@ -84,7 +85,7 @@ EXPECTED_OPERATION_IDS = {
 
 
 def test_composition_declares_exact_nodes_routes_surfaces_and_policies() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     assert (
         tuple(
@@ -94,59 +95,70 @@ def test_composition_declares_exact_nodes_routes_surfaces_and_policies() -> None
                 node.surfaces.active.id if node.surfaces.active else None,
                 node.route.deep_link_policy,
             )
-            for node in app.spec.nodes
+            for node in app.graph.nodes
         )
         == EXPECTED_NODES
     )
 
 
 def test_composition_declares_each_product_operation_once() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     assert set(app.operations) == EXPECTED_OPERATION_IDS
     assert (
         sum(
             operation.id == "checkout.place_order"
-            for node in app.spec.nodes
+            for node in app.graph.nodes
             for operation in node.operations
         )
         == 1
     )
 
 
-def test_feature_specs_are_data_only_and_cross_feature_edges_live_in_composition() -> (
-    None
-):
-    app = compile_medusa_app_spec()
+def test_features_are_data_only_and_nodes_own_cross_feature_edges() -> None:
+    app = compile_medusa_app()
 
-    raw_values = tuple(_walk_model_fields(app.source_spec))
-    rendered = repr(app.source_spec.model_dump(mode="json")).lower()
+    raw_values = tuple(_walk_model_fields(app.application))
+    rendered = repr(app.application.model_dump(mode="json")).lower()
     assert "http://" not in rendered
     assert "https://" not in rendered
     assert "/store/" not in rendered
     assert "/admin/" not in rendered
     assert "endpoint" not in rendered
     assert all(not callable(value) for value in raw_values)
-    assert all(
-        transition.source.feature == transition.target.feature
-        for feature in app.source_spec.features
-        for transition in feature.transitions
-    )
-    feature_transitions = {
-        (transition.source.id, transition.operation.id, transition.target.id)
-        for feature in app.source_spec.features
-        for transition in feature.transitions
+    assert "transitions" not in type(app.application).model_fields
+    assert all("transitions" not in type(feature).model_fields for feature in app.application.features)
+    authored_cross_feature = {
+        (node.id, transition.operation.id, transition.target.id)
+        for feature in app.application.features
+        for node in feature.nodes
+        for transition in node.outgoing
+        if node.ref.feature != transition.target.feature
     }
     compiled_cross_feature = {
         (transition.source.id, transition.operation.id, transition.target.id)
-        for transition in app.spec.transitions
+        for transition in app.graph.transitions
         if transition.source.feature != transition.target.feature
     }
     assert compiled_cross_feature
-    assert compiled_cross_feature.isdisjoint(feature_transitions)
+    assert compiled_cross_feature == authored_cross_feature
 
 
-def test_feature_modules_are_isolated_and_composition_owns_contributions() -> None:
+def test_composition_only_selects_features_and_entry_node() -> None:
+    source = inspect.getsource(composition)
+
+    assert "model_copy" not in source
+    assert "Transition(" not in source
+    assert "_COMPOSED_" not in source
+    assert composition.MEDUSA_APP.features == (
+        catalog_feature.FEATURE,
+        cart_feature.FEATURE,
+        checkout_feature.FEATURE,
+        orders_feature.FEATURE,
+    )
+
+
+def test_feature_modules_only_import_sibling_declaration_leaves() -> None:
     modules = (
         catalog_feature,
         cart_feature,
@@ -156,51 +168,66 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
     sibling_imports = {
         module.__name__: _sibling_feature_imports(module) for module in modules
     }
-    assert sibling_imports == {module.__name__: set() for module in modules}
+    assert sibling_imports == {
+        catalog_feature.__name__: {"medusa_agent.features.cart.declarations"},
+        cart_feature.__name__: {"medusa_agent.features.checkout.declarations"},
+        checkout_feature.__name__: {"medusa_agent.features.orders.declarations"},
+        orders_feature.__name__: {"medusa_agent.features.catalog.declarations"},
+    }
 
-    catalog_nodes = {node.id: node for node in catalog_feature.FEATURE_SPEC.nodes}
-    cart_node = cart_feature.FEATURE_SPEC.nodes[0]
-    orders_node = orders_feature.FEATURE_SPEC.nodes[0]
+    catalog_nodes = {node.id: node for node in catalog_feature.FEATURE.nodes}
+    cart_node = cart_feature.FEATURE.nodes[0]
+    orders_node = orders_feature.FEATURE.nodes[0]
     assert {
         operation.id for operation in catalog_nodes["catalog.browse"].operations
     } == {
         "catalog.list",
         "catalog.search",
         "catalog.open_product",
+        "cart.open",
     }
     assert {
         operation.id for operation in catalog_nodes["catalog.product"].operations
-    } == {"catalog.open_product_by_route", "catalog.select_variant"}
+    } == {
+        "catalog.open_product_by_route",
+        "catalog.select_variant",
+        "cart.create",
+        "cart.add_item",
+        "cart.open",
+    }
     assert {operation.id for operation in cart_node.operations} == {
         "cart.open",
         "cart.update_item",
         "cart.remove_item",
+        "checkout.start",
     }
-    assert orders_node.operations == ()
+    assert {operation.id for operation in orders_node.operations} == {
+        "catalog.continue_shopping"
+    }
 
-    app = compile_medusa_app_spec()
-    compiled_nodes = {node.id: node for node in app.spec.nodes}
-    composition_transitions = {
+    app = compile_medusa_app()
+    compiled_nodes = {node.id: node for node in app.graph.nodes}
+    compiled_transitions = {
         (
             transition.source.id,
             transition.operation.id,
             transition.outcome,
             transition.target.id,
         )
-        for transition in app.source_spec.transitions
+        for transition in app.graph.transitions
     }
     assert (
         "catalog.product",
         "cart.create",
         "created",
         "catalog.product",
-    ) in composition_transitions
+    ) in compiled_transitions
     assert (
         "catalog.product",
         "cart.add_item",
         "added",
         "catalog.product",
-    ) in composition_transitions
+    ) in compiled_transitions
     assert {
         operation.id for operation in compiled_nodes["catalog.product"].operations
     } >= {"cart.create", "cart.add_item", "cart.open"}
@@ -213,25 +240,19 @@ def test_feature_modules_are_isolated_and_composition_owns_contributions() -> No
 
     assert _affordance_operation_ids(
         catalog_nodes["catalog.product"].surfaces.active
-    ) == {"catalog.select_variant"}
-    assert _affordance_operation_ids(
-        compiled_nodes["catalog.product"].surfaces.active
     ) >= {"cart.create", "cart.add_item", "cart.open"}
-    assert _affordance_operation_ids(cart_node.surfaces.active) == {
+    assert _affordance_operation_ids(cart_node.surfaces.active) >= {
         "cart.update_item",
         "cart.remove_item",
+        "checkout.start",
     }
     assert _affordance_operation_ids(
-        compiled_nodes["cart.summary"].surfaces.active
-    ) >= {"checkout.start"}
-    assert _affordance_operation_ids(orders_node.surfaces.active) == set()
-    assert _affordance_operation_ids(
-        compiled_nodes["orders.confirmation"].surfaces.active
+        orders_node.surfaces.active
     ) == {"catalog.continue_shopping"}
 
 
 def test_medusa_entity_arguments_are_explicit_and_node_scoped() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     expected = {
         "catalog.open_product": {"product_ref": "product"},
         "catalog.select_variant": {"variant_ref": "variant"},
@@ -249,7 +270,7 @@ def test_medusa_entity_arguments_are_explicit_and_node_scoped() -> None:
         }
         for operation_id in expected
     } == expected
-    for node in app.spec.nodes:
+    for node in app.graph.nodes:
         declared_kinds = {provider.entity_kind for provider in node.entity_providers}
         for operation in node.operations:
             assert {

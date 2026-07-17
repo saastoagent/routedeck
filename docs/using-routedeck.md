@@ -1,588 +1,263 @@
-# Using RouteDeck For Agents, Humans, And Product Developers
+# Using RouteDeck
 
-Status: Practical usage guide
-Date: 2026-07-15
-Authority: ADR-006 for runtime ownership; ADR-005 remains active where ADR-006
-does not supersede it.
+Status: current developer guide
+Date: 2026-07-17
 
-RouteDeck is a full-stack framework for robust agentic applications, with an
-embeddable state and interaction runtime for existing agents. It lets a product
-declare what is true, what can be done next, which surfaces are valid, which
-operations are safe to dispatch, and why something is blocked.
+RouteDeck lets product developers focus on features. A feature declares complete
+interaction nodes and supplies product behavior; RouteDeck composes, validates,
+and runs the shared state, supervision, navigation, conversation, and browser
+machinery.
 
-RouteDeck does not own product prompts, product auth, product databases, domain
-side effects, or product copy. It owns the reusable application compiler/runtime,
-state and interaction kernel, typed event/SSE architecture, projection, and
-frontend state path around those product concerns.
-
-For the canonical framework reference, read
-[`route-deck-reference.md`](./route-deck-reference.md).
-For the narrative architecture article, read
-[`route-deck-whitepaper.md`](./route-deck-whitepaper.md).
-For the printable preview version, open
-[`route-deck-whitepaper.html`](./route-deck-whitepaper.html).
-
-## Short Version
+## Mental Model
 
 ```text
-RouteDeck owns canonical interaction/session truth and the generic runtime.
-The product supplies declarations, bindings, callbacks, graphs/models, and domain adapters.
-RouteDeck drives typed user and assistant turns and supervises every operation.
-Product UI renders RouteDeck projection through headless/React clients.
-Product services remain the authority for domain data and side effects.
+feature declarations + product implementations
+  -> compile and bind
+  -> one RouteDeck runtime
+  -> optional FastAPI and LangGraph adapters
+  -> @routedeck/core authoritative browser state
+  -> @routedeck/react product-neutral UI primitives
 ```
 
-## Who Uses RouteDeck
+The navgraph is the durable product interaction map. It does not replace a
+product-owned LangGraph graph.
 
-RouteDeck has two developer adoption modes and three runtime audiences:
+## 1. Author A Complete Feature
 
-- Full Flow developers declare and bind an app, provide session and optional
-  product-graph factories, and let RouteDeck assemble the runtime, durable
-  store, supervision, HTTP/SSE, projection, and React state path.
-- Core Integration developers keep an existing agent or custom graph and attach
-  it to the same RouteDeck runtime through typed graph/tool adapters.
+A feature owns complete nodes. Each node declares what is meaningful at that
+location:
 
-- human operators use product UI rendered from RouteDeck projections
-- product agents use product-facing RouteDeck context to choose typed operations
-- developers use RouteDeck contracts and diagnostics to keep graph behavior
-  testable
-
-Each group sees a different face of the same runtime state. Product UI should
-use product language. Diagnostics may expose framework details.
-
-## Core Concepts
-
-### Manifest
-
-The manifest is the static contract for a RouteDeck-backed product. It declares
-the possible nodes, edges, operations, fields, policies, and surface metadata.
-
-The manifest is not live state. It is the shape of what the graph may do.
-
-### Runtime State
-
-Runtime state is the current graph-backed state exposed through RouteDeck:
-
-- graph state snapshot
-- current node and surface
-- legal operations
-- blocked operations
-- active surfaces
-- navigation state
-- diagnostics
-- projection version
-- runtime status
-
-React may mirror runtime state through a RouteDeck store. React local state must
-not become graph truth.
-
-### Projection
-
-Projection is the UI/agent-facing view of runtime state. It tells clients:
-
-- where the user is
-- what surfaces are valid
-- which operation ids are legal
-- which operations can dispatch now
-- which operations need forms, selectors, confirmation, review, or recovery
-- what diagnostics are available
-
-Projection is output. It does not own graph behavior.
-
-### Operations
-
-Operations are typed actions that a user, component, or product agent can
-dispatch.
-
-Important metadata:
-
-- `id`
-- `label`
-- `description`
-- `category`
-- `input_schema`
-- `invocation_kind`
-- `can_dispatch_now`
-- `required_args`
-- `missing_args`
-- `accepted_arg_keys`
-- `safety_class`
-- `execution_mode`
-- `target_node`
-
-`legal_operations` does not mean "render all of these as buttons." A legal
-operation may be direct, form-backed, selector-backed, surface-opening,
-review-required, blocked, or hidden/internal.
-
-### Surfaces
-
-Surfaces are graph-declared UI regions. They tell the product shell what should
-be visible without putting workflow truth in local React state.
-Surfaces present product/runtime capabilities. They do not own capabilities and
-they do not bypass dispatch.
-
-Common roles:
-
-- `frame` - stable surrounding context
-- `active` - current working surface
-- `diagnostic` - read-only inspection
-
-Common kinds:
-
-- `peer` - alternate same-node view
-- `detail` - nested/review view
-- `embedded` - supporting inline view
-
-Product code renders React components for surfaces. RouteDeck projects which
-surfaces are valid and active.
-
-Surface affordances declare what a rendered component can emit:
-
-```json
-{
-  "surface_id": "detail.product_detail",
-  "affordance_id": "add_to_cart",
-  "operation_id": "cart.add_item",
-  "entity_key": "variant:s-black"
-}
-```
-
-The same capability must be available to chat through planning context. A user
-clicking `Add to cart` and a user saying "add the small black shirt" resolve to
-the same operation and entity key before dispatch.
-
-## Internal Navigation vs Product Planning
-
-RouteDeck supports generic route operations:
-
-- `route.open_node`
-- `route.switch_surface`
-- `route.back`
-- `route.forward`
-- `route.cancel`
-
-These are useful for browser replay, history, runtime plumbing, and diagnostics.
-In product integrations they should normally be `hidden` operations.
-
-Do not expose them as default product vocabulary. A product agent should not
-need to say "I will call `route.switch_surface`." It should choose a product
-surface intent from valid surface options, and the product runtime can map that
-intent to internal route dispatch after validation.
-
-Decision table:
-
-| Operation state | UI behavior | Agent behavior |
-| --- | --- | --- |
-| `can_dispatch_now=true`, `invocation_kind=direct` | one-click action allowed | dispatch if intent matches |
-| `invocation_kind=form` | open form/review surface | collect fields, then dispatch |
-| `invocation_kind=entity_selector` | open selector or bind selected entity | bind available/selectable entity args or open selector |
-| `invocation_kind=surface` | open product surface | choose surface when user asks for that workflow |
-| `invocation_kind=hidden` | do not render as product action | use only through runtime/diagnostic controls |
-| `execution_mode=review` | show proposal/review | do not execute side effect directly |
-| `execution_mode=blocked` | show product-safe recovery | ask for allowed prerequisite |
-
-## How Humans Should Experience RouteDeck
-
-Humans should experience RouteDeck through product concepts:
-
-- Workflows
-- Current work
-- Review
-- Details
-- Back
-- Forward
-- Cancel
-- Policy candidate
-- Execution trace
-
-Avoid product-visible labels such as:
-
-- RouteDeck node
-- graph edge
-- operation id
-- trace id
-- endpoint path
-- internal slot name
-
-Those can appear in diagnostics when the surface is explicitly diagnostic.
-
-## How Product Agents Should Use RouteDeck
-
-Product-agent loop:
-
-```text
-Read product-facing RouteDeck projection/planning context.
-Interpret user intent against legal operations, available entities, surface affordances, and surfaces.
-Choose one typed product operation, choose a product surface intent, or clarify.
-Dispatch through RouteDeck/runtime.
-Read the returned state.
-Respond from product policy and the new state.
-```
-
-Agent rules:
-
-- Use only operations or surface options present in current product-facing context.
-- Bind required product entities from available/selectable entities in planning context.
-- Treat rendered entities as a UI subset of available entities, not the full chat context.
-- Dispatch directly only when readiness metadata allows it.
-- Never mutate graph state directly from a prompt.
-- Never infer hidden permissions from conversation alone.
-- Never expose internal ids, endpoint paths, operation ids, trace ids, approval
-  ids, or API auth details in public chat.
-
-## How Developers Should Integrate RouteDeck
-
-### Full Flow
-
-Use Full Flow when RouteDeck should own the public interaction graph and
-supervision kernel. Features declare nodes and local transitions; the
-application composes cross-feature transitions once:
+- route and optional route-entry operation;
+- context/entity providers and guards;
+- operations and declared outcomes;
+- surfaces, capabilities, and suggested actions;
+- outgoing transitions;
+- navigation and recovery policy.
 
 ```python
-from routedeck_core.app import (
-    ApplicationSpec,
-    FeatureBindings,
-    bind_app,
-    compile_app,
+from routedeck_core.app import Feature
+from routedeck_core.contracts.application import Node, RouteEntry
+from routedeck_core.contracts.navigation import (
+    DeepLinkPolicy,
+    NodeKind,
+    NodeRef,
+    Route,
+    Transition,
 )
 
-spec = ApplicationSpec(
-    name="support-agent",
-    entry_node=SUPPORT_HOME.ref,
-    features=(SUPPORT_FEATURE, ACCOUNT_FEATURE),
-    transitions=SUPPORT_CROSS_FEATURE_TRANSITIONS,
-)
-
-compiled = compile_app(spec)
-app = bind_app(
-    compiled,
-    FeatureBindings(
-        handlers=SUPPORT_HANDLERS,
-        providers=SUPPORT_PROVIDERS,
-        guards=SUPPORT_GUARDS,
+PRODUCT = Node(
+    id="catalog.product",
+    title="Product",
+    kind=NodeKind.DETAIL,
+    route=Route(
+        template="/products/{product_handle}",
+        deep_link_policy=DeepLinkPolicy.SHAREABLE,
     ),
+    entry=RouteEntry(
+        operation=OPEN_PRODUCT_BY_ROUTE.ref,
+        outcome="opened",
+        bindings=(PRODUCT_HANDLE_BINDING,),
+    ),
+    operations=(OPEN_PRODUCT_BY_ROUTE, ADD_ITEM),
+    outgoing=(
+        Transition(
+            operation=ADD_ITEM.ref,
+            outcome="added",
+            target=NodeRef(id="cart.summary"),
+        ),
+    ),
+    surfaces=PRODUCT_SURFACES,
+)
+
+FEATURE = Feature(namespace="catalog", nodes=(PRODUCT,))
+```
+
+Transition source is implicit from the declaring node. RouteDeck derives
+incoming adjacency after all selected features are known. Do not maintain a
+second global edge table.
+
+Cross-feature targets are allowed. They fail compilation if the target feature
+is not selected, which keeps missing dependencies explicit.
+
+## 2. Keep Composition Small
+
+The application composition root selects features and one entry node:
+
+```python
+from routedeck_core.app import Application
+
+APP = Application(
+    name="buyer",
+    entry_node=BUYER_HOME.ref,
+    features=(CATALOG_FEATURE, CART_FEATURE, CHECKOUT_FEATURE, ORDER_FEATURE),
 )
 ```
 
-`compile_app` validates the complete declaration. `bind_app` then requires the
-exact async handler, provider, and guard references: missing and extra bindings
-are startup errors. The product composition root passes that compiled/bound
-application, session callbacks, graph factory, and explicit configuration to a
-RouteDeck runtime opener. RouteDeck constructs the store/codec resources, one
-operation runner, navigation over that same runner, projection, notifier, and
-optional generic driver. See the Medusa app's `composition.py`, `bindings.py`,
-`session.py`, `agent.py`, and `runtime.py` for the working composition.
+`compile_app(APP)` resolves and validates the complete graph, routes, operation
+catalogs, surfaces, frontend contract, and executable paths. It fails loudly on
+duplicate ownership, unknown references, route ambiguity, missing outcomes,
+invalid schemas, incomplete recovery, or unreachable nodes.
 
-### Core Integration
+Composition should not assemble transitions, copy feature nodes, patch models,
+or infer dependencies.
 
-Use Core Integration when a product graph already exists. Keep the product
-graph, model, and tool topology, but supply the graph set through the generic
-driver factory and open one RouteDeck runtime:
+## 3. Bind Product Behavior
+
+Declarations describe the contract. Bindings supply real implementations:
 
 ```python
-runtime = await open_sqlalchemy_routedeck_runtime(
+bindings = FeatureBindings.merge(
+    create_catalog_bindings(store_client),
+    create_cart_bindings(store_client),
+    create_checkout_bindings(store_client, private_forms),
+)
+bound = bind_app(compiled, bindings)
+```
+
+Every declared operation, provider, and guard must have exactly one correctly
+shaped async implementation. Extra or missing bindings are startup errors.
+
+Product handlers own domain correctness and side effects. RouteDeck owns the
+supervision around the call. Handlers return typed outcomes/effects/failures;
+they do not patch RouteDeck state directly.
+
+## 4. Model Routes And Handles Deliberately
+
+Use `shareable` for routes that may open without an existing session. Use
+`session_bound` when the path exposes private or session-specific state.
+
+A dynamic shareable route uses a declared `RouteEntry` to bind exact path
+parameters to a supervised product operation. RouteDeck parses the path;
+product code resolves the public route key from its source of truth.
+
+Real IDs remain product-private. Providers add classified bindings and expose
+opaque handles. Agent/browser arguments resolve only when the current session,
+node, operation, entity kind, and allowlist agree.
+
+## 5. Declare Surfaces, Not Product UI In The Framework
+
+`Surface` declares component identity, lifecycle, public props schema, and
+operation-backed affordances. Product React code registers the component name
+and renders the visual design.
+
+- Stable public surface state survives navigation for exact history restore.
+- Ephemeral state survives only while the current node declares the surface.
+- Private forms use a server-only `PrivateFormBinding`; private values never
+  enter projection, events, inspection, frontend contracts, or model context.
+
+A surface affordance and an agent tool dispatch the same declared operation.
+The Navgraph inspector is orientation-only and never dispatches or navigates.
+
+## 6. Open One Runtime
+
+For durable applications, pass product inputs to the SQLAlchemy opener:
+
+```python
+application = await open_sqlalchemy_routedeck_runtime(
     compiled_app=compiled,
-    application_factory=bind_application,
+    application_factory=bind_product_application,
     session_factory=create_product_session,
     session_initializer=initialize_product_session,
-    public_key_validator_factory=public_key_validator,
-    agent_driver_factory=RouteDeckLangGraphDriverFactory(
-        graph_factory=create_product_graphs,
-    ),
-    database_url=database_url,
-    encryption_key=encryption_key,
-    instance_id=instance_id,
-    review_ttl=review_ttl,
-    resume_capability_ttl=resume_ttl,
-    default_session_id=default_session_id,
+    public_key_validator_factory=create_route_key_validator,
+    agent_driver_factory=optional_graph_driver_factory,
+    database_url=settings.database_url,
+    encryption_key=settings.encryption_key,
+    instance_id=settings.instance_id,
 )
 ```
 
-The application factory binds product handlers/providers/guards over the
-opened durable resources. A LangGraph product keeps its own `create_agent(...)`
-graph and uses `RouteDeckMiddleware` plus `RouteDeckToolWrapper`; product code
-does not construct a runner, navigation runner, persistence runtime, FastAPI
-dependency bundle, or `RouteDeckLangGraphAgentDriver`.
+The framework opens persistence and constructs one operation runner,
+navigation over that runner, projection, optional agent driver, and explicit
+lifecycle. Product code does not construct those generic objects.
 
-### Runtime Contract
+Use an explicit SQLite or PostgreSQL URL. A database, encryption, lease, graph,
+or callback failure propagates; no alternate resource is selected.
 
-Both modes use the same backend ports and supervised request shape:
+## 7. Mount The Generic HTTP Plane
+
+The product host mounts one router derived from its runtime:
 
 ```python
-result = await runner.run(
-    OperationRequest(
-        session_id=session_id,
-        request_id=request_id,
-        expected_session_version=session_version,
-        operation_id="support.open_ticket",
-        source=OperationSource.SURFACE,
-        arguments={"ticket_handle": ticket_handle},
-    )
+app.include_router(
+    create_routedeck_router_from_runtime_provider(runtime_provider)
 )
 ```
 
-The reference FastAPI adapter exposes a distinct generic API plane:
+The generic plane provides contract, session, navigation, operation/review,
+conversation, event, private-form, and inspection routes. Product health,
+authentication, CORS/origin configuration, and domain routes remain product
+owned.
 
-```text
-GET  /api/routedeck/contract
-POST /api/routedeck/sessions
-GET  /api/routedeck/session
-GET  /api/routedeck/conversation
-POST /api/routedeck/chat
-POST /api/routedeck/conversation/assistant-turn
-POST /api/routedeck/navigation
-POST /api/routedeck/dispatch
-POST /api/routedeck/reviews/{review_id}/accept
-POST /api/routedeck/reviews/{review_id}/reject
-GET  /api/routedeck/events
-GET  /api/routedeck/private-forms/{form_id}
-PUT  /api/routedeck/private-forms/{form_id}
-GET  /api/routedeck/inspect
-```
+RouteDeck currently ships a guest-cookie selector used by the Medusa reference.
+Authenticated users and multiple sessions require a consumer-owned authorization
+resolver; RouteDeck does not own users or trust raw internal session IDs from a
+browser.
 
-Product auth dependencies remain injected. RouteDeck owns route mechanics,
-schemas, user/assistant conversation transport, and SSE lifecycle;
-product-specific checkout, tenancy, billing, provider semantics, prompts, and
-models remain product-owned. A host mounts every generic plane once with
-`create_routedeck_router_from_runtime_provider(...)`.
+## 8. Integrate A Product-Owned Agent
 
-`POST /api/routedeck/sessions` takes `{"request_id":"..."}`. Dispatch,
-navigation, reviews, private-form saves, user chat, and assistant turns carry a
-caller-owned globally unique request ID; versioned mutations also carry the
-current expected session version. If delivery becomes outcome-unknown, retain
-the exact ID and payload and require an explicit retry or abandon decision.
-Never auto-retry a state-changing request with a new identity.
+Keep the product's `create_agent(...)` or raw `StateGraph`. RouteDeck supplies:
 
-A session-create request ID is sensitive, ephemeral recovery material: exact
-replay can recover the original guest session and browser cookie. Keep it only
-inside private recovery storage. Never expose it, or a reversible fingerprint
-that contains it, through public store state, rendered UI, logs, or telemetry;
-public recovery surfaces should report generic status or a non-replayable
-fingerprint.
+- `RouteDeckMiddleware` for durable conversation and default-deny context;
+- `RouteDeckToolWrapper` for runner-owned schema tools;
+- `RouteDeckLangGraphDriverFactory` for generic stream translation;
+- explicit user-message and assistant-initiated triggers.
 
-React integration:
+The product supplies graph topology, prompts, model roles, policy, wording, and
+an explicit graph set. Returning `None` makes conversation unavailable; it does
+not select a fallback model.
 
-```ts
-const store = createRouteDeckStore({
-  contractUrl: '/api/support/contract',
-  sessionUrl: '/api/support/sessions/session-1',
-  channels: ['assistant', 'runtime', 'surface'],
-})
-```
+Every product tool call crosses the same operation runner as a UI affordance.
+See `skills/routedeck-langgraph-integration/SKILL.md` for the focused wiring
+recipe.
 
-The store loads the versioned client contract derived from the backend
-application specification. `createRouteDeckAgentClient(...)` separately loads
-canonical conversation and exposes `stream(...)` plus
-`streamAssistantTurn(...)`. Product frontend code registers React components by
-declared component key; it does not repeat nodes, flows, operations, or surface
-policy.
+## 9. Bootstrap The Browser
 
-`@routedeck/react` keeps rendered conversation state behind named presentation
-methods such as snapshot restore, user-message display, assistant append/reset/
-finalize, review, completion, and failure. Network iteration, cancellation,
-retained exact requests, retry, discard, and resync stay in
-`useRouteDeckConversation`. Neither layer replaces `RouteDeckObservableState`.
+`@routedeck/core` loads the compiled frontend contract and creates the store.
+Provide the route codec and history adapter when routes are enabled.
 
-Mount once:
+For `resume_or_create_shareable` bootstrap:
 
-```tsx
-<RouteDeckProvider store={store}>
-  <ProductShell />
-</RouteDeckProvider>
-```
+1. capture the incoming browser path;
+2. try the current guest session;
+3. on missing/expired/contract-mismatch, create one session only if the captured
+   route is shareable;
+4. reconcile the captured route through server navigation;
+5. write only the confirmed projection to browser history;
+6. start event synchronization.
 
-Use hooks:
+Session-bound links do not create replacement state. Outcome-unknown creation
+or navigation retains the exact request ID and payload for explicit recovery.
 
-- `useRouteDeckStore()`
-- `useRouteDeckProjection()`
-- `useRouteDeckSurface(name)`
-- `useRouteDeckOperations()`
-- `useRouteDeckOperation(id)`
-- `useRouteDeckDispatch()`
-- `useRouteDeckStatus()`
-- `useRouteDeckDiagnostics()`
-- `useRouteDeckInspect()`
+`@routedeck/react` then supplies provider/hooks, conversation presentation,
+surface host, operations, private forms, review, navigation, status/error, and
+read-only Navgraph primitives. Product components and copy remain outside the
+framework package.
 
-## Boundary Rules
+## 10. Preserve Failure Semantics
 
-RouteDeck owns:
+- Caller-owned request IDs are immutable replay identities.
+- Reusing an ID with different input is a contract error.
+- A received `4xx` is a confirmed rejection.
+- Lost/malformed success responses and relevant `5xx` results are
+  outcome-unknown because the server may have committed.
+- External writes are never silently retried after uncertain delivery.
+- Missing data, credentials, models, guards, bindings, or invariants fail
+  visibly.
+- Fixtures and scripted models stay in explicitly test-only packages/paths.
 
-- product-neutral manifest schemas
-- product-neutral runtime state schemas
-- operation metadata and readiness
-- projection helpers
-- navigation state contract
-- dispatch result contract
-- runtime/services assembly and explicit lifecycle
-- generic LangGraph event translation and conversation extraction
-- user-chat and assistant-initiated transport/replay/failure semantics
-- React store and hooks
-- generic diagnostics and debugger primitives
-- validation helpers
+## Integration Checklist
 
-Product application owns:
+- [ ] Features own complete nodes and outgoing transitions.
+- [ ] Composition only selects features and the entry node.
+- [ ] Every declaration has one feature-owned binding.
+- [ ] Product IDs remain behind current opaque-handle allowlists.
+- [ ] UI and agent operations share one runner.
+- [ ] Product graph topology remains product-owned.
+- [ ] Runtime and FastAPI dependencies come from RouteDeck builders.
+- [ ] Browser state confirms only server projection and exact history.
+- [ ] Session authorization remains consumer-owned.
+- [ ] Missing dependencies fail without substitutes.
+- [ ] Focused proof is selected from `test_index/README.md`.
 
-- node catalog for the product
-- operation handlers
-- transition rules
-- domain guard logic
-- auth and tenancy semantics
-- domain persistence and product service APIs
-- graph topology, prompts, models, and model selection
-- product services
-- side effects
-- domain recovery
-
-Product UI owns:
-
-- visual design
-- product copy
-- form layouts
-- record cards
-- conversation wording
-- public-safe response formatting
-- mapping RouteDeck surfaces to React components
-- deciding how legal operations appear to users
-
-Product agent owns:
-
-- interpreting natural language
-- selecting typed operations
-- asking product-safe clarifying questions
-- resolving user-facing fields
-- applying public/private safety policy
-- supplying the product user-message and no-tool assistant-initiation graphs
-
-RouteDeck must not own:
-
-- product prompts
-- product auth
-- product database models
-- product route literals
-- product node ids in reusable source
-- SaaS provider behavior
-- OpenAPI execution logic
-- LLM provider calls
-- payment or checkout behavior
-- public chat copy
-
-## Surface And Node Modeling
-
-Use same-node peer surfaces when the user remains in the same workflow:
-
-- policy gaps vs failed executions
-- list vs compact summary
-- settings tabs
-- filtered views
-
-Use child/detail nodes when the user enters committed nested work:
-
-- one policy candidate review
-- one execution trace review
-- one selected record editor
-
-Use a new top-level node when the user changes capability:
-
-- Home
-- Agent setup
-- Connect API
-- Catalog
-- Execution
-- Knowledge
-- Learning
-- QA
-
-## Public Chat Safety
-
-RouteDeck can expose diagnostics to owner/developer surfaces. Public chat needs
-stricter formatting.
-
-Public chat must not expose:
-
-- operation ids
-- endpoint paths
-- trace ids
-- approval ids
-- cart ids
-- internal slot names
-- API auth details
-- raw graph state
-- raw JSON unless explicitly in a developer-only surface
-
-Good blocked automation language:
-
-```text
-I found the item and size, but this store needs an owner-approved automation policy before I can manage carts for visitors.
-```
-
-Bad public language:
-
-```text
-Provide x-publishable-api-key or approval_id so I can call postCartLineItems.
-```
-
-## SaaStoAgent Boundary Example
-
-SaaStoAgent currently uses this layering:
-
-```text
-SaaStoAgent product graph
-  -> CorpusRouteDeckRuntime
-    -> RouteDeckRuntimeState
-      -> /api/corpus/state, /api/corpus/action, /api/corpus/stream
-        -> @routedeck/react store
-          -> Corpus product shell and diagnostics
-```
-
-In this model:
-
-- RouteDeck owns generic projection and dispatch mechanics.
-- Corpus owns the SaaStoAgent builder experience.
-- SaaS Agent services own deployed-agent domain behavior.
-- Generated API tools and OpenAPI execution belong to SaaStoAgent services.
-- Learning approval and instructions save are graph operations.
-
-## Anti-Patterns
-
-Avoid:
-
-- rendering every `legal_operation` as a generic quick action
-- making navgraph nodes clickable dispatch or navigation controls
-- changing the browser URL from a navgraph click instead of from projected
-  navigation/deeplink state
-- making query-only `?rd_node=...` URLs the canonical public browser deeplinks
-  for a new product instead of a product-owned path codec like the Corpus
-  integration
-- rendering product action chips in the navgraph or inspector instead of the
-  product chat/assistant experience
-- merging product surfaces with navgraph/inspector UI so product clicks appear
-  to be graph navigation
-- showing same-node legal operations as ordinary next-action chips unless the
-  product deliberately labels them as refresh/reload controls
-- hiding action, entity, or affordance detail inside the graph canvas instead of
-  a read-only inspector or diagnostics surface
-- showing `Open node` or `Switch surface` as ordinary product actions
-- dispatching operations with missing required args
-- letting React local state own graph truth
-- putting product ids or services into RouteDeck framework source
-- calling product REST mutations directly when a graph operation exists
-- exposing RouteDeck terms in public product UI
-- treating public chat as diagnostics
-- putting product-specific behavior inside `/api/routedeck/*`
-- drawing action ids as navgraph edges
-- adding backend phrase tables or alias routers for normal chat
-
-## Checklist For New Integrations
-
-- Manifest/projection validates.
-- Every operation has scoped availability.
-- Operation readiness is projected.
-- Direct dispatch requires `can_dispatch_now=true`.
-- Forms, selectors, surfaces, and hidden operations render differently.
-- Product side effects go through graph operations.
-- Product UI uses product language.
-- Diagnostics are separate from public UI.
-- Public chat output is safe.
-- Raw framework routes are not exposed publicly.
-- RouteDeck framework source has no product literals.
-- Boundary tests cover planning context and UI filtering.
+For the complete contract see `docs/route-deck-reference.md`. For
+feature-to-code-to-test ownership see `architecture/feature-coverage.md`.

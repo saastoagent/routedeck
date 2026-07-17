@@ -1,50 +1,58 @@
 # RouteDeck Boundary
 
-Status: Target boundary accepted; implementation is transitional
-Date: 2026-07-10
+Status: current product/framework boundary
+Date: 2026-07-17
 
-For the full reference and developer guide, read
-[`route-deck-reference.md`](./route-deck-reference.md) and
-[`using-routedeck.md`](./using-routedeck.md).
+RouteDeck owns generic interaction state and supervision. A consuming product
+owns domain truth, agent behavior, and side effects.
 
-RouteDeck owns the product-neutral mechanics required to turn product behavior
-into a robust full-stack agentic application.
+| RouteDeck owns | Product owns |
+| --- | --- |
+| `Application`/`Feature` compilation and navgraph validation | Feature declarations and business meaning |
+| Canonical sessions, conversation, navigation, review, surfaces, and events | Domain records, APIs, wire formats, and source-of-truth reads |
+| One operation runner and typed allow/block/input/review/recovery behavior | Product handler execution and external side effects |
+| Scoped context, private bindings, opaque handles, guards, and projection | Trusted provider facts and product policy |
+| Runtime construction, persistence ports, FastAPI/SSE, browser synchronization | Deployment host, authentication, user/session authorization |
+| Generic LangGraph event translation and tool supervision | Prompts, models, graph topology, policy, personality, and wording |
+| Product-neutral React primitives and read-only diagnostics | Product components, copy, styling, and affordance composition |
 
-It owns:
+## Execution Boundary
 
-- application, node, flow, operation, guard, review, and surface contracts
-- the first-class LangGraph Full Flow compiler
-- the executor boundary for existing/custom agents
-- server-authoritative sessions, versions, dispatch claims, and idempotency
-- navigation, projection, recovery, and interaction-state mechanics
-- typed event schemas, channels, visibility, ordering, persistence, and replay
-- FastAPI/SSE framing and product-neutral transport factories
-- the React event/store/surface runtime and diagnostics/debugger primitives
-- conformance tests and standalone examples for both adoption modes
+```text
+UI or agent proposes a declared operation
+  -> RouteDeck validates current session/context/guard/review/handle scope
+  -> product handler executes only when allowed
+  -> product returns a typed outcome/failure and delivery evidence
+  -> RouteDeck commits state, projection, and ordered events
+```
 
-Consuming products own:
+RouteDeck coordinates the call but does not become the product executor. A
+semantic tool call that bypasses this path is outside the RouteDeck guarantee.
 
-- domain state fields and private execution facts
-- prompts, model/provider selection, and assistant meaning
-- auth, tenancy, workspace, account, and persistence policy
-- database queries, domain handlers, external APIs, and side effects
-- product guards and context facts supplied through RouteDeck protocols
-- dynamic surface props, React surface components, layout, copy, and identity
+## Graph Boundary
 
-The RouteDeck application specification is the single source for public nodes,
-flows, operations, surface identity/placement, affordances, and declared event
-schemas. Product providers resolve live values; they do not redefine those
-contracts in a second catalog.
+The RouteDeck navgraph describes durable product locations, legal operations,
+surfaces, deep links, and recovery. A LangGraph graph describes private
+model/tool orchestration. RouteDeck does not mirror or compile one into the
+other.
 
-`routedeck_core` stays product-neutral. `routedeck_langgraph` is first-class,
-not optional in the Full Flow architecture, while its executor protocol keeps
-the core free of unnecessary LangGraph implementation types.
+## Identifier And Data Boundary
 
-For SaaStoAgent, Corpus must become a thin Full Flow application definition plus
-domain behavior. Corpus may extend RouteDeck contracts only for genuine product
-fields. It must not own generic runtime subclasses, projection assembly,
-navigation stacks, review mechanics, event sequencing, SSE formatting, or
-client-authoritative graph-state reconstruction.
+The product owns real IDs. RouteDeck stores them only in classified private
+bindings and exposes scoped opaque handles. Private IDs, form values,
+credentials, hidden operations, and diagnostics never enter normal browser or
+model context.
 
-Consuming products use the canonical compiled contracts directly. Product-local
-adapters and catalogs do not define or extend the RouteDeck framework boundary.
+## Session Boundary
+
+RouteDeck owns the state of a selected session. The consumer owns users,
+tenants, session listings, and authorization. The Medusa reference currently
+uses one HTTP-only guest cookie; an authenticated multi-session resolver is not
+implemented.
+
+## Failure Boundary
+
+Missing data, models, adapters, bindings, guards, permissions, or invariants
+fail visibly. RouteDeck and its reference app do not substitute fixtures,
+canned assistant text, heuristic routing, alternate providers, or silent
+fallback state.

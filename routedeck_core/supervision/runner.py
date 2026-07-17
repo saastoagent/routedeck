@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import timedelta
 
 
-from ..app.bindings import BoundRouteDeckApp
+from ..app.bindings import BoundApplication
 from ..contracts.conversation import (
     ConversationRole,
     ConversationToolCall,
@@ -62,7 +62,7 @@ class RouteDeckOperationRunner(
     def __init__(
         self,
         *,
-        app: BoundRouteDeckApp,
+        app: BoundApplication,
         store: RouteDeckSessionStore,
         executor: OperationExecutor,
         clock: Clock,

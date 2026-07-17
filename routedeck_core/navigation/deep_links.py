@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from ..app import CompiledRouteDeckApp
+from ..app import CompiledApplication
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import ResumeCapabilityBinding
 from ..state.session import require_current_session
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class DeepLinkEngine:
     """Encode and open only routes declared by a compiled RouteDeck app."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
 
     def encode(
         self,

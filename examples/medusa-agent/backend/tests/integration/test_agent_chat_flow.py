@@ -22,9 +22,9 @@ from sqlalchemy.orm import Session as OrmSession
 from main import create_medusa_app
 from medusa_agent.agent import create_medusa_agent, create_medusa_entry_agent
 from medusa_agent.bindings import bind_medusa_app
-from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.features.catalog import CatalogRouteKeyValidator
-from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
+from medusa_agent.composition import compile_medusa_app
+from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
+from medusa_agent.features.checkout.providers import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.models import (
     CalculatedPrice,
     Cart,
@@ -44,7 +44,7 @@ from medusa_agent.medusa.client.models import (
     StoreAddress,
 )
 from medusa_agent.session import BuyerMarket, create_medusa_session
-from routedeck_core.app import ContextProvider, Guard, OperationHandler
+from routedeck_core.app import ContextProviderHandler, GuardHandler, OperationHandler
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationTurnStatus,
@@ -340,18 +340,18 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
 ) -> None:
     """Prove the product chat stream on SQLite without a live model or Store."""
 
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     handlers: dict[OperationRef, OperationHandler] = {
         operation.ref: _UnexpectedHandler()
         for operation in compiled.operations.values()
         if operation.id not in _OWNED_OPERATION_IDS
     }
-    providers: dict[ProviderRef, ContextProvider] = {
+    providers: dict[ProviderRef, ContextProviderHandler] = {
         provider.ref: _UnexpectedProvider()
         for provider in compiled.providers.values()
         if provider.id not in _OWNED_PROVIDER_IDS
     }
-    guards: dict[GuardRef, Guard] = {
+    guards: dict[GuardRef, GuardHandler] = {
         guard.ref: _UnexpectedGuard()
         for guard in compiled.guards.values()
         if guard.id not in _OWNED_GUARD_IDS

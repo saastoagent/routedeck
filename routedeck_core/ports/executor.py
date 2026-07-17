@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from ..contracts.operations import (
     OperationOutcome,
     OperationSource,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.projection import FrozenJsonObject
 
@@ -60,7 +60,7 @@ class OperationHandler(Protocol):
 
 @dataclass(frozen=True)
 class OperationBinding:
-    operation: OperationSpec
+    operation: Operation
     handler: OperationHandler
 
 

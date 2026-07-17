@@ -8,27 +8,28 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from routedeck_core.app import (
-    ApplicationSpec,
+    Application,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
+    NodeRef,
     NodeKind,
-    RouteSpec,
-    TransitionSpec,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.operations import (
     OperationOutcome,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.ports.executor import ExecutionContext
 from routedeck_core.runtime import (
     RouteDeckRuntime,
@@ -108,37 +109,36 @@ async def _unused_handler(
 
 
 def _bound_test_app():
-    operation = OperationSpec(
+    operation = Operation(
         id="test.refresh",
         title="Refresh test state",
         description="Refresh the runtime-builder test state.",
         safety_class=SafetyClass.READ_EXTERNAL,
         outcomes=("refreshed",),
     )
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Runtime test home",
         kind=NodeKind.SECTION,
-        route=RouteSpec(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
         operations=(operation,),
-        surfaces=SurfaceSlotsSpec(active=None),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="refreshed",
+                target=NodeRef(id="test.home"),
+            ),
+        ),
+        surfaces=SurfaceSlots(active=None),
     )
     compiled = compile_app(
-        ApplicationSpec(
+        Application(
             name="runtime-builder-test",
             entry_node=node.ref,
             features=(
-                FeatureSpec(
+                Feature(
                     namespace="test",
                     nodes=(node,),
-                    transitions=(
-                        TransitionSpec(
-                            source=node.ref,
-                            operation=operation.ref,
-                            outcome="refreshed",
-                            target=node.ref,
-                        ),
-                    ),
                 ),
             ),
         )

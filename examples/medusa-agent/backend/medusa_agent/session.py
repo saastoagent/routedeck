@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from routedeck_core.app import CompiledRouteDeckApp
+from routedeck_core.app import CompiledApplication
 from routedeck_core.contracts.operations import (
     OperationDisposition,
     OperationRequest,
@@ -19,7 +19,7 @@ from routedeck_core.contracts.session import (
 from routedeck_core.runtime import RouteDeckRuntimeServices
 from routedeck_core.state.session import create_session
 
-from .features.cart import CART_CREATE
+from .features.cart.declarations import CART_CREATE
 from .identifiers import MedusaOutcomeType
 from .request_ids import initial_cart_request_id
 
@@ -37,7 +37,7 @@ class BuyerMarket(BaseModel):
 
 def create_medusa_session(
     *,
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     session_id: str,
     market: BuyerMarket,
 ) -> RouteDeckSession:

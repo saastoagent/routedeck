@@ -1,26 +1,29 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .agent import AgentPolicyRef
 from .navigation import (
-    NavigationPolicySpec,
+    CompiledTransition,
+    NavigationPolicy,
     NodeKind,
     NodeRef,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from .operations import (
-    ContextProviderSpec,
-    EntityProviderSpec,
-    GuardSpec,
+    ContextProvider,
+    EntityProvider,
+    Guard,
     OperationRef,
-    OperationSpec,
+    Operation,
 )
 from .projection import FrozenJsonObject
-from .surfaces import SurfaceRef, SurfaceSlotsSpec
-from .suggestions import SuggestedActionSpec
+from .surfaces import SurfaceRef, SurfaceSlots
+from .suggestions import SuggestedAction
 
 
 class _FrozenContract(BaseModel):
@@ -31,7 +34,7 @@ class CapabilityRef(_FrozenContract):
     id: str = Field(min_length=1)
 
 
-class CapabilitySpec(_FrozenContract):
+class Capability(_FrozenContract):
     id: str = Field(min_length=1)
     title: str
     operations: tuple[OperationRef, ...] = ()
@@ -50,7 +53,7 @@ class RouteParameterBinding(_FrozenContract):
     argument: str = Field(min_length=1)
 
 
-class RouteEntrySpec(_FrozenContract):
+class RouteEntry(_FrozenContract):
     """Declare the operation and outcome that authoritatively enter one route."""
 
     operation: OperationRef
@@ -58,23 +61,24 @@ class RouteEntrySpec(_FrozenContract):
     bindings: tuple[RouteParameterBinding, ...] = ()
 
 
-class NodeSpec(_FrozenContract):
+class Node(_FrozenContract):
     id: str = Field(min_length=1)
     title: str
     kind: NodeKind
     parent: NodeRef | None = None
-    route: RouteSpec
-    entry: RouteEntrySpec | None = None
-    context_providers: tuple[ContextProviderSpec, ...] = ()
-    entity_providers: tuple[EntityProviderSpec, ...] = ()
-    guards: tuple[GuardSpec, ...] = ()
-    operations: tuple[OperationSpec, ...] = ()
-    capabilities: tuple[CapabilitySpec, ...] = ()
-    surfaces: SurfaceSlotsSpec
+    route: Route
+    entry: RouteEntry | None = None
+    context_providers: tuple[ContextProvider, ...] = ()
+    entity_providers: tuple[EntityProvider, ...] = ()
+    guards: tuple[Guard, ...] = ()
+    operations: tuple[Operation, ...] = ()
+    outgoing: tuple[Transition, ...] = ()
+    capabilities: tuple[Capability, ...] = ()
+    surfaces: SurfaceSlots
     policy_refs: tuple[AgentPolicyRef, ...] = ()
-    suggested_actions: tuple[SuggestedActionSpec, ...] = ()
-    navigation: NavigationPolicySpec = NavigationPolicySpec()
-    recovery: RecoveryPolicySpec = RecoveryPolicySpec()
+    suggested_actions: tuple[SuggestedAction, ...] = ()
+    navigation: NavigationPolicy = NavigationPolicy()
+    recovery: RecoveryPolicy = RecoveryPolicy()
     public_metadata: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
@@ -87,18 +91,19 @@ class NodeSpec(_FrozenContract):
         return NodeRef(id=self.id)
 
 
-class CompiledApplicationSpec(_FrozenContract):
+class CompiledGraph(_FrozenContract):
     name: str = Field(min_length=1)
     entry_node: NodeRef
-    nodes: tuple[NodeSpec, ...]
-    transitions: tuple[TransitionSpec, ...]
+    nodes: tuple[Node, ...]
+    transitions: tuple[CompiledTransition, ...]
+    incoming: Mapping[str, tuple[CompiledTransition, ...]]
 
 
 __all__ = [
     "CapabilityRef",
-    "CapabilitySpec",
-    "CompiledApplicationSpec",
-    "NodeSpec",
-    "RouteEntrySpec",
+    "Capability",
+    "CompiledGraph",
+    "Node",
+    "RouteEntry",
     "RouteParameterBinding",
 ]

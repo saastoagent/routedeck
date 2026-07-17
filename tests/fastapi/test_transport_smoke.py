@@ -12,13 +12,13 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from routedeck_core.app import (
-    ApplicationSpec,
-    BoundRouteDeckApp,
+    Application,
+    BoundApplication,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     compile_app,
 )
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.events import (
     RouteDeckEvent,
     EventPage,
@@ -35,7 +35,7 @@ from routedeck_core.contracts.operations import (
     OperationSource,
 )
 from routedeck_core.contracts.mutations import MutationCommit, MutationRecord
-from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, RouteSpec
+from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, Route
 from routedeck_core.contracts.projection import (
     ClassifiedValue,
     DataClassification,
@@ -49,7 +49,7 @@ from routedeck_core.contracts.session import (
     RouteDeckSession,
     SessionSnapshot,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec, SurfaceSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.navigation import RouteDeckNavigationRunner
 from routedeck_core.ports import (
     RouteDeckAgentDriver,
@@ -75,7 +75,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from main import create_medusa_app  # noqa: E402
-from medusa_agent.composition import compile_medusa_app_spec  # noqa: E402
+from medusa_agent.composition import compile_medusa_app  # noqa: E402
 from medusa_agent.session import BuyerMarket, create_medusa_session  # noqa: E402
 
 
@@ -321,7 +321,7 @@ class SmokeRunner:
 
 
 def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunner]:
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     store = SmokeStore()
     runner = SmokeRunner(store)
     codec = SmokeCodec()
@@ -362,7 +362,7 @@ def _runtime_from_dependencies(
     *,
     agent_driver: RouteDeckAgentDriver | None = None,
 ) -> RouteDeckRuntime:
-    bound_app = BoundRouteDeckApp(
+    bound_app = BoundApplication(
         app=dependencies.app,
         bindings=FeatureBindings(handlers={}, providers={}, guards={}),
     )
@@ -629,7 +629,7 @@ class _SmokeReadinessProbe:
 
 
 def test_session_initializer_failure_never_returns_a_usable_session() -> None:
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     store = SmokeStore()
 
     def session_factory(session_id: str) -> RouteDeckSession:
@@ -809,7 +809,7 @@ def test_first_private_form_save_persists_revision_one_then_reloads() -> None:
 
 
 def _private_form_transport() -> tuple[TestClient, SmokeStore]:
-    surface = SurfaceSpec(
+    surface = Surface(
         id="test.private_form",
         component="test.private_form",
         private_form_binding={
@@ -830,21 +830,21 @@ def _private_form_transport() -> tuple[TestClient, SmokeStore]:
             }
         ),
     )
-    node = NodeSpec(
+    node = Node(
         id="test.private_form",
         title="Private form",
         kind=NodeKind.WORKFLOW,
-        route=RouteSpec(
+        route=Route(
             template="/private-form",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
-        surfaces=SurfaceSlotsSpec(active=surface, form=(surface,)),
+        surfaces=SurfaceSlots(active=surface, form=(surface,)),
     )
     compiled = compile_app(
-        ApplicationSpec(
+        Application(
             name="private-form-transport",
             entry_node=node.ref,
-            features=(FeatureSpec(namespace="private-form", nodes=(node,)),),
+            features=(Feature(namespace="private-form", nodes=(node,)),),
         )
     )
     store = SmokeStore()

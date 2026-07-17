@@ -23,10 +23,10 @@ from routedeck_sqlalchemy import (
 
 from .agent import create_live_medusa_agent, create_live_medusa_entry_agent
 from .bindings import bind_medusa_app
-from .composition import compile_medusa_app_spec
+from .composition import compile_medusa_app
 from .config import Settings
-from .features.catalog import CatalogRouteKeyValidator
-from .features.checkout import EncryptedCheckoutPrivateFormReader
+from .features.catalog.providers import CatalogRouteKeyValidator
+from .features.checkout.providers import EncryptedCheckoutPrivateFormReader
 from .medusa.client.http import HttpMedusaStoreClient
 from .medusa.client.models import Region
 from .medusa.client.protocol import MedusaStoreClient
@@ -95,7 +95,7 @@ async def open_live_medusa_application(
     else:
         client = HttpMedusaStoreClient(configured)
     market = await _resolve_buyer_market(client, configured)
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
 
     def application_factory(
         resources: SqlAlchemyRuntimeResources,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from routedeck_core.app import FeatureBindings
 
 from ...medusa.client.protocol import MedusaStoreClient
-from .feature import (
+from .declarations import (
     CHECKOUT_FACTS_PROVIDER,
     CHECKOUT_READY_GUARD,
     CHECKOUT_START,

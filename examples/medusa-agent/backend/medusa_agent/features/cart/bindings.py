@@ -3,7 +3,7 @@ from __future__ import annotations
 from routedeck_core.app import FeatureBindings
 
 from ...medusa.client.protocol import MedusaStoreClient
-from .feature import (
+from .declarations import (
     BUYER_MARKET_PROVIDER,
     CART_ABSENT_GUARD,
     CART_ADD_ITEM,

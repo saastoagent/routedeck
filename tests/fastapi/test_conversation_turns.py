@@ -17,21 +17,21 @@ from fastapi import FastAPI, Request
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 
 from routedeck_core.app import (
-    ApplicationSpec,
+    Application,
     FeatureBindings,
-    FeatureSpec,
+    Feature,
     bind_app,
     compile_app,
 )
-from routedeck_core.contracts.application import NodeSpec
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationTurnStatus,
 )
 from routedeck_core.contracts.mutations import MutationStatus
-from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, RouteSpec
+from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, Route
 from routedeck_core.contracts.session import PrivateSessionState, SessionSnapshot
-from routedeck_core.contracts.surfaces import SurfaceSlotsSpec
+from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.ports import AssistantInitiatedTrigger
 from routedeck_core.runtime import RouteDeckRuntime
 from routedeck_core.state import create_session
@@ -122,21 +122,21 @@ async def runtime(
     tmp_path: Path,
     graphs: _ConversationGraphs,
 ) -> AsyncIterator[RouteDeckRuntime]:
-    node = NodeSpec(
+    node = Node(
         id="test.home",
         title="Conversation transport test",
         kind=NodeKind.SECTION,
-        route=RouteSpec(
+        route=Route(
             template="/",
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
-        surfaces=SurfaceSlotsSpec(active=None),
+        surfaces=SurfaceSlots(active=None),
     )
     compiled = compile_app(
-        ApplicationSpec(
+        Application(
             name="conversation-transport-test",
             entry_node=node.ref,
-            features=(FeatureSpec(namespace="test", nodes=(node,)),),
+            features=(Feature(namespace="test", nodes=(node,)),),
         )
     )
     bindings = FeatureBindings(handlers={}, providers={}, guards={})

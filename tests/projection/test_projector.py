@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 from pydantic import ValidationError
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 from routedeck_core.contracts.projection import (
     ClassifiedValue,
     DataClassification,
@@ -21,7 +21,7 @@ from routedeck_core.navigation.routes import PublicRouteKeyValidator
 from routedeck_core.navigation.engine import NavigationEngine
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
-from routedeck_core.contracts.surfaces import SurfaceSpec
+from routedeck_core.contracts.surfaces import Surface
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import session_factory
 
@@ -108,7 +108,7 @@ def _with_surface_state(
 
 
 def test_sensitive_values_and_private_ids_never_project() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(
         app=app,
         node_id="catalog.product",
@@ -140,7 +140,7 @@ def test_sensitive_values_and_private_ids_never_project() -> None:
 
 
 def test_projection_uses_current_node_legal_operations_and_rich_surfaces() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(app=app, node_id="buyer.home")
 
     projection = ProjectionProjector(app).project(session)
@@ -156,7 +156,7 @@ def test_projection_uses_current_node_legal_operations_and_rich_surfaces() -> No
 
 
 def test_projection_preserves_rich_current_surfaces_navigation_and_status() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     browsed = NavigationEngine(app).open(
         session_factory(app=app, node_id="buyer.home"),
         node_id="catalog.browse",
@@ -208,7 +208,7 @@ def test_projection_preserves_rich_current_surfaces_navigation_and_status() -> N
 
 
 def test_recursive_classification_redaction_is_default_deny() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(
         app=app,
         node_id="catalog.product",
@@ -258,7 +258,7 @@ def test_recursive_classification_redaction_is_default_deny() -> None:
 
 
 def test_projection_fails_loudly_for_unknown_nodes_and_surface_state() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     projector = ProjectionProjector(app)
 
     with pytest.raises(RouteDeckValidationError):
@@ -278,7 +278,7 @@ def test_projection_fails_loudly_for_unknown_nodes_and_surface_state() -> None:
 
 
 def test_projection_rejects_current_location_without_history_identity() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(app=app, node_id="buyer.home")
     session = session.model_copy(
         update={"current": session.current.model_copy(update={"entry_id": None})}
@@ -289,7 +289,7 @@ def test_projection_rejects_current_location_without_history_identity() -> None:
 
 
 def test_surface_props_must_be_public_and_declared_by_schema() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     projector = ProjectionProjector(app, public_key_validator=_validator())
     session = session_factory(
         app=app,
@@ -321,7 +321,7 @@ def test_surface_props_must_be_public_and_declared_by_schema() -> None:
 
 def test_public_surface_object_schemas_must_be_default_deny() -> None:
     with pytest.raises(ValidationError):
-        SurfaceSpec(
+        Surface(
             id="test.surface",
             component="test.surface",
             public_props_schema={
@@ -364,7 +364,7 @@ def test_public_surface_schema_cannot_bypass_object_default_deny(
     schema: dict[str, object],
 ) -> None:
     with pytest.raises(ValidationError):
-        SurfaceSpec(
+        Surface(
             id="test.surface",
             component="test.surface",
             public_props_schema=schema,
@@ -377,7 +377,7 @@ def test_public_surface_schema_is_deeply_immutable() -> None:
         "properties": {"label": {"type": "string"}},
         "additionalProperties": False,
     }
-    surface = SurfaceSpec(
+    surface = Surface(
         id="test.surface",
         component="test.surface",
         public_props_schema=source,
@@ -390,7 +390,7 @@ def test_public_surface_schema_is_deeply_immutable() -> None:
 
 
 def test_redacted_only_state_change_does_not_change_projection_version() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     projector = ProjectionProjector(app, public_key_validator=_validator())
     initial = session_factory(
         app=app,
@@ -427,7 +427,7 @@ def test_redacted_only_state_change_does_not_change_projection_version() -> None
 
 
 def test_reordering_disabled_operations_does_not_change_projection_version() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     projector = ProjectionProjector(app, public_key_validator=_validator())
     initial = session_factory(
         app=app,
@@ -470,14 +470,14 @@ def test_reordering_disabled_operations_does_not_change_projection_version() -> 
 
 
 def test_projection_rejects_a_session_from_an_incompatible_navgraph() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
 
     with pytest.raises(RouteDeckValidationError, match="session_upgrade_required"):
         ProjectionProjector(app).project(session_factory(node_id="buyer.home"))
 
 
 def test_projection_revalidates_public_route_keys_before_exposing_them() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     forged = session_factory(
         app=app,
         node_id="catalog.product",
@@ -492,7 +492,7 @@ def test_projection_revalidates_public_route_keys_before_exposing_them() -> None
 
 
 def test_projection_excludes_entity_kinds_not_declared_at_current_node() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(app=app, node_id="buyer.home")
     session = session.model_copy(
         update={

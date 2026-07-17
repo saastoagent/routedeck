@@ -10,7 +10,7 @@ from ..contracts.operations import (
     OperationPhase,
     OperationRequest,
     OperationResult,
-    OperationSpec,
+    Operation,
 )
 from ..contracts.session import (
     AttemptTerminalState,
@@ -35,7 +35,7 @@ class RunnerRecoveryMixin(RunnerRuntimePorts):
         self,
         *,
         request: OperationRequest,
-        operation: OperationSpec | None,
+        operation: Operation | None,
         stored: StoredOperationAttempt,
         fingerprint: str,
         route_entry: RouteEntryInvocation | None,

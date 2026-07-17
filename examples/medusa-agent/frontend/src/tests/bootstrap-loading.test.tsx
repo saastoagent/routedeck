@@ -7,13 +7,13 @@ import { BootstrapLoadingShell } from "../app/BootstrapLoadingShell";
 
 afterEach(cleanup);
 
-it.each([
-  ["storefront", "Loading storefront"],
-  ["session", "Starting buyer session"],
-  ["checkout", "Restoring checkout"],
-  ["setup", "Finishing buyer setup"],
-] as const)("renders the %s bootstrap phase", (phase, label) => {
-  render(<BootstrapLoadingShell phase={phase} />);
+it("renders one neutral bootstrap message", () => {
+  render(<BootstrapLoadingShell />);
 
-  expect(screen.getByRole("status")).toHaveTextContent(label);
+  const status = screen.getByRole("status");
+  expect(status).toHaveTextContent("Medusa Agent");
+  expect(status).toHaveTextContent("Preparing your shopping experience");
+  expect(status).not.toHaveTextContent("Starting buyer session");
+  expect(status).not.toHaveTextContent("Restoring checkout");
+  expect(status).not.toHaveTextContent("Finishing buyer setup");
 });

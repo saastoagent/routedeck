@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from routedeck_core.app.bindings import BoundRouteDeckApp
+from routedeck_core.app.bindings import BoundApplication
 from routedeck_core.contracts.operations import (
     OperationDisposition,
     OperationRequest,
@@ -185,7 +185,7 @@ async def test_operation_spec_change_invalidates_review(
     operations["test.reviewed_write"] = operations["test.reviewed_write"].model_copy(
         update={"description": "Changed after proposal."}
     )
-    runner.app = BoundRouteDeckApp(
+    runner.app = BoundApplication(
         app=replace(runner.app.app, operations=operations),
         bindings=runner.app.bindings,
     )

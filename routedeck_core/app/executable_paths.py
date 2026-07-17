@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ..contracts.application import NodeSpec
-from ..contracts.navigation import TransitionSpec
+from ..contracts.application import Node
+from ..contracts.navigation import CompiledTransition
 from ..contracts.operations import ReviewPolicy
 from ..validation import RouteDeckValidationError
 from .compiled import ExecutableTestPath
@@ -9,8 +9,8 @@ from .compiled import ExecutableTestPath
 
 def _derive_executable_test_paths(
     *,
-    nodes: tuple[NodeSpec, ...],
-    transitions: tuple[TransitionSpec, ...],
+    nodes: tuple[Node, ...],
+    transitions: tuple[CompiledTransition, ...],
 ) -> tuple[ExecutableTestPath, ...]:
     paths: list[ExecutableTestPath] = []
     for transition in transitions:
@@ -69,8 +69,8 @@ def _derive_executable_test_paths(
 
 def _validate_executable_test_paths(
     *,
-    nodes: tuple[NodeSpec, ...],
-    transitions: tuple[TransitionSpec, ...],
+    nodes: tuple[Node, ...],
+    transitions: tuple[CompiledTransition, ...],
     paths: tuple[ExecutableTestPath, ...],
 ) -> None:
     covered_transitions = {

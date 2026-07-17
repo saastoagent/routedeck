@@ -6,26 +6,26 @@ from collections.abc import Iterable
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 from jsonschema.validators import validator_for
 
-from ..contracts.agent import AgentPolicyRef, AgentPolicySpec
-from ..contracts.application import CapabilitySpec, NodeSpec
-from ..contracts.navigation import DeepLinkPolicy, TransitionSpec
+from ..contracts.agent import AgentPolicyRef, AgentPolicy
+from ..contracts.application import Capability, Node
+from ..contracts.navigation import CompiledTransition, DeepLinkPolicy
 from ..contracts.operations import (
-    GuardSpec,
-    OperationSpec,
-    ProviderSpec,
+    Guard,
+    Operation,
+    Provider,
     SafetyClass,
 )
-from ..contracts.surfaces import SurfaceSpec
+from ..contracts.surfaces import Surface
 from ..validation import RouteDeckValidationError
-from .feature import ApplicationSpec
+from .feature import Application
 
 
 def _validate_agent_policy_references(
-    source_spec: ApplicationSpec,
-    nodes: tuple[NodeSpec, ...],
-    policies: dict[str, AgentPolicySpec],
+    application: Application,
+    nodes: tuple[Node, ...],
+    policies: dict[str, AgentPolicy],
 ) -> None:
-    for feature in source_spec.features:
+    for feature in application.features:
         _validate_policy_refs(
             f"Feature {feature.namespace!r}",
             feature.policy_refs,
@@ -56,7 +56,7 @@ def _validate_agent_policy_references(
 def _validate_policy_refs(
     owner: str,
     refs: tuple[AgentPolicyRef, ...],
-    policies: dict[str, AgentPolicySpec],
+    policies: dict[str, AgentPolicy],
 ) -> None:
     identifiers = tuple(ref.id for ref in refs)
     if len(identifiers) != len(set(identifiers)):
@@ -70,7 +70,7 @@ def _validate_policy_refs(
         )
 
 
-def _validate_suggested_actions(nodes: tuple[NodeSpec, ...]) -> None:
+def _validate_suggested_actions(nodes: tuple[Node, ...]) -> None:
     for node in nodes:
         action_ids = tuple(action.id for action in node.suggested_actions)
         if len(action_ids) != len(set(action_ids)):
@@ -105,23 +105,10 @@ def _validate_suggested_actions(nodes: tuple[NodeSpec, ...]) -> None:
                 )
 
 
-def _validate_feature_transition_ownership(source_spec: ApplicationSpec) -> None:
-    for feature in source_spec.features:
-        feature_node_ids = {node.id for node in feature.nodes}
-        for transition in feature.transitions:
-            if (
-                transition.source.id not in feature_node_ids
-                or transition.target.id not in feature_node_ids
-            ):
-                raise RouteDeckValidationError(
-                    "Feature specs may declare transitions only between their own nodes"
-                )
-
-
 def _validate_node_references(
-    nodes: tuple[NodeSpec, ...],
-    node_by_id: dict[str, NodeSpec],
-    surfaces: dict[str, SurfaceSpec],
+    nodes: tuple[Node, ...],
+    node_by_id: dict[str, Node],
+    surfaces: dict[str, Surface],
 ) -> None:
     for node in nodes:
         if node.parent is not None and node.parent.id not in node_by_id:
@@ -164,10 +151,10 @@ def _validate_node_references(
 
 
 def _validate_operation_references(
-    nodes: tuple[NodeSpec, ...],
-    operations: dict[str, OperationSpec],
-    providers: dict[str, ProviderSpec],
-    guards: dict[str, GuardSpec],
+    nodes: tuple[Node, ...],
+    operations: dict[str, Operation],
+    providers: dict[str, Provider],
+    guards: dict[str, Guard],
 ) -> None:
     for operation in operations.values():
         if not operation.outcomes or len(operation.outcomes) != len(
@@ -250,8 +237,8 @@ def _validate_operation_references(
 
 def _validate_write_recovery_contract(
     *,
-    node: NodeSpec,
-    operation: OperationSpec,
+    node: Node,
+    operation: Operation,
     node_operation_ids: set[str],
     node_surface_ids: set[str],
 ) -> None:
@@ -283,9 +270,9 @@ def _validate_write_recovery_contract(
 
 
 def _validate_capability_references(
-    capabilities: Iterable[CapabilitySpec],
-    operations: dict[str, OperationSpec],
-    surfaces: dict[str, SurfaceSpec],
+    capabilities: Iterable[Capability],
+    operations: dict[str, Operation],
+    surfaces: dict[str, Surface],
 ) -> None:
     for capability in capabilities:
         for operation_ref in capability.operations:
@@ -301,8 +288,8 @@ def _validate_capability_references(
 
 
 def _validate_surface_affordances(
-    surfaces: Iterable[SurfaceSpec],
-    operations: dict[str, OperationSpec],
+    surfaces: Iterable[Surface],
+    operations: dict[str, Operation],
 ) -> None:
     for surface in surfaces:
         affordance_ids = [affordance.id for affordance in surface.affordances]
@@ -321,37 +308,37 @@ def _validate_surface_affordances(
 
 
 def _validate_transitions(
-    transitions: tuple[TransitionSpec, ...],
-    node_by_id: dict[str, NodeSpec],
-    operations: dict[str, OperationSpec],
+    transitions: tuple[CompiledTransition, ...],
+    node_by_id: dict[str, Node],
+    operations: dict[str, Operation],
+    feature_by_node_id: dict[str, str],
 ) -> None:
     branch_targets: dict[tuple[str, str, str], str] = {}
     for transition in transitions:
+        context = _transition_context(transition, feature_by_node_id)
         if transition.source.id not in node_by_id:
             raise RouteDeckValidationError(
-                f"Transition has missing source {transition.source.id!r}"
+                f"Transition has a missing source: {context}"
             )
         if transition.target.id not in node_by_id:
             raise RouteDeckValidationError(
-                f"Transition has missing target {transition.target.id!r}"
+                f"Transition has a missing target: {context}"
             )
         operation = operations.get(transition.operation.id)
         if operation is None:
             raise RouteDeckValidationError(
-                f"Transition references missing operation {transition.operation.id!r}"
+                f"Transition references a missing operation: {context}"
             )
         source_operation_ids = {
             candidate.id for candidate in node_by_id[transition.source.id].operations
         }
         if operation.id not in source_operation_ids:
             raise RouteDeckValidationError(
-                f"Transition operation {operation.id!r} is not executable at "
-                f"{transition.source.id!r}"
+                f"Transition operation is not executable at its source: {context}"
             )
         if transition.outcome not in operation.outcomes:
             raise RouteDeckValidationError(
-                f"Transition references undeclared outcome {transition.outcome!r} "
-                f"for {operation.id!r}"
+                f"Transition references an undeclared outcome: {context}"
             )
         branch = (
             transition.source.id,
@@ -362,11 +349,11 @@ def _validate_transitions(
         if previous_target is not None:
             if previous_target == transition.target.id:
                 raise RouteDeckValidationError(
-                    f"Duplicate transition branch: {branch!r} -> {previous_target!r}"
+                    f"Duplicate transition branch: {context}"
                 )
             raise RouteDeckValidationError(
-                f"Ambiguous transition branch {branch!r} targets both "
-                f"{previous_target!r} and {transition.target.id!r}"
+                "Ambiguous transition branch targets both "
+                f"{previous_target!r} and {transition.target.id!r}: {context}"
             )
         branch_targets[branch] = transition.target.id
 
@@ -377,13 +364,29 @@ def _validate_transitions(
                 if branch not in branch_targets:
                     raise RouteDeckValidationError(
                         "Every declared operation outcome must have exactly one "
-                        f"compiled transition; missing {branch!r}"
+                        "compiled transition; "
+                        f"feature={feature_by_node_id[node.id]!r}, "
+                        f"source={node.id!r}, operation={operation.id!r}, "
+                        f"outcome={outcome!r}, target='<missing>'"
                     )
 
 
+def _transition_context(
+    transition: CompiledTransition,
+    feature_by_node_id: dict[str, str],
+) -> str:
+    return (
+        f"feature={feature_by_node_id.get(transition.source.id, '<missing>')!r}, "
+        f"source={transition.source.id!r}, "
+        f"operation={transition.operation.id!r}, "
+        f"outcome={transition.outcome!r}, "
+        f"target={transition.target.id!r}"
+    )
+
+
 def _validate_hierarchy(
-    nodes: tuple[NodeSpec, ...],
-    node_by_id: dict[str, NodeSpec],
+    nodes: tuple[Node, ...],
+    node_by_id: dict[str, Node],
 ) -> None:
     for node in nodes:
         visited: set[str] = set()
@@ -398,8 +401,8 @@ def _validate_hierarchy(
 def _validate_reachability(
     *,
     entry_node_id: str,
-    nodes: tuple[NodeSpec, ...],
-    transitions: tuple[TransitionSpec, ...],
+    nodes: tuple[Node, ...],
+    transitions: tuple[CompiledTransition, ...],
 ) -> None:
     destinations: dict[str, list[str]] = {}
     for transition in transitions:

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 
-from routedeck_core.app import BoundRouteDeckApp, CompiledRouteDeckApp
+from routedeck_core.app import BoundApplication, CompiledApplication
 from routedeck_core.contracts.retention import RouteDeckRetentionPolicy
 from routedeck_core.navigation.transactions import PublicKeyValidatorFactory
 from routedeck_core.ports import (
@@ -35,12 +35,12 @@ class SqlAlchemyRuntimeResources:
     codec: FernetSensitiveCodec
 
 
-ApplicationFactory = Callable[[SqlAlchemyRuntimeResources], BoundRouteDeckApp]
+ApplicationFactory = Callable[[SqlAlchemyRuntimeResources], BoundApplication]
 
 
 async def open_sqlalchemy_routedeck_runtime(
     *,
-    compiled_app: CompiledRouteDeckApp,
+    compiled_app: CompiledApplication,
     application_factory: ApplicationFactory,
     session_factory: SessionFactory,
     session_initializer: SessionInitializer,
@@ -80,9 +80,9 @@ async def open_sqlalchemy_routedeck_runtime(
     try:
         resources = SqlAlchemyRuntimeResources(store=store, codec=codec)
         app = application_factory(resources)
-        if not isinstance(app, BoundRouteDeckApp):
+        if not isinstance(app, BoundApplication):
             raise TypeError(
-                "application_factory must return a BoundRouteDeckApp"
+                "application_factory must return a BoundApplication"
             )
         if app.app is not compiled_app:
             raise ValueError(

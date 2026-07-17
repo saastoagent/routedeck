@@ -9,7 +9,7 @@ from ..contracts.operations import GuardRef, OperationRef, ProviderRef
 from ..contracts.operations import OperationOutcome
 from ..ports.executor import OperationHandler
 from ..validation import RouteDeckValidationError
-from .compiled import CompiledRouteDeckApp
+from .compiled import CompiledApplication
 
 if TYPE_CHECKING:
     from ..supervision.guards import (
@@ -20,14 +20,14 @@ if TYPE_CHECKING:
     )
 
 
-class ContextProvider(Protocol):
+class ContextProviderHandler(Protocol):
     async def __call__(
         self,
         context: ProviderInvocationContext,
     ) -> ProviderResult: ...
 
 
-class Guard(Protocol):
+class GuardHandler(Protocol):
     async def __call__(
         self,
         context: GuardInvocationContext,
@@ -37,16 +37,16 @@ class Guard(Protocol):
 @dataclass(frozen=True)
 class FeatureBindings:
     handlers: Mapping[OperationRef, OperationHandler]
-    providers: Mapping[ProviderRef, ContextProvider]
-    guards: Mapping[GuardRef, Guard]
+    providers: Mapping[ProviderRef, ContextProviderHandler]
+    guards: Mapping[GuardRef, GuardHandler]
 
     @classmethod
     def merge(cls, *parts: FeatureBindings) -> FeatureBindings:
         """Compose feature bindings while rejecting ambiguous ownership."""
 
         handlers: dict[OperationRef, OperationHandler] = {}
-        providers: dict[ProviderRef, ContextProvider] = {}
-        guards: dict[GuardRef, Guard] = {}
+        providers: dict[ProviderRef, ContextProviderHandler] = {}
+        guards: dict[GuardRef, GuardHandler] = {}
         for part in parts:
             _merge_binding_map("handler", handlers, part.handlers)
             _merge_binding_map("provider", providers, part.providers)
@@ -55,15 +55,15 @@ class FeatureBindings:
 
 
 @dataclass(frozen=True)
-class BoundRouteDeckApp:
-    app: CompiledRouteDeckApp
+class BoundApplication:
+    app: CompiledApplication
     bindings: FeatureBindings
 
 
 def bind_app(
-    app: CompiledRouteDeckApp,
+    app: CompiledApplication,
     bindings: FeatureBindings,
-) -> BoundRouteDeckApp:
+) -> BoundApplication:
     _require_exact_refs(
         kind="handler",
         expected={operation.ref for operation in app.operations.values()},
@@ -95,7 +95,7 @@ def bind_app(
         bindings=bindings.guards.values(),
         parameter_names=("context",),
     )
-    return BoundRouteDeckApp(app=app, bindings=bindings)
+    return BoundApplication(app=app, bindings=bindings)
 
 
 def _require_exact_refs(
@@ -167,10 +167,10 @@ def _require_async_bindings(
 
 
 __all__ = [
-    "BoundRouteDeckApp",
-    "ContextProvider",
+    "BoundApplication",
+    "ContextProviderHandler",
     "FeatureBindings",
-    "Guard",
+    "GuardHandler",
     "OperationHandler",
     "bind_app",
 ]

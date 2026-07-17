@@ -8,13 +8,15 @@ import pytest
 from cryptography.fernet import Fernet
 
 from medusa_agent.bindings import bind_medusa_app
-from medusa_agent.composition import compile_medusa_app_spec
-from medusa_agent.features.catalog import CatalogRouteKeyValidator
-from medusa_agent.features.checkout import EncryptedCheckoutPrivateFormReader
+from medusa_agent.composition import compile_medusa_app
+from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
+from medusa_agent.features.checkout.providers import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.models import CreateCartRequest, CreateCartResult
 from medusa_agent.session import BuyerMarket, create_medusa_session
 from routedeck_core.contracts.conversation import (
     ConversationRole,
+    ConversationTurn,
+    ConversationTurnStatus,
     FinalizedConversationTurn,
 )
 from routedeck_core.contracts.events import (
@@ -22,10 +24,16 @@ from routedeck_core.contracts.events import (
     PublicEventPayload,
     RouteDeckEventType,
 )
+from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.mutations import (
     MutationCommit,
     MutationKind,
     MutationStatus,
+)
+from routedeck_core.contracts.interactions import (
+    RouteDeckInteractionOwnerType,
+    RouteDeckInteractionPhase,
+    RouteDeckInteractionState,
 )
 from routedeck_core.contracts.operations import (
     OperationDisposition,
@@ -94,7 +102,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         currency_code="inr",
         sales_channel_handle="web",
     )
-    compiled = compile_medusa_app_spec()
+    compiled = compile_medusa_app()
     client = _UnusedMedusaClient()
 
     async def keep_created_session(_services, snapshot):
@@ -378,15 +386,36 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     )
     await first_store.release_turn(review_lease)
 
-    await first_store.acquire_turn(
-        TurnClaim(
-            session_id=created.session_id,
-            expected_session_version=review_snapshot.session_version,
-            request_id="abandoned-chat-1",
-            request_fingerprint="abandoned-chat-fingerprint-1",
-            owner_kind=TurnOwnerKind.CHAT,
-        )
+    abandoned_claim = TurnClaim(
+        session_id=created.session_id,
+        expected_session_version=review_snapshot.session_version,
+        request_id="abandoned-chat-1",
+        request_fingerprint="abandoned-chat-fingerprint-1",
+        owner_kind=TurnOwnerKind.CHAT,
     )
+    active_state = (
+        RouteDeckSessionAggregate(review_snapshot.state)
+        .set_interaction(
+            RouteDeckInteractionState.active(RouteDeckInteractionOwnerType.CHAT)
+        )
+        .record_public_events(1)
+        .commit()
+    )
+    started_event = RouteDeckEvent(
+        event_id="event-abandoned-chat-1",
+        cursor=active_state.event_cursor,
+        event_type=RouteDeckEventType.TURN_STARTED,
+        session_id=created.session_id,
+        session_version=active_state.session_version,
+        projection_version=active_state.projection_version,
+        created_at=clock.now(),
+        payload=PublicEventPayload(
+            node_id=active_state.current.node_id,
+            request_id=abandoned_claim.request_id,
+            status_code="turn_started",
+        ),
+    )
+    await first_store.start_turn(abandoned_claim, active_state, (started_event,))
     await first_runtime.close()
 
     second_runtime = await open_runtime("second")
@@ -407,6 +436,7 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     assert persisted_review.resolution is ReviewResolution.PENDING
     assert reopened.state.conversation[0].content == "private buyer hello"
     assert reopened.state.conversation[-1].status.value == "turn_interrupted"
+    assert reopened.state.interaction.phase is RouteDeckInteractionPhase.IDLE
     assert private_blob is not None
     assert codec.decrypt(private_blob) == b'{"email":"buyer@example.test"}'
 
@@ -447,10 +477,121 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     assert [event.event_type for event in replay.events] == [
         RouteDeckEventType.TURN_FINALIZED,
         RouteDeckEventType.OPERATION_CHANGED,
+        RouteDeckEventType.TURN_STARTED,
         RouteDeckEventType.TURN_INTERRUPTED,
     ]
     database_bytes = database_path.read_bytes()
     assert b"private buyer hello" not in database_bytes
     assert b"private assistant reply" not in database_bytes
     assert b"buyer@example.test" not in database_bytes
+
+    legacy = await second_store.create(
+        create_medusa_session(
+            app=compiled,
+            session_id="legacy-interrupted-session",
+            market=market,
+        )
+    )
+    legacy_claim = TurnClaim(
+        session_id=legacy.session_id,
+        expected_session_version=legacy.session_version,
+        request_id="legacy-abandoned-chat",
+        request_fingerprint="legacy-abandoned-chat-fingerprint",
+        owner_kind=TurnOwnerKind.CHAT,
+    )
+    legacy_active_state = (
+        RouteDeckSessionAggregate(legacy.state)
+        .set_interaction(
+            RouteDeckInteractionState.active(RouteDeckInteractionOwnerType.CHAT)
+        )
+        .record_public_events(1)
+        .commit()
+    )
+    legacy_started_event = RouteDeckEvent(
+        event_id="event-legacy-abandoned-started",
+        cursor=legacy_active_state.event_cursor,
+        event_type=RouteDeckEventType.TURN_STARTED,
+        session_id=legacy.session_id,
+        session_version=legacy_active_state.session_version,
+        projection_version=legacy_active_state.projection_version,
+        created_at=clock.now(),
+        payload=PublicEventPayload(
+            node_id=legacy_active_state.current.node_id,
+            request_id=legacy_claim.request_id,
+            status_code="turn_started",
+        ),
+    )
+    legacy_lease = await second_store.start_turn(
+        legacy_claim,
+        legacy_active_state,
+        (legacy_started_event,),
+    )
+    legacy_failure = RouteDeckFailure(
+        kind=FailureKind.INTERNAL,
+        code="turn_interrupted",
+        phase="restart_recovery",
+        correlation_id="legacy-restart-correlation",
+        request_id=legacy_claim.request_id,
+        public_message="The previous assistant turn was interrupted.",
+    )
+    legacy_interrupted = ConversationTurn(
+        turn_id="legacy-interrupted-turn",
+        role=ConversationRole.ASSISTANT,
+        content="",
+        request_id=legacy_claim.request_id,
+        status=ConversationTurnStatus.INTERRUPTED,
+    )
+    legacy_public_state = legacy_active_state.public_state.model_copy(
+        update={
+            "status_code": "turn_interrupted",
+            "status_message": legacy_failure.public_message,
+            "failure": legacy_failure,
+        }
+    )
+    legacy_broken_state = (
+        RouteDeckSessionAggregate(legacy_active_state)
+        .append_conversation_turns((legacy_interrupted,))
+        .set_public_state(legacy_public_state)
+        .record_public_events(1)
+        .commit()
+    )
+    legacy_interrupted_event = RouteDeckEvent(
+        event_id="event-legacy-abandoned-interrupted",
+        cursor=legacy_broken_state.event_cursor,
+        event_type=RouteDeckEventType.TURN_INTERRUPTED,
+        session_id=legacy.session_id,
+        session_version=legacy_broken_state.session_version,
+        projection_version=legacy_broken_state.projection_version,
+        created_at=clock.now(),
+        payload=PublicEventPayload(
+            node_id=legacy_broken_state.current.node_id,
+            request_id=legacy_claim.request_id,
+            status_code="turn_interrupted",
+            failure=legacy_failure,
+        ),
+    )
+    await second_store.interrupt_turn(
+        legacy_lease,
+        legacy_active_state.session_version,
+        legacy_broken_state,
+        legacy_failure,
+        (legacy_interrupted_event,),
+        MutationCommit(
+            kind=MutationKind.CHAT,
+            status=MutationStatus.TURN_INTERRUPTED,
+        ),
+    )
     await second_runtime.close()
+
+    stale_contract_store = await SqlAlchemySessionStore.open(
+        f"sqlite+pysqlite:///{database_path.as_posix()}",
+        instance_id="stale-contract-runtime",
+        codec=FernetSensitiveCodec(key),
+        expected_navgraph_version="different-navgraph-version",
+    )
+    await stale_contract_store.close()
+
+    third_runtime = await open_runtime("third")
+    repaired_legacy = await third_runtime.services.store.load(legacy.session_id)
+    assert repaired_legacy.state.interaction.phase is RouteDeckInteractionPhase.IDLE
+    await third_runtime.close()

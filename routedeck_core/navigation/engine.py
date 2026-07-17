@@ -4,8 +4,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..app import CompiledRouteDeckApp
-from ..contracts.application import NodeSpec
+from ..app import CompiledApplication
+from ..contracts.application import Node
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, LocationParameter, RouteDeckSession
 from ..state.aggregate import RouteDeckSessionAggregate
@@ -22,7 +22,7 @@ from .session_location import validate_session_location
 class NavigationEngine:
     """Apply compiled navigation policy to immutable RouteDeck sessions."""
 
-    app: CompiledRouteDeckApp
+    app: CompiledApplication
 
     def open(
         self,
@@ -272,7 +272,7 @@ class NavigationEngine:
         self,
         session: RouteDeckSession,
         location: Location,
-        target_node: NodeSpec,
+        target_node: Node,
     ) -> RouteDeckSession:
         aggregate = RouteDeckSessionAggregate(session).enter_node(location)
         return self._retain_surface_state(aggregate, session, target_node)
@@ -284,7 +284,7 @@ class NavigationEngine:
         current: Location,
         back_stack: tuple[Location, ...],
         forward_stack: tuple[Location, ...],
-        target_node: NodeSpec,
+        target_node: Node,
     ) -> RouteDeckSession:
         aggregate = RouteDeckSessionAggregate(session).replace_history(
             current=current,
@@ -297,7 +297,7 @@ class NavigationEngine:
         self,
         aggregate: RouteDeckSessionAggregate,
         session: RouteDeckSession,
-        target_node: NodeSpec,
+        target_node: Node,
     ) -> RouteDeckSession:
         retained_surface_state = surface_state_for_node(
             self.app,
@@ -309,9 +309,9 @@ class NavigationEngine:
         )
         return aggregate.set_public_state(public_state).commit()
 
-    def _node(self, node_id: str) -> NodeSpec:
+    def _node(self, node_id: str) -> Node:
         node = next(
-            (candidate for candidate in self.app.spec.nodes if candidate.id == node_id),
+            (candidate for candidate in self.app.graph.nodes if candidate.id == node_id),
             None,
         )
         if node is None:

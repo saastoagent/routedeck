@@ -9,10 +9,7 @@ import {
 } from "@routedeck/core";
 
 import { App } from "./app/App";
-import {
-  BootstrapLoadingShell,
-  type BootstrapLoadingPhase,
-} from "./app/BootstrapLoadingShell";
+import { BootstrapLoadingShell } from "./app/BootstrapLoadingShell";
 import { BootstrapRecoveryShell } from "./app/BootstrapRecoveryShell";
 import { loadMedusaRouteDeck } from "./app/config";
 import type { MedusaRouteDeck } from "./app/createRouteDeck";
@@ -28,7 +25,7 @@ if (rootElement === null) {
 }
 const root = createRoot(rootElement);
 
-renderLoading("storefront");
+renderLoading();
 
 void start();
 
@@ -59,10 +56,7 @@ async function start(): Promise<void> {
     const initialConversation = await loadInitialConversation(
       routeDeck,
       chatClient,
-      {
-        ...(requestId === undefined ? {} : { requestId }),
-        onPhase: renderLoading,
-      },
+      requestId === undefined ? {} : { requestId },
     );
     root.render(
       <React.StrictMode>
@@ -98,7 +92,7 @@ async function start(): Promise<void> {
           <button
             type="button"
             onClick={() => {
-              renderLoading("checkout");
+              renderLoading();
               void renderApp(createGreetingRetryRequestId()).catch(
                 renderConversationError,
               );
@@ -111,7 +105,6 @@ async function start(): Promise<void> {
     );
   };
   const restoreConversation = async () => {
-    renderLoading("checkout");
     try {
       await renderApp();
     } catch (error) {
@@ -129,7 +122,6 @@ async function start(): Promise<void> {
   };
 
   try {
-    renderLoading("session");
     await routeDeck.store.bootstrap();
     await restoreConversation();
   } catch {
@@ -137,8 +129,8 @@ async function start(): Promise<void> {
   }
 }
 
-function renderLoading(phase: BootstrapLoadingPhase): void {
-  root.render(<BootstrapLoadingShell phase={phase} />);
+function renderLoading(): void {
+  root.render(<BootstrapLoadingShell />);
 }
 
 function isMissingOrExpiredSession(error: unknown): boolean {

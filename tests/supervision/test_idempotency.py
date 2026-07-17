@@ -5,10 +5,10 @@ from typing import get_type_hints
 
 from routedeck_core.contracts.operations import (
     DeliveryPhase,
-    EntityInputSpec,
+    EntityInput,
     OperationRequest,
     OperationSource,
-    OperationSpec,
+    Operation,
     SafetyClass,
 )
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
@@ -36,7 +36,7 @@ def test_request_fingerprint_is_canonical_domain_separated_and_version_independe
         }
     )
     entity_inputs = (
-        EntityInputSpec(argument_name="variant_ref", entity_kind="variant"),
+        EntityInput(argument_name="variant_ref", entity_kind="variant"),
     )
 
     first_fingerprint = canonical_request_fingerprint(
@@ -165,7 +165,7 @@ def test_operation_arguments_cannot_embed_sensitive_values() -> None:
 def test_operation_spec_version_is_derived_from_the_canonical_declaration() -> None:
     from routedeck_core.supervision.outcomes import canonical_operation_spec_version
 
-    original = OperationSpec(
+    original = Operation(
         id="test.advance",
         title="Advance",
         description="Test operation.",

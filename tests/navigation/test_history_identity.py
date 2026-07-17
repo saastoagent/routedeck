@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from medusa_agent.composition import compile_medusa_app_spec
+from medusa_agent.composition import compile_medusa_app
 import pytest
 
 from routedeck_core.contracts.session import Location, RouteDeckSession
@@ -31,7 +31,7 @@ def _timeline_ids(session: RouteDeckSession) -> tuple[int, ...]:
 
 
 def test_node_entry_ids_are_server_owned_and_monotonic() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     initial = session_factory(app=app, node_id="buyer.home")
 
@@ -67,7 +67,7 @@ def test_node_entry_ids_are_server_owned_and_monotonic() -> None:
 
 
 def test_restore_history_entry_reconstructs_the_exact_canonical_timeline() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     engine = NavigationEngine(app)
     home = session_factory(app=app, node_id="buyer.home")
     browsed = engine.open(home, node_id="catalog.browse")
@@ -114,7 +114,7 @@ def test_restore_history_entry_reconstructs_the_exact_canonical_timeline() -> No
 
 
 def test_projection_exposes_the_current_canonical_history_entry_id() -> None:
-    app = compile_medusa_app_spec()
+    app = compile_medusa_app()
     session = session_factory(app=app, node_id="buyer.home")
 
     projection = ProjectionProjector(app).project(session)

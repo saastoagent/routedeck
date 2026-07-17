@@ -65,20 +65,20 @@ class SurfaceRef(_FrozenContract):
     id: str = Field(min_length=1)
 
 
-class SurfaceAffordanceSpec(_FrozenContract):
+class SurfaceAffordance(_FrozenContract):
     id: str = Field(min_length=1)
     event: str = Field(min_length=1)
     operation: OperationRef | None = None
 
 
-class PrivateFormBindingSpec(_FrozenContract):
+class PrivateFormBinding(_FrozenContract):
     """Server-side authorization for one private form projected by a surface."""
 
     form_id_prop: str = Field(min_length=1)
     allowed_field_names: tuple[str, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def _unique_allowed_fields(self) -> PrivateFormBindingSpec:
+    def _unique_allowed_fields(self) -> PrivateFormBinding:
         if len(self.allowed_field_names) != len(set(self.allowed_field_names)):
             raise ValueError("private form allowed field names must be unique")
         if any(not name for name in self.allowed_field_names):
@@ -88,22 +88,22 @@ class PrivateFormBindingSpec(_FrozenContract):
         return self
 
 
-class SurfaceSpec(_FrozenContract):
+class Surface(_FrozenContract):
     id: str = Field(min_length=1)
     component: str = Field(min_length=1)
     lifecycle: SurfaceLifecycle = SurfaceLifecycle.EPHEMERAL
-    affordances: tuple[SurfaceAffordanceSpec, ...] = ()
+    affordances: tuple[SurfaceAffordance, ...] = ()
     policy_refs: tuple[AgentPolicyRef, ...] = ()
     public_props_schema: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
-    private_form_binding: SkipJsonSchema[PrivateFormBindingSpec | None] = Field(
+    private_form_binding: SkipJsonSchema[PrivateFormBinding | None] = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
 
     @model_validator(mode="after")
-    def _validate_public_props_schema(self) -> SurfaceSpec:
+    def _validate_public_props_schema(self) -> Surface:
         schema = self.public_props_schema.to_dict()
         if not schema:
             if self.private_form_binding is not None:
@@ -126,18 +126,18 @@ class SurfaceSpec(_FrozenContract):
         return SurfaceRef(id=self.id)
 
 
-class SurfaceSlotsSpec(_FrozenContract):
-    active: SurfaceSpec | None = None
-    frame: tuple[SurfaceSpec, ...] = ()
-    peer: tuple[SurfaceSpec, ...] = ()
-    detail: tuple[SurfaceSpec, ...] = ()
-    form: tuple[SurfaceSpec, ...] = ()
-    review: tuple[SurfaceSpec, ...] = ()
-    status: tuple[SurfaceSpec, ...] = ()
-    error: tuple[SurfaceSpec, ...] = ()
-    diagnostic: tuple[SurfaceSpec, ...] = ()
+class SurfaceSlots(_FrozenContract):
+    active: Surface | None = None
+    frame: tuple[Surface, ...] = ()
+    peer: tuple[Surface, ...] = ()
+    detail: tuple[Surface, ...] = ()
+    form: tuple[Surface, ...] = ()
+    review: tuple[Surface, ...] = ()
+    status: tuple[Surface, ...] = ()
+    error: tuple[Surface, ...] = ()
+    diagnostic: tuple[Surface, ...] = ()
 
-    def declared_surfaces(self) -> tuple[SurfaceSpec, ...]:
+    def declared_surfaces(self) -> tuple[Surface, ...]:
         ordered = (
             *((self.active,) if self.active is not None else ()),
             *self.frame,
@@ -149,7 +149,7 @@ class SurfaceSlotsSpec(_FrozenContract):
             *self.error,
             *self.diagnostic,
         )
-        surfaces: list[SurfaceSpec] = []
+        surfaces: list[Surface] = []
         seen: set[str] = set()
         for surface in ordered:
             if surface.id not in seen:
@@ -200,7 +200,7 @@ def _require_default_deny_schema(
 
 def _validate_private_form_binding(
     schema: Mapping[str, object],
-    binding: PrivateFormBindingSpec,
+    binding: PrivateFormBinding,
 ) -> None:
     properties = schema.get("properties")
     if not isinstance(properties, Mapping):
@@ -216,10 +216,10 @@ def _validate_private_form_binding(
 
 
 __all__ = [
-    "PrivateFormBindingSpec",
-    "SurfaceAffordanceSpec",
+    "PrivateFormBinding",
+    "SurfaceAffordance",
     "SurfaceLifecycle",
     "SurfaceRef",
-    "SurfaceSlotsSpec",
-    "SurfaceSpec",
+    "SurfaceSlots",
+    "Surface",
 ]

@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { defineConfig } from "@playwright/test";
 
+process.env.ROUTEDECK_SYNTHETIC_ADDRESS_BAR = "1";
+
 const artifactRoot = process.env.ROUTEDECK_E2E_ARTIFACTS;
 if (artifactRoot === undefined || artifactRoot.trim().length === 0) {
   throw new Error("ROUTEDECK_E2E_ARTIFACTS is required.");

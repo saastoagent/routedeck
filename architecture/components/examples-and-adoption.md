@@ -9,12 +9,13 @@ RouteDeck.
 
 A new application follows one current path:
 
-1. Declare product-owned `FeatureSpec` modules and compose an
-   `ApplicationSpec`.
+1. Declare product-owned `Feature` modules whose nodes own their outgoing
+   transitions, then select them in an `Application`.
 2. Call `compile_app(...)`, then `bind_app(...)` with real product providers,
    guards, context providers, and operation handlers.
-3. Create the durable store, one `RouteDeckOperationRunner`, and generic
-   FastAPI/SSE transport as required.
+3. Pass product callbacks and explicit persistence configuration to a RouteDeck
+   runtime opener; do not construct generic runners or FastAPI dependencies in
+   the product.
 4. If the product uses LangGraph, keep its `create_agent(...)` or raw
    `StateGraph` topology and attach `RouteDeckMiddleware` plus supervised tool
    wrapping. RouteDeck does not compile product graph topology.
@@ -46,7 +47,7 @@ A new application follows one current path:
 
 ## Tests And Evidence
 
-- `python -m pytest tests/app tests/supervision tests/test_langgraph_adapter.py -q`
+- `python -m pytest tests/app tests/supervision tests/test_langgraph_agent_driver.py -q`
 - `python -m pytest examples/medusa-agent/backend/tests -q` with real-Medusa
   lanes run only against the configured protected local stack.
 - `pnpm --filter @routedeck/medusa-agent test`

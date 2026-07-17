@@ -1,288 +1,69 @@
 from __future__ import annotations
 
-from routedeck_core.app import FeatureSpec
-from routedeck_core.contracts.application import CapabilitySpec, NodeSpec
+from routedeck_core.app import Feature
+from routedeck_core.contracts.application import Capability, Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
-    RecoveryPolicySpec,
-    RouteSpec,
-    TransitionSpec,
-)
-from routedeck_core.contracts.operations import (
-    ContextProviderSpec,
-    EntityInputSpec,
-    EntityProviderSpec,
-    GuardSpec,
-    OperationSpec,
-    SafetyClass,
+    RecoveryPolicy,
+    Route,
+    Transition,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
-from routedeck_core.contracts.suggestions import (
-    SuggestedActionSpec,
-    SuggestedActionVisibilitySpec,
-)
 from routedeck_core.contracts.surfaces import (
-    SurfaceAffordanceSpec,
+    Surface,
+    SurfaceAffordance,
     SurfaceLifecycle,
-    SurfaceSlotsSpec,
-    SurfaceSpec,
+    SurfaceSlots,
 )
 
-from ...identifiers import (
-    MedusaOperationType,
-    MedusaOutcomeType,
-    MedusaSuggestedActionType,
+from ...identifiers import MedusaOutcomeType
+from ..checkout.declarations import (
+    CHECKOUT_FACTS_PROVIDER,
+    CHECKOUT_READY_GUARD,
+    CHECKOUT_START,
+    CHECKOUT_CONTACT_REF,
+    START_CHECKOUT_AFFORDANCE,
+)
+from .declarations import (
+    ADD_ITEM_AFFORDANCE,
+    BUYER_MARKET_PROVIDER,
+    CART_ABSENT_GUARD,
+    CART_ADD_ITEM,
+    CART_BINDING_PROVIDER,
+    CART_CAPABILITY,
+    CART_CREATE,
+    CART_CREATE_UNKNOWN_RECOVERY,
+    CART_EXISTS_GUARD,
+    CART_ITEMS_PROVIDER,
+    CART_MUTATION_UNKNOWN_RECOVERY,
+    CART_OPEN,
+    CART_REMOVE_ITEM,
+    CART_STATE_PROVIDER,
+    CART_SUMMARY_REF,
+    CART_UPDATE_ITEM,
+    CREATE_CART_AFFORDANCE,
+    OPEN_CART_AFFORDANCE,
+    VIEW_CART_ACTION,
 )
 
-CART_CREATE_UNKNOWN_RECOVERY = "reconcile_unknown_cart_creation"
-CART_MUTATION_UNKNOWN_RECOVERY = "reconcile_unknown_cart"
-
-BUYER_MARKET_PROVIDER = ContextProviderSpec(
-    id="cart.buyer_market",
-    description="Typed buyer market, region, currency, and sales-channel configuration.",
-    output_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "properties": {
-                "region_id": {"type": "string", "minLength": 1},
-                "country_code": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 2,
-                },
-                "sales_channel_id": {"type": "string", "minLength": 1},
-                "currency_code": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 3,
-                },
-            },
-            "required": [
-                "region_id",
-                "country_code",
-                "currency_code",
-                "sales_channel_id",
-            ],
-            "additionalProperties": False,
-        }
-    ),
-)
-CART_STATE_PROVIDER = ContextProviderSpec(
-    id="cart.current",
-    description="Authoritative current-cart quantities, prices, and totals.",
-    output_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["state"],
-            "properties": {
-                "state": {
-                    "type": "string",
-                    "enum": ["missing", "ready", "refresh_failed"],
-                },
-                "cart": {"type": "object"},
-                "delivery_phase": {
-                    "type": "string",
-                    "enum": ["not_sent", "possibly_sent", "response_received"],
-                },
-                "failure_kind": {
-                    "type": "string",
-                    "enum": ["transport", "provider_protocol", "business"],
-                },
-                "failure_code": {"type": "string", "minLength": 1},
-                "public_message": {"type": "string", "minLength": 1},
-            },
-            "additionalProperties": False,
-        }
-    ),
-)
-CART_ITEMS_PROVIDER = EntityProviderSpec(
-    id="cart.items",
-    entity_kind="line_item",
-    description="Opaque line-item bindings observed for the current cart.",
-    output_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["items"],
-            "properties": {"items": {"type": "array"}},
-            "additionalProperties": False,
-        }
-    ),
-)
-CART_BINDING_PROVIDER = EntityProviderSpec(
-    id="cart.binding",
-    entity_kind="cart",
-    description="The one opaque current-cart binding for this buyer session.",
-    output_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["cart_ref"],
-            "properties": {
-                "cart_ref": {"type": ["string", "null"]},
-            },
-            "additionalProperties": False,
-        }
-    ),
-)
-CART_EXISTS_GUARD = GuardSpec(
-    id="cart.exists",
-    description="Requires the current session to hold one real cart binding.",
-)
-CART_ABSENT_GUARD = GuardSpec(
-    id="cart.absent",
-    description="Prevents duplicate cart creation, including uncertain writes.",
-)
-
-CART_CREATE = OperationSpec(
-    id=MedusaOperationType.CART_CREATE,
-    title="Create cart",
-    description="Create one journaled cart for the current guest session.",
-    input_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": False,
-        }
-    ),
-    safety_class=SafetyClass.WRITE_EXTERNAL,
-    unknown_recovery_directive=CART_CREATE_UNKNOWN_RECOVERY,
-    outcomes=(MedusaOutcomeType.CREATED,),
-    outcome_schemas=FrozenJsonObject(
-        {
-            MedusaOutcomeType.CREATED: {
-                "type": "object",
-                "properties": {
-                    "cart_id": {"type": "string", "minLength": 1},
-                    "currency_code": {
-                        "type": "string",
-                        "minLength": 3,
-                        "maxLength": 3,
-                    },
-                },
-                "required": ["cart_id", "currency_code"],
-                "additionalProperties": False,
-            }
-        }
-    ),
-    provider_refs=(BUYER_MARKET_PROVIDER.ref,),
-    guard_refs=(CART_ABSENT_GUARD.ref,),
-)
-CART_ADD_ITEM = OperationSpec(
-    id=MedusaOperationType.CART_ADD_ITEM,
-    title="Add item",
-    description="Add a validated variant and quantity to the current cart.",
-    input_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["variant_ref", "quantity"],
-            "properties": {
-                "variant_ref": {"type": "string"},
-                "quantity": {"type": "integer", "minimum": 1},
-            },
-            "additionalProperties": False,
-        }
-    ),
-    entity_inputs=(
-        EntityInputSpec(argument_name="variant_ref", entity_kind="variant"),
-    ),
-    safety_class=SafetyClass.WRITE_EXTERNAL,
-    unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=(MedusaOutcomeType.ADDED,),
-    provider_refs=(CART_STATE_PROVIDER.ref,),
-    guard_refs=(CART_EXISTS_GUARD.ref,),
-)
-CART_OPEN = OperationSpec(
-    id=MedusaOperationType.CART_OPEN,
-    title="Open cart",
-    description="Navigate to the current cart summary.",
-    safety_class=SafetyClass.NAVIGATION,
-    outcomes=(MedusaOutcomeType.OPENED,),
-    provider_refs=(CART_STATE_PROVIDER.ref,),
-    guard_refs=(CART_EXISTS_GUARD.ref,),
-)
-CART_UPDATE_ITEM = OperationSpec(
-    id=MedusaOperationType.CART_UPDATE_ITEM,
-    title="Update quantity",
-    description="Update one allowlisted line-item quantity.",
-    input_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["line_item_ref", "quantity"],
-            "properties": {
-                "line_item_ref": {"type": "string"},
-                "quantity": {"type": "integer", "minimum": 1},
-            },
-            "additionalProperties": False,
-        }
-    ),
-    entity_inputs=(
-        EntityInputSpec(argument_name="line_item_ref", entity_kind="line_item"),
-    ),
-    safety_class=SafetyClass.WRITE_EXTERNAL,
-    unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=(MedusaOutcomeType.UPDATED,),
-    provider_refs=(CART_STATE_PROVIDER.ref,),
-    guard_refs=(CART_EXISTS_GUARD.ref,),
-)
-CART_REMOVE_ITEM = OperationSpec(
-    id=MedusaOperationType.CART_REMOVE_ITEM,
-    title="Remove item",
-    description="Remove one allowlisted line item from the current cart.",
-    input_schema=FrozenJsonObject(
-        {
-            "type": "object",
-            "required": ["line_item_ref"],
-            "properties": {"line_item_ref": {"type": "string"}},
-            "additionalProperties": False,
-        }
-    ),
-    entity_inputs=(
-        EntityInputSpec(argument_name="line_item_ref", entity_kind="line_item"),
-    ),
-    safety_class=SafetyClass.WRITE_EXTERNAL,
-    unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
-    outcomes=(MedusaOutcomeType.REMOVED,),
-    provider_refs=(CART_STATE_PROVIDER.ref,),
-    guard_refs=(CART_EXISTS_GUARD.ref,),
-)
-OPEN_CART_AFFORDANCE = SurfaceAffordanceSpec(
-    id="open_cart",
-    event="open",
-    operation=CART_OPEN.ref,
-)
-VIEW_CART_ACTION = SuggestedActionSpec(
-    id=MedusaSuggestedActionType.VIEW_CART,
-    operation_id=CART_OPEN.id,
-    label="View cart",
-    visibility=SuggestedActionVisibilitySpec(required_entity_kinds=("cart",)),
-)
-CREATE_CART_AFFORDANCE = SurfaceAffordanceSpec(
-    id="create_cart",
-    event="create",
-    operation=CART_CREATE.ref,
-)
-ADD_ITEM_AFFORDANCE = SurfaceAffordanceSpec(
-    id="add_item",
-    event="add",
-    operation=CART_ADD_ITEM.ref,
-)
-
-CART_FRAME = SurfaceSpec(
+CART_FRAME = Surface(
     id="cart.frame",
     component="cart.frame",
     lifecycle=SurfaceLifecycle.STABLE,
 )
-CART_SUMMARY = SurfaceSpec(
+CART_SUMMARY = Surface(
     id="cart.summary",
     component="cart.summary",
     lifecycle=SurfaceLifecycle.STABLE,
     affordances=(
-        SurfaceAffordanceSpec(
+        SurfaceAffordance(
             id="update_item", event="change", operation=CART_UPDATE_ITEM.ref
         ),
-        SurfaceAffordanceSpec(
+        SurfaceAffordance(
             id="remove_item", event="remove", operation=CART_REMOVE_ITEM.ref
         ),
+        START_CHECKOUT_AFFORDANCE,
     ),
     public_props_schema=FrozenJsonObject(
         {
@@ -341,50 +122,64 @@ CART_SUMMARY = SurfaceSpec(
         }
     ),
 )
-CART_STATUS = SurfaceSpec(
+CART_STATUS = Surface(
     id="cart.status",
     component="cart.status",
     lifecycle=SurfaceLifecycle.STABLE,
 )
-CART_ERROR = SurfaceSpec(
+CART_ERROR = Surface(
     id="cart.error",
     component="cart.error",
     lifecycle=SurfaceLifecycle.STABLE,
 )
-CART_DIAGNOSTIC = SurfaceSpec(
+CART_DIAGNOSTIC = Surface(
     id="cart.diagnostic",
     component="cart.diagnostic",
 )
-
-CART_CAPABILITY = CapabilitySpec(
-    id="cart.manage",
-    title="Manage cart",
-    operations=(
-        CART_CREATE.ref,
-        CART_ADD_ITEM.ref,
-        CART_OPEN.ref,
-        CART_UPDATE_ITEM.ref,
-        CART_REMOVE_ITEM.ref,
-    ),
-    surfaces=(
-        CART_SUMMARY.ref,
-        CART_STATUS.ref,
-        CART_ERROR.ref,
-        CART_DIAGNOSTIC.ref,
-    ),
+CHECKOUT_ENTRY_CAPABILITY = Capability(
+    id="cart.checkout",
+    title="Start checkout",
+    operations=(CHECKOUT_START.ref,),
+    surfaces=(CART_SUMMARY.ref,),
 )
 
-CART_NODE = NodeSpec(
+CART_NODE = Node(
     id="cart.summary",
     title="Cart",
     kind=NodeKind.WORKFLOW,
-    route=RouteSpec(template="/cart", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
-    context_providers=(BUYER_MARKET_PROVIDER, CART_STATE_PROVIDER),
+    route=Route(template="/cart", deep_link_policy=DeepLinkPolicy.SESSION_BOUND),
+    context_providers=(
+        BUYER_MARKET_PROVIDER,
+        CART_STATE_PROVIDER,
+        CHECKOUT_FACTS_PROVIDER,
+    ),
     entity_providers=(CART_BINDING_PROVIDER, CART_ITEMS_PROVIDER),
-    guards=(CART_EXISTS_GUARD,),
-    operations=(CART_OPEN, CART_UPDATE_ITEM, CART_REMOVE_ITEM),
-    capabilities=(CART_CAPABILITY,),
-    surfaces=SurfaceSlotsSpec(
+    guards=(CART_EXISTS_GUARD, CHECKOUT_READY_GUARD),
+    operations=(CART_OPEN, CART_UPDATE_ITEM, CART_REMOVE_ITEM, CHECKOUT_START),
+    outgoing=(
+        Transition(
+            operation=CART_OPEN.ref,
+            outcome=MedusaOutcomeType.OPENED,
+            target=CART_SUMMARY_REF,
+        ),
+        Transition(
+            operation=CART_UPDATE_ITEM.ref,
+            outcome=MedusaOutcomeType.UPDATED,
+            target=CART_SUMMARY_REF,
+        ),
+        Transition(
+            operation=CART_REMOVE_ITEM.ref,
+            outcome=MedusaOutcomeType.REMOVED,
+            target=CART_SUMMARY_REF,
+        ),
+        Transition(
+            operation=CHECKOUT_START.ref,
+            outcome=MedusaOutcomeType.STARTED,
+            target=CHECKOUT_CONTACT_REF,
+        ),
+    ),
+    capabilities=(CART_CAPABILITY, CHECKOUT_ENTRY_CAPABILITY),
+    surfaces=SurfaceSlots(
         active=CART_SUMMARY,
         frame=(CART_FRAME,),
         detail=(CART_SUMMARY,),
@@ -392,35 +187,15 @@ CART_NODE = NodeSpec(
         error=(CART_ERROR,),
         diagnostic=(CART_DIAGNOSTIC,),
     ),
-    recovery=RecoveryPolicySpec(
+    recovery=RecoveryPolicy(
         directives=("refresh_cart", CART_MUTATION_UNKNOWN_RECOVERY),
         failure_surface=CART_ERROR.ref,
     ),
 )
 
-FEATURE_SPEC = FeatureSpec(
+FEATURE = Feature(
     namespace="cart",
     nodes=(CART_NODE,),
-    transitions=(
-        TransitionSpec(
-            source=CART_NODE.ref,
-            operation=CART_OPEN.ref,
-            outcome=MedusaOutcomeType.OPENED,
-            target=CART_NODE.ref,
-        ),
-        TransitionSpec(
-            source=CART_NODE.ref,
-            operation=CART_UPDATE_ITEM.ref,
-            outcome=MedusaOutcomeType.UPDATED,
-            target=CART_NODE.ref,
-        ),
-        TransitionSpec(
-            source=CART_NODE.ref,
-            operation=CART_REMOVE_ITEM.ref,
-            outcome=MedusaOutcomeType.REMOVED,
-            target=CART_NODE.ref,
-        ),
-    ),
 )
 
 
@@ -440,7 +215,7 @@ __all__ = [
     "CART_SUMMARY",
     "CART_MUTATION_UNKNOWN_RECOVERY",
     "CREATE_CART_AFFORDANCE",
-    "FEATURE_SPEC",
+    "FEATURE",
     "OPEN_CART_AFFORDANCE",
     "VIEW_CART_ACTION",
 ]
