@@ -537,3 +537,7 @@ schemas and eight corresponding frontend surface decoders. See
 This reference describes implemented contracts, not a release-pass claim. A
 live-model release smoke requires an explicit `OPENAI_API_KEY` and must be
 reported from a current release run.
+
+For a verified implementation-to-contract-to-proof trace of the current
+RouteDeck/Medusa boundary, see
+[`../knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md). That evidence document is subordinate to this contract and current source.

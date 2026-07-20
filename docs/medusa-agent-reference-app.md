@@ -59,6 +59,7 @@ examples/medusa-agent/
       composition.py       # declarative cross-feature app composition
       bindings.py          # typed product dependency injection
       config.py            # strict environment contract
+      contact_identity.py  # shared checkout/order contact fingerprint
       runtime.py           # product configuration passed to framework openers
       identifiers.py       # canonical cross-feature product identifiers
       session.py           # buyer market, session factory, and initializer
@@ -70,6 +71,7 @@ examples/medusa-agent/
     ui/                    # shell, conversation, composer, navigation/status
   medusa/                  # pinned, repo-local Medusa 2.13.6 demo server
   infra/                   # protected Compose and canonical seed contract
+  contracts/               # shared backend/frontend surface parity vectors
   scripts/                 # protected stack and release verification
 ```
 
@@ -168,7 +170,7 @@ The app declares product surfaces with exact public prop schemas and registers
 the matching React components in `frontend/src/routedeck/surfaces.tsx`.
 Important surfaces include:
 
-- `buyer.welcome`
+- `buyer.frame`
 - `catalog.product_grid`
 - `catalog.product_detail`
 - `cart.summary`
@@ -451,3 +453,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\examples\medusa-agent\scri
 
 No live-model release pass is claimed by this document. Only a current,
 sanitized release report can make that claim.
+
+The verified implementation/file/proof trace for the current boundary is in
+[`../knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md).

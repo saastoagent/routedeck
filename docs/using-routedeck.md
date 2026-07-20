@@ -178,8 +178,25 @@ or callback failure propagates; no alternate resource is selected.
 The product host mounts one router derived from its runtime:
 
 ```python
+from routedeck_fastapi import (
+    GuestCookieSessionSelector,
+    GuestCookieSettings,
+    create_routedeck_router_from_runtime_provider,
+)
+
+session_selector = GuestCookieSessionSelector(
+    GuestCookieSettings(
+        name="routedeck_guest",
+        secure=True,
+        path="/",
+    )
+)
+
 app.include_router(
-    create_routedeck_router_from_runtime_provider(runtime_provider)
+    create_routedeck_router_from_runtime_provider(
+        runtime_provider,
+        session_selector=session_selector,
+    )
 )
 ```
 
@@ -188,10 +205,12 @@ conversation, event, private-form, and inspection routes. Product health,
 authentication, CORS/origin configuration, and domain routes remain product
 owned.
 
-RouteDeck currently ships a guest-cookie selector used by the Medusa reference.
-Authenticated users and multiple sessions require a consumer-owned authorization
-resolver; RouteDeck does not own users or trust raw internal session IDs from a
-browser.
+RouteDeck ships the explicit guest-cookie selector shown above for guest mode.
+Use `secure=True` on HTTPS; the Medusa local HTTP demo deliberately configures
+`False`. Authenticated users and multiple sessions require a consumer-owned
+`RouteDeckSessionSelector` that authorizes an opaque product session handle
+against the current principal before returning an internal RouteDeck session
+ID. RouteDeck does not own users or trust raw internal IDs from a browser.
 
 ## 8. Integrate A Product-Owned Agent
 

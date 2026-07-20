@@ -28,9 +28,13 @@ The RouteDeck feature is complete.
    owning component when coverage or ownership changed.
 3. Update SYSTEM_FLOW_INDEX.md when a runtime or UX sequence changed.
 4. Update test_index/README.md when validation meaning or commands changed.
-5. Add an ADR only when a durable future implementation choice changed.
-6. Demote completed/superseded plan or design material to docs/archive/.
-7. Run the fastest meaningful focused tests.
+5. When one implementation spans several owners, update one verified
+   implementation-to-contract-to-proof crosswalk in knowledgebase/.
+6. Add an ADR only when a durable future implementation choice changed; an
+   accepted ADR may receive a dated implementation-status note without changing
+   the decision.
+7. Demote completed/superseded plan or design material to docs/archive/.
+8. Run the fastest meaningful focused tests.
 ```
 
 ## Session Close

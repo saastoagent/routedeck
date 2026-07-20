@@ -2,9 +2,10 @@
 
 Last updated: 2026-07-20
 Status: the seven boundary/quality remediation slices are implemented and
-focused static, real-Medusa, and live checkout gates pass. Work is local Windows
-only. This context is part of the user-requested boundary-quality closeout
-commit; no push or deployment is implied.
+focused static, real-Medusa, and live checkout gates pass. ADR implementation
+status, canonical coverage, and one reusable source/contract/proof knowledge
+crosswalk now cover the complete implementation. Work is local Windows only;
+the protected stack is stopped.
 
 ## Start Here
 
@@ -16,7 +17,8 @@ commit; no push or deployment is implied.
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
 8. [Post-fix quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-post-fix-audit.md)
-9. [Latest checkpoint](./context_checkpoints/context_checkpoint_20-07-2026-4-25PM.md)
+9. [Implementation coverage crosswalk](./knowledgebase/runtime-boundary-implementation-coverage.md)
+10. [Latest checkpoint](./context_checkpoints/context_checkpoint_20-07-2026-5-20PM.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
 ADR-005 controls named state/feature structure. ADR-004 controls scope,
@@ -64,19 +66,37 @@ the implemented selector seam. Checkout and orders share one contact identity
 algorithm. Sixteen vectors check the compiled schemas and eight corresponding
 frontend surface decoders.
 
+## Implementation Coverage
+
+- ADR-006 records the implemented framework runtime, required session-selector,
+  assistant-turn coordinator, and schema-4 enforcement boundary.
+- ADR-005 records implemented feature/node composition, immutable compiled node
+  lookup, explicit review identity, and read-only Navgraph behavior.
+- ADR-004 records the implemented Medusa commerce, deployment-policy, contact
+  identity, surface parity, and browser/Store separation.
+- `architecture/feature-coverage.md` remains the canonical capability matrix;
+  `architecture/code-map.md` maps every maintained file to an owner.
+- `knowledgebase/runtime-boundary-implementation-coverage.md` is the single
+  verified cross-owner file/contract/proof trace. It is evidence subordinate to
+  the ADRs, canonical docs, and current source.
+
 ## Current Evidence
 
 - Schema-4 boundary report: pass, zero violations at
-  `C:\Users\ragha\AppData\Local\Temp\routedeck-boundaries-final.json`.
+  `C:\Users\ragha\AppData\Local\Temp\routedeck-boundaries-docs-final.json`.
+- Documentation coverage: 574/574 maintained files mapped; context architecture
+  passes for 41 active Markdown files.
+- Focused authority/public/reference lane: 29 passed with one existing Pydantic
+  deprecation warning.
 - Maintained Python Ruff and core/React/Medusa TypeScript typechecks pass.
 - Focused tests for assistant coordination, explicit review session identity,
   selector/host policy, neutral copy/scanners, contact identity, compiled node
   lookup, and surface parity pass.
 - Real Medusa integration: 4 passed in 21.131 seconds against
   `http://127.0.0.1:9100`.
-- Live checkout: 1 passed in 2.4 minutes at `http://127.0.0.1:5198`, using the
+- Latest live checkout: 1 passed in 2.2 minutes at `http://127.0.0.1:5198`, using the
   live model and real Store API. The uninterrupted 1920x1080 video is
-  [video.webm](./artifacts/boundary-quality-live-checkout-20260720-160830/raw-results/human-checkout-flow--human-7f281-th-visible-navigation-proof-desktop-chromium/video.webm).
+  [video.webm](./artifacts/boundary-quality-live-checkout-20260720-165922/raw-results/human-checkout-flow--human-7f281-th-visible-navigation-proof-desktop-chromium/video.webm).
 
 Only these named current runs support pass claims. The protected stack should
 not be assumed running in a later session.
@@ -104,7 +124,8 @@ and one real E2E at its end.
 
 `architecture/feature-coverage.md` owns capability coverage;
 `architecture/code-map.md` owns subsystem/source mapping;
-`test_index/README.md` owns validation meaning. Run
+`knowledgebase/runtime-boundary-implementation-coverage.md` owns the reusable
+cross-owner semantic trace; `test_index/README.md` owns validation meaning. Run
 `python scripts/check_doc_coverage.py` and
 `python scripts/check_context_architecture.py` after changing these surfaces.
 Archive completed plans/designs so historical material cannot compete with

@@ -40,3 +40,7 @@ and fixes execution to the local Windows development machine.
 ADR-003 remains historical rationale for RouteDeck's interaction-governance
 identity and host-executor boundary. ADR-001 and ADR-002 are also retained as
 history where later decisions supersede their release sequencing and scope.
+
+Implementation status is recorded inside ADR-004, ADR-005, and ADR-006 without
+changing their accepted decisions. The verified file/contract/proof trace is
+[`knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md); it is evidence subordinate to this decision chain and current source.

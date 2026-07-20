@@ -33,7 +33,8 @@ examples, public guidance, or project state changes.
 | Active decision-complete work | `plans/` or current `docs/superpowers/` record |
 | Completed/superseded planning and reports | `docs/archive/` |
 | Session evidence | `logs/`, `context_checkpoints/`, `context_history/` |
-| Audits/provenance/debugging/knowledge | owning lifecycle folder |
+| Audits/provenance/debugging | owning lifecycle folder |
+| Reusable verified cross-owner implementation trace | `knowledgebase/` |
 | Stable repeatable procedures | `skills/` |
 
 ## Archive Rule
@@ -47,6 +48,8 @@ value.
 
 - Every changed live source maps to a feature and code-map row.
 - Contract/ownership/flow/test changes are documented, or explicitly unchanged.
+- Cross-owner behavior is represented once in a verified knowledgebase
+  implementation crosswalk; file mapping alone is not semantic coverage.
 - Canonical docs contain no retired API names or active links to archived plans.
 - Documentation coverage and context/link authority checks pass.
 - Validation commands/results and any blocker are recorded.

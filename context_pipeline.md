@@ -39,8 +39,10 @@ and history so an old plan cannot become accidental authority.
 - `logs/` - dated session evidence.
 - `docs/archive/` - completed/superseded plans, designs, concepts, reports,
   handoffs, and narrative material.
-- `audits/`, `docs/migration/`, `errors/`, `knowledgebase/` - point-in-time
-  findings or verified reusable knowledge.
+- `audits/`, `docs/migration/`, `errors/` - point-in-time findings,
+  provenance, and debugging evidence.
+- `knowledgebase/` - verified reusable findings and cross-owner implementation
+  traceability; subordinate to current source and the canonical spine.
 - `plans/` - currently active decision-complete plans only.
 
 Historical material never overrides the canonical layers.
@@ -68,7 +70,9 @@ concrete step before implementation.
 2. Change the smallest coherent feature/architecture slice.
 3. Keep every changed live source mapped to an ownership row and feature.
 4. Update contract, flow, component, and test docs only where meaning moved.
-5. Demote completed planning material rather than leaving it active.
+5. Update one knowledgebase implementation crosswalk when a coherent change
+   spans several source/documentation owners.
+6. Demote completed planning material rather than leaving it active.
 
 ### Close
 

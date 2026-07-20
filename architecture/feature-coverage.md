@@ -8,7 +8,9 @@ consumer owns, where the implementation lives, which document defines it, and
 which focused check protects it.
 
 The matrix describes implemented behavior only. Future work is listed
-separately and must not be inferred as available.
+separately and must not be inferred as available. The verified cross-owner
+trace for the 2026-07-20 boundary remediation is
+[`knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md).
 
 ## Framework Coverage
 
@@ -59,6 +61,7 @@ separately and must not be inferred as available.
 | Boundary enforcement | Product-neutral framework, one runtime/runner, no product generic constructors, direct assistant-stream state machine, product vocabulary, or direct Store API browser calls. | `scripts/check_boundaries.py`, boundary tests | schema-4 JSON boundary report and focused negative tests |
 | Product surface parity | Execute one set of valid/invalid public-props vectors against compiled backend schemas and the eight matching product frontend decoders. | `examples/medusa-agent/contracts/surface-props-parity.json`, backend/frontend parity tests | 16 shared vectors across eight Medusa product decoders |
 | Context architecture | Canonical spine, feature/code/doc maps, lifecycle history, archive policy, and Git-independent coverage checks. | root context files, `architecture/`, `docs/archive/`, `scripts/check_doc_coverage.py` | authority tests, documentation coverage, link/authority checker |
+| Implementation traceability | One reusable semantic crosswalk links each cross-owner remediation to framework source, consumer source, canonical contract, and focused proof without making evidence canonical authority. | `knowledgebase/runtime-boundary-implementation-coverage.md`, ADR implementation-status sections, code-map/component anchors | doc coverage, context architecture, authority tests, and the named focused behavior gates |
 
 ## Explicitly Not Implemented
 

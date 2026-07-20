@@ -59,7 +59,8 @@ payments, or orders. The Medusa app keeps those concerns in:
 Medusa does not construct generic runners, navigation, persistence resources,
 FastAPI dependency bundles, or a LangGraph event driver. Its host supplies one
 `RouteDeckRuntime` through `create_routedeck_router_from_runtime_provider(...)`
-and mounts only product health/readiness beside the generic route plane.
+with an explicit host-owned `RouteDeckSessionSelector`, and mounts only product
+health/readiness beside the generic route plane.
 
 Every UI affordance and agent tool reaches the same
 `RouteDeckOperationRunner`. The browser never calls the Medusa Store API

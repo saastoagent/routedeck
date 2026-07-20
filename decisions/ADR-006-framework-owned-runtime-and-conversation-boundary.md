@@ -90,6 +90,29 @@ message, alternate provider, or synthetic product response.
 - Boundary verification can reject Medusa imports or construction of generic
   runtime, conversation, and presentation infrastructure.
 
+## Implementation Status (Verified 2026-07-20)
+
+This status records realization of the accepted ownership decision; it does not
+change the decision.
+
+- `build_routedeck_runtime(...)` constructs the one runner, navigation over
+  that runner, projection, lifecycle, and optional product-supplied driver.
+- `create_routedeck_router_from_runtime_provider(...)` derives one generic
+  FastAPI plane from that runtime and requires a host-supplied
+  `RouteDeckSessionSelector`. `GuestCookieSessionSelector` is an explicit guest
+  adapter, not a hidden framework default.
+- `runAssistantInitiatedTurn(...)` in `@routedeck/core` owns assistant-only
+  stream validation, durable completion proof, version convergence, conflict
+  reload, and canonical conversation reload. Medusa supplies greeting policy,
+  request identity, and buyer-facing copy.
+- Generic framework packages contain product-neutral production copy. The
+  schema-4 boundary report rejects product vocabulary, product-owned assistant
+  stream state machines, duplicate runtime construction, direct Store browser
+  calls, and product-owned LangGraph driving.
+
+The implementation-to-contract-to-proof crosswalk is
+[`knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md).
+
 ## Authority Chain
 
 ADR-006 is the controlling decision for runtime assembly, generic conversation

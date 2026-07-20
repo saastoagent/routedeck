@@ -37,6 +37,8 @@ session history.
 - Repo-local RouteDeck skills.
 - RouteDeck context restart files.
 - Session start, closeout, checkpoint, and validation-index workflow.
+- Reusable implementation-to-contract-to-proof crosswalks in `knowledgebase/`;
+  these retain verified findings without becoming canonical authority.
 
 ## Dependent Flows
 
@@ -63,3 +65,4 @@ Update this doc and `architecture/code-map.md` when changing:
 - handoff workflow assumptions
 - advisory checker behavior
 - archive classification or canonical feature coverage
+- implementation traceability or knowledgebase ownership

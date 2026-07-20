@@ -64,13 +64,18 @@ python -m pytest tests/test_active_design_authority.py tests/test_public_api.py 
 
 - `check_doc_coverage.py` scans all maintained live source by default and maps
   it to `architecture/code-map.md`. Use `--files <paths...>` for a focused list
-  and `--verbose` for owner/anchor detail. It never invokes Git.
+  and `--verbose` for owner/anchor detail. It never invokes Git. This proves
+  file ownership coverage, not semantic implementation coverage.
 - `check_context_architecture.py` verifies required canonical documents, local
   Markdown links, and absence of retired API/architecture language from the
   active documentation set. It excludes historical/archive and generated
   material.
 - The focused tests lock public API, current authority, generic endpoint, and
   product/framework reference boundaries.
+- A change spanning multiple owners also requires a verified semantic crosswalk
+  under `knowledgebase/` that links implemented behavior, framework source,
+  consumer source, canonical contracts, and focused proof. Review that crosswalk
+  with the feature matrix; no single automated check substitutes for both.
 
 Regenerate contracts only when Python contract meaning changed:
 

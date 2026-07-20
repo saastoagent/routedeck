@@ -1,6 +1,6 @@
 # RouteDeck Documentation Map
 
-Last updated: 2026-07-17
+Last updated: 2026-07-20
 
 This map prevents historical implementation material from competing with live
 architecture. When documents disagree, use the highest applicable row below.
@@ -31,7 +31,8 @@ architecture. When documents disagree, use the highest applicable row below.
 | `logs/` | Completed session evidence. |
 | `audits/` | Point-in-time read-only findings. |
 | `docs/migration/` | Extraction and source provenance. |
-| `errors/`, `knowledgebase/` | Resolved debugging or reusable verified findings. |
+| `errors/` | Resolved debugging evidence. |
+| `knowledgebase/` | Reusable verified findings and implementation crosswalks; subordinate to the canonical spine and current source. |
 
 Historical material never overrides current source or the canonical spine. Its
 commands, paths, API names, and status may intentionally describe an older
@@ -49,3 +50,7 @@ is explicitly outside the product/documentation authority chain.
 Any feature or boundary change must update the feature matrix and its owning
 code-map/component row. Any change to authority or lifecycle folders must also
 update this map, `context_pipeline.md`, and the context-architecture component.
+When an implementation spans several owners, keep one reusable
+implementation-to-contract-to-proof crosswalk in `knowledgebase/` and link it
+from the affected ADRs/canonical coverage rows instead of duplicating the same
+file inventory across documents.

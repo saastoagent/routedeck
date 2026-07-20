@@ -1,6 +1,6 @@
 # Structure - RouteDeck
 
-Last updated: 2026-07-17
+Last updated: 2026-07-20
 
 ```text
 routedeck/
@@ -28,6 +28,7 @@ routedeck/
   routedeck_testing/     # Python test-only support
   packages/
     core/src/            # strict browser contracts/clients/store/routing/forms
+      conversation/assistant.ts # reusable assistant-only convergence
     react/src/           # provider/hooks/conversation/surfaces/review/Navgraph
     testing/             # private frontend test harnesses
   examples/medusa-agent/
@@ -38,11 +39,13 @@ routedeck/
       bindings.py        # merge feature-owned product implementations
       session.py         # buyer market/session callbacks
       agent.py           # product prompts/models/LangGraph graphs
+      contact_identity.py # shared checkout/order contact identity
       runtime.py         # strict product inputs to framework opener
     backend/main.py      # product host: runtime provider, generic router, health
     frontend/src/        # product shell, surfaces, markdown, Navgraph layout
     medusa/              # pinned real local Store server and seed declaration
     infra/               # protected Compose/sentinel/fixture ownership
+    contracts/           # shared backend/frontend surface-props parity vectors
     scripts/             # stack and release tools
     e2e/                 # targeted Playwright stories and recording support
   architecture/

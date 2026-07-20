@@ -66,6 +66,26 @@ buyer journey.
   not diverge.
 - No reducer or alternate event-name shim is retained.
 
+## Implementation Status (Verified 2026-07-20)
+
+This status records realization of the non-superseded clauses; ADR-006 still
+controls generic runtime and conversation ownership.
+
+- Developers author complete `Feature` modules whose `Node`s own outgoing
+  transitions. `Application` selects features and one entry node; RouteDeck
+  derives incoming adjacency during compilation.
+- `CompiledApplication` exposes one immutable, graph-identity-checked node map
+  and `require_node(...)`. Context, projection, navigation, and supervision use
+  that lookup instead of independently scanning the graph.
+- Review acceptance and rejection are named versioned actions that require the
+  host-selected non-empty session ID; there is no configured default-session
+  path.
+- The React Navgraph remains read-only while the Medusa product shell controls
+  its layout and permanent-open presentation mode used by the recorded proof.
+
+File ownership and focused proof are cross-referenced in
+[`knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md).
+
 ## Verification Boundary
 
 Focused verification must cover aggregate actions, one SQLite repository path,

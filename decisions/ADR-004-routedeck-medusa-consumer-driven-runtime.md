@@ -25,3 +25,23 @@ change.
 ADR-003 remains historical rationale for RouteDeck's interaction-governance
 identity and injected product-tool execution boundary. Where its sequencing or
 scope conflicts with the approved design, ADR-004 controls.
+
+## Implementation Status (Verified 2026-07-20)
+
+This status records how the accepted decision is realized; it does not add a
+new architectural choice.
+
+- The standalone Medusa consumer owns the typed Store client, catalog, cart,
+  checkout, order placement/reconciliation, product graphs/models/prompts,
+  market/session initialization, product UI, and protected local stack.
+- The product host explicitly chooses guest-cookie session policy, browser
+  origins, worker/instance values, review/resume TTLs, and local cookie
+  security. RouteDeck does not choose those deployment values.
+- Checkout and order code share one Medusa-owned contact identity function, and
+  backend schemas plus frontend decoders use one Medusa-owned parity-vector
+  contract. Neither concern moved into RouteDeck.
+- The browser reaches Medusa commerce only through supervised RouteDeck
+  operations; it has no direct `/store/*` transport path.
+
+The complete implementation-to-contract-to-proof crosswalk is retained in
+[`knowledgebase/runtime-boundary-implementation-coverage.md`](../knowledgebase/runtime-boundary-implementation-coverage.md).
