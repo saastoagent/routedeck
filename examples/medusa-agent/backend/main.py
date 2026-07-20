@@ -7,21 +7,19 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from medusa_agent.api import MedusaAgentReadinessProbe, health_router
+from medusa_agent.config import Settings
 from medusa_agent.runtime import (
     LiveMedusaApplication,
     open_live_medusa_application,
 )
 from routedeck_core import RouteDeckRuntime
 from routedeck_fastapi import (
+    GuestCookieSessionSelector,
+    GuestCookieSettings,
     RouteDeckDependencyUnavailable,
+    RouteDeckSessionSelector,
     SameOriginMutationPolicy,
     create_routedeck_router_from_runtime_provider,
-)
-
-
-_DEFAULT_BROWSER_ORIGINS = (
-    "http://127.0.0.1:5198",
-    "http://localhost:5198",
 )
 
 
@@ -39,7 +37,8 @@ def create_medusa_app(
     live_runtime_factory: (
         Callable[[], Awaitable[LiveMedusaApplication]] | None
     ) = None,
-    browser_origins: Sequence[str] = _DEFAULT_BROWSER_ORIGINS,
+    browser_origins: Sequence[str],
+    session_selector: RouteDeckSessionSelector,
 ) -> FastAPI:
     """Compose product APIs with the generic RouteDeck transport exactly once."""
 
@@ -71,6 +70,7 @@ def create_medusa_app(
     application.include_router(
         create_routedeck_router_from_runtime_provider(
             _routedeck_runtime,
+            session_selector=session_selector,
             mutation_policy=mutation_policy,
         )
     )
@@ -98,7 +98,25 @@ def _live_lifespan(
     return lifespan
 
 
-app = create_medusa_app(live_runtime_factory=open_live_medusa_application)
+def create_live_app() -> FastAPI:
+    settings = Settings.from_env()
+
+    async def open_configured_runtime() -> LiveMedusaApplication:
+        return await open_live_medusa_application(settings)
+
+    return create_medusa_app(
+        live_runtime_factory=open_configured_runtime,
+        browser_origins=tuple(
+            str(origin).rstrip("/") for origin in settings.routedeck_browser_origins
+        ),
+        session_selector=GuestCookieSessionSelector(
+            GuestCookieSettings(
+                name=settings.routedeck_guest_cookie_name,
+                secure=settings.routedeck_guest_cookie_secure,
+                path=settings.routedeck_guest_cookie_path,
+            )
+        ),
+    )
 
 
-__all__ = ["app", "create_medusa_app"]
+__all__ = ["create_live_app", "create_medusa_app"]

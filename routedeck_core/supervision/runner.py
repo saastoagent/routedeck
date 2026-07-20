@@ -70,14 +70,11 @@ class RouteDeckOperationRunner(
         id_factory: IdFactory,
         review_ttl: timedelta,
         resume_capability_ttl: timedelta,
-        default_session_id: str,
     ) -> None:
         if review_ttl <= timedelta(0):
             raise ValueError("review_ttl must be positive")
         if resume_capability_ttl <= timedelta(0):
             raise ValueError("resume_capability_ttl must be positive")
-        if not default_session_id:
-            raise ValueError("default_session_id must be non-empty")
         self.app = app
         self.store = store
         self.executor = executor
@@ -86,7 +83,6 @@ class RouteDeckOperationRunner(
         self.id_factory = id_factory
         self.review_ttl = review_ttl
         self.resume_capability_ttl = resume_capability_ttl
-        self.default_session_id = default_session_id
 
     async def run(
         self,

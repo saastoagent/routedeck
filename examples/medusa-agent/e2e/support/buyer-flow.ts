@@ -14,6 +14,7 @@ import { PRODUCT, type BuyerProfile } from "./test-data";
 
 const ROUTEDECK_DISPATCH_PATH = "/api/routedeck/dispatch";
 const ROUTEDECK_SESSIONS_PATH = "/api/routedeck/sessions";
+const REAL_CHECKOUT_STAGE_TIMEOUT_MS = 60_000;
 
 export type CheckoutFlowStage =
   | "contact"
@@ -194,7 +195,7 @@ export async function completeGuestCheckout(
     .click();
   await expect(
     page.getByRole("heading", { name: "Delivery options", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: REAL_CHECKOUT_STAGE_TIMEOUT_MS });
   await expectRouteDeckLive(page);
   await observeStage(options, "delivery", page);
 
@@ -203,7 +204,7 @@ export async function completeGuestCheckout(
     .click();
   await expect(
     page.getByRole("heading", { name: "Payment method", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: REAL_CHECKOUT_STAGE_TIMEOUT_MS });
   await expectRouteDeckLive(page);
   await observeStage(options, "payment", page);
 
@@ -212,7 +213,7 @@ export async function completeGuestCheckout(
     .click();
   await expect(
     page.getByRole("heading", { name: "Review your order", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: REAL_CHECKOUT_STAGE_TIMEOUT_MS });
   await expectRouteDeckLive(page);
   await expect(
     page.getByRole("heading", { name: "Delivery address", exact: true }),

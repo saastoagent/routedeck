@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Protocol, runtime_checkable
 
+from fastapi import Request, Response
+
 from routedeck_core.app import CompiledApplication
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
@@ -52,11 +54,24 @@ SessionInitializer = Callable[
 ]
 
 
+@runtime_checkable
+class RouteDeckSessionSelector(Protocol):
+    """Host-owned selection of one already-authorized internal session ID."""
+
+    async def selected_session_id(self, request: Request) -> str: ...
+
+    def attach_created_session(
+        self,
+        response: Response,
+        session_id: str,
+    ) -> None: ...
+
+
 @dataclass(frozen=True)
 class GuestCookieSettings:
-    name: str = "routedeck_guest"
-    secure: bool = False
-    path: str = "/"
+    name: str
+    secure: bool
+    path: str
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -91,10 +106,10 @@ class RouteDeckDependencies:
     projector: SessionProjector
     private_form_codec: SensitiveCodec
     session_factory: SessionFactory
+    session_selector: RouteDeckSessionSelector
     agent_driver: RouteDeckAgentDriver | None = None
     navigation: RouteDeckNavigationRunner | None = None
     session_initializer: SessionInitializer | None = None
-    cookie: GuestCookieSettings = field(default_factory=GuestCookieSettings)
     sse: SseSettings = field(default_factory=SseSettings)
 
     def __post_init__(self) -> None:
@@ -103,6 +118,8 @@ class RouteDeckDependencies:
             RouteDeckAgentDriver,
         ):
             raise TypeError("RouteDeck conversation requires an agent driver")
+        if not isinstance(self.session_selector, RouteDeckSessionSelector):
+            raise TypeError("RouteDeck FastAPI requires a session selector")
         if self.sse.follow and not isinstance(self.notifier, EventWakeupNotifier):
             raise TypeError(
                 "followed SSE requires a notifier with wait_for_events support"
@@ -114,6 +131,7 @@ __all__ = [
     "GuestCookieSettings",
     "RouteDeckDependencies",
     "RouteDeckDependencyUnavailable",
+    "RouteDeckSessionSelector",
     "SessionFactory",
     "SessionInitializer",
     "SessionProjector",

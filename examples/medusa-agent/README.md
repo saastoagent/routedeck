@@ -60,6 +60,7 @@ backend/medusa_agent/
     health.py            # product runtime health/readiness
   composition.py         # declarative cross-feature app composition
   bindings.py            # typed product dependency injection
+  contact_identity.py    # canonical checkout/order contact fingerprint
   runtime.py             # product configuration passed to framework openers
   session.py             # buyer market, session factory, and initializer
   agent.py               # prompt, model, and LangGraph agent composition
@@ -68,9 +69,10 @@ backend/main.py           # one runtime provider, generic router, health/lifespa
 ```
 
 Generic user/assistant request handling, graph event translation, turn leases,
-conversation persistence, replay, SSE framing, cancellation, and the public
-interaction handshake live in RouteDeck packages, not in this product package.
-Medusa supplies the product graphs, prompts, models, bindings, and callbacks;
+conversation persistence, replay, SSE framing, cancellation, the public
+interaction handshake, and headless assistant-turn convergence live in
+RouteDeck packages, not in this product package. Medusa supplies the product
+graphs, prompts, models, bindings, greeting policy/copy, and callbacks;
 `RouteDeckLangGraphDriverFactory` constructs the generic driver.
 
 Each feature declares complete nodes and their outgoing transitions.
@@ -105,7 +107,8 @@ RouteDeck owns:
 - shareable versus session-bound routes and resume capabilities;
 - encrypted private-form persistence and generic HTTP/SSE transport.
 - framework runtime/services assembly and the generic LangGraph driver;
-- typed assistant initiation and named React conversation presentation actions.
+- typed assistant initiation, headless convergence, and named React
+  conversation presentation actions.
 
 The Medusa app owns:
 
@@ -113,6 +116,8 @@ The Medusa app owns:
 - Store API transport and all Medusa IDs behind opaque public handles;
 - region, country, sales-channel, and payment-provider configuration;
 - the buyer prompt, OpenAI models, user/assistant graph construction, and UI components;
+- guest/auth session-selection policy, browser origins, cookie policy, and
+  deployment/runtime values;
 - recovery decisions such as order reconciliation after an uncertain write.
 
 ## Route And Surface Contract
@@ -147,8 +152,9 @@ guest cookie session. If that session is missing, expired, or contract-stale, it
 creates one real session only when the incoming route is shareable, then enters
 the captured route through normal RouteDeck navigation. Session-bound URLs never
 create replacement state. Tabs in one browser profile share the guest cookie;
-separate profiles receive isolated sessions. Authenticated multi-session
-authorization remains a consumer-owned future adapter boundary.
+separate profiles receive isolated sessions. The local host explicitly installs
+`GuestCookieSessionSelector`; an authenticated product may install its own
+`RouteDeckSessionSelector`, while authorization remains consumer-owned.
 
 Product components register against compiled `Surface.component` names in
 `frontend/src/routedeck/surfaces.tsx`. Surface affordances dispatch declared
@@ -247,9 +253,24 @@ MEDUSA_SALES_CHANNEL_ID
 MEDUSA_PAYMENT_PROVIDER_ID
 ROUTEDECK_DATABASE_URL
 ROUTEDECK_STATE_ENCRYPTION_KEY
+ROUTEDECK_INSTANCE_ID
+ROUTEDECK_REVIEW_TTL_SECONDS
+ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS
+ROUTEDECK_WORKER_COUNT
+ROUTEDECK_GUEST_COOKIE_NAME
+ROUTEDECK_GUEST_COOKIE_SECURE
+ROUTEDECK_GUEST_COOKIE_PATH
+ROUTEDECK_BROWSER_ORIGINS
 OPENAI_BUYER_MODEL
 OPENAI_ENTRY_MODEL
 ```
+
+The RouteDeck instance, TTLs, worker count, cookie settings, and allowed browser
+origins are host policy and have no product-code defaults. The protected local
+HTTP provisioner writes explicit guest values, including
+`ROUTEDECK_GUEST_COOKIE_SECURE=false`. A deployed host must provide appropriate
+values and may replace the guest adapter with an authenticated
+`RouteDeckSessionSelector`.
 
 `OPENAI_API_KEY` is optional for API-process liveness but required for live
 chat and full application readiness. When it is absent,

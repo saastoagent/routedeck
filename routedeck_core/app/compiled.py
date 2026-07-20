@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
 from ..contracts.agent import AgentPolicy
-from ..contracts.application import CompiledGraph
+from ..contracts.application import CompiledGraph, Node
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.operations import (
     Guard,
@@ -22,6 +23,7 @@ from ..contracts.surfaces import (
     SurfaceLifecycle,
     Surface,
 )
+from ..validation import RouteDeckValidationError
 from .feature import Application
 
 if TYPE_CHECKING:
@@ -110,6 +112,7 @@ class ExecutableTestPath(_FrozenContract):
 class CompiledApplication:
     application: Application
     graph: CompiledGraph
+    nodes: Mapping[str, Node]
     operations: Mapping[str, Operation]
     providers: Mapping[str, Provider]
     guards: Mapping[str, Guard]
@@ -118,6 +121,25 @@ class CompiledApplication:
     routes: CompiledRoutes
     frontend_contract: FrontendContract
     executable_test_paths: tuple[ExecutableTestPath, ...]
+
+    def __post_init__(self) -> None:
+        graph_nodes = {node.id: node for node in self.graph.nodes}
+        if set(self.nodes) != set(graph_nodes) or any(
+            self.nodes[node_id] is not node
+            for node_id, node in graph_nodes.items()
+        ):
+            raise RouteDeckValidationError(
+                "Compiled node index must exactly match the compiled graph"
+            )
+        object.__setattr__(self, "nodes", MappingProxyType(dict(self.nodes)))
+
+    def require_node(self, node_id: str) -> Node:
+        try:
+            return self.nodes[node_id]
+        except KeyError as error:
+            raise RouteDeckValidationError(
+                f"Compiled application does not contain node {node_id!r}"
+            ) from error
 
     def contract_documents(self) -> dict[str, str]:
         documents = {

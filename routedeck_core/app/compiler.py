@@ -171,6 +171,7 @@ def compile_app(application: Application) -> CompiledApplication:
     return CompiledApplication(
         application=application,
         graph=compiled_graph,
+        nodes=node_by_id,
         operations=operations,
         providers=providers,
         guards=guards,

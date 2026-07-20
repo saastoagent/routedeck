@@ -1,10 +1,10 @@
 # RouteDeck Context
 
 Last updated: 2026-07-20
-Status: feature-owned composition and the framework-built runtime are
-implemented. The current structural boundary report passes, but the quality
-audit identifies remaining conversation, session-selection, copy, and
-duplication gaps. Execution is local Windows only.
+Status: the seven boundary/quality remediation slices are implemented and
+focused static, real-Medusa, and live checkout gates pass. Work is local Windows
+only. This context is part of the user-requested boundary-quality closeout
+commit; no push or deployment is implied.
 
 ## Start Here
 
@@ -15,114 +15,97 @@ duplication gaps. Execution is local Windows only.
 5. [Subsystem code map](./architecture/code-map.md)
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
-8. [Documentation authority map](./architecture/documentation-map.md)
-9. [Current quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-audit.md)
-10. [Active boundary and quality fix plan](./plans/2026-07-20-routedeck-boundary-quality-fixes.md)
+8. [Post-fix quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-post-fix-audit.md)
+9. [Latest checkpoint](./context_checkpoints/context_checkpoint_20-07-2026-4-25PM.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
 ADR-005 controls named state/feature structure. ADR-004 controls scope,
-product/framework separation, and local execution. Completed plans/designs are
-under `docs/archive/` and are not active authority.
+product/framework separation, and local execution. The completed seven-slice
+plan is historical material under `docs/archive/`.
 
-## Current Implementation
+## Current Architecture
 
-- Product developers author `Feature` modules with complete `Node` objects and
-  node-owned outgoing transitions. A small `Application` selects features and
-  the entry node; RouteDeck derives incoming adjacency and compiles one graph
-  and frontend contract.
-- Exact `FeatureBindings` supply product handlers/providers/guards. Duplicate,
-  missing, extra, synchronous, or malformed ownership fails at startup.
+- Product developers author independently owned `Feature` modules with complete
+  `Node`s and node-owned outgoing transitions. A small `Application` selects
+  features and the entry node; RouteDeck validates composition, derives
+  incoming adjacency, and compiles the frontend contract and immutable node
+  index.
+- Exact `FeatureBindings` supply product async handlers/providers/guards.
+  Missing, extra, duplicate, synchronous, or malformed ownership fails at
+  startup.
 - One `RouteDeckRuntime` owns canonical sessions, projection, one operation
-  runner, navigation over that runner, optional agent driver, and lifecycle.
-- SQLAlchemy supports explicit SQLite/PostgreSQL URLs with leases, journals,
-  events, encrypted blobs, retention, reopen, and restart recovery.
-- FastAPI exposes one runtime-derived `/api/routedeck` plane for contract,
-  sessions, operations/reviews, navigation, conversation, events, private
-  forms, and inspection.
-- The optional LangGraph adapter drives product-supplied user/assistant graphs,
-  rebuilds durable conversation, filters model context/tools, and supervises
-  every product tool through the same runner. RouteDeck owns no product graph
-  topology, prompt, model, or wording.
-- `@routedeck/core` owns strict browser contracts, bootstrap/resync, retained
-  request identity, routing/history, forms, and the authoritative browser
-  mirror. `@routedeck/react` supplies product-neutral presentation and UI
-  primitives, including the read-only Navgraph.
+  runner, navigation over that runner, optional generic agent driver, and
+  explicit lifecycle.
+- Review accept/reject requires the host-selected non-empty session ID. FastAPI
+  requires a host-owned `RouteDeckSessionSelector`; RouteDeck does not own
+  authentication, users, tenants, session listing, or authorization.
+- The optional LangGraph adapter drives product-supplied graphs, rebuilds
+  durable conversation, filters context/tools, and supervises product tools.
+  `@routedeck/core` owns reusable assistant-only turn convergence. Prompts,
+  models, topology, greeting policy, and wording remain consumer-owned.
+- `@routedeck/core` owns strict browser contracts, bootstrap/resync, routing,
+  retained request identity, forms, and authoritative browser state.
+  `@routedeck/react` supplies product-neutral UI primitives and the read-only
+  Navgraph.
 
 ## Medusa Reference Consumer
 
-The Medusa app owns real Store API transport and all catalog, cart, checkout,
-order, market, prompt/model/graph, product session, readiness, component, and
-local-stack behavior. RouteDeck contains no commerce endpoint or fallback path.
+Medusa owns the real Store client and all catalog, cart, checkout, order,
+market, prompt/model/graph, product-session, deployment-policy, UI, and local
+stack behavior. The browser never calls `/store/*`; real IDs remain behind
+scoped opaque handles. Private contact values remain encrypted and outside
+public/model state. Reviewed placement preserves delivery evidence and explicit
+reconciliation semantics.
 
-Its four feature modules declare the buyer navgraph. Chat, surfaces, and hybrid
-interactions converge on the framework runner. The browser never calls
-`/store/*`; real IDs remain behind scoped opaque handles. Checkout private
-values remain encrypted and excluded from public/model state. Order placement
-uses required review and explicit delivery/reconciliation semantics.
+The local host explicitly uses `GuestCookieSessionSelector`; separate browser
+profiles receive separate guest sessions and tabs in one profile share one.
+Production authenticated multi-session selection is a consumer adapter over
+the implemented selector seam. Checkout and orders share one contact identity
+algorithm. Sixteen vectors check the compiled schemas and eight corresponding
+frontend surface decoders.
 
-The browser automatically creates a guest session on a missing, expired, or
-contract-mismatched bootstrap only when the incoming route is shareable. It
-then enters the captured path through normal supervised navigation. A
-session-bound link never creates replacement state. Initial greeting starts
-through the generic assistant-initiated conversation path after bootstrap when
-durable conversation is empty.
+## Current Evidence
 
-## Current Quality And Boundary Status
+- Schema-4 boundary report: pass, zero violations at
+  `C:\Users\ragha\AppData\Local\Temp\routedeck-boundaries-final.json`.
+- Maintained Python Ruff and core/React/Medusa TypeScript typechecks pass.
+- Focused tests for assistant coordination, explicit review session identity,
+  selector/host policy, neutral copy/scanners, contact identity, compiled node
+  lookup, and surface parity pass.
+- Real Medusa integration: 4 passed in 21.131 seconds against
+  `http://127.0.0.1:9100`.
+- Live checkout: 1 passed in 2.4 minutes at `http://127.0.0.1:5198`, using the
+  live model and real Store API. The uninterrupted 1920x1080 video is
+  [video.webm](./artifacts/boundary-quality-live-checkout-20260720-160830/raw-results/human-checkout-flow--human-7f281-th-visible-navigation-proof-desktop-chromium/video.webm).
 
-- The schema-3 static boundary report passes 8/8 checks with 0 violations:
-  core remains product-neutral by dependency, Store endpoints stay in the
-  Medusa client, the browser has no Store path, runtime/transport use one
-  framework-built runner, and LangGraph topology remains product-owned.
-- Ruff passes for the maintained Python production paths. Core, React, and
-  Medusa TypeScript typechecks pass.
-- Total separation is not yet achieved. Medusa's initial-conversation module
-  still owns generic assistant-stream validation/convergence, and generic
-  core/React packages contain buyer-specific error wording.
-- Review accept/reject still allow an omitted session ID to select a configured
-  default session. The Medusa local host hardcodes that default and local
-  runtime/cookie policy.
-- Product-internal drift risks remain in duplicated contact fingerprints,
-  backend surface schemas versus frontend decoders, repeated RouteDeck
-  current-node lookup, and unused frontend operation ID mirrors.
+Only these named current runs support pass claims. The protected stack should
+not be assumed running in a later session.
 
-## Known Gaps
+## Known Gaps And Next Step
 
-- The current FastAPI/Medusa guest adapter selects one session through an
-  HTTP-only cookie. Separate browser profiles are isolated; tabs in one profile
-  share the guest session. Authenticated user/tenant authorization and an
-  opaque multi-session resolver are not implemented.
-- The guest cookie carries the internal session ID and defaults to
-  `secure=False`; this is acceptable only for the explicitly local HTTP demo.
-- A reusable headless assistant-initiation coordinator is not implemented.
-  Medusa currently duplicates generic request/event/synchronization behavior.
-- Public release remains unclaimed until a current clean-install/package and
-  consolidated release run produces sanitized evidence.
-- No test, real-commerce, or live-model E2E pass is implied by this context.
-  Use the exact current command output and artifact path for any such claim.
+- A production principal-aware selector example is not implemented. Add it in
+  a consumer integration with two users, multiple sessions, and cross-user
+  denial; do not move identity policy into RouteDeck.
+- One diagnostic live run showed unnecessary cart confirmation from the model.
+  That is Medusa agent-design variability unless a trace proves a RouteDeck
+  transition error.
+- One private-form save was transiently slow in the protected local stack.
+  Instrument save/resync timing before making a performance change.
+- Nine maintained production modules exceed 400 lines. Treat them as
+  feature-driven refactor candidates, not boundary defects.
+- Public release remains unclaimed until an explicitly authorized clean
+  packaging/release run produces sanitized evidence.
 
-## Current Maintenance Contract
+The next recommended feature is the authenticated consumer selector example
+plus measured multi-user/session E2E proof. Use focused tests during the feature
+and one real E2E at its end.
 
-- `architecture/feature-coverage.md` must cover every supported feature.
-- `architecture/code-map.md` maps every maintained live source file to an owner.
-- `python scripts/check_doc_coverage.py` scans live source without Git.
-- `python scripts/check_context_architecture.py` checks canonical links and
-  retired vocabulary.
-- `audits/2026-07-20-routedeck-quality-boundary-audit.md` records current
-  hardcoding, separation, duplication, checker blind spots, and next steps.
-- Only active decision-complete work belongs in `plans/` or current
-  `docs/superpowers/`; completed material is archived.
+## Maintenance Contract
 
-## Next Step
-
-The active implementation plan is
-`plans/2026-07-20-routedeck-boundary-quality-fixes.md`. It resolves QB-01 through
-QB-08 in seven focused slices: assistant-turn coordination, explicit review
-session identity, host-owned session selection/deployment policy, neutral copy
-and boundary scanners, contact fingerprint consolidation, compiled node
-lookup, and surface-schema/decoder parity plus proven dead-code cleanup. Each
-slice has targeted proof; the protected real-Medusa/live-model checkout video
-runs once as the final behavior gate.
-
-Services, databases, tests, and browser automation run locally on Windows. Do
-not probe or fall back to another host. When starting the protected Medusa
-stack, report the command and smoke URLs from the test index.
+`architecture/feature-coverage.md` owns capability coverage;
+`architecture/code-map.md` owns subsystem/source mapping;
+`test_index/README.md` owns validation meaning. Run
+`python scripts/check_doc_coverage.py` and
+`python scripts/check_context_architecture.py` after changing these surfaces.
+Archive completed plans/designs so historical material cannot compete with
+current authority.

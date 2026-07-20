@@ -26,7 +26,7 @@ from ..conversation_stream import ConversationTurnRequest, stream_agent_turn
 from ..dependencies import RouteDeckDependencies, RouteDeckDependencyUnavailable
 from ..responses import exception_response
 from ..security import RouteDeckMutationPolicy
-from ..session_http import guest_session_id, resolve_dependencies, validated_body
+from ..session_http import selected_session_id, resolve_dependencies, validated_body
 from . import DependencyProvider
 
 
@@ -40,7 +40,10 @@ def create_conversation_routes(
     async def get_conversation(request: Request):
         try:
             dependencies = await resolve_dependencies(provider, request)
-            session_id = guest_session_id(request, dependencies.cookie)
+            session_id = await selected_session_id(
+                request,
+                dependencies.session_selector,
+            )
             snapshot = await dependencies.store.load(session_id)
             require_current_session(dependencies.app, snapshot.state)
             return JSONResponse(
@@ -110,7 +113,10 @@ async def _conversation_turn_response(
     expected_session_version: int,
     trigger: RouteDeckConversationTrigger,
 ):
-    session_id = guest_session_id(request, dependencies.cookie)
+    session_id = await selected_session_id(
+        request,
+        dependencies.session_selector,
+    )
     fingerprint = conversation_fingerprint(trigger)
     recorded = await dependencies.store.find_mutation(session_id, request_id)
     if recorded is not None:

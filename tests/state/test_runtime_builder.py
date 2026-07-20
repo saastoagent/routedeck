@@ -181,7 +181,6 @@ def build_test_routedeck_runtime_with_lifecycle() -> tuple[
         id_factory=SequentialIds(),
         review_ttl=timedelta(minutes=5),
         resume_capability_ttl=timedelta(hours=1),
-        default_session_id="runtime-test-session",
     )
     return runtime, lifecycle
 

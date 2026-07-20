@@ -119,7 +119,6 @@ async def test_runtime_opener_closes_store_when_application_binding_fails(
             instance_id="runtime-opener-failure",
             review_ttl=timedelta(minutes=5),
             resume_capability_ttl=timedelta(hours=1),
-            default_session_id="runtime-opener-session",
         )
 
     assert opened_store.close_calls == 1

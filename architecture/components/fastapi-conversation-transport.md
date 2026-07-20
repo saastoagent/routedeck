@@ -29,28 +29,36 @@ product routes, authentication policy, graph topology, or tool behavior.
   composition path.
 - Every request resolves dependencies from one runtime; products do not build a
   second dependency bundle.
+- Every router receives a host-owned `RouteDeckSessionSelector`; RouteDeck
+  validates its selected internal ID but does not authenticate users or choose
+  between a consumer's sessions.
 - Conversation triggers share turn identity, replay/collision, persistence,
   interruption, projection synchronization, and SSE cleanup.
 - Assistant initiation emits no synthetic user message and cannot execute tools
   or stage review.
-- Mutation origin policy, guest-cookie selection, cache headers, and public-safe
+- Mutation origin policy, session selection, cache headers, and public-safe
   error mapping are explicit.
 - Missing runtime, session, driver, or contract state fails visibly.
 
-## Current Adapter Limitation
+## Session Selection Boundary
 
-The shipped selector is guest-only: one HTTP-only cookie carries the internal
-session ID. There is no principal-aware opaque multi-session resolver.
-`GuestCookieSettings.secure` also defaults to `False`, and the Medusa local host
-does not override it. This is valid only for the explicitly local HTTP
-reference runtime. A deployed consumer must supply explicit cookie/origin
-policy and authorize a consumer-facing session handle before returning an
-internal session ID to RouteDeck.
+`RouteDeckSessionSelector` is the required transport seam. A production host
+may resolve `(authenticated principal, opaque consumer session handle)` to one
+already-authorized internal RouteDeck session ID. RouteDeck never trusts a raw
+browser-supplied internal ID and never silently selects a replacement session.
+
+`GuestCookieSessionSelector` is an explicit reference adapter for guest mode.
+Its `GuestCookieSettings` requires the cookie name, `secure` flag, and path;
+there is no generic insecure default. The Medusa local HTTP stack deliberately
+supplies `secure=False`, while browser origins and all other deployment policy
+remain explicit host configuration. The framework seam is implemented;
+principal-aware authentication, session listing, and authorization remain the
+consumer's responsibility.
 
 ## Evidence
 
 ```powershell
-python -m pytest tests/fastapi -q
+python -m pytest tests/fastapi/test_transport_smoke.py tests/fastapi/test_conversation_turns.py -q
 ```
 
 Update this document for endpoint, dependency derivation, cookie/resolver,

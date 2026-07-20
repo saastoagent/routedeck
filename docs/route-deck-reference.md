@@ -59,6 +59,8 @@ incoming transitions, validates the complete graph, and compiles it.
 `compile_app(...)` produces one `CompiledApplication` containing:
 
 - flattened, validated nodes and transitions;
+- an immutable node mapping and fail-closed `require_node(...)` lookup whose
+  identity is verified against the compiled graph;
 - canonical operation, provider, guard, capability, and surface catalogs;
 - compiled route codec;
 - versionable frontend contract;
@@ -270,7 +272,9 @@ write, invent success, or switch providers.
 An operation with `ReviewPolicy.REQUIRED` produces a durable proposal tied to
 the operation spec version, authoritative context fingerprint, projection
 version, and expiry. Accept/reject uses separate versioned requests. Acceptance
-rechecks the current context before executing the original write.
+rechecks the current context before executing the original write. Both review
+actions require the already-selected non-empty `session_id`; the runner has no
+default or omitted-session path.
 
 ## Projection And Events
 
@@ -366,14 +370,17 @@ request retains its exact request identity for explicit retry or abandonment.
 
 ### Session selection
 
-RouteDeck owns one selected session's durable interaction state. Authentication,
-users, tenants, session listing, and authorization remain consumer-owned. The
-Medusa reference uses one HTTP-only guest cookie: separate browser profiles are
-isolated and tabs in one profile share the guest session. An authenticated
-multi-session resolver is not implemented. A future adapter must authorize a
-consumer-facing opaque session handle before returning an internal `session_id`
-to RouteDeck persistence; it must not trust a raw browser-supplied internal ID
-or silently select a replacement session.
+RouteDeck owns one selected session's durable interaction state. Every FastAPI
+router requires a host-owned `RouteDeckSessionSelector`, which returns one
+already-authorized internal session ID. Authentication, users, tenants, session
+listing, and authorization remain consumer-owned.
+
+The Medusa reference explicitly installs `GuestCookieSessionSelector` with a
+host-configured HTTP-only cookie: separate browser profiles are isolated and
+tabs in one profile share the guest session. A production consumer may instead
+authorize `(principal, opaque consumer session handle)` before returning an
+internal `session_id`; it must not trust a raw browser-supplied internal ID or
+silently select a replacement session.
 
 ## LangGraph Adapter
 
@@ -430,13 +437,14 @@ remain separate authorities for separate concerns.
 | `GET|PUT /private-forms/{id}` | No-store encrypted private-form channel. |
 | `GET /inspect` | Public runtime topology and diagnostics. |
 
-The host supplies a `RuntimeProvider` to
+The host supplies a `RuntimeProvider` and `RouteDeckSessionSelector` to
 `create_routedeck_router_from_runtime_provider(...)`. FastAPI derives the app,
 runner, navigation, store, notifier, projector, codec, session callbacks, and
 agent driver from that one runtime and mounts contract, sessions, operations,
 conversation, events, private forms, and inspection exactly once. A missing
-runtime or driver returns a visible unavailable failure; the transport never
-constructs a hidden store, model, or product adapter.
+runtime, driver, or selector returns a visible unavailable failure; the
+transport never constructs a hidden store, model, product adapter, or session
+choice.
 
 The prompt, model, graph set, and business tools remain product-owned.
 RouteDeck owns the generic driver and surrounding transaction: typed trigger,
@@ -461,6 +469,8 @@ is not a second state authority.
 - strict decoders generated from Python contracts;
 - credential-aware HTTP and SSE clients;
 - the RouteDeck conversation client for public history and assistant streaming;
+- `runAssistantInitiatedTurn(...)` for request/event validation, terminal proof,
+  conflict convergence, synchronization, and final history reload;
 - authoritative event/session store with replay and resync;
 - route codec, browser-history adapter, and navigation reconciliation;
 - isolated private-form client state.
@@ -518,7 +528,9 @@ payment, reviewed order placement, uncertain-write reconciliation,
 confirmation, reload, shareable/session-bound links, and exact history.
 
 The typed Store client and all commerce handlers remain in the Medusa package;
-the browser has no Store API path. See
+the browser has no Store API path. Checkout and orders share one product-owned
+contact fingerprint, and 16 shared valid/invalid vectors exercise the compiled
+schemas and eight corresponding frontend surface decoders. See
 [`medusa-agent-reference-app.md`](medusa-agent-reference-app.md) and
 [`../examples/medusa-agent/README.md`](../examples/medusa-agent/README.md).
 

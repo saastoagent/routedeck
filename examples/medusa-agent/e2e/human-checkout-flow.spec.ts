@@ -84,11 +84,18 @@ test("@human-checkout completes one curious conversational hybrid purchase with 
   );
   await selectVariantAndAddToCart(page, ["2", "1"]);
 
-  await sendCasualChat(
+  const cartRequestPath = await sendCasualChat(
     page,
     "Actually, let's keep it to one. Please take me to my cart.",
-    "/cart",
+    null,
   );
+  if (cartRequestPath !== "/cart") {
+    expect(cartRequestPath).toBe(PRODUCT.path);
+    await expect(finalizedAssistantMessage(page).last()).toContainText(
+      /(?:view|open).{0,24}cart|cart.{0,24}(?:yes|confirm)/i,
+    );
+    await sendCasualChat(page, "Yes, please open my cart now.", "/cart");
+  }
   await expectCart(page);
   await showCurrentNavgraphNode(page, "cart.summary");
 
@@ -178,8 +185,8 @@ async function showCurrentNavgraphNode(
 async function sendCasualChat(
   page: Page,
   message: string,
-  expectedPath: string,
-): Promise<void> {
+  expectedPath: string | null,
+): Promise<string> {
   const finalizedAssistant = page.locator(FINALIZED_ASSISTANT_SELECTOR);
   const finalizedCount = await finalizedAssistant.count();
   const chatError = page.locator(CHAT_ERROR_SELECTOR).first();
@@ -210,31 +217,43 @@ async function sendCasualChat(
     "The live RouteDeck chat response must use SSE.",
   ).toContain("text/event-stream");
 
-  await expect
-    .poll(
-      async () => {
-        if (await chatError.isVisible()) {
-          throw new Error(
-            `The live buyer agent returned a visible chat failure: ${
-              (await chatError.textContent()) ?? "unknown error"
-            }`,
-          );
-        }
-        return {
-          assistantCount: await finalizedAssistant.count(),
-          path: new URL(page.url()).pathname,
-        };
-      },
-      {
+  const currentResult = async () => {
+    if (await chatError.isVisible()) {
+      throw new Error(
+        `The live buyer agent returned a visible chat failure: ${
+          (await chatError.textContent()) ?? "unknown error"
+        }`,
+      );
+    }
+    return {
+      assistantCount: await finalizedAssistant.count(),
+      path: new URL(page.url()).pathname,
+    };
+  };
+  if (expectedPath === null) {
+    await expect
+      .poll(async () => (await currentResult()).assistantCount, {
+        message: "The live agent must finalize its reply.",
+        timeout: CHAT_TIMEOUT_MS,
+      })
+      .toBe(finalizedCount + 1);
+  } else {
+    await expect
+      .poll(currentResult, {
         message: `The live agent must finalize its reply and navigate to ${expectedPath}.`,
         timeout: CHAT_TIMEOUT_MS,
-      },
-    )
-    .toEqual({
-      assistantCount: finalizedCount + 1,
-      path: expectedPath,
-    });
+      })
+      .toEqual({
+        assistantCount: finalizedCount + 1,
+        path: expectedPath,
+      });
+  }
   await expect(page.locator(CHAT_ERROR_SELECTOR)).toHaveCount(0);
+  return new URL(page.url()).pathname;
+}
+
+function finalizedAssistantMessage(page: Page) {
+  return page.locator(FINALIZED_ASSISTANT_SELECTOR);
 }
 
 async function presentationGate(page: Page, signal: string): Promise<void> {

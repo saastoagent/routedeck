@@ -256,7 +256,6 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         notifier=notifier,
         id_factory=lambda kind: f"{kind}-{uuid4().hex}",
         review_ttl=timedelta(minutes=10),
-        default_session_id=session_id,
         market=market,
     )
 
@@ -273,7 +272,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
             if binding.entity_kind == "cart"
         )
 
-        await _run(runtime, "catalog.list", "delivery-catalog-list")
+        await _run(runtime, session_id, "catalog.list", "delivery-catalog-list")
         snapshot = await runtime.services.store.load(session_id)
         product_ref = next(
             entity.handle
@@ -282,6 +281,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         )
         await _run(
             runtime,
+            session_id,
             "catalog.open_product",
             "delivery-product-open",
             {"product_ref": product_ref},
@@ -294,12 +294,18 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         )
         await _run(
             runtime,
+            session_id,
             "cart.add_item",
             "delivery-cart-add",
             {"variant_ref": variant_ref, "quantity": 1},
         )
-        await _run(runtime, "cart.open", "delivery-cart-open")
-        await _run(runtime, "checkout.start", "delivery-checkout-start")
+        await _run(runtime, session_id, "cart.open", "delivery-cart-open")
+        await _run(
+            runtime,
+            session_id,
+            "checkout.start",
+            "delivery-checkout-start",
+        )
 
         contact_snapshot = await runtime.services.store.load(session_id)
         contact_projection = ProjectionProjector(
@@ -338,12 +344,14 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         }
         await _save_private_form(
             runtime,
+            session_id,
             settings,
             form_handle,
             contact_value,
         )
         save_request = await _request(
             runtime,
+            session_id,
             "checkout.save_contact",
             "delivery-contact-save",
             {"form_handle": form_handle},
@@ -368,6 +376,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
 
         selected = await _run(
             runtime,
+            session_id,
             "checkout.select_shipping",
             "delivery-shipping-select",
             {"shipping_option_ref": selected_ref},
@@ -423,6 +432,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         assert payment_ref.startswith("rdh_")
         payment_selected = await _run(
             runtime,
+            session_id,
             "checkout.select_payment",
             "delivery-payment-select",
             {"payment_provider_ref": payment_ref},
@@ -446,6 +456,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
         proposed = await runtime.services.runner.run(
             await _request(
                 runtime,
+                session_id,
                 "checkout.place_order",
                 "delivery-place-proposal",
             )
@@ -492,6 +503,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
 
         reconciled = await _run(
             runtime,
+            session_id,
             "orders.reconcile",
             "delivery-order-reconcile",
             {"order_ref": order_ref},
@@ -534,6 +546,7 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
 
         continued = await _run(
             runtime,
+            session_id,
             "catalog.continue_shopping",
             "delivery-continue-shopping",
         )
@@ -594,13 +607,12 @@ async def test_real_buyer_checkout_recovery_and_confirmation_flow(
 
 async def _save_private_form(
     runtime: Any,
+    session_id: str,
     settings: Settings,
     form_handle: str,
     value: dict[str, Any],
 ) -> None:
-    snapshot = await runtime.services.store.load(
-        runtime.services.runner.default_session_id
-    )
+    snapshot = await runtime.services.store.load(session_id)
     draft = PrivateDraft(
         form_id=form_handle,
         field_names=tuple(sorted(value)),
@@ -655,13 +667,12 @@ async def _save_private_form(
 
 async def _request(
     runtime: Any,
+    session_id: str,
     operation_id: str,
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> OperationRequest:
-    snapshot = await runtime.services.store.load(
-        runtime.services.runner.default_session_id
-    )
+    snapshot = await runtime.services.store.load(session_id)
     return OperationRequest(
         session_id=snapshot.session_id,
         request_id=request_id,
@@ -674,12 +685,13 @@ async def _request(
 
 async def _run(
     runtime: Any,
+    session_id: str,
     operation_id: str,
     request_id: str,
     arguments: Mapping[str, Any] | None = None,
 ) -> Any:
     result = await runtime.services.runner.run(
-        await _request(runtime, operation_id, request_id, arguments)
+        await _request(runtime, session_id, operation_id, request_id, arguments)
     )
     assert result.disposition is OperationDisposition.COMPLETED, result
     return result

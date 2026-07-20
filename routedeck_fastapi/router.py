@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from .dependencies import GuestCookieSettings, RouteDeckDependencies, SseSettings
+from .dependencies import (
+    RouteDeckDependencies,
+    RouteDeckSessionSelector,
+    SseSettings,
+)
 from .routes.contract import create_contract_routes
 from .routes.conversation import create_conversation_routes
 from .routes.events import create_event_routes
@@ -17,7 +21,7 @@ from .security import RouteDeckMutationPolicy, SameOriginMutationPolicy
 def create_routedeck_router_from_runtime_provider(
     provider: RuntimeProvider,
     *,
-    cookie: GuestCookieSettings | None = None,
+    session_selector: RouteDeckSessionSelector,
     sse: SseSettings | None = None,
     mutation_policy: RouteDeckMutationPolicy | None = None,
 ) -> APIRouter:
@@ -25,7 +29,11 @@ def create_routedeck_router_from_runtime_provider(
 
     async def provide_dependencies(request: Request) -> RouteDeckDependencies:
         runtime = await resolve_runtime(provider, request)
-        return dependencies_from_runtime(runtime, cookie=cookie, sse=sse)
+        return dependencies_from_runtime(
+            runtime,
+            session_selector=session_selector,
+            sse=sse,
+        )
 
     router = APIRouter(prefix="/api/routedeck", tags=["routedeck"])
     request_policy = mutation_policy or SameOriginMutationPolicy()

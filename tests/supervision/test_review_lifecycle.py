@@ -39,6 +39,40 @@ def reviewed_request(
 
 
 @pytest.mark.asyncio
+async def test_review_actions_require_an_explicit_session_id(runner) -> None:
+    with pytest.raises(TypeError, match="session_id"):
+        await runner.accept_review(
+            "missing-review",
+            request_id="missing-accept",
+            expected_session_version=1,
+        )
+    with pytest.raises(TypeError, match="session_id"):
+        await runner.reject_review(
+            "missing-review",
+            request_id="missing-reject",
+            expected_session_version=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_review_actions_reject_an_empty_session_id(runner) -> None:
+    with pytest.raises(ValueError, match="session_id must be non-empty"):
+        await runner.accept_review(
+            "missing-review",
+            request_id="empty-accept",
+            expected_session_version=1,
+            session_id="",
+        )
+    with pytest.raises(ValueError, match="session_id must be non-empty"):
+        await runner.reject_review(
+            "missing-review",
+            request_id="empty-reject",
+            expected_session_version=1,
+            session_id="",
+        )
+
+
+@pytest.mark.asyncio
 async def test_review_staging_freezes_arguments_authority_and_releases_lease(
     runner,
     store,
@@ -88,11 +122,13 @@ async def test_review_acceptance_executes_frozen_arguments_exactly_once(
         proposed.review.id,
         request_id="approve-1",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
     replay_with_new_request = await runner.accept_review(
         proposed.review.id,
         request_id="approve-2",
         expected_session_version=completed.session_version,
+        session_id="session-1",
     )
 
     assert completed.disposition is OperationDisposition.COMPLETED
@@ -115,11 +151,13 @@ async def test_review_rejection_is_terminal_and_never_executes(
         proposed.review.id,
         request_id="reject-1",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
     later_accept = await runner.accept_review(
         proposed.review.id,
         request_id="approve-after-reject",
         expected_session_version=rejected.session_version,
+        session_id="session-1",
     )
 
     assert rejected.disposition is OperationDisposition.FAILED
@@ -143,6 +181,7 @@ async def test_review_acceptance_refreshes_authority_and_invalidates_stale_propo
         proposed.review.id,
         request_id="approve-stale",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert stale.disposition is OperationDisposition.FAILED
@@ -167,6 +206,7 @@ async def test_expired_review_cannot_execute(
         proposed.review.id,
         request_id="approve-expired",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert expired.failure.code == "review_expired"
@@ -194,6 +234,7 @@ async def test_operation_spec_change_invalidates_review(
         proposed.review.id,
         request_id="approve-spec-stale",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert stale.failure.code == "review_stale"
@@ -230,11 +271,13 @@ async def test_concurrent_accept_and_reject_have_one_atomic_winner(
             proposed.review.id,
             request_id="approve-race",
             expected_session_version=proposed.session_version,
+            session_id="session-1",
         ),
         runner.reject_review(
             proposed.review.id,
             request_id="reject-race",
             expected_session_version=proposed.session_version,
+            session_id="session-1",
         ),
     )
 

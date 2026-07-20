@@ -37,7 +37,7 @@ export async function* parseAgentSse(
   if (buffer.trim()) {
     throw new AgentChatError(
       "stream_frame_incomplete",
-      "The buyer-agent stream ended with an incomplete event.",
+      "The agent stream ended with an incomplete event.",
     );
   }
 }
@@ -94,7 +94,7 @@ export async function agentResponseError(
     if (error instanceof AgentChatError) return error;
     return new AgentChatError(
       "chat_request_failed",
-      `The buyer-agent request failed with status ${response.status}.`,
+      `The agent request failed with status ${response.status}.`,
       response.status,
       response.status >= 500 && response.status <= 599
         ? "unknown"
@@ -117,7 +117,7 @@ function decodeFrame(rawFrame: string): SseFrame | null {
   if (event === null || !event || dataLines.length === 0) {
     throw new AgentChatError(
       "stream_frame_invalid",
-      "The buyer-agent stream returned an invalid event frame.",
+      "The agent stream returned an invalid event frame.",
     );
   }
   try {
@@ -125,7 +125,7 @@ function decodeFrame(rawFrame: string): SseFrame | null {
   } catch {
     throw new AgentChatError(
       "stream_data_invalid",
-      "The buyer-agent stream returned invalid JSON.",
+      "The agent stream returned invalid JSON.",
     );
   }
 }
@@ -210,7 +210,7 @@ function decodeEvent(event: string, value: unknown): AgentStreamEvent {
     default:
       throw new AgentChatError(
         "stream_event_unknown",
-        `The buyer-agent stream returned unknown event ${event}.`,
+        `The agent stream returned unknown event ${event}.`,
       );
   }
 }
@@ -267,6 +267,6 @@ function streamStatus(
 function invalid(path: string): never {
   throw new AgentChatError(
     "chat_contract_invalid",
-    `The buyer-agent contract is invalid at ${path}.`,
+    `The agent conversation contract is invalid at ${path}.`,
   );
 }

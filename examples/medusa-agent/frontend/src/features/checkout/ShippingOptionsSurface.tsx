@@ -113,7 +113,7 @@ function ShippingOptionButton({
   );
 }
 
-function decodeShippingProjection(
+export function decodeShippingProjection(
   props: RouteDeckSurfaceComponentProps["props"],
 ): ShippingProjection {
   exactKeys(props, "$.checkout.shipping_options", [

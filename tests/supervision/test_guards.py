@@ -55,6 +55,7 @@ async def test_malformed_node_scope_fails_before_runtime_invocation(
     malformed_compiled = replace(
         compiled_app,
         graph=compiled_app.graph.model_copy(update={"nodes": (malformed_node,)}),
+        nodes={malformed_node.id: malformed_node},
     )
     malformed_app = BoundApplication(
         app=malformed_compiled,

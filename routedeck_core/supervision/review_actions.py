@@ -27,9 +27,11 @@ class ReviewActionMixin(ReviewRuntimePorts):
         request_id: str,
         expected_session_version: int,
         *,
-        session_id: str | None = None,
+        session_id: str,
     ) -> OperationResult:
-        target_session_id = session_id or self.default_session_id
+        if not session_id:
+            raise ValueError("session_id must be non-empty")
+        target_session_id = session_id
         review = await self.store.find_review(target_session_id, review_id)
         if review is None:
             return self._missing_review_result(
@@ -265,9 +267,11 @@ class ReviewActionMixin(ReviewRuntimePorts):
         request_id: str,
         expected_session_version: int,
         *,
-        session_id: str | None = None,
+        session_id: str,
     ) -> OperationResult:
-        target_session_id = session_id or self.default_session_id
+        if not session_id:
+            raise ValueError("session_id must be non-empty")
+        target_session_id = session_id
         review = await self.store.find_review(target_session_id, review_id)
         if review is None:
             return self._missing_review_result(

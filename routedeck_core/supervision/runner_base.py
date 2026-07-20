@@ -14,7 +14,6 @@ class RunnerRuntimePorts:
     id_factory: Any
     review_ttl: Any
     resume_capability_ttl: Any
-    default_session_id: str
     _is_external_write: Any
     _operation_event: Any
     _evidence: Any

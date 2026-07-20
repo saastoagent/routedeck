@@ -6,6 +6,7 @@ export * from "./client/sse";
 export * from "./client/client";
 export * from "./client/retained";
 export * from "./conversation/client";
+export * from "./conversation/assistant";
 export * from "./private-forms/client";
 export * from "./private-forms/state";
 export * from "./routing/codec";

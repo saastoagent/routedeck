@@ -6,6 +6,8 @@ import pytest
 
 from scripts.check_boundaries import (
     REQUIRED_CHECK_NAMES,
+    _check_framework_product_vocabulary,
+    _check_product_frontend_assistant_protocol,
     build_boundary_report,
     check_browser_network,
     check_runtime_ownership,
@@ -16,7 +18,7 @@ from scripts.check_boundaries import (
 def test_boundary_report_computes_all_approved_checks() -> None:
     report = build_boundary_report()
 
-    assert report["schema_version"] == 3
+    assert report["schema_version"] == 4
     assert tuple(check["name"] for check in report["checks"]) == REQUIRED_CHECK_NAMES
     assert report["status"] == "pass"
     assert report["violation_count"] == 0
@@ -45,6 +47,12 @@ def test_boundary_report_computes_all_approved_checks() -> None:
     ]
     assert architectural_review["evidence"]["invariants"][
         "generic_runtime_supplies_all_transport_planes"
+    ]
+    assert architectural_review["evidence"]["invariants"][
+        "product_frontend_does_not_own_assistant_stream_protocol"
+    ]
+    assert architectural_review["evidence"]["invariants"][
+        "framework_production_copy_is_product_neutral"
     ]
     assert architectural_review["evidence"]["standalone_medusa_server"][
         "compose_build_contexts"
@@ -98,7 +106,71 @@ def test_boundary_cli_writes_the_computed_report(tmp_path: Path) -> None:
 
     assert main(["--json", str(output)]) == 0
     rendered = output.read_text(encoding="utf-8")
-    assert '"schema_version": 3' in rendered
+    assert '"schema_version": 4' in rendered
     assert '"name": "runtime_ownership"' in rendered
     assert '"name": "architectural_review"' in rendered
     assert '"violation_count": 0' in rendered
+
+
+def test_architectural_review_names_direct_product_assistant_protocol_ownership(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "examples" / "medusa-agent" / "frontend" / "src"
+    source.mkdir(parents=True)
+    unsafe = source / "unsafe.ts"
+    unsafe.write_text(
+        "\n".join(
+            (
+                "const stream = client.streamAssistantTurn(request);",
+                "switch (event.type) {",
+                '  case "assistant_delta":',
+                "    break;",
+                "}",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    evidence, violations = _check_product_frontend_assistant_protocol(tmp_path)
+
+    assert evidence["scanned_files"] == [
+        "examples/medusa-agent/frontend/src/unsafe.ts"
+    ]
+    assert violations == [
+        "examples/medusa-agent/frontend/src/unsafe.ts:1:product frontend calls streamAssistantTurn directly",
+        "examples/medusa-agent/frontend/src/unsafe.ts:3:product frontend switches over generic assistant event:assistant_delta",
+    ]
+
+
+def test_architectural_review_names_product_vocabulary_in_generic_source(
+    tmp_path: Path,
+) -> None:
+    for relative in (
+        "packages/core/src",
+        "packages/react/src",
+        "routedeck_core",
+        "routedeck_fastapi",
+        "routedeck_langgraph",
+        "routedeck_sqlalchemy",
+    ):
+        (tmp_path / relative).mkdir(parents=True)
+    unsafe = tmp_path / "packages" / "core" / "src" / "unsafe.ts"
+    unsafe.write_text(
+        'export const message = "The buyer-agent stream failed.";\n',
+        encoding="utf-8",
+    )
+    (unsafe.parent / "ignored.test.ts").write_text(
+        'export const fixture = "buyer";\n',
+        encoding="utf-8",
+    )
+    (unsafe.parent / "generated.ts").write_text(
+        'export const schemaExample = "buyer";\n',
+        encoding="utf-8",
+    )
+
+    evidence, violations = _check_framework_product_vocabulary(tmp_path)
+
+    assert "packages/core/src/unsafe.ts" in evidence["scanned_files"]
+    assert violations == [
+        "packages/core/src/unsafe.ts:1:forbidden product vocabulary:buyer-agent"
+    ]

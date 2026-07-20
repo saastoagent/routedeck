@@ -77,7 +77,6 @@ def build_routedeck_runtime(
     id_factory: Callable[[str], str],
     review_ttl: timedelta,
     resume_capability_ttl: timedelta,
-    default_session_id: str,
 ) -> RouteDeckRuntime:
     """Construct one immutable, product-neutral RouteDeck runtime."""
 
@@ -94,7 +93,6 @@ def build_routedeck_runtime(
         id_factory=id_factory,
         review_ttl=review_ttl,
         resume_capability_ttl=resume_capability_ttl,
-        default_session_id=default_session_id,
     )
     navigation = RouteDeckNavigationRunner(
         app=app,

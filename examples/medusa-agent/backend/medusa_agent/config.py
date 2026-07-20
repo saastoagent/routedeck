@@ -30,6 +30,14 @@ class Settings(BaseModel):
     openai_buyer_model: str = Field(min_length=1)
     openai_entry_model: str = Field(min_length=1)
     medusa_timeout_seconds: float = Field(default=15.0, gt=0)
+    routedeck_instance_id: str = Field(min_length=1)
+    routedeck_review_ttl_seconds: int = Field(gt=0)
+    routedeck_resume_capability_ttl_seconds: int = Field(gt=0)
+    routedeck_worker_count: int = Field(ge=1)
+    routedeck_guest_cookie_name: str = Field(min_length=1)
+    routedeck_guest_cookie_secure: bool
+    routedeck_guest_cookie_path: str = Field(pattern=r"^/")
+    routedeck_browser_origins: tuple[AnyHttpUrl, ...] = Field(min_length=1)
 
     @classmethod
     def from_env(cls, env_file: Path = _DEFAULT_ENV_PATH) -> Settings:
@@ -43,6 +51,11 @@ class Settings(BaseModel):
             if environment_name in values
         }
         payload["openai_api_key"] = values.get("OPENAI_API_KEY") or None
+        origins = payload.get("routedeck_browser_origins")
+        if isinstance(origins, str):
+            payload["routedeck_browser_origins"] = tuple(
+                item.strip() for item in origins.split(",") if item.strip()
+            )
         return cls.model_validate(payload)
 
 
@@ -60,6 +73,14 @@ _ENV_FIELDS = frozenset(
         "OPENAI_BUYER_MODEL",
         "OPENAI_ENTRY_MODEL",
         "MEDUSA_TIMEOUT_SECONDS",
+        "ROUTEDECK_INSTANCE_ID",
+        "ROUTEDECK_REVIEW_TTL_SECONDS",
+        "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS",
+        "ROUTEDECK_WORKER_COUNT",
+        "ROUTEDECK_GUEST_COOKIE_NAME",
+        "ROUTEDECK_GUEST_COOKIE_SECURE",
+        "ROUTEDECK_GUEST_COOKIE_PATH",
+        "ROUTEDECK_BROWSER_ORIGINS",
     }
 )
 
@@ -75,6 +96,16 @@ _FIELD_BY_ENV = {
     "OPENAI_BUYER_MODEL": "openai_buyer_model",
     "OPENAI_ENTRY_MODEL": "openai_entry_model",
     "MEDUSA_TIMEOUT_SECONDS": "medusa_timeout_seconds",
+    "ROUTEDECK_INSTANCE_ID": "routedeck_instance_id",
+    "ROUTEDECK_REVIEW_TTL_SECONDS": "routedeck_review_ttl_seconds",
+    "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS": (
+        "routedeck_resume_capability_ttl_seconds"
+    ),
+    "ROUTEDECK_WORKER_COUNT": "routedeck_worker_count",
+    "ROUTEDECK_GUEST_COOKIE_NAME": "routedeck_guest_cookie_name",
+    "ROUTEDECK_GUEST_COOKIE_SECURE": "routedeck_guest_cookie_secure",
+    "ROUTEDECK_GUEST_COOKIE_PATH": "routedeck_guest_cookie_path",
+    "ROUTEDECK_BROWSER_ORIGINS": "routedeck_browser_origins",
 }
 
 

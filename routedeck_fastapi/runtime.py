@@ -10,9 +10,9 @@ from routedeck_core.runtime import RouteDeckRuntime
 
 from .dependencies import (
     EventWakeupNotifier,
-    GuestCookieSettings,
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
+    RouteDeckSessionSelector,
     SseSettings,
 )
 
@@ -26,7 +26,7 @@ RuntimeProvider = Callable[
 def dependencies_from_runtime(
     runtime: RouteDeckRuntime,
     *,
-    cookie: GuestCookieSettings | None = None,
+    session_selector: RouteDeckSessionSelector,
     sse: SseSettings | None = None,
 ) -> RouteDeckDependencies:
     """Derive every FastAPI dependency from one framework-owned runtime."""
@@ -62,7 +62,7 @@ def dependencies_from_runtime(
         agent_driver=runtime.agent_driver,
         navigation=services.navigation,
         session_initializer=initialize_session,
-        cookie=cookie or GuestCookieSettings(),
+        session_selector=session_selector,
         sse=effective_sse,
     )
 

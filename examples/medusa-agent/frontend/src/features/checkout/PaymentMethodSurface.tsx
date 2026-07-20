@@ -109,7 +109,7 @@ function PaymentProviderButton({
   );
 }
 
-function decodePaymentProjection(
+export function decodePaymentProjection(
   props: RouteDeckSurfaceComponentProps["props"],
 ): PaymentProjection {
   checkoutExactKeys(props, "$.checkout.payment_method", [

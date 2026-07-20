@@ -102,6 +102,14 @@ services:
       MEDUSA_PAYMENT_PROVIDER_ID: ${MEDUSA_PAYMENT_PROVIDER_ID:?run demo-stack.ps1 Provision}
       ROUTEDECK_DATABASE_URL: sqlite+pysqlite:////workspace/examples/medusa-agent/.demo-data/routedeck.sqlite
       ROUTEDECK_STATE_ENCRYPTION_KEY: ${ROUTEDECK_STATE_ENCRYPTION_KEY:?run demo-stack.ps1 Provision}
+      ROUTEDECK_INSTANCE_ID: ${ROUTEDECK_INSTANCE_ID:?run demo-stack.ps1 Provision}
+      ROUTEDECK_REVIEW_TTL_SECONDS: ${ROUTEDECK_REVIEW_TTL_SECONDS:?run demo-stack.ps1 Provision}
+      ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS: ${ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS:?run demo-stack.ps1 Provision}
+      ROUTEDECK_WORKER_COUNT: ${ROUTEDECK_WORKER_COUNT:?run demo-stack.ps1 Provision}
+      ROUTEDECK_GUEST_COOKIE_NAME: ${ROUTEDECK_GUEST_COOKIE_NAME:?run demo-stack.ps1 Provision}
+      ROUTEDECK_GUEST_COOKIE_SECURE: ${ROUTEDECK_GUEST_COOKIE_SECURE:?run demo-stack.ps1 Provision}
+      ROUTEDECK_GUEST_COOKIE_PATH: ${ROUTEDECK_GUEST_COOKIE_PATH:?run demo-stack.ps1 Provision}
+      ROUTEDECK_BROWSER_ORIGINS: ${ROUTEDECK_BROWSER_ORIGINS:?run demo-stack.ps1 Provision}
       OPENAI_BUYER_MODEL: ${OPENAI_BUYER_MODEL:?OPENAI_BUYER_MODEL is required}
       OPENAI_ENTRY_MODEL: ${OPENAI_ENTRY_MODEL:?OPENAI_ENTRY_MODEL is required}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -123,7 +131,7 @@ services:
         python -m pip install --no-cache-dir
         -e /workspace
         -e /workspace/examples/medusa-agent/backend &&
-        python -m uvicorn main:app --host 0.0.0.0 --port 8098
+        python -m uvicorn main:create_live_app --factory --host 0.0.0.0 --port 8098
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/api/medusa-agent/ready', timeout=3)\""]
       interval: 5s

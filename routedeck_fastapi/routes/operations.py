@@ -23,7 +23,7 @@ from ..responses import (
 )
 from ..security import RouteDeckMutationPolicy
 from ..session_http import (
-    guest_session_id,
+    selected_session_id,
     project,
     resolve_dependencies,
     validated_body,
@@ -41,7 +41,10 @@ def create_operation_routes(
     async def dispatch(request: Request):
         try:
             dependencies = await resolve_dependencies(provider, request)
-            session_id = guest_session_id(request, dependencies.cookie)
+            session_id = await selected_session_id(
+                request,
+                dependencies.session_selector,
+            )
             body = await validated_body(request, DispatchRequest, mutation_policy)
             try:
                 operation_request = OperationRequest(
@@ -71,7 +74,10 @@ def create_operation_routes(
                 raise RouteDeckDependencyUnavailable(
                     "RouteDeck navigation transactions are not configured"
                 )
-            session_id = guest_session_id(request, dependencies.cookie)
+            session_id = await selected_session_id(
+                request,
+                dependencies.session_selector,
+            )
             body = await validated_body(
                 request,
                 NavigationRequestBody,
@@ -126,7 +132,10 @@ async def _review_response(
 ):
     try:
         dependencies = await resolve_dependencies(provider, request)
-        session_id = guest_session_id(request, dependencies.cookie)
+        session_id = await selected_session_id(
+            request,
+            dependencies.session_selector,
+        )
         body = await validated_body(request, ReviewRequest, mutation_policy)
         method = (
             dependencies.runner.accept_review

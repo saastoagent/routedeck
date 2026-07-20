@@ -75,6 +75,14 @@ def _settings() -> Settings:
         openai_api_key=SecretStr("openai-key"),
         openai_buyer_model="buyer-model",
         openai_entry_model="entry-model",
+        routedeck_instance_id="test-instance",
+        routedeck_review_ttl_seconds=900,
+        routedeck_resume_capability_ttl_seconds=86400,
+        routedeck_worker_count=1,
+        routedeck_guest_cookie_name="routedeck_guest",
+        routedeck_guest_cookie_secure=False,
+        routedeck_guest_cookie_path="/",
+        routedeck_browser_origins=("http://127.0.0.1:5198",),
     )
 
 

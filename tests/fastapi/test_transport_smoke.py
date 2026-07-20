@@ -61,6 +61,8 @@ from routedeck_core.runtime import RouteDeckRuntime, RouteDeckRuntimeServices
 from routedeck_core.state import create_session
 from routedeck_core.state.leases import TurnClaim, TurnLease
 from routedeck_fastapi import (
+    GuestCookieSessionSelector,
+    GuestCookieSettings,
     RouteDeckDependencies,
     SameOriginMutationPolicy,
     SseSettings,
@@ -77,6 +79,16 @@ if str(BACKEND_ROOT) not in sys.path:
 from main import create_medusa_app  # noqa: E402
 from medusa_agent.composition import compile_medusa_app  # noqa: E402
 from medusa_agent.session import BuyerMarket, create_medusa_session  # noqa: E402
+
+
+def _guest_selector() -> GuestCookieSessionSelector:
+    return GuestCookieSessionSelector(
+        GuestCookieSettings(
+            name="routedeck_guest",
+            secure=False,
+            path="/",
+        )
+    )
 
 
 class SmokeCodec:
@@ -346,6 +358,7 @@ def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunne
         projector=ProjectionProjector(compiled),
         private_form_codec=codec,
         session_factory=session_factory,
+        session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
     return dependencies, store, runner
@@ -416,6 +429,7 @@ def _test_transport_app(
     application.include_router(
         create_routedeck_router_from_runtime_provider(
             lambda _request: runtime,
+            session_selector=dependencies.session_selector,
             mutation_policy=SameOriginMutationPolicy(
                 trusted_origins=frozenset(
                     {
@@ -561,7 +575,12 @@ def test_mutation_transport_rejects_simple_cross_origin_and_non_json_requests() 
 
 
 def test_health_is_liveness_and_does_not_require_runtime_dependencies() -> None:
-    client = TestClient(create_medusa_app())
+    client = TestClient(
+        create_medusa_app(
+            browser_origins=("http://127.0.0.1:5198",),
+            session_selector=_guest_selector(),
+        )
+    )
 
     assert client.get("/api/medusa-agent/health").json() == {"status": "ok"}
     response = client.get("/api/medusa-agent/ready")
@@ -580,6 +599,8 @@ def test_readiness_checks_runtime_store_agent_and_medusa_probe() -> None:
                 agent_driver=_SmokeAgent(),
             ),
             readiness=probe,
+            browser_origins=("http://127.0.0.1:5198",),
+            session_selector=_guest_selector(),
         )
     )
 
@@ -597,6 +618,8 @@ def test_readiness_fails_closed_when_runtime_has_no_agent_driver() -> None:
         create_medusa_app(
             runtime=_runtime_from_dependencies(dependencies),
             readiness=probe,
+            browser_origins=("http://127.0.0.1:5198",),
+            session_selector=_guest_selector(),
         )
     )
 
@@ -657,6 +680,7 @@ def test_session_initializer_failure_never_returns_a_usable_session() -> None:
         private_form_codec=SmokeCodec(),
         session_factory=session_factory,
         session_initializer=fail_initializer,
+        session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
     client = TestClient(_test_transport_app(dependencies))
@@ -878,6 +902,7 @@ def _private_form_transport() -> tuple[TestClient, SmokeStore]:
         projector=ProjectionProjector(compiled),
         private_form_codec=SmokeCodec(),
         session_factory=session_factory,
+        session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
     client = TestClient(_test_transport_app(dependencies))

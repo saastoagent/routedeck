@@ -13,7 +13,6 @@ class ReviewRuntimePorts:
     clock: Any
     id_factory: Any
     review_ttl: timedelta
-    default_session_id: str
     _result_from_stored: Any
     _failure_result: Any
     _failure: Any

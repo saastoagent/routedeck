@@ -1,5 +1,9 @@
 # RouteDeck Boundary And Quality Fixes Implementation Plan
 
+Status: completed and archived on 2026-07-20. Current results live in
+`../../audits/2026-07-20-routedeck-quality-boundary-post-fix-audit.md` and
+`../../context_checkpoints/20260720_boundary_quality_fixes_complete.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close findings QB-01 through QB-08 without moving product behavior into RouteDeck, moving framework lifecycle into Medusa, or changing the existing checkout behavior.

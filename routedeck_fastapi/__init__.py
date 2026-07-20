@@ -5,11 +5,13 @@ from .dependencies import (
     GuestCookieSettings,
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
+    RouteDeckSessionSelector,
     SessionInitializer,
     SessionFactory,
     SessionProjector,
     SseSettings,
 )
+from .session_http import GuestCookieSessionSelector
 from .runtime import RuntimeProvider, dependencies_from_runtime
 from .conversation_projection import PublicConversationTurn, public_conversation
 from .conversation_replay import conversation_fingerprint
@@ -41,6 +43,7 @@ __all__ = [
     "DispatchRequest",
     "EventWakeupNotifier",
     "GuestCookieSettings",
+    "GuestCookieSessionSelector",
     "PrivateFormWriteRequest",
     "PublicConversationTurn",
     "ReviewRequest",
@@ -48,6 +51,7 @@ __all__ = [
     "RouteDeckDependencyUnavailable",
     "RouteDeckMutationPolicy",
     "RouteDeckMutationRejected",
+    "RouteDeckSessionSelector",
     "RuntimeProvider",
     "SameOriginMutationPolicy",
     "SessionInitializer",

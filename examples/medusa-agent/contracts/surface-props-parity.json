@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "vectors": [
+    {
+      "case_id": "catalog-grid-valid",
+      "surface_id": "catalog.product_grid",
+      "payload": {
+        "products": [
+          {
+            "interaction_handle": "product-ref-1",
+            "product_handle": "classic-tee",
+            "title": "Classic Tee",
+            "price": { "amount": 2500, "currency_code": "usd" },
+            "variant_count": 1
+          }
+        ],
+        "count": 1
+      },
+      "valid": true
+    },
+    {
+      "case_id": "catalog-grid-missing-count",
+      "surface_id": "catalog.product_grid",
+      "payload": {
+        "products": [
+          {
+            "interaction_handle": "product-ref-1",
+            "product_handle": "classic-tee",
+            "title": "Classic Tee",
+            "price": { "amount": 2500, "currency_code": "usd" },
+            "variant_count": 1
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "case_id": "catalog-detail-valid",
+      "surface_id": "catalog.product_detail",
+      "payload": {
+        "product": {
+          "interaction_handle": "product-ref-1",
+          "product_handle": "classic-tee",
+          "title": "Classic Tee",
+          "image_urls": [],
+          "options": [
+            { "title": "Size", "values": ["M"] }
+          ],
+          "variants": [
+            {
+              "interaction_handle": "variant-ref-1",
+              "title": "Medium",
+              "price": { "amount": 2500, "currency_code": "usd" },
+              "inventory_status": "in_stock",
+              "option_values": ["M"]
+            }
+          ],
+          "selected_variant_handle": "variant-ref-1"
+        }
+      },
+      "valid": true
+    },
+    {
+      "case_id": "catalog-detail-invalid-inventory-enum",
+      "surface_id": "catalog.product_detail",
+      "payload": {
+        "product": {
+          "interaction_handle": "product-ref-1",
+          "product_handle": "classic-tee",
+          "title": "Classic Tee",
+          "image_urls": [],
+          "options": [
+            { "title": "Size", "values": ["M"] }
+          ],
+          "variants": [
+            {
+              "interaction_handle": "variant-ref-1",
+              "title": "Medium",
+              "price": { "amount": 2500, "currency_code": "usd" },
+              "inventory_status": "preorder",
+              "option_values": ["M"]
+            }
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "case_id": "cart-summary-valid",
+      "surface_id": "cart.summary",
+      "payload": {
+        "cart_ref": "cart-ref-1",
+        "currency_code": "usd",
+        "items": [
+          {
+            "line_item_ref": "line-ref-1",
+            "title": "Classic Tee",
+            "selected_options": ["M"],
+            "quantity": 1,
+            "unit_price": 2500,
+            "line_total": 2500
+          }
+        ],
+        "subtotal": 2500,
+        "shipping_total": 0,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 2500
+      },
+      "valid": true
+    },
+    {
+      "case_id": "cart-summary-unexpected-property",
+      "surface_id": "cart.summary",
+      "payload": {
+        "cart_ref": "cart-ref-1",
+        "currency_code": "usd",
+        "items": [],
+        "subtotal": 0,
+        "shipping_total": 0,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 0,
+        "private_cart_id": "cart-private-1"
+      },
+      "valid": false
+    },
+    {
+      "case_id": "checkout-contact-valid",
+      "surface_id": "checkout.contact_form",
+      "payload": {
+        "form_handle": "form-ref-1",
+        "revision": 1,
+        "complete": false,
+        "fields": [
+          "email",
+          "shipping_address",
+          "billing_choice",
+          "billing_address"
+        ],
+        "billing_choices": ["same_as_shipping", "separate"],
+        "default_billing_choice": "same_as_shipping",
+        "country_choices": ["gb"],
+        "default_country_code": "gb"
+      },
+      "valid": true
+    },
+    {
+      "case_id": "checkout-contact-invalid-billing-enum",
+      "surface_id": "checkout.contact_form",
+      "payload": {
+        "form_handle": "form-ref-1",
+        "revision": 1,
+        "complete": false,
+        "fields": ["email"],
+        "billing_choices": ["same_as_shipping", "separate"],
+        "default_billing_choice": "invoice",
+        "country_choices": ["gb"],
+        "default_country_code": "gb"
+      },
+      "valid": false
+    },
+    {
+      "case_id": "checkout-shipping-valid",
+      "surface_id": "checkout.shipping_options",
+      "payload": {
+        "state": "ready",
+        "options": [
+          {
+            "shipping_option_ref": "shipping-ref-1",
+            "label": "Standard shipping",
+            "amount": 500,
+            "currency_code": "usd"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "case_id": "checkout-shipping-invalid-state-enum",
+      "surface_id": "checkout.shipping_options",
+      "payload": {
+        "state": "warming",
+        "options": []
+      },
+      "valid": false
+    },
+    {
+      "case_id": "checkout-payment-valid",
+      "surface_id": "checkout.payment_method",
+      "payload": {
+        "state": "ready",
+        "providers": [
+          {
+            "payment_provider_ref": "payment-ref-1",
+            "label": "System payment"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "case_id": "checkout-payment-invalid-state-enum",
+      "surface_id": "checkout.payment_method",
+      "payload": {
+        "state": "warming",
+        "providers": []
+      },
+      "valid": false
+    },
+    {
+      "case_id": "checkout-order-review-valid",
+      "surface_id": "checkout.order_review",
+      "payload": {
+        "form_handle": "form-ref-1",
+        "items": [
+          {
+            "title": "Classic Tee",
+            "variant_title": "Medium",
+            "quantity": 1,
+            "unit_amount": 2500,
+            "total": 2500
+          }
+        ],
+        "currency_code": "usd",
+        "subtotal": 2500,
+        "shipping_total": 500,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 3000,
+        "shipping_label": "Standard shipping",
+        "payment_label": "System payment",
+        "contact_complete": true,
+        "billing_complete": true
+      },
+      "valid": true
+    },
+    {
+      "case_id": "checkout-order-review-missing-payment-label",
+      "surface_id": "checkout.order_review",
+      "payload": {
+        "form_handle": "form-ref-1",
+        "items": [
+          {
+            "title": "Classic Tee",
+            "quantity": 1,
+            "unit_amount": 2500,
+            "total": 2500
+          }
+        ],
+        "currency_code": "usd",
+        "subtotal": 2500,
+        "shipping_total": 500,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 3000,
+        "shipping_label": "Standard shipping",
+        "contact_complete": true,
+        "billing_complete": true
+      },
+      "valid": false
+    },
+    {
+      "case_id": "orders-confirmation-valid",
+      "surface_id": "orders.confirmation",
+      "payload": {
+        "confirmation_handle": "confirmation-ref-1",
+        "display_id": "1001",
+        "status": "completed",
+        "items": [
+          {
+            "title": "Classic Tee",
+            "variant_title": "Medium",
+            "quantity": 1,
+            "unit_amount": 2500,
+            "total": 2500
+          }
+        ],
+        "currency_code": "usd",
+        "subtotal": 2500,
+        "shipping_total": 500,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 3000,
+        "shipping_label": "Standard shipping",
+        "payment_label": "System payment"
+      },
+      "valid": true
+    },
+    {
+      "case_id": "orders-confirmation-wrong-display-id-type",
+      "surface_id": "orders.confirmation",
+      "payload": {
+        "confirmation_handle": "confirmation-ref-1",
+        "display_id": 1001,
+        "status": "completed",
+        "items": [
+          {
+            "title": "Classic Tee",
+            "quantity": 1,
+            "unit_amount": 2500,
+            "total": 2500
+          }
+        ],
+        "currency_code": "usd",
+        "subtotal": 2500,
+        "shipping_total": 500,
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": 3000,
+        "shipping_label": "Standard shipping",
+        "payment_label": "System payment"
+      },
+      "valid": false
+    }
+  ]
+}

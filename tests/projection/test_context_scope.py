@@ -160,7 +160,11 @@ def test_context_entity_join_requires_both_handle_and_kind() -> None:
         else node
         for node in app.graph.nodes
     )
-    app = replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
+    app = replace(
+        app,
+        graph=app.graph.model_copy(update={"nodes": nodes}),
+        nodes={node.id: node for node in nodes},
+    )
     session = session_factory(
         app=app,
         node_id="catalog.product",

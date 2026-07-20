@@ -370,11 +370,7 @@ class SupervisionPolicyMixin:
         )
 
     def _current_node(self, session: RouteDeckSession) -> Any:
-        return next(
-            node
-            for node in self.app.app.graph.nodes
-            if node.id == session.current.node_id
-        )
+        return self.app.app.require_node(session.current.node_id)
 
 
 __all__ = [

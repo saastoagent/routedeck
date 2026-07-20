@@ -26,6 +26,7 @@ from ..contracts.session import (
 from ..ports.notifier import notify_event_wakeup
 from ..state.aggregate import RouteDeckSessionAggregate
 from ..state.leases import TurnClaim, TurnLease, TurnOwnerKind
+from ..validation import RouteDeckValidationError
 
 from .runner_base import RunnerRuntimePorts
 from .runner_contracts import RouteEntryInvocation
@@ -76,15 +77,13 @@ class RunnerSupportMixin(RunnerRuntimePorts):
             raise ValueError(
                 "Route entry locations cannot supply canonical history IDs"
             )
-        node = next(
-            (
-                candidate
-                for candidate in self.app.app.graph.nodes
-                if candidate.id == location.node_id
-            ),
-            None,
-        )
-        if node is None or node.entry is None:
+        try:
+            node = self.app.app.require_node(location.node_id)
+        except RouteDeckValidationError as error:
+            raise ValueError(
+                "The matched route has no declared entry operation"
+            ) from error
+        if node.entry is None:
             raise ValueError("The matched route has no declared entry operation")
         if node.entry.operation.id != request.operation_id:
             raise ValueError("The route entry operation does not match the request")

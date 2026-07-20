@@ -39,6 +39,7 @@ from routedeck_core.contracts.session import (
     SessionSnapshot,
     StoredOperationAttempt,
 )
+from routedeck_core.validation import RouteDeckValidationError
 from routedeck_core.state.leases import TurnClaim, TurnOwnerKind
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
 from routedeck_core.supervision.runner import RouteEntryInvocation
@@ -109,7 +110,6 @@ def attempt_for(
     (
         ({"review_ttl": timedelta(0)}, "review_ttl"),
         ({"resume_capability_ttl": timedelta(0)}, "resume_capability_ttl"),
-        ({"default_session_id": ""}, "default_session_id"),
     ),
 )
 def test_runner_rejects_non_durable_runtime_configuration(
@@ -453,11 +453,12 @@ def test_failure_recovery_effects_require_a_current_node_and_external_write(
         operation=runner.app.app.operations["test.read"],
         outcome=recovery,
     )
-    assert not runner._valid_outcome_effects(
-        session=missing_node,
-        operation=runner.app.app.operations["test.write"],
-        outcome=recovery,
-    )
+    with pytest.raises(RouteDeckValidationError, match="missing.node"):
+        runner._valid_outcome_effects(
+            session=missing_node,
+            operation=runner.app.app.operations["test.write"],
+            outcome=recovery,
+        )
 
 
 def test_json_validation_and_request_fingerprinting_fail_closed(runner) -> None:
@@ -742,11 +743,13 @@ async def test_review_resolution_same_request_replays_without_second_effect(
         proposed.review.id,
         request_id=f"resolve-replay-{resolution}",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
     replay = await resolver(
         proposed.review.id,
         request_id=f"resolve-replay-{resolution}",
         expected_session_version=0,
+        session_id="session-1",
     )
 
     assert replay == resolved
@@ -790,6 +793,7 @@ async def test_review_resolution_rejects_request_id_collision_before_locking(
         proposed.review.id,
         request_id=collision_id,
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert result.disposition is OperationDisposition.BLOCKED
@@ -831,6 +835,7 @@ async def test_review_resolution_handles_disappearing_review_after_lock(
         proposed.review.id,
         request_id=f"resolve-vanish-{resolution}",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert result.failure is not None
@@ -870,6 +875,7 @@ async def test_review_resolution_handles_version_change_after_lock(
         proposed.review.id,
         request_id=f"resolve-version-race-{resolution}",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert result.failure is not None
@@ -897,6 +903,7 @@ async def test_review_acceptance_maps_execution_claim_race_to_typed_conflict(
         proposed.review.id,
         request_id="resolve-claim-race",
         expected_session_version=proposed.session_version,
+        session_id="session-1",
     )
 
     assert result.failure is not None

@@ -88,6 +88,14 @@ function Ensure-EnvironmentFile {
             "ROUTEDECK_STATE_ENCRYPTION_KEY=$(New-Base64UrlSecret 32)",
             "MEDUSA_BASE_URL=http://127.0.0.1:9100",
             "ROUTEDECK_DATABASE_URL=$SqliteUrl",
+            "ROUTEDECK_INSTANCE_ID=medusa-agent-local",
+            "ROUTEDECK_REVIEW_TTL_SECONDS=900",
+            "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS=86400",
+            "ROUTEDECK_WORKER_COUNT=1",
+            "ROUTEDECK_GUEST_COOKIE_NAME=routedeck_guest",
+            "ROUTEDECK_GUEST_COOKIE_SECURE=false",
+            "ROUTEDECK_GUEST_COOKIE_PATH=/",
+            "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5198,http://localhost:5198",
             "OPENAI_BUYER_MODEL=gpt-5.4-nano",
             "OPENAI_ENTRY_MODEL=gpt-5.4-nano",
             "OPENAI_API_KEY="
@@ -113,6 +121,32 @@ function Ensure-EnvironmentFile {
     foreach ($name in $requiredNames) {
         if (-not $values.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($values[$name])) {
             throw "Required environment setting is missing: $name"
+        }
+    }
+    $policyDefaults = [ordered]@{
+        "ROUTEDECK_INSTANCE_ID" = "medusa-agent-local"
+        "ROUTEDECK_REVIEW_TTL_SECONDS" = "900"
+        "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS" = "86400"
+        "ROUTEDECK_WORKER_COUNT" = "1"
+        "ROUTEDECK_GUEST_COOKIE_NAME" = "routedeck_guest"
+        "ROUTEDECK_GUEST_COOKIE_SECURE" = "false"
+        "ROUTEDECK_GUEST_COOKIE_PATH" = "/"
+        "ROUTEDECK_BROWSER_ORIGINS" = "http://127.0.0.1:5198,http://localhost:5198"
+    }
+    $missingPolicy = @(
+        $policyDefaults.GetEnumerator() |
+            Where-Object { -not $values.ContainsKey($_.Key) }
+    )
+    if ($missingPolicy.Count -gt 0) {
+        $currentLines = @(Get-Content -LiteralPath $EnvironmentFile)
+        $policyLines = @($missingPolicy | ForEach-Object { "$($_.Key)=$($_.Value)" })
+        [IO.File]::WriteAllLines(
+            $EnvironmentFile,
+            @($currentLines + $policyLines),
+            [Text.UTF8Encoding]::new($false)
+        )
+        foreach ($item in $missingPolicy) {
+            $values[$item.Key] = $item.Value
         }
     }
     $bootstrapNames = @(
@@ -189,6 +223,14 @@ function Assert-RuntimeEnvironment {
         "MEDUSA_BASE_URL",
         "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
+        "ROUTEDECK_INSTANCE_ID",
+        "ROUTEDECK_REVIEW_TTL_SECONDS",
+        "ROUTEDECK_RESUME_CAPABILITY_TTL_SECONDS",
+        "ROUTEDECK_WORKER_COUNT",
+        "ROUTEDECK_GUEST_COOKIE_NAME",
+        "ROUTEDECK_GUEST_COOKIE_SECURE",
+        "ROUTEDECK_GUEST_COOKIE_PATH",
+        "ROUTEDECK_BROWSER_ORIGINS",
         "OPENAI_BUYER_MODEL",
         "OPENAI_ENTRY_MODEL"
     )

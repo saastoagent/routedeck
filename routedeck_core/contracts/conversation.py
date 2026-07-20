@@ -27,7 +27,7 @@ class ConversationToolCall(_FrozenContract):
     """Framework-neutral metadata needed to replay one observed tool call.
 
     The SQLAlchemy adapter encrypts this metadata with the turn content because
-    model preambles and arguments may echo buyer data.
+    model preambles and arguments may echo sensitive user data.
     """
 
     call_id: str = Field(min_length=1)

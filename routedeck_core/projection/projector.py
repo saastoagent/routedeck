@@ -260,19 +260,12 @@ class ProjectionProjector:
         )
 
     def _current_node(self, session: RouteDeckSession) -> Node:
-        node = next(
-            (
-                candidate
-                for candidate in self.app.graph.nodes
-                if candidate.id == session.current.node_id
-            ),
-            None,
-        )
-        if node is None:
+        try:
+            return self.app.require_node(session.current.node_id)
+        except RouteDeckValidationError as error:
             raise RouteDeckValidationError(
                 f"Session references unknown node: {session.current.node_id}"
-            )
-        return node
+            ) from error
 
 
 __all__ = ["ProjectionProjector"]

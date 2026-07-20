@@ -104,7 +104,7 @@ export function ProductGridSurface({
   );
 }
 
-function decodeCatalogGrid(
+export function decodeCatalogGrid(
   props: RouteDeckSurfaceComponentProps["props"],
 ): CatalogGridProjection {
   catalogExactKeys(props, "$.catalog.product_grid", [

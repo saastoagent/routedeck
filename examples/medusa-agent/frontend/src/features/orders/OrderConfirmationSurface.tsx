@@ -121,7 +121,7 @@ function OrderTotal({
   );
 }
 
-function decodeVerifiedOrder(
+export function decodeVerifiedOrder(
   props: RouteDeckSurfaceComponentProps["props"],
 ): VerifiedOrderProjection {
   checkoutExactKeys(props, "$.orders.confirmation", [

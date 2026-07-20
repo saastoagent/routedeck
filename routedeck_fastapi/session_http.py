@@ -5,8 +5,9 @@ import inspect
 import json
 from typing import TypeVar
 
-from fastapi import Request
-from fastapi.responses import JSONResponse
+from dataclasses import dataclass
+
+from fastapi import Request, Response
 from pydantic import ValidationError
 
 from routedeck_core.contracts.failures import FailureKind
@@ -19,6 +20,7 @@ from .dependencies import (
     GuestCookieSettings,
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
+    RouteDeckSessionSelector,
     SessionFactory,
     SessionInitializer,
 )
@@ -107,19 +109,47 @@ async def validated_body(
         ) from error
 
 
-def guest_session_id(request: Request, settings: GuestCookieSettings) -> str:
-    session_id = request.cookies.get(settings.name)
-    if not session_id:
-        raise RouteDeckHttpProblem(
-            404,
-            "session_not_found",
-            "No RouteDeck guest session is available.",
+@dataclass(frozen=True)
+class GuestCookieSessionSelector:
+    settings: GuestCookieSettings
+
+    async def selected_session_id(self, request: Request) -> str:
+        session_id = request.cookies.get(self.settings.name)
+        if not session_id:
+            raise RouteDeckHttpProblem(
+                404,
+                "session_not_found",
+                "No RouteDeck guest session is available.",
+            )
+        return session_id
+
+    def attach_created_session(
+        self,
+        response: Response,
+        session_id: str,
+    ) -> None:
+        response.set_cookie(
+            key=self.settings.name,
+            value=session_id,
+            httponly=True,
+            secure=self.settings.secure,
+            samesite="lax",
+            path=self.settings.path,
         )
-    if len(session_id) > 512:
+
+
+async def selected_session_id(
+    request: Request,
+    selector: RouteDeckSessionSelector,
+) -> str:
+    session_id = await selector.selected_session_id(request)
+    if not isinstance(session_id, str) or not session_id or len(session_id) > 512:
         raise RouteDeckHttpProblem(
-            400,
-            "invalid_session_cookie",
-            "The session is invalid.",
+            500,
+            "session_selection_invalid",
+            "The selected session is unavailable.",
+            FailureKind.INTERNAL,
+            "session_selection",
         )
     return session_id
 
@@ -128,7 +158,7 @@ async def authenticated_snapshot(
     request: Request,
     dependencies: RouteDeckDependencies,
 ) -> SessionSnapshot:
-    session_id = guest_session_id(request, dependencies.cookie)
+    session_id = await selected_session_id(request, dependencies.session_selector)
     snapshot = await dependencies.store.load(session_id)
     require_current_session(dependencies.app, snapshot.state)
     return snapshot
@@ -142,33 +172,18 @@ def project(
     return dependencies.projector.project(snapshot.state)
 
 
-def set_guest_cookie(
-    response: JSONResponse,
-    session_id: str,
-    settings: GuestCookieSettings,
-) -> None:
-    response.set_cookie(
-        key=settings.name,
-        value=session_id,
-        httponly=True,
-        secure=settings.secure,
-        samesite="lax",
-        path=settings.path,
-    )
-
-
 def session_creation_fingerprint() -> str:
     return hashlib.sha256(b"routedeck.session-creation.v1").hexdigest()
 
 
 __all__ = [
     "authenticated_snapshot",
-    "guest_session_id",
+    "GuestCookieSessionSelector",
     "initialize_session",
     "make_session",
     "project",
     "resolve_dependencies",
+    "selected_session_id",
     "session_creation_fingerprint",
-    "set_guest_cookie",
     "validated_body",
 ]

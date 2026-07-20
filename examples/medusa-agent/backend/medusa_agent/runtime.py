@@ -132,11 +132,14 @@ async def open_live_medusa_application(
         ),
         database_url=configured.routedeck_database_url,
         encryption_key=configured.routedeck_state_encryption_key.get_secret_value(),
-        instance_id="medusa-agent-local",
-        review_ttl=timedelta(minutes=15),
-        resume_capability_ttl=timedelta(hours=24),
-        default_session_id="medusa-agent-default",
-        worker_count=1,
+        instance_id=configured.routedeck_instance_id,
+        review_ttl=timedelta(
+            seconds=configured.routedeck_review_ttl_seconds
+        ),
+        resume_capability_ttl=timedelta(
+            seconds=configured.routedeck_resume_capability_ttl_seconds
+        ),
+        worker_count=configured.routedeck_worker_count,
     )
     return LiveMedusaApplication(
         runtime=runtime,

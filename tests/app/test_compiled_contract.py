@@ -27,6 +27,25 @@ def test_contract_documents_are_complete_json_and_deterministic() -> None:
     assert all(json.loads(document) for document in first.values())
 
 
+def test_compiled_application_exposes_one_immutable_node_index() -> None:
+    compiled = compile_medusa_app()
+
+    assert set(compiled.nodes) == {node.id for node in compiled.graph.nodes}
+    assert all(compiled.nodes[node.id] is node for node in compiled.graph.nodes)
+    assert compiled.require_node("checkout.contact") is compiled.nodes[
+        "checkout.contact"
+    ]
+    with pytest.raises(TypeError):
+        compiled.nodes["extra.node"] = compiled.graph.nodes[0]  # type: ignore[index]
+
+
+def test_compiled_application_require_node_raises_typed_named_error() -> None:
+    compiled = compile_medusa_app()
+
+    with pytest.raises(RouteDeckValidationError, match="missing.node"):
+        compiled.require_node("missing.node")
+
+
 def test_executable_paths_cover_every_declared_branch() -> None:
     app = compile_medusa_app()
 

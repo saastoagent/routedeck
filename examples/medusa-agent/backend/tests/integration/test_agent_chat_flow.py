@@ -70,6 +70,7 @@ from routedeck_core.supervision.guards import (
     ProviderResult,
 )
 from routedeck_fastapi.sse import encode_event
+from routedeck_fastapi import GuestCookieSessionSelector, GuestCookieSettings
 from routedeck_langgraph import (
     RouteDeckLangGraphDriverFactory,
     RouteDeckLangGraphGraphs,
@@ -449,9 +450,18 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
         id_factory=lambda kind: f"{kind}-{next(ids)}",
         review_ttl=timedelta(minutes=10),
         resume_capability_ttl=timedelta(hours=24),
-        default_session_id="agent-chat-default",
     )
-    application = create_medusa_app(runtime=runtime)
+    application = create_medusa_app(
+        runtime=runtime,
+        browser_origins=("http://routedeck.test",),
+        session_selector=GuestCookieSessionSelector(
+            GuestCookieSettings(
+                name="routedeck_guest",
+                secure=False,
+                path="/",
+            )
+        ),
+    )
 
     try:
         transport = httpx.ASGITransport(app=application)

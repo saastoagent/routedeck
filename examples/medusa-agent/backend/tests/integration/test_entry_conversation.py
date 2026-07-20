@@ -20,6 +20,7 @@ from routedeck_langgraph import (
     RouteDeckLangGraphAgentDriver,
     RouteDeckLangGraphGraphs,
 )
+from routedeck_fastapi import GuestCookieSessionSelector, GuestCookieSettings
 from routedeck_testing import ScriptedTextModel
 from support.medusa import RecordingMedusaStoreClient, buyer_market, cart
 from support.runtime import build_test_runtime
@@ -65,7 +66,17 @@ async def test_home_entry_persists_a_model_greeting_without_a_synthetic_user_mes
     )
     runtime = replace(runtime, agent_driver=driver)
     before_entry = await runtime.services.store.load("session-1")
-    application = create_medusa_app(runtime=runtime)
+    application = create_medusa_app(
+        runtime=runtime,
+        browser_origins=("http://testserver",),
+        session_selector=GuestCookieSessionSelector(
+            GuestCookieSettings(
+                name="routedeck_guest",
+                secure=False,
+                path="/",
+            )
+        ),
+    )
 
     try:
         transport = httpx.ASGITransport(app=application)

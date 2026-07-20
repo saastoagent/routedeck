@@ -37,6 +37,8 @@ from routedeck_core.runtime import RouteDeckRuntime
 from routedeck_core.state import create_session
 from routedeck_fastapi import (
     ConversationTurnRequest,
+    GuestCookieSessionSelector,
+    GuestCookieSettings,
     SseSettings,
     create_routedeck_router_from_runtime_provider,
     dependencies_from_runtime,
@@ -50,6 +52,16 @@ from routedeck_sqlalchemy import (
     SqlAlchemyRuntimeResources,
     open_sqlalchemy_routedeck_runtime,
 )
+
+
+def _guest_selector() -> GuestCookieSessionSelector:
+    return GuestCookieSessionSelector(
+        GuestCookieSettings(
+            name="routedeck_guest",
+            secure=False,
+            path="/",
+        )
+    )
 
 
 @dataclass
@@ -180,7 +192,6 @@ async def runtime(
         id_factory=lambda kind: f"{kind}-{next(ids)}",
         review_ttl=timedelta(minutes=5),
         resume_capability_ttl=timedelta(hours=1),
-        default_session_id="conversation-fastapi-default",
     )
     try:
         yield opened
@@ -198,6 +209,7 @@ async def client(runtime: RouteDeckRuntime) -> AsyncIterator[httpx.AsyncClient]:
     application.include_router(
         create_routedeck_router_from_runtime_provider(
             runtime_provider,
+            session_selector=_guest_selector(),
             sse=SseSettings(follow=False),
         )
     )
@@ -441,6 +453,7 @@ async def test_cancellation_closes_graph_and_shields_interruption_persistence(
     session_id = runtime_session_id(client)
     dependencies = dependencies_from_runtime(
         runtime,
+        session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
     initial = await runtime.services.store.load(session_id)
@@ -486,6 +499,7 @@ async def test_concurrent_assistant_turn_preserves_typed_store_conflict(
     session_id = runtime_session_id(client)
     dependencies = dependencies_from_runtime(
         runtime,
+        session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
     initial = await runtime.services.store.load(session_id)

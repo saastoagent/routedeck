@@ -14,7 +14,8 @@ product Feature modules
   -> complete Nodes with operations/providers/guards/surfaces/outgoing edges
   -> small Application composition root selects features + entry node
   -> compile_app validates names, routes, bindings, outcomes, reachability
-  -> RouteDeck derives incoming adjacency + frontend contract + test paths
+  -> RouteDeck derives incoming adjacency + immutable node index
+  -> RouteDeck derives frontend contract + test paths
   -> bind_app validates exact async product implementations
 ```
 
@@ -49,15 +50,15 @@ capture current address-bar path and history entry
   -> commit confirmed projection to browser history with replace
   -> start event stream and load durable conversation
   -> if conversation is empty: Medusa requests one assistant-initiated greeting
-  -> Medusa currently validates the raw assistant stream and converges versions
+  -> RouteDeck coordinator validates the stream and converges versions/history
+  -> Medusa translates any framework failure into product greeting copy
   -> render product shell
 ```
 
 Session-bound routes never auto-create replacement state. Outcome-unknown
 session creation or navigation retains the exact request for explicit recovery.
-The raw assistant-stream validation/convergence step is a current boundary gap:
-the trigger and product copy belong to Medusa, while the generic request/event/
-synchronization lifecycle belongs in a RouteDeck client coordinator.
+Greeting policy/copy stays in Medusa; request/event/synchronization behavior is
+owned once by `@routedeck/core`.
 
 ## User Conversation
 
@@ -100,6 +101,8 @@ session + expected version + request id + declared operation + arguments
 
 Review acceptance rechecks current context before execution. An uncertain
 external outcome exposes declared reconciliation; it is not replayed silently.
+Accept/reject always receives the host-selected non-empty session ID; the
+runner has no implicit default-session path.
 
 ## Navigation And History
 
@@ -130,19 +133,22 @@ committed runtime mutation
 Private IDs/form values and diagnostic-only data do not enter public event or
 model channels.
 
-## Current Session Selection
+## Session Selection
 
 ```text
-Medusa guest HTTP-only cookie
-  -> server-selected internal session id
+HTTP request
+  -> host-owned RouteDeckSessionSelector
+  -> authenticate/authorize principal and opaque handle when applicable
+  -> already-authorized internal session id
   -> RouteDeck store access
 ```
 
-An authenticated `(principal, opaque session handle) -> authorized session_id`
-resolver is future work. RouteDeck does not currently provide user, tenant, or
-multi-session authorization. Review accept/reject also retain a legacy
-`default_session_id` path when direct callers omit session identity; that path
-must be removed before a fail-closed multi-session claim.
+The local Medusa host explicitly installs `GuestCookieSessionSelector`: one
+HTTP-only cookie selects one guest session, separate browser profiles are
+isolated, and tabs in one profile share the session. A production consumer may
+instead implement `(principal, opaque session handle) -> authorized session_id`.
+RouteDeck supplies the seam but does not own users, tenants, session listing,
+authentication, or authorization policy.
 
 ## Authorities
 

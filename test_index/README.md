@@ -22,6 +22,7 @@ Run from the RouteDeck project root:
 | Persistence | `python -m pytest tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py -q` | SQLite/PostgreSQL ORM portability, fencing, durable journals/events/blobs, reopen, and restart recovery. |
 | HTTP/SSE | `python -m pytest tests/fastapi -q` | Runtime-derived routes, sessions, operations/reviews, navigation, typed conversation, replay/collision, cancellation, events, forms, inspection, and errors. |
 | Assistant initiation | `python -m pytest tests/fastapi/test_conversation_turns.py -q` | No synthetic user turn, shared durable lifecycle, replay/collision, interruption, and runtime/router integration. |
+| Headless assistant coordination | `pnpm --dir packages/core exec vitest run --config vitest.config.ts src/conversation/assistant.test.ts` | Assistant stream validation, terminal proof, synchronization, conflict convergence, interruption, and no duplicate turn execution. |
 | LangGraph boundary | `python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q` | Product-owned topology, framework-owned driver, typed triggers, strict extraction, default-deny context, and supervised tools. |
 | Boundary rules | `python -m pytest tests/test_boundary_report.py tests/test_boundary_rules.py tests/test_anti_drift_boundaries.py tests/test_medusa_reference_slice0.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q` | Product-neutral framework, one runtime/runner path, no Medusa generic constructors, and no direct product Store path in the browser. |
 | Testing support | `python -m pytest tests/test_testing_factories.py -q` | Test doubles remain explicit and isolated from product runtime. |
@@ -46,6 +47,7 @@ The workspace requires Node.js 22.13 or newer and pnpm 11.7.0.
 | React | `pnpm --filter @routedeck/react test` and `pnpm --filter @routedeck/react typecheck` | Named conversation presentation, operations, surfaces, forms, review, navigation, status, and inspector primitives. |
 | Testing package | `pnpm --filter @routedeck/testing test` | Explicit frontend test factories/harnesses. |
 | Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Product bootstrap/recovery, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
+| Medusa surface-props parity | `python -m pytest examples/medusa-agent/backend/tests/contract/test_surface_props_parity.py -q` and `pnpm --dir examples/medusa-agent/frontend exec vitest run --config vitest.config.ts src/tests/surface-props-parity.test.ts` | The same 16 valid/invalid vectors agree across compiled backend schemas and eight corresponding product frontend decoders. |
 | Medusa type/build | `pnpm --filter @routedeck/medusa-agent typecheck` and `pnpm --filter @routedeck/medusa-agent build` | Product/public contract integration and production bundle. |
 
 Root `pnpm test`, `pnpm typecheck`, and `pnpm build` are all-package gates.
@@ -84,17 +86,18 @@ Generated output is not a substitute for compiler/decoder tests.
 python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
 ```
 
-The schema-3 report must include a passing `runtime_ownership` result proving
+The schema-4 report must include a passing `runtime_ownership` result proving
 one framework-built runner/navigation path, runtime-derived transport, no
 product generic constructors, and no product `astream_events(...)` calls. The
-JSON is evidence only for that invocation.
+JSON also proves the product frontend does not directly own assistant-stream
+event handling and that generic production source contains no buyer-specific
+vocabulary. It is evidence only for that invocation.
 
-The current scanner does not prove absence of a product-owned frontend switch
-over generic assistant-stream events, product vocabulary in framework error
-copy, optional/default session selection in direct runner calls,
-surface-schema/browser-decoder parity, or duplicated product-integrity
-algorithms. Audit those separately until executable checks are added; a green
-schema-3 report supports structural separation, not total separation.
+The schema-4 scanner does not itself prove product surface-schema/decoder parity
+or product-integrity algorithms. The separate shared-vector parity gate proves
+the eight named Medusa decoders, and the contact-identity unit lane proves the
+shared fingerprint. A green schema-4 report supports only its structural
+separation checks, not every possible product contract.
 
 ## Protected Real Medusa Gate
 
@@ -132,6 +135,8 @@ address-bar checkout recording is:
 ```powershell
 $env:ROUTEDECK_MODEL_MODE = "live"
 $env:ROUTEDECK_E2E_VIDEO = "on"
+$env:ROUTEDECK_PRESENTATION_RECORDING = "1"
+$env:ROUTEDECK_E2E_ARTIFACTS = "<absolute artifact directory>"
 pnpm --filter @routedeck/medusa-agent-e2e exec playwright test --config live-checkout-video.playwright.config.ts human-checkout-flow.spec.ts
 ```
 

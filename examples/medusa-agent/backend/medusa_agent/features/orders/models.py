@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ...contact_identity import contact_fingerprint
 from ...medusa.client.models import Order
 from ..checkout.models import CheckoutCartFacts, ReviewLineProjection
 
@@ -160,7 +161,7 @@ def actual_order_payload(order: Order) -> OrderVerificationPayload | None:
         tax_total=order.tax_total,
         discount_total=order.discount_total,
         total=order.total,
-        contact_fingerprint=_order_contact_fingerprint(order),
+        contact_fingerprint=contact_fingerprint(order),
         private_shipping_option_id=shipping.shipping_option_id.get_secret_value(),
         shipping_label=shipping.name,
         shipping_amount=shipping.amount,
@@ -252,30 +253,6 @@ def confirmation_projection_from_order(
         shipping_label=order.shipping_methods[0].name,
         payment_label="System / manual demo payment",
     )
-
-
-def _order_contact_fingerprint(order: Order) -> str:
-    payload = {
-        "email": order.email,
-        "shipping_address": (
-            order.shipping_address.model_dump(mode="json")
-            if order.shipping_address is not None
-            else None
-        ),
-        "billing_address": (
-            order.billing_address.model_dump(mode="json")
-            if order.billing_address is not None
-            else None
-        ),
-    }
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        allow_nan=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 ORDER_RECOVERY_PROVIDER_SCHEMA = {

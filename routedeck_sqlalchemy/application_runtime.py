@@ -51,7 +51,6 @@ async def open_sqlalchemy_routedeck_runtime(
     instance_id: str,
     review_ttl: timedelta,
     resume_capability_ttl: timedelta,
-    default_session_id: str,
     retention_policy: RouteDeckRetentionPolicy | None = None,
     busy_timeout: timedelta = timedelta(seconds=5),
     worker_count: int = 1,
@@ -102,7 +101,6 @@ async def open_sqlalchemy_routedeck_runtime(
             id_factory=effective_id_factory,
             review_ttl=review_ttl,
             resume_capability_ttl=resume_capability_ttl,
-            default_session_id=default_session_id,
         )
     except BaseException:
         await store.close()

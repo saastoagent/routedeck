@@ -22,6 +22,8 @@ runtime-ownership decision.
 ## Public Interfaces
 
 - `Application`, `Feature`, `compile_app(...)`, and `bind_app(...)`.
+- `CompiledApplication.nodes` and `require_node(...)`, the immutable compiled
+  node index used by every runtime subsystem.
 - Immutable application, session, operation, conversation, event, projection,
   navigation, surface, review, failure, and retention contracts.
 - `RouteDeckSessionAggregate` named actions for canonical state transitions.
@@ -43,18 +45,18 @@ modules; those modules are not alternate public compilers or runners.
 SQLAlchemy, FastAPI/SSE, LangGraph, and React are adjacent adapters and do not
 own canonical session behavior.
 
-## Current Quality Gap
+## Session And Lookup Invariants
 
-Review accept/reject currently accept an optional session ID and use the
-runner's configured `default_session_id` when it is omitted. FastAPI passes the
-guest session explicitly, but the reusable runner API still makes an implicit
-identity choice. A production multi-session contract must require an
-already-authorized session identity and remove the default-session fallback.
+Review accept/reject require a non-empty, keyword-only `session_id`. The runner
+has no configured default-session field or omitted-identity path, so every
+caller must pass the session identity already selected and authorized by its
+host adapter.
 
-Current-node lookup is also repeated across context, projection, navigation,
-and supervision with inconsistent missing-node behavior. A compiled immutable
-node resolver is the intended consolidation point; no alternate state
-authority should be introduced.
+`CompiledApplication` stores one read-only node mapping whose keys and values
+must exactly match the compiled graph. `require_node(...)` is the shared
+fail-closed lookup used by context, projection, navigation, and supervision;
+those subsystems do not scan the graph or invent different missing-node
+semantics.
 
 ## Dependent Flows
 
@@ -69,7 +71,7 @@ authority should be introduced.
 ## Tests And Evidence
 
 ```powershell
-python -m pytest tests/state/test_runtime_builder.py tests/app tests/state tests/supervision tests/projection tests/navigation -q
+python -m pytest tests/app/test_compiled_contract.py tests/state/test_runtime_builder.py tests/supervision/test_review_lifecycle.py tests/context tests/projection tests/navigation -q
 python scripts/check_boundaries.py --json $env:TEMP\routedeck-boundaries.json
 ```
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable, Mapping
 from enum import StrEnum
 from typing import Any, TypeAlias
@@ -17,6 +15,7 @@ from pydantic import (
 
 from routedeck_core.contracts.operations import DeliveryPhase
 
+from ...contact_identity import contact_fingerprint
 from ...medusa.client.models import (
     Cart,
     CheckoutAddress,
@@ -454,7 +453,7 @@ def project_checkout_cart(
         total=cart.total,
         contact_saved=contact_saved,
         billing_complete=billing_complete,
-        contact_fingerprint=_contact_fingerprint(cart),
+        contact_fingerprint=contact_fingerprint(cart),
         contact_form_handle=contact_form_handle,
         shipping_selected=shipping is not None,
         shipping=shipping,
@@ -497,30 +496,6 @@ def order_review_projection(
         contact_complete=cart.contact_saved,
         billing_complete=cart.billing_complete,
     )
-
-
-def _contact_fingerprint(cart: Cart) -> str:
-    payload = {
-        "email": cart.email,
-        "shipping_address": (
-            cart.shipping_address.model_dump(mode="json")
-            if cart.shipping_address is not None
-            else None
-        ),
-        "billing_address": (
-            cart.billing_address.model_dump(mode="json")
-            if cart.billing_address is not None
-            else None
-        ),
-    }
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        allow_nan=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = [

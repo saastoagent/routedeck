@@ -136,6 +136,10 @@ def test_navigation_intents_fail_when_current_node_disables_them(
                 )
             }
         ),
+        nodes={
+            node.id: disabled_home if node.id == home.id else node
+            for node in app.graph.nodes
+        },
     )
     session = session_factory(app=forged_app, node_id=home.id)
 
@@ -236,7 +240,11 @@ def test_cancel_has_its_own_history_transition_when_back_is_disabled() -> None:
         for node in app.graph.nodes
     )
     engine = NavigationEngine(
-        replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
+        replace(
+            app,
+            graph=app.graph.model_copy(update={"nodes": nodes}),
+            nodes={node.id: node for node in nodes},
+        )
     )
     browsed = session_factory(app=engine.app, node_id="catalog.browse")
     product = engine.open(
@@ -288,7 +296,11 @@ def test_cancel_explicit_target_is_resolved_from_the_compiled_graph() -> None:
         for node in app.graph.nodes
     )
     engine = NavigationEngine(
-        replace(app, graph=app.graph.model_copy(update={"nodes": nodes}))
+        replace(
+            app,
+            graph=app.graph.model_copy(update={"nodes": nodes}),
+            nodes={node.id: node for node in nodes},
+        )
     )
     product = session_factory(
         app=engine.app,

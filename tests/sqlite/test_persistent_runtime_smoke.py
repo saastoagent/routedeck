@@ -143,7 +143,6 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
             id_factory=ids,
             review_ttl=timedelta(minutes=10),
             resume_capability_ttl=timedelta(hours=24),
-            default_session_id="buyer-session-1",
         )
 
     first_runtime = await open_runtime("first")

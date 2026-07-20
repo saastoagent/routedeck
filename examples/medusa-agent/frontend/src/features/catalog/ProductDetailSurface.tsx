@@ -96,7 +96,7 @@ export function ProductDetailSurface({
   );
 }
 
-function decodeProductDetail(
+export function decodeProductDetail(
   props: RouteDeckSurfaceComponentProps["props"],
 ): CatalogProductDetailProjection {
   catalogExactKeys(props, "$.catalog.product_detail", ["product"]);

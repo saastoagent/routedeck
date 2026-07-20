@@ -871,7 +871,6 @@ def runner_factory(bound_app, store, executor, clock, notifier, ids):
             "id_factory": ids,
             "review_ttl": timedelta(minutes=10),
             "resume_capability_ttl": timedelta(hours=24),
-            "default_session_id": "session-1",
         }
         values.update(overrides)
         return RouteDeckOperationRunner(**values)

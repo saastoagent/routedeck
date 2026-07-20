@@ -127,7 +127,7 @@ function ReviewTotal({
   );
 }
 
-function decodeOrderReview(
+export function decodeOrderReview(
   props: RouteDeckSurfaceComponentProps["props"],
 ): OrderReviewProjection {
   checkoutExactKeys(props, "$.checkout.order_review", [

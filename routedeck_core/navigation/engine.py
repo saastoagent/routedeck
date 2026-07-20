@@ -310,13 +310,12 @@ class NavigationEngine:
         return aggregate.set_public_state(public_state).commit()
 
     def _node(self, node_id: str) -> Node:
-        node = next(
-            (candidate for candidate in self.app.graph.nodes if candidate.id == node_id),
-            None,
-        )
-        if node is None:
-            raise RouteDeckValidationError(f"Unknown navigation node: {node_id}")
-        return node
+        try:
+            return self.app.require_node(node_id)
+        except RouteDeckValidationError as error:
+            raise RouteDeckValidationError(
+                f"Unknown navigation node: {node_id}"
+            ) from error
 
 
 __all__ = ["NavigationEngine"]

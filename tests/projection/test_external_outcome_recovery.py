@@ -243,6 +243,7 @@ def test_unknown_outcome_rejects_recovery_operation_not_declared_at_node() -> No
     forged_app = replace(
         app,
         graph=app.graph.model_copy(update={"nodes": (forged_node,)}),
+        nodes={forged_node.id: forged_node},
         operations={**app.operations, forged_submit.id: forged_submit},
     )
 
@@ -298,6 +299,7 @@ def test_unknown_outcome_rejects_forged_compiled_recovery_contract(
     forged_app = replace(
         app,
         graph=app.graph.model_copy(update={"nodes": (forged_node,)}),
+        nodes={forged_node.id: forged_node},
     )
 
     with pytest.raises(RouteDeckValidationError):

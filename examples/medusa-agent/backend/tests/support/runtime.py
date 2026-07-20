@@ -621,7 +621,6 @@ def build_test_runtime(
         id_factory=SequentialIds(),
         review_ttl=timedelta(minutes=10),
         resume_capability_ttl=timedelta(hours=24),
-        default_session_id=session.session_id,
     )
 
 
@@ -639,7 +638,6 @@ async def open_test_runtime(
     notifier: RouteDeckNotifier,
     id_factory: Callable[[str], str],
     review_ttl: timedelta,
-    default_session_id: str,
     market: BuyerMarket,
     resume_capability_ttl: timedelta = timedelta(hours=24),
     retention_policy: RouteDeckRetentionPolicy | None = None,
@@ -682,7 +680,6 @@ async def open_test_runtime(
         instance_id=instance_id,
         review_ttl=review_ttl,
         resume_capability_ttl=resume_capability_ttl,
-        default_session_id=default_session_id,
         retention_policy=retention_policy,
         busy_timeout=busy_timeout,
         worker_count=worker_count,

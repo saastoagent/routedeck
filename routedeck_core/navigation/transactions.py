@@ -404,19 +404,12 @@ class RouteDeckNavigationRunner:
         )
 
     def _node(self, node_id: str):
-        node = next(
-            (
-                candidate
-                for candidate in self.app.app.graph.nodes
-                if candidate.id == node_id
-            ),
-            None,
-        )
-        if node is None:
+        try:
+            return self.app.app.require_node(node_id)
+        except RouteDeckValidationError as error:
             raise NavigationTransactionError(
                 "route_not_found", "The requested route is unavailable."
-            )
-        return node
+            ) from error
 
 
 __all__ = [

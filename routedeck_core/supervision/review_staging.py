@@ -110,11 +110,7 @@ class ReviewStagingMixin(ReviewRuntimePorts):
         if review_surface_id is not None:
             if not isinstance(review_surface_id, str) or not review_surface_id:
                 raise RuntimeError("review_surface_id metadata must be a string")
-            current_node = next(
-                node
-                for node in self.app.app.graph.nodes
-                if node.id == session.current.node_id
-            )
+            current_node = self.app.app.require_node(session.current.node_id)
             surfaces = {
                 surface.id: surface
                 for surface in current_node.surfaces.declared_surfaces()

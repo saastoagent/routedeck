@@ -69,7 +69,7 @@ export function createRouteDeckAgentClient(
       if (response.body === null) {
         throw new AgentChatError(
           "stream_body_missing",
-          "The buyer-agent stream has no response body.",
+          "The agent stream has no response body.",
           response.status,
           "unknown",
         );
@@ -95,7 +95,7 @@ export function createRouteDeckAgentClient(
       if (response.body === null) {
         throw new AgentChatError(
           "stream_body_missing",
-          "The buyer-agent stream has no response body.",
+          "The agent stream has no response body.",
           response.status,
           "unknown",
         );
@@ -109,7 +109,7 @@ export function createRouteDeckAgentClient(
 function invalidConversation(): never {
   throw new AgentChatError(
     "chat_contract_invalid",
-    "The buyer-agent contract is invalid at conversation.",
+    "The agent conversation contract is invalid at conversation.",
   );
 }
 

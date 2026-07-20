@@ -94,16 +94,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
                 or outcome.effects.route_params is not None
             ):
                 return False
-            current = next(
-                (
-                    node
-                    for node in self.app.app.graph.nodes
-                    if node.id == session.current.node_id
-                ),
-                None,
-            )
-            if current is None:
-                return False
+            current = self.app.app.require_node(session.current.node_id)
             return self._valid_effects_for_node(
                 session=session,
                 effects=outcome.effects,
@@ -117,16 +108,7 @@ class OutcomeResultMixin(OutcomeRuntimePorts):
         )
         if transition is None:
             return outcome.effects.is_empty
-        target = next(
-            (
-                node
-                for node in self.app.app.graph.nodes
-                if node.id == transition.target.id
-            ),
-            None,
-        )
-        if target is None:
-            return False
+        target = self.app.app.require_node(transition.target.id)
 
         if not self._valid_effects_for_node(
             session=session,

@@ -114,9 +114,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
             session,
             result.effects,
         )
-        target_node = next(
-            node for node in self.app.app.graph.nodes if node.id == transition.target.id
-        )
+        target_node = self.app.app.require_node(transition.target.id)
         target_surface_state = surface_state_for_node(
             self.app.app,
             effected_public_state.surface_state,
@@ -392,11 +390,7 @@ class OutcomeCommitMixin(OutcomeRuntimePorts):
             current,
             unknown_effects,
         )
-        current_node = next(
-            node
-            for node in self.app.app.graph.nodes
-            if node.id == current.current.node_id
-        )
+        current_node = self.app.app.require_node(current.current.node_id)
         current_surface_ids = {
             surface.id for surface in current_node.surfaces.declared_surfaces()
         }

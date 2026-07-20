@@ -68,7 +68,7 @@ export function useRouteDeckConversation({
       if (abortRef.current !== null) {
         throw new AgentChatError(
           "chat_turn_in_progress",
-          "A buyer-agent turn is already in progress.",
+          "An agent turn is already in progress.",
         );
       }
       const abort = new AbortController();
@@ -136,14 +136,14 @@ export function useRouteDeckConversation({
               if (event.status === "turn_interrupted") {
                 throw new AgentChatError(
                   "chat_turn_interrupted",
-                  "The buyer-agent turn was interrupted before it was committed.",
+                  "The agent turn was interrupted before it was committed.",
                   null,
                   "interrupted",
                 );
               }
               throw new AgentChatError(
                 "chat_turn_outcome_unknown",
-                "The buyer-agent turn could not be durably resolved. Retry the exact message or resynchronize before continuing.",
+                "The agent turn could not be durably resolved. Retry the exact message or resynchronize before continuing.",
                 null,
                 "unknown",
               );
@@ -152,7 +152,7 @@ export function useRouteDeckConversation({
         if (abort.signal.aborted) {
           throw new AgentChatError(
             "chat_turn_cancelled",
-            "The buyer-agent turn was cancelled.",
+            "The agent turn was cancelled.",
             null,
             "interrupted",
           );
@@ -160,7 +160,7 @@ export function useRouteDeckConversation({
         if (!streamEnded) {
           throw new AgentChatError(
             "chat_stream_incomplete",
-            "The buyer-agent stream ended without a terminal event.",
+            "The agent stream ended without a terminal event.",
           );
         }
         retainedRef.current = null;
@@ -170,7 +170,7 @@ export function useRouteDeckConversation({
           actions.removeRequest(request.request_id);
           const cancellation = new AgentChatError(
             "chat_turn_outcome_unknown",
-            "The response was stopped, but the buyer-agent turn may already be committed. Retry the exact message or resynchronize before continuing.",
+            "The response was stopped, but the agent turn may already be committed. Retry the exact message or resynchronize before continuing.",
             null,
             "unknown",
           );
@@ -183,7 +183,7 @@ export function useRouteDeckConversation({
             ? caught
             : new AgentChatError(
                 "chat_stream_failed",
-                "The buyer-agent stream failed.",
+                "The agent stream failed.",
               );
         const pending =
           nextError.outcome === "unknown" ? pendingRequestFor(request) : null;
@@ -251,7 +251,7 @@ export function useRouteDeckConversation({
     if (abortRef.current !== null) {
       throw new AgentChatError(
         "chat_turn_in_progress",
-        "An in-flight buyer-agent turn cannot be discarded.",
+        "An in-flight agent turn cannot be discarded.",
         null,
         "not_sent",
       );
@@ -306,7 +306,7 @@ function requireRequestId(actual: string, expected: string): void {
   if (actual !== expected) {
     throw new AgentChatError(
       "chat_request_identity_mismatch",
-      "The buyer-agent stream event does not match the active request.",
+      "The agent stream event does not match the active request.",
     );
   }
 }

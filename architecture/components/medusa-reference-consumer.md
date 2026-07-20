@@ -10,7 +10,7 @@ it consumes one framework-owned runtime, transport, and browser state path.
 
 - `examples/medusa-agent/backend/medusa_agent/features/`
 - `examples/medusa-agent/backend/medusa_agent/medusa/client/`
-- `examples/medusa-agent/backend/medusa_agent/{composition,bindings,session,runtime,agent}.py`
+- `examples/medusa-agent/backend/medusa_agent/{composition,bindings,session,runtime,agent,contact_identity}.py`
 - `examples/medusa-agent/backend/main.py`
 - `examples/medusa-agent/frontend/src/`
 - `examples/medusa-agent/{medusa,infra,scripts,e2e}/`
@@ -35,27 +35,23 @@ and passes product callbacks/configuration to the SQLAlchemy runtime opener. It
 does not construct generic runners, navigation, FastAPI dependencies, or the
 LangGraph driver. The browser never calls `/store/*`.
 
-The current guest adapter selects one session with an HTTP-only cookie. Multiple
-browser profiles are isolated; tabs in one profile share that guest session.
-Authenticated user/session authorization remains consumer-owned and is not yet
-a framework FastAPI resolver.
+The local host explicitly installs `GuestCookieSessionSelector` and supplies
+the cookie, browser-origin, instance, review/resume TTL, and worker policy from
+validated environment configuration. Multiple browser profiles are isolated;
+tabs in one profile share that guest session. An authenticated product would
+install its own `RouteDeckSessionSelector`; authentication and authorization do
+not move into RouteDeck.
 
-Current deviations tracked by the 2026-07-20 quality audit:
-
-- `frontend/src/app/initialConversation.ts` still owns generic RouteDeck
-  assistant-stream convergence and synchronization that belongs in a reusable
-  framework client coordinator;
-- the local runtime hardcodes instance/TTL/default-session/worker policy, and
-  the host relies on the generic non-secure guest-cookie default;
-- checkout and orders independently maintain the same contact-fingerprint
-  algorithm, while backend surface schemas and frontend decoders have no
-  executable parity gate.
-
-These are explicit audit findings, not evidence that commerce behavior moved
-into RouteDeck.
+Medusa retains only greeting policy/copy around RouteDeck's reusable
+assistant-turn coordinator. Checkout and orders share the product-owned
+`contact_identity.py` fingerprint. Backend JSON schemas and eight corresponding
+frontend decoders execute the same checked-in parity vectors under
+`contracts/surface-props-parity.json`. This parity gate covers those eight
+decoders exactly; it is not a claim about undeclared or conditional surfaces.
 
 ## Evidence
 
-Use focused backend/frontend tests for the feature in scope. Real commerce and
-browser gates require the protected local stack and are defined only in
-`test_index/README.md`; this document does not claim that they currently pass.
+Use focused backend/frontend tests for the feature in scope. The contact
+identity and surface parity commands, plus protected real-commerce/browser
+gates, are defined in `test_index/README.md`; this document does not itself
+claim a current pass.

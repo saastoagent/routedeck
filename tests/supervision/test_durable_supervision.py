@@ -208,11 +208,13 @@ async def test_review_refresh_failure_is_durable_while_review_stays_pending(
         proposal.review.id,
         request_id="review-approval",
         expected_session_version=proposal.session_version,
+        session_id="session-1",
     )
     replay = await runner.accept_review(
         proposal.review.id,
         request_id="review-approval",
         expected_session_version=0,
+        session_id="session-1",
     )
     persisted = await store.find_review("session-1", proposal.review.id)
 

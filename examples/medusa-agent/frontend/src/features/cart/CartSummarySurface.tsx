@@ -142,7 +142,7 @@ export function CartSummarySurface({
   );
 }
 
-function decodeCartSummary(
+export function decodeCartSummary(
   props: RouteDeckSurfaceComponentProps["props"],
 ): CartSummaryProjection {
   cartExactKeys(props, "$.cart.summary", [

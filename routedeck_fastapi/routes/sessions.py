@@ -17,7 +17,6 @@ from ..session_http import (
     project,
     resolve_dependencies,
     session_creation_fingerprint,
-    set_guest_cookie,
     validated_body,
 )
 from . import DependencyProvider
@@ -67,7 +66,10 @@ def create_session_routes(
                 content={"projection": public_projection(projection)},
                 headers={"Cache-Control": PRIVATE_CACHE_CONTROL},
             )
-            set_guest_cookie(response, session_id, dependencies.cookie)
+            dependencies.session_selector.attach_created_session(
+                response,
+                session_id,
+            )
             return response
         except Exception as error:
             return exception_response(error)

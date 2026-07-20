@@ -24,11 +24,23 @@ from routedeck_core.ports import (
 from routedeck_core.state.leases import TurnLease
 from routedeck_fastapi import (
     ConversationTurnRequest,
+    GuestCookieSessionSelector,
+    GuestCookieSettings,
     RouteDeckDependencies,
     SseSettings,
     stream_agent_turn,
 )
 from routedeck_fastapi.conversation_stream import _log_failure
+
+
+def _guest_selector() -> GuestCookieSessionSelector:
+    return GuestCookieSessionSelector(
+        GuestCookieSettings(
+            name="routedeck_guest",
+            secure=False,
+            path="/",
+        )
+    )
 
 
 class _FailingInterruptStore:
@@ -174,6 +186,7 @@ async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
         projector=object(),  # type: ignore[arg-type]
         private_form_codec=object(),  # type: ignore[arg-type]
         session_factory=lambda _session_id: session,
+        session_selector=_guest_selector(),
         agent_driver=_StreamingDriver(),
         sse=SseSettings(follow=False),
     )
@@ -229,6 +242,7 @@ async def test_interrupt_persistence_failure_is_reported_as_outcome_unknown(
         projector=object(),  # type: ignore[arg-type]
         private_form_codec=object(),  # type: ignore[arg-type]
         session_factory=lambda _session_id: session,
+        session_selector=_guest_selector(),
         agent_driver=_FailingDriver(),
         sse=SseSettings(follow=False),
     )

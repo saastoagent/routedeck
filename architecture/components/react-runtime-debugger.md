@@ -13,7 +13,7 @@ named conversation presentation actions, and UI primitives.
 ## Owner Files
 
 - `packages/core/src/contracts/{decode,json,projection,events,operations,frontend,privateForms,inspection}.ts`
-- `packages/core/src/conversation/{types,codec,client}.ts`
+- `packages/core/src/conversation/{types,codec,client,assistant}.ts`
 - `packages/core/src/store/{store,bootstrap,synchronization,operations,lifecycle}.ts`
 - `packages/core/src/{client,routing,private-forms}/*`
 - `packages/react/src/conversation/{presentation,useRouteDeckConversation}.ts`
@@ -25,6 +25,9 @@ named conversation presentation actions, and UI primitives.
 - `createRouteDeckAgentClient(...)` loads canonical conversation, streams user
   chat, and streams typed assistant initiation through
   `streamAssistantTurn(...)`.
+- `runAssistantInitiatedTurn(...)` owns request/event validation, durable
+  completion proof, version synchronization, conflict convergence, and final
+  conversation reload for headless assistant-only turns.
 - `createRouteDeckStore(...)` remains the public coordinator facade; focused
   bootstrap, synchronization, operation, and lifecycle coordinators are
   internal.
@@ -44,20 +47,19 @@ error, review, and retained-request display. It is not an alternate
 `RouteDeckObservableState`, and there is no public generic reducer/dispatch or
 transition callback API.
 
-## Current Boundary Gaps
+## Product Boundary
 
-- The headless client exposes `streamAssistantTurn(...)` but does not yet own a
-  reusable assistant-initiation coordinator. Medusa's initial-conversation
-  module currently duplicates request identity, event validation, terminal
-  proof, conflict convergence, synchronization, and history reload.
-- Generic core/React conversation errors still use buyer-specific wording.
-  Framework codes and safe messages must be product-neutral; Medusa may render
-  buyer-specific copy.
+Generic core/React production messages are product-neutral. A consumer may wrap
+framework error codes with product-specific wording, but it must not inspect the
+assistant stream or reproduce the coordinator state machine. Medusa's initial
+conversation module now chooses greeting request identity and translates copy,
+then delegates the lifecycle to `runAssistantInitiatedTurn(...)`.
 
 ## Evidence
 
 ```powershell
 pnpm --filter @routedeck/core test
+pnpm --dir packages/core exec vitest run --config vitest.config.ts src/conversation/assistant.test.ts
 pnpm --filter @routedeck/core typecheck
 pnpm --filter @routedeck/react typecheck
 pnpm --filter @routedeck/react test

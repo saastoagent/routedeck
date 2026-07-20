@@ -33,7 +33,7 @@ REQUIRED_CHECK_NAMES = (
     "source_policy_scan",
     "architectural_review",
 )
-BOUNDARY_REPORT_SCHEMA_VERSION = 3
+BOUNDARY_REPORT_SCHEMA_VERSION = 4
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CORE_ROOT = Path("routedeck_core")
@@ -88,6 +88,10 @@ FORBIDDEN_PRODUCT_RUNTIME_CONSTRUCTORS = frozenset(
     }
 )
 FRONTEND_SOURCE_ROOT = Path("examples/medusa-agent/frontend/src")
+FRAMEWORK_TYPESCRIPT_ROOTS = (
+    Path("packages/core/src"),
+    Path("packages/react/src"),
+)
 MEDUSA_SERVER_ROOT = Path("examples/medusa-agent/medusa")
 MEDUSA_COMPOSE = Path("examples/medusa-agent/infra/compose.yaml")
 MEDUSA_COMPOSE_CONTEXT = "../medusa"
@@ -150,6 +154,22 @@ TOPOLOGY_MUTATORS = (
     "set_entry_point",
     "set_finish_point",
     "compile",
+)
+ASSISTANT_STREAM_EVENT_DISCRIMINANTS = frozenset(
+    {
+        "stream_start",
+        "conversation_snapshot",
+        "assistant_delta",
+        "assistant_reset",
+        "assistant_end",
+        "review_required",
+        "chat_error",
+        "stream_end",
+    }
+)
+FORBIDDEN_FRAMEWORK_PRODUCT_VOCABULARY = re.compile(
+    r"\bbuyer(?:-agent)?\b",
+    flags=re.IGNORECASE,
 )
 
 
@@ -449,7 +469,60 @@ def _typescript_production_files(root: Path) -> tuple[Path, ...]:
         and path.suffix in {".ts", ".tsx"}
         and "tests" not in path.relative_to(root).parts
         and ".test." not in path.name
+        and path.name != "generated.ts"
     )
+
+
+def _typescript_code_mask(text: str) -> str:
+    """Mask comments and literals while preserving source positions/newlines."""
+
+    masked = list(text)
+    index = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < length else ""
+        if char == "/" and next_char == "/":
+            masked[index] = masked[index + 1] = " "
+            index += 2
+            while index < length and text[index] != "\n":
+                masked[index] = " "
+                index += 1
+            continue
+        if char == "/" and next_char == "*":
+            masked[index] = masked[index + 1] = " "
+            index += 2
+            while index < length:
+                if text[index] == "*" and index + 1 < length and text[index + 1] == "/":
+                    masked[index] = masked[index + 1] = " "
+                    index += 2
+                    break
+                if text[index] != "\n":
+                    masked[index] = " "
+                index += 1
+            continue
+        if char not in {'"', "'", "`"}:
+            index += 1
+            continue
+        quote = char
+        masked[index] = " "
+        index += 1
+        while index < length:
+            char = text[index]
+            if char == "\\" and index + 1 < length:
+                masked[index] = " "
+                if text[index + 1] != "\n":
+                    masked[index + 1] = " "
+                index += 2
+                continue
+            if char == quote:
+                masked[index] = " "
+                index += 1
+                break
+            if char != "\n":
+                masked[index] = " "
+            index += 1
+    return "".join(masked)
 
 
 def _typescript_string_literals(text: str) -> tuple[tuple[int, str], ...]:
@@ -1329,6 +1402,84 @@ def _check_standalone_medusa_server(
     return evidence, violations
 
 
+def _check_product_frontend_assistant_protocol(
+    project_root: Path,
+) -> tuple[dict[str, Any], list[str]]:
+    frontend = _project_path(project_root, FRONTEND_SOURCE_ROOT, kind="directory")
+    files = _typescript_production_files(frontend)
+    violations: list[str] = []
+    direct_calls: list[dict[str, Any]] = []
+    event_switches: list[dict[str, Any]] = []
+    for path in files:
+        display = _relative(path, project_root)
+        source = path.read_text(encoding="utf-8")
+        masked = _typescript_code_mask(source)
+        masked_lines = masked.splitlines()
+        for match in re.finditer(r"\.\s*streamAssistantTurn\s*\(", masked):
+            line = source.count("\n", 0, match.start()) + 1
+            direct_calls.append({"path": display, "line": line})
+            violations.append(
+                f"{display}:{line}:product frontend calls streamAssistantTurn directly"
+            )
+        for line, value in _typescript_string_literals(source):
+            if value not in ASSISTANT_STREAM_EVENT_DISCRIMINANTS:
+                continue
+            masked_line = masked_lines[line - 1] if line <= len(masked_lines) else ""
+            if re.search(r"\bcase\b", masked_line) is None:
+                continue
+            event_switches.append({"path": display, "line": line, "event": value})
+            violations.append(
+                f"{display}:{line}:product frontend switches over generic assistant event:{value}"
+            )
+    return {
+        "scanned_files": [_relative(path, project_root) for path in files],
+        "direct_stream_assistant_turn_calls": direct_calls,
+        "generic_assistant_event_switches": event_switches,
+        "assistant_event_discriminants": sorted(
+            ASSISTANT_STREAM_EVENT_DISCRIMINANTS
+        ),
+    }, sorted(set(violations))
+
+
+def _check_framework_product_vocabulary(
+    project_root: Path,
+) -> tuple[dict[str, Any], list[str]]:
+    files: list[Path] = []
+    for relative in FRAMEWORK_TYPESCRIPT_ROOTS:
+        root = _project_path(project_root, relative, kind="directory")
+        files.extend(_typescript_production_files(root))
+    for relative in FRAMEWORK_PYTHON_ROOTS:
+        root = _project_path(project_root, relative, kind="directory")
+        files.extend(
+            path
+            for path in _python_files(root)
+            if "tests" not in path.relative_to(root).parts
+            and not path.name.startswith("generated")
+        )
+    inspected = tuple(sorted(set(files), key=lambda path: path.as_posix()))
+    matches: list[dict[str, Any]] = []
+    violations: list[str] = []
+    for path in inspected:
+        display = _relative(path, project_root)
+        for line, source_line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(),
+            start=1,
+        ):
+            for match in FORBIDDEN_FRAMEWORK_PRODUCT_VOCABULARY.finditer(source_line):
+                vocabulary = match.group(0)
+                matches.append(
+                    {"path": display, "line": line, "vocabulary": vocabulary}
+                )
+                violations.append(
+                    f"{display}:{line}:forbidden product vocabulary:{vocabulary}"
+                )
+    return {
+        "scanned_files": [_relative(path, project_root) for path in inspected],
+        "matches": matches,
+        "forbidden_pattern": FORBIDDEN_FRAMEWORK_PRODUCT_VOCABULARY.pattern,
+    }, sorted(set(violations))
+
+
 def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
     core = _project_path(project_root, CORE_ROOT, kind="directory")
     core_product_violations = scan_python_imports(core, ("medusa_agent",))
@@ -1336,6 +1487,12 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
     topology_evidence, topology_violations = _check_langgraph_topology(project_root)
     standalone_evidence, standalone_violations = _check_standalone_medusa_server(
         project_root
+    )
+    assistant_protocol_evidence, assistant_protocol_violations = (
+        _check_product_frontend_assistant_protocol(project_root)
+    )
+    vocabulary_evidence, vocabulary_violations = (
+        _check_framework_product_vocabulary(project_root)
     )
     transport = check_product_transport_separation(project_root)
     runtime_ownership = check_runtime_ownership(project_root)
@@ -1349,12 +1506,21 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
         "generic_runtime_supplies_all_transport_planes": (
             not transport.violations and not runtime_ownership.violations
         ),
+        "product_frontend_does_not_own_assistant_stream_protocol": (
+            not assistant_protocol_violations
+        ),
+        "framework_production_copy_is_product_neutral": not vocabulary_violations,
     }
     violations = [
         *(f"core_product_import:{item}" for item in core_product_violations),
         *(f"feature_declaration:{item}" for item in feature_violations),
         *(f"langgraph_topology:{item}" for item in topology_violations),
         *(f"standalone_medusa_server:{item}" for item in standalone_violations),
+        *(
+            f"assistant_stream_protocol:{item}"
+            for item in assistant_protocol_violations
+        ),
+        *(f"framework_vocabulary:{item}" for item in vocabulary_violations),
         *(f"transport_separation:{item}" for item in transport.violations),
         *(
             f"runtime_ownership:{item}"
@@ -1368,6 +1534,8 @@ def check_architectural_review(project_root: Path = PROJECT_ROOT) -> BoundaryChe
             "feature_declarations": feature_evidence,
             "langgraph_adapter": topology_evidence,
             "standalone_medusa_server": standalone_evidence,
+            "product_frontend_assistant_protocol": assistant_protocol_evidence,
+            "framework_product_vocabulary": vocabulary_evidence,
             "transport_router_inventory": transport.evidence,
             "runtime_ownership": runtime_ownership.evidence,
         },

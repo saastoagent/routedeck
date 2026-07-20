@@ -33,7 +33,7 @@ from ..responses import PRIVATE_CACHE_CONTROL, exception_response
 from ..security import RouteDeckMutationPolicy
 from ..session_http import (
     authenticated_snapshot,
-    guest_session_id,
+    selected_session_id,
     resolve_dependencies,
     validated_body,
 )
@@ -92,7 +92,10 @@ def create_private_form_routes(
     async def put_private_form(form_id: str, request: Request):
         try:
             dependencies = await resolve_dependencies(provider, request)
-            session_id = guest_session_id(request, dependencies.cookie)
+            session_id = await selected_session_id(
+                request,
+                dependencies.session_selector,
+            )
             body = await validated_body(
                 request,
                 PrivateFormWriteRequest,
