@@ -40,6 +40,20 @@ browser profiles are isolated; tabs in one profile share that guest session.
 Authenticated user/session authorization remains consumer-owned and is not yet
 a framework FastAPI resolver.
 
+Current deviations tracked by the 2026-07-20 quality audit:
+
+- `frontend/src/app/initialConversation.ts` still owns generic RouteDeck
+  assistant-stream convergence and synchronization that belongs in a reusable
+  framework client coordinator;
+- the local runtime hardcodes instance/TTL/default-session/worker policy, and
+  the host relies on the generic non-secure guest-cookie default;
+- checkout and orders independently maintain the same contact-fingerprint
+  algorithm, while backend surface schemas and frontend decoders have no
+  executable parity gate.
+
+These are explicit audit findings, not evidence that commerce behavior moved
+into RouteDeck.
+
 ## Evidence
 
 Use focused backend/frontend tests for the feature in scope. Real commerce and

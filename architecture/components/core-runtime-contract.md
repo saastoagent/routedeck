@@ -43,6 +43,19 @@ modules; those modules are not alternate public compilers or runners.
 SQLAlchemy, FastAPI/SSE, LangGraph, and React are adjacent adapters and do not
 own canonical session behavior.
 
+## Current Quality Gap
+
+Review accept/reject currently accept an optional session ID and use the
+runner's configured `default_session_id` when it is omitted. FastAPI passes the
+guest session explicitly, but the reusable runner API still makes an implicit
+identity choice. A production multi-session contract must require an
+already-authorized session identity and remove the default-session fallback.
+
+Current-node lookup is also repeated across context, projection, navigation,
+and supervision with inconsistent missing-node behavior. A compiled immutable
+node resolver is the intended consolidation point; no alternate state
+authority should be introduced.
+
 ## Dependent Flows
 
 - `open_sqlalchemy_routedeck_runtime(...)` opens durable resources and calls the

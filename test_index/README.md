@@ -89,6 +89,13 @@ one framework-built runner/navigation path, runtime-derived transport, no
 product generic constructors, and no product `astream_events(...)` calls. The
 JSON is evidence only for that invocation.
 
+The current scanner does not prove absence of a product-owned frontend switch
+over generic assistant-stream events, product vocabulary in framework error
+copy, optional/default session selection in direct runner calls,
+surface-schema/browser-decoder parity, or duplicated product-integrity
+algorithms. Audit those separately until executable checks are added; a green
+schema-3 report supports structural separation, not total separation.
+
 ## Protected Real Medusa Gate
 
 Provision and start the local stack only when real commerce proof is in scope:

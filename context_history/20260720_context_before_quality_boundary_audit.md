@@ -1,23 +1,20 @@
 # RouteDeck Context
 
-Last updated: 2026-07-20
-Status: feature-owned composition and the framework-built runtime are
-implemented. The current structural boundary report passes, but the quality
-audit identifies remaining conversation, session-selection, copy, and
-duplication gaps. Execution is local Windows only.
+Last updated: 2026-07-17
+Status: standalone framework and Medusa reference architecture are implemented;
+context architecture now reflects the live clean-break source. Execution is
+local Windows only.
 
 ## Start Here
 
-1. [Critical prompt](./critical_prompt.md)
-2. [ADR-006 runtime/conversation boundary](./decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md)
-3. [RouteDeck reference](./docs/route-deck-reference.md)
-4. [Feature and architecture coverage](./architecture/feature-coverage.md)
-5. [Subsystem code map](./architecture/code-map.md)
-6. [System flow index](./SYSTEM_FLOW_INDEX.md)
-7. [Test index](./test_index/README.md)
-8. [Documentation authority map](./architecture/documentation-map.md)
-9. [Current quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-audit.md)
-10. [Active boundary and quality fix plan](./plans/2026-07-20-routedeck-boundary-quality-fixes.md)
+1. [Critical prompt](../critical_prompt.md)
+2. [ADR-006 runtime/conversation boundary](../decisions/ADR-006-framework-owned-runtime-and-conversation-boundary.md)
+3. [RouteDeck reference](../docs/route-deck-reference.md)
+4. [Feature and architecture coverage](../architecture/feature-coverage.md)
+5. [Subsystem code map](../architecture/code-map.md)
+6. [System flow index](../SYSTEM_FLOW_INDEX.md)
+7. [Test index](../test_index/README.md)
+8. [Documentation authority map](../architecture/documentation-map.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
 ADR-005 controls named state/feature structure. ADR-004 controls scope,
@@ -67,34 +64,12 @@ session-bound link never creates replacement state. Initial greeting starts
 through the generic assistant-initiated conversation path after bootstrap when
 durable conversation is empty.
 
-## Current Quality And Boundary Status
-
-- The schema-3 static boundary report passes 8/8 checks with 0 violations:
-  core remains product-neutral by dependency, Store endpoints stay in the
-  Medusa client, the browser has no Store path, runtime/transport use one
-  framework-built runner, and LangGraph topology remains product-owned.
-- Ruff passes for the maintained Python production paths. Core, React, and
-  Medusa TypeScript typechecks pass.
-- Total separation is not yet achieved. Medusa's initial-conversation module
-  still owns generic assistant-stream validation/convergence, and generic
-  core/React packages contain buyer-specific error wording.
-- Review accept/reject still allow an omitted session ID to select a configured
-  default session. The Medusa local host hardcodes that default and local
-  runtime/cookie policy.
-- Product-internal drift risks remain in duplicated contact fingerprints,
-  backend surface schemas versus frontend decoders, repeated RouteDeck
-  current-node lookup, and unused frontend operation ID mirrors.
-
 ## Known Gaps
 
 - The current FastAPI/Medusa guest adapter selects one session through an
   HTTP-only cookie. Separate browser profiles are isolated; tabs in one profile
   share the guest session. Authenticated user/tenant authorization and an
   opaque multi-session resolver are not implemented.
-- The guest cookie carries the internal session ID and defaults to
-  `secure=False`; this is acceptable only for the explicitly local HTTP demo.
-- A reusable headless assistant-initiation coordinator is not implemented.
-  Medusa currently duplicates generic request/event/synchronization behavior.
 - Public release remains unclaimed until a current clean-install/package and
   consolidated release run produces sanitized evidence.
 - No test, real-commerce, or live-model E2E pass is implied by this context.
@@ -107,21 +82,14 @@ durable conversation is empty.
 - `python scripts/check_doc_coverage.py` scans live source without Git.
 - `python scripts/check_context_architecture.py` checks canonical links and
   retired vocabulary.
-- `audits/2026-07-20-routedeck-quality-boundary-audit.md` records current
-  hardcoding, separation, duplication, checker blind spots, and next steps.
 - Only active decision-complete work belongs in `plans/` or current
   `docs/superpowers/`; completed material is archived.
 
 ## Next Step
 
-The active implementation plan is
-`plans/2026-07-20-routedeck-boundary-quality-fixes.md`. It resolves QB-01 through
-QB-08 in seven focused slices: assistant-turn coordination, explicit review
-session identity, host-owned session selection/deployment policy, neutral copy
-and boundary scanners, contact fingerprint consolidation, compiled node
-lookup, and surface-schema/decoder parity plus proven dead-code cleanup. Each
-slice has targeted proof; the protected real-Medusa/live-model checkout video
-runs once as the final behavior gate.
+No implementation plan is active. Select the next product/framework feature
+from the coverage matrix, verify its live source and owning component, then run
+only the focused validation lane listed in `test_index/README.md`.
 
 Services, databases, tests, and browser automation run locally on Windows. Do
 not probe or fall back to another host. When starting the protected Medusa

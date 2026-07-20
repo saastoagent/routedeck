@@ -1,6 +1,6 @@
 # RouteDeck Feature And Architecture Coverage
 
-Last updated: 2026-07-17
+Last updated: 2026-07-20
 
 This is the canonical capability coverage matrix. It answers five maintenance
 questions for every supported feature: what RouteDeck guarantees, what the
@@ -67,6 +67,16 @@ separately and must not be inferred as available.
 - The FastAPI adapter currently selects the Medusa guest session through one
   HTTP-only cookie. An authenticated multi-session `SessionResolver` contract is
   designed but not implemented.
+- Review accept/reject still permit an omitted session ID and fall back to a
+  configured `default_session_id`; the fail-closed multi-session contract has
+  not been implemented.
+- `@routedeck/core` exposes the typed assistant-initiation stream, but a reusable
+  headless coordinator for request identity, terminal proof, conflict
+  convergence, synchronization, and final conversation reload is not
+  implemented. The Medusa bootstrap currently owns that generic lifecycle.
+- Generic conversation packages are not fully product-neutral in copy: they
+  still contain buyer-specific framework messages, and the boundary checker
+  does not yet reject product vocabulary in framework packages.
 - RouteDeck does not invoke Medusa or any product tool directly.
 - No document in this matrix claims a current release or live E2E pass; only the
   output of the named command can make that claim.

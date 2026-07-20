@@ -37,6 +37,16 @@ product routes, authentication policy, graph topology, or tool behavior.
   error mapping are explicit.
 - Missing runtime, session, driver, or contract state fails visibly.
 
+## Current Adapter Limitation
+
+The shipped selector is guest-only: one HTTP-only cookie carries the internal
+session ID. There is no principal-aware opaque multi-session resolver.
+`GuestCookieSettings.secure` also defaults to `False`, and the Medusa local host
+does not override it. This is valid only for the explicitly local HTTP
+reference runtime. A deployed consumer must supply explicit cookie/origin
+policy and authorize a consumer-facing session handle before returning an
+internal session ID to RouteDeck.
+
 ## Evidence
 
 ```powershell

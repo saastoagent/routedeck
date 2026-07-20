@@ -1,6 +1,6 @@
 # System Flow Index - RouteDeck
 
-Last updated: 2026-07-17
+Last updated: 2026-07-20
 Status: current implemented flow
 
 This is the compact sequence index. Contract meaning lives in
@@ -48,12 +48,16 @@ capture current address-bar path and history entry
   -> reconcile captured path through RouteDeck navigation
   -> commit confirmed projection to browser history with replace
   -> start event stream and load durable conversation
-  -> if conversation is empty: request one assistant-initiated greeting
+  -> if conversation is empty: Medusa requests one assistant-initiated greeting
+  -> Medusa currently validates the raw assistant stream and converges versions
   -> render product shell
 ```
 
 Session-bound routes never auto-create replacement state. Outcome-unknown
 session creation or navigation retains the exact request for explicit recovery.
+The raw assistant-stream validation/convergence step is a current boundary gap:
+the trigger and product copy belong to Medusa, while the generic request/event/
+synchronization lifecycle belongs in a RouteDeck client coordinator.
 
 ## User Conversation
 
@@ -136,7 +140,9 @@ Medusa guest HTTP-only cookie
 
 An authenticated `(principal, opaque session handle) -> authorized session_id`
 resolver is future work. RouteDeck does not currently provide user, tenant, or
-multi-session authorization.
+multi-session authorization. Review accept/reject also retain a legacy
+`default_session_id` path when direct callers omit session identity; that path
+must be removed before a fail-closed multi-session claim.
 
 ## Authorities
 

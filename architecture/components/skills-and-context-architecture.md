@@ -42,7 +42,7 @@ session history.
 
 - RouteDeck session start and closeout.
 - RouteDeck context/architecture retrofit.
-- RouteDeck manifest authoring.
+- RouteDeck feature authoring.
 - LangGraph integration.
 - Closeout and code-reference maintenance.
 

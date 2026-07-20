@@ -44,6 +44,16 @@ error, review, and retained-request display. It is not an alternate
 `RouteDeckObservableState`, and there is no public generic reducer/dispatch or
 transition callback API.
 
+## Current Boundary Gaps
+
+- The headless client exposes `streamAssistantTurn(...)` but does not yet own a
+  reusable assistant-initiation coordinator. Medusa's initial-conversation
+  module currently duplicates request identity, event validation, terminal
+  proof, conflict convergence, synchronization, and history reload.
+- Generic core/React conversation errors still use buyer-specific wording.
+  Framework codes and safe messages must be product-neutral; Medusa may render
+  buyer-specific copy.
+
 ## Evidence
 
 ```powershell
