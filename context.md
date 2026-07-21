@@ -118,8 +118,8 @@ frontend surface decoders.
 - Real Medusa integration: 4 passed in 21.131 seconds against
   `http://127.0.0.1:9100`.
 - Latest live checkout: 1 passed in 2.2 minutes at `http://127.0.0.1:5198`, using the
-  live model and real Store API. The uninterrupted 1920x1080 video is
-  [video.webm](./artifacts/boundary-quality-live-checkout-20260720-165922/raw-results/human-checkout-flow--human-7f281-th-visible-navigation-proof-desktop-chromium/video.webm).
+  live model and real Store API. The uninterrupted 1920x1080 video remains local
+  release evidence and is not distributed in the public source checkout.
 
 Only these named current runs support pass claims. The protected stack should
 not be assumed running in a later session.
