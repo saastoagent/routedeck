@@ -4,11 +4,14 @@ Only currently active, decision-complete implementation or architecture plans
 belong here.
 
 The active implementation plan is
-[RouteDeck Public Alpha](./2026-07-21-routedeck-public-alpha.md). Its approved
-scope is local documentation, release-contract repair, package hygiene,
-governance/security files, non-destructive CI, and local release-candidate
-verification. Git operations, external namespace changes, protected demo
-reset, service startup, and publication remain separately approval-gated.
+[RouteDeck Coverage Hardening](./2026-07-21-coverage-hardening.md). It establishes
+honest Python and TypeScript coverage baselines and ratchets without making
+repository-wide 100% coverage an M0 release gate.
+
+The completed
+[RouteDeck Public Alpha plan](../docs/archive/2026-07-21-routedeck-public-alpha.md)
+is archived. Its source-publication and first-green-CI outcome is recorded in
+`context.md` and `logs/20260721_publication_and_ci_closeout.md`.
 
 The completed boundary and quality fixes plan is
 [archived](../docs/archive/2026-07-20-routedeck-boundary-quality-fixes.md).

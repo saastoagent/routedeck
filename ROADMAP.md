@@ -125,10 +125,16 @@ The roadmap does not commit RouteDeck core to:
 
 ## Current Status
 
-M0 is active under
-[`plans/2026-07-21-routedeck-public-alpha.md`](./plans/2026-07-21-routedeck-public-alpha.md).
-The repository remains an unreleased local alpha until the complete release
-gate passes and publication is explicitly authorized.
+M0 public source preparation and GitHub publication are complete. The canonical
+repository is
+[`github.com/saastoagent/routedeck`](https://github.com/saastoagent/routedeck),
+and its first corrective CI run is green. The completed implementation plan is
+[archived](./docs/archive/2026-07-21-routedeck-public-alpha.md).
+
+PyPI/npm publication remains incomplete. RouteDeck must not claim registry
+availability until namespace ownership, trusted publishers, alpha versions,
+publication, and clean registry installs are proven. M1 begins after that M0
+package release; coverage hardening may continue independently.
 
 ## Changing The Roadmap
 

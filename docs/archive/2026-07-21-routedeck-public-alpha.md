@@ -1,5 +1,9 @@
 # RouteDeck Public Alpha Implementation Plan
 
+Status: completed and archived after the public source launch and first green
+GitHub Actions run on 2026-07-21. This plan is historical evidence; current
+state lives in `context.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans` to implement this plan task-by-task. Steps use

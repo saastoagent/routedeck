@@ -1,12 +1,11 @@
 # RouteDeck Context
 
 Last updated: 2026-07-21
-Status: M0 public-alpha publication is active. The current runtime remains
-proven by the dated evidence below; the protected stack is stopped. Boundary 1
-has repaired release-contract drift, added the public roadmap/project contract,
-and established clean artifact and non-destructive CI paths. No public release,
-registry package, Git operation, protected reset, or external namespace setup
-is claimed.
+Status: M0 public source launch complete; registry package release pending.
+RouteDeck is public at
+[`github.com/saastoagent/routedeck`](https://github.com/saastoagent/routedeck),
+and the first corrective GitHub Actions run is green. The protected local stack
+is stopped. No PyPI or npm package publication is claimed.
 
 ## Start Here
 
@@ -17,151 +16,109 @@ is claimed.
 5. [Subsystem code map](./architecture/code-map.md)
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
-8. [Post-fix quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-post-fix-audit.md)
-9. [Implementation coverage crosswalk](./knowledgebase/runtime-boundary-implementation-coverage.md)
-10. [Latest checkpoint](./context_checkpoints/context_checkpoint_20-07-2026-5-20PM.md)
-11. [Public roadmap](./ROADMAP.md)
-12. [Active public-alpha plan](./plans/2026-07-21-routedeck-public-alpha.md)
-13. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
+8. [Latest checkpoint](./context_checkpoints/context_checkpoint_21-07-2026-publication-and-ci.md)
+9. [Public roadmap](./ROADMAP.md)
+10. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
-ADR-005 controls named state/feature structure. ADR-004 controls scope,
-product/framework separation, and local execution. The completed seven-slice
-plan is historical material under `docs/archive/`.
+ADR-005 controls named state and feature structure. ADR-004 controls scope,
+product/framework separation, and local execution. Completed plans are
+historical material under `docs/archive/`.
 
 ## Current Architecture
 
-- Product developers author independently owned `Feature` modules with complete
-  `Node`s and node-owned outgoing transitions. A small `Application` selects
-  features and the entry node; RouteDeck validates composition, derives
-  incoming adjacency, and compiles the frontend contract and immutable node
-  index.
-- Exact `FeatureBindings` supply product async handlers/providers/guards.
+- Products author independently owned `Feature` modules with complete `Node`s.
+  An `Application` selects features and an entry node; RouteDeck validates and
+  compiles one immutable interaction graph.
+- Exact `FeatureBindings` supply product handlers, providers, and guards.
   Missing, extra, duplicate, synchronous, or malformed ownership fails at
   startup.
-- One `RouteDeckRuntime` owns canonical sessions, projection, one operation
-  runner, navigation over that runner, optional generic agent driver, and
-  explicit lifecycle.
-- Review accept/reject requires the host-selected non-empty session ID. FastAPI
-  requires a host-owned `RouteDeckSessionSelector`; RouteDeck does not own
-  authentication, users, tenants, session listing, or authorization.
-- The optional LangGraph adapter drives product-supplied graphs, rebuilds
-  durable conversation, filters context/tools, and supervises product tools.
-  `@routedeck/core` owns reusable assistant-only turn convergence. Prompts,
-  models, topology, greeting policy, and wording remain consumer-owned.
-- `@routedeck/core` owns strict browser contracts, bootstrap/resync, routing,
-  retained request identity, forms, and authoritative browser state.
+- One `RouteDeckRuntime` owns canonical session, conversation, operation,
+  review, navigation, surface, event, and projection state. One supervised
+  runner governs application-semantic operations from agents and UI.
+- FastAPI requires a host-owned session selector. The optional LangGraph
+  adapter drives product-supplied graphs without owning product topology,
+  prompts, models, authentication, or business logic.
+- `@routedeck/core` owns strict browser contracts and authoritative state;
   `@routedeck/react` supplies product-neutral UI primitives and the read-only
   Navgraph.
 
-## Medusa Reference Consumer
+Medusa remains the reference consumer. It owns Store API transport, commerce
+truth, product features, prompts/models/graphs, session policy, deployment,
+and UI. RouteDeck owns only the reusable interaction-state and supervision
+contracts. The browser never calls Medusa `/store/*` directly, and private IDs
+and form values remain outside public/model state.
 
-Medusa owns the real Store client and all catalog, cart, checkout, order,
-market, prompt/model/graph, product-session, deployment-policy, UI, and local
-stack behavior. The browser never calls `/store/*`; real IDs remain behind
-scoped opaque handles. Private contact values remain encrypted and outside
-public/model state. Reviewed placement preserves delivery evidence and explicit
-reconciliation semantics.
+## M0 Publication State
 
-The local host explicitly uses `GuestCookieSessionSelector`; separate browser
-profiles receive separate guest sessions and tabs in one profile share one.
-Production authenticated multi-session selection is a consumer adapter over
-the implemented selector seam. Checkout and orders share one contact identity
-algorithm. Sixteen vectors check the compiled schemas and eight corresponding
-frontend surface decoders.
+- Public source launch commit:
+  `7d71e4471778abdb5e44c7b642ac0e06227d1dbe` (`prepare RouteDeck public alpha`).
+- CI correction commit:
+  `6ec2d6d94009fdc1df98f2360b598775405d810c` (`fix first public CI bootstrap`).
+- Canonical repository: `https://github.com/saastoagent/routedeck`.
+- Repository-scoped commit email: `raghavdasila@saastoagent.com`.
+- First green public CI run:
+  `https://github.com/saastoagent/routedeck/actions/runs/29831749835`.
+- Python and TypeScript CI jobs passed tests, lint/type checks, builds,
+  architecture checks, and package/archive inspection.
+- Local `artifacts/` evidence was intentionally excluded from publication.
+- PyPI and npm identities, trusted publishers, versions, and registry installs
+  remain unproven and unpublished.
 
-## Implementation Coverage
-
-- ADR-006 records the implemented framework runtime, required session-selector,
-  assistant-turn coordinator, and schema-4 enforcement boundary.
-- ADR-005 records implemented feature/node composition, immutable compiled node
-  lookup, explicit review identity, and read-only Navgraph behavior.
-- ADR-004 records the implemented Medusa commerce, deployment-policy, contact
-  identity, surface parity, and browser/Store separation.
-- `architecture/feature-coverage.md` remains the canonical capability matrix;
-  `architecture/code-map.md` maps every maintained file to an owner.
-- `knowledgebase/runtime-boundary-implementation-coverage.md` is the single
-  verified cross-owner file/contract/proof trace. It is evidence subordinate to
-  the ADRs, canonical docs, and current source.
+The exact publication record is in
+[`logs/20260721_publication_and_ci_closeout.md`](./logs/20260721_publication_and_ci_closeout.md).
+The completed implementation plan is archived at
+[`docs/archive/2026-07-21-routedeck-public-alpha.md`](./docs/archive/2026-07-21-routedeck-public-alpha.md).
 
 ## Current Evidence
 
-- Coverage hardening checkpoint: a clean temporary Python environment installed
-  from this standalone checkout collected the maintained suite without the old
-  `agent-core` editable checkout. The Python state subsystem reached 100%
-  statement and branch coverage (200/200 statements, 48/48 branches; 49 focused
-  tests), and `RouteDeckObservableState` reached 100% statements, branches,
-  functions, and lines (44/44, 45/45, 21/21, 40/40; 10 focused tests). The full
-  clean non-live Python regression passed 513 tests. This is an in-progress
-  checkpoint, not a claim of repository-wide 100% coverage.
+- Public GitHub Actions run `29831749835`: completed successfully for commit
+  `6ec2d6d94009fdc1df98f2360b598775405d810c`.
+- Pre-publication clean regression: 513 non-live Python tests and 122
+  TypeScript tests passed after coverage hardening.
+- Clean Python state coverage: 200/200 statements and 48/48 branches across 49
+  focused tests.
+- `RouteDeckObservableState`: 100% statements, branches, functions, and lines
+  across 10 focused tests.
+- Built Python and npm archives passed isolated consumer installation and
+  import/build verification before publication.
+- Latest protected live checkout evidence remains the dated 2026-07-20 run:
+  1 passed in 2.2 minutes using the live model and real Store API. Its video is
+  local release evidence and is not in the public checkout.
 
-- M0 Boundary 1 verification: 500 non-live Python tests passed; clean mypy
-  found no issues in 224 source files; 114 TypeScript tests passed; workspace
-  typecheck/build passed; boundary schema 4 passed with zero violations; and
-  documentation mapped 596/596 live files. Exact commands and caveats are in
-  `logs/2026-07-21-public-alpha-boundary-1.md`.
-- Fresh candidate artifacts under
-  `C:\Users\ragha\AppData\Local\Temp\routedeck-m0-final-20260721` passed archive
-  inspection and isolated Python/npm consumer checks. These are local
-  artifacts, not registry releases.
-
-- Schema-4 boundary report: pass, zero violations at
-  `C:\Users\ragha\AppData\Local\Temp\routedeck-boundaries-docs-final.json`.
-- Documentation coverage: 574/574 maintained files mapped; context architecture
-  passes for 41 active Markdown files.
-- Focused authority/public/reference lane: 29 passed with one existing Pydantic
-  deprecation warning.
-- Maintained Python Ruff and core/React/Medusa TypeScript typechecks pass.
-- Focused tests for assistant coordination, explicit review session identity,
-  selector/host policy, neutral copy/scanners, contact identity, compiled node
-  lookup, and surface parity pass.
-- Real Medusa integration: 4 passed in 21.131 seconds against
-  `http://127.0.0.1:9100`.
-- Latest live checkout: 1 passed in 2.2 minutes at `http://127.0.0.1:5198`, using the
-  live model and real Store API. The uninterrupted 1920x1080 video remains local
-  release evidence and is not distributed in the public source checkout.
-
-Only these named current runs support pass claims. The protected stack should
-not be assumed running in a later session.
+Only these named runs support pass claims. The protected stack must not be
+assumed running in a later session.
 
 ## Known Gaps And Next Step
 
-- Repository-wide 100% executable coverage is intentionally not an M0 launch
-  requirement. Continue the coverage-hardening plan as a baseline-and-ratchet
-  effort, prioritizing critical failure and recovery semantics without delaying
-  the usable alpha for exhaustive line execution.
-- The developer's global Python environment contains an editable
-  `routedeck-core` entry for the older `agent-core` checkout. Coverage and
-  collection evidence must use the clean temporary environment or another
-  isolated install until that external environment is intentionally repaired.
+- The active coverage-hardening plan still needs high-value Python and
+  TypeScript gap closure plus baseline-and-ratchet CI thresholds.
+- The developer's global Python environment still contains an editable
+  `routedeck-core` entry for the older `agent-core` checkout. Coverage evidence
+  must use an isolated environment until that external environment is repaired.
+- A production principal-aware selector example is not implemented. Identity
+  policy remains consumer-owned.
+- Private-form save/resync latency needs instrumentation before any performance
+  change. Redundant model confirmation remains Medusa variability unless a
+  trace proves a RouteDeck transition defect.
+- PyPI/npm namespace ownership and trusted-publisher configuration require
+  external account actions. A registry release must be verified by installing
+  the published artifacts, not the local candidates.
+- The protected reset/full release harness remains separately approval-gated.
 
-- A production principal-aware selector example is not implemented. Add it in
-  a consumer integration with two users, multiple sessions, and cross-user
-  denial; do not move identity policy into RouteDeck.
-- One diagnostic live run showed unnecessary cart confirmation from the model.
-  That is Medusa agent-design variability unless a trace proves a RouteDeck
-  transition error.
-- One private-form save was transiently slow in the protected local stack.
-  Instrument save/resync timing before making a performance change.
-- Nine maintained production modules exceed 400 lines. Treat them as
-  feature-driven refactor candidates, not boundary defects.
-- Public release remains unclaimed until the explicitly authorized protected
-  harness, external namespace/trusted-publisher setup, Git release work, and
-  registry publication each produce current evidence.
-
-The immediate next step is to finish Boundary 1's non-destructive verification
-record, then stop for approval. The following gates remain outside Boundary 1:
-Git operations, repository visibility, package-name reservation, trusted
-publisher configuration, the protected demo reset/full release harness, and
-PyPI/npm publication. M1 feature work begins only after the M0 alpha is released.
+The immediate release step is to establish PyPI/npm package ownership and
+trusted publishers, choose the first alpha versions, publish, and verify clean
+registry installs. M1 agent-native authoring begins after that M0 package
+release. Coverage hardening may continue independently without expanding
+framework scope.
 
 ## Maintenance Contract
 
 `architecture/feature-coverage.md` owns capability coverage;
 `architecture/code-map.md` owns subsystem/source mapping;
 `knowledgebase/runtime-boundary-implementation-coverage.md` owns the reusable
-cross-owner semantic trace; `test_index/README.md` owns validation meaning. Run
-`python scripts/check_doc_coverage.py` and
-`python scripts/check_context_architecture.py` after changing these surfaces.
-Archive completed plans/designs so historical material cannot compete with
-current authority.
+cross-owner semantic trace; `test_index/README.md` owns validation meaning.
+After material work, follow `work_prompt.md`: archive the prior context when
+needed, add a log and checkpoint, rewrite this snapshot, and run
+`python scripts/check_doc_coverage.py` plus
+`python scripts/check_context_architecture.py`.

@@ -8,6 +8,8 @@ claim a published package release.
 
 ### Added
 
+- Public source repository under the SaaStoAgent organization with a green
+  Python and TypeScript CI baseline.
 - Public roadmap and project-health documentation.
 - Clean release-archive verification for Python and npm packages.
 - Non-destructive continuous-integration and dependency-update configuration.

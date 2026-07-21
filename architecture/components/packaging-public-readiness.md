@@ -31,6 +31,14 @@ readiness evidence for the Python framework plus the `packages/core`,
 Removed APIs are absent rather than redirected. Framework packages contain no
 product prompts, endpoints, identifiers, runtime data, or product dependencies.
 
+## Current Release Posture
+
+The source repository is public at `https://github.com/saastoagent/routedeck`,
+and GitHub Actions run `29831749835` passed the non-live Python and TypeScript
+test, type, build, architecture, and archive gates. Python and npm packages are
+not yet published; registry ownership, trusted publishers, release versions,
+and clean registry-install proof remain required before claiming availability.
+
 ## Evidence
 
 ```powershell
