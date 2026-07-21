@@ -28,7 +28,12 @@ from routedeck_core.contracts.operations import (
     Operation,
     SafetyClass,
 )
-from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
+from routedeck_core.contracts.session import (
+    PrivateSessionState,
+    PublicSessionState,
+    RouteDeckSession,
+    SessionSnapshot,
+)
 from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.ports.executor import ExecutionContext
 from routedeck_core.runtime import (
@@ -36,7 +41,8 @@ from routedeck_core.runtime import (
     RouteDeckRuntimeLifecycle,
     build_routedeck_runtime,
 )
-from routedeck_core.state.session import create_session
+from routedeck_core.state.session import create_session, require_current_session
+from routedeck_core.validation import RouteDeckValidationError
 
 
 @dataclass(frozen=True)
@@ -204,3 +210,46 @@ async def test_runtime_close_uses_the_explicit_lifecycle_once() -> None:
     await runtime.close()
 
     assert lifecycle.close_calls == 1
+
+
+def test_session_creation_uses_defaults_or_the_exact_supplied_public_state() -> None:
+    app = _bound_test_app().app
+    private_state = PrivateSessionState()
+    defaulted = create_session(
+        app=app,
+        session_id="default-session",
+        private_state=private_state,
+    )
+    supplied_public_state = PublicSessionState(status_message="Ready")
+    supplied = create_session(
+        app=app,
+        session_id="supplied-session",
+        private_state=private_state,
+        public_state=supplied_public_state,
+    )
+
+    assert defaulted.public_state == PublicSessionState()
+    assert supplied.public_state is supplied_public_state
+    require_current_session(app, defaulted)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("schema_version", 3),
+        ("navgraph_version", "different-navgraph"),
+    ),
+)
+def test_current_session_validation_rejects_each_incompatible_identity(
+    field: str,
+    value: object,
+) -> None:
+    app = _bound_test_app().app
+    session = create_session(
+        app=app,
+        session_id="incompatible-session",
+        private_state=PrivateSessionState(),
+    ).model_copy(update={field: value})
+
+    with pytest.raises(RouteDeckValidationError, match="session_upgrade_required"):
+        require_current_session(app, session)

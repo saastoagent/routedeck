@@ -9,9 +9,11 @@ readiness evidence for the Python framework plus the `packages/core`,
 ## Owner Files
 
 - `pyproject.toml`, `package.json`, and `pnpm-workspace.yaml`
-- `packages/*/package.json` and `packages/*/src/index.ts`
+- `packages/*/package.json`, `packages/*/README.md`, package build configs, and
+  `packages/*/src/index.ts`
 - `routedeck_core/__init__.py`
-- `README.md` and `docs/packaging-roadmap.md`
+- `README.md`, `ROADMAP.md`, public project-health files, `.github/`,
+  `docs/packaging-roadmap.md`, and `docs/releasing.md`
 
 ## Public Interfaces
 
@@ -23,6 +25,8 @@ readiness evidence for the Python framework plus the `packages/core`,
   `RouteDeckSessionStore`.
 - `@routedeck/core` and `@routedeck/react`.
 - Private test-support package `@routedeck/testing`.
+- `ROADMAP.md` as non-authoritative public direction and the root
+  contribution/security/support contracts.
 
 Removed APIs are absent rather than redirected. Framework packages contain no
 product prompts, endpoints, identifiers, runtime data, or product dependencies.

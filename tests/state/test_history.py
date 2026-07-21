@@ -40,3 +40,27 @@ def test_forward_navigation_without_history_fails_loudly() -> None:
             back_stack=(),
             forward_stack=(),
         )
+
+
+def test_back_and_forward_navigation_move_exact_history_entries() -> None:
+    first = Location(node_id="buyer.home", entry_id=1)
+    second = Location(node_id="catalog.browse", entry_id=2)
+    current = Location(node_id="catalog.product", entry_id=3)
+
+    back = move_back(
+        current=current,
+        back_stack=(first, second),
+        forward_stack=(),
+    )
+    assert back.current == second
+    assert back.back_stack == (first,)
+    assert back.forward_stack == (current,)
+
+    forward = move_forward(
+        current=back.current,
+        back_stack=back.back_stack,
+        forward_stack=back.forward_stack,
+    )
+    assert forward.current == current
+    assert forward.back_stack == (first, second)
+    assert forward.forward_stack == ()

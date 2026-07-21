@@ -1,8 +1,11 @@
 # Packaging Roadmap
 
-RouteDeck is a local alpha. Its clean-break package boundaries are implemented;
-public release remains open until clean-install, clean-pack, notices, and the
-consolidated release harness produce current evidence.
+RouteDeck is a local release candidate for its first open-source alpha. Its
+clean-break package boundaries are implemented, package archives are checked by
+`scripts/verify_release_archives.py`, and non-destructive CI is defined. Public
+release remains unclaimed until the protected full release harness, external
+namespace/trusted-publisher setup, authorized source-control release state, and
+registry publication produce current evidence.
 
 ## Python Distribution
 
@@ -55,6 +58,11 @@ pnpm --dir packages/core pack --dry-run
 pnpm --dir packages/react pack --dry-run
 ```
 
+Production package builds use `tsconfig.build.json`; tests remain included in
+typechecking but are excluded from `dist`. TypeScript build metadata is written
+under the ignored root `.cache/`, not shipped in npm archives. Both public
+package READMEs state that registry publication has not happened yet.
+
 ## Release Checklist
 
 - Run the focused Python public-API/compiler/runner checks.
@@ -66,3 +74,6 @@ pnpm --dir packages/react pack --dry-run
 - Complete the protected local release harness and inspect its sanitized proof
   bundle. Missing real integration access is a blocker, never a reason to
   substitute product behavior.
+
+See [`docs/releasing.md`](releasing.md) for the human approval gates between a
+local release candidate and external publication.

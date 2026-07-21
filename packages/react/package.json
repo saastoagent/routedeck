@@ -1,6 +1,23 @@
 {
   "name": "@routedeck/react",
   "version": "0.1.0",
+  "description": "React bindings, surfaces, navigation controls, review UI, and inspector components for RouteDeck.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saastoagent/routedeck.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/saastoagent/routedeck#readme",
+  "bugs": {
+    "url": "https://github.com/saastoagent/routedeck/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -17,7 +34,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },

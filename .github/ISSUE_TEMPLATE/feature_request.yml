@@ -1,0 +1,42 @@
+name: Feature proposal
+description: Propose a focused RouteDeck framework capability.
+title: "[Proposal]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Framework problem
+      description: Describe the agentic-application problem without prescribing implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Framework/product boundary
+      description: Why does this belong in RouteDeck rather than a consuming application?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome and proof
+      description: What observable outcome would establish success?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing alternatives
+      description: Existing RouteDeck path, open-source libraries, or application-level solutions considered.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not merely add a feature to the Medusa example.
+          required: true
+        - label: I reviewed ROADMAP.md and the explicit non-goals.
+          required: true

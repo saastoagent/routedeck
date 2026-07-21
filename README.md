@@ -1,9 +1,10 @@
 # RouteDeck
 
-RouteDeck is a state and interaction framework for agentic applications. A
-product declares its nodes, routes, operations, providers, guards, surfaces,
-and transitions; RouteDeck compiles those declarations into one authoritative
-backend contract and one typed frontend contract.
+RouteDeck is the application-state and interaction-governance runtime for
+agentic applications. A product declares its nodes, routes, operations,
+providers, guards, surfaces, and transitions; RouteDeck compiles those
+declarations into one authoritative backend contract and one typed frontend
+contract shared by agents and user interfaces.
 
 The framework owns runtime assembly, session state, durable supervision,
 review, projection, events, private-form transport, deep links, exact history,
@@ -15,6 +16,34 @@ effects, market facts, readiness, copy, and visual components.
 The standalone app in [`examples/medusa-agent`](examples/medusa-agent/README.md)
 is the reference consumer. It implements a real local Medusa guest-buyer flow
 without putting commerce code in RouteDeck.
+
+## Alpha Status
+
+RouteDeck is preparing for its first open-source alpha. The source is locally
+installable and its current packages can be built and inspected, but
+`routedeck-core`, `@routedeck/core`, and `@routedeck/react` are not yet claimed
+as published registry packages. Use the source-workspace setup below until a
+release is recorded in the [changelog](CHANGELOG.md).
+
+The [roadmap](ROADMAP.md) keeps the product deliberately narrow: open-source
+the proven runtime, make authoring agent-native, add semantic observability,
+then stabilize 1.0. RouteDeck is not an authentication platform, multi-agent
+orchestrator, protocol collection, Medusa product roadmap, or visual design
+system.
+
+RouteDeck is intentionally shipping as alpha software rather than waiting for
+an artificial claim of perfection. M0 requires deterministic tests, static
+checks, architecture boundaries, reproducible package builds, and clean
+consumer installation to pass. Coverage is measured and improved from a
+recorded baseline; 100% repository-wide coverage is not a launch requirement.
+Critical state and synchronization code may carry stricter local thresholds
+where every branch represents a meaningful failure or recovery semantic.
+
+The alpha currently does not claim production authentication, a hosted
+service, universal database/browser coverage on every pull request, or API
+stability associated with a 1.0 release. Known limitations and release evidence
+are maintained in the [current context](context.md), [test index](test_index/README.md),
+and [release process](docs/releasing.md).
 
 ## Packages
 
@@ -180,6 +209,9 @@ Install the optional integration with the other local framework packages:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[fastapi,langgraph,persistence,testing,dev]"
+corepack enable
+corepack prepare pnpm@11.7.0 --activate
+pnpm install --frozen-lockfile
 ```
 
 ## Local Medusa Quickstart
@@ -232,3 +264,8 @@ retaining its non-superseded structural decisions and
 [ADR-004](decisions/ADR-004-routedeck-medusa-consumer-driven-runtime.md)
 retaining scope and local-execution authority. Completed plans remain
 historical records.
+
+For public participation and release boundaries, see
+[contributing](CONTRIBUTING.md), [support](SUPPORT.md),
+[security](SECURITY.md), the [code of conduct](CODE_OF_CONDUCT.md), and the
+[release process](docs/releasing.md).

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable
+from typing import Any, cast
 
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 from jsonschema.validators import validator_for
@@ -89,7 +90,7 @@ def _validate_suggested_actions(nodes: tuple[Node, ...]) -> None:
             try:
                 validator_for(operation.input_schema_value())(
                     operation.input_schema_value()
-                ).validate(action.arguments_value())
+                ).validate(cast(Any, action.arguments_value()))
             except JsonSchemaValidationError as exc:
                 raise RouteDeckValidationError(
                     f"Node {node.id!r} suggested action {action.id!r} has "

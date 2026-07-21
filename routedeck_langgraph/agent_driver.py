@@ -105,13 +105,10 @@ class RouteDeckLangGraphAgentDriver:
         exposed_model_runs: set[str] = set()
         tool_calling_model_runs: set[str] = set()
         completed_model_runs: list[_CompletedModelRun] = []
-        call_kwargs: dict[str, object] = {}
-        if context is not None:
-            call_kwargs["context"] = context
-        event_stream = graph.astream_events(
-            graph_input,
-            version="v2",
-            **call_kwargs,
+        event_stream = (
+            graph.astream_events(graph_input, version="v2")
+            if context is None
+            else graph.astream_events(graph_input, version="v2", context=context)
         )
         try:
             async for event in event_stream:

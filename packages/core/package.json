@@ -1,6 +1,23 @@
 {
   "name": "@routedeck/core",
   "version": "0.1.0",
+  "description": "Browser client, state, contracts, navigation, and conversation primitives for RouteDeck applications.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saastoagent/routedeck.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/saastoagent/routedeck#readme",
+  "bugs": {
+    "url": "https://github.com/saastoagent/routedeck/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -16,7 +33,7 @@
   },
   "scripts": {
     "generate": "pnpm --dir ../.. contracts:generate",
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },

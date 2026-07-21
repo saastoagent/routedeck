@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, cast, get_type_hints
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast, get_type_hints
 
 from ..contracts.operations import GuardRef, OperationRef, ProviderRef
 from ..contracts.operations import OperationOutcome
@@ -32,6 +32,10 @@ class GuardHandler(Protocol):
         self,
         context: GuardInvocationContext,
     ) -> GuardDecision: ...
+
+
+_BindingKey = TypeVar("_BindingKey")
+_BindingValue = TypeVar("_BindingValue")
 
 
 @dataclass(frozen=True)
@@ -111,8 +115,8 @@ def _require_exact_refs(
 
 def _merge_binding_map(
     kind: str,
-    destination: dict[object, object],
-    source: Mapping[object, object],
+    destination: dict[_BindingKey, _BindingValue],
+    source: Mapping[_BindingKey, _BindingValue],
 ) -> None:
     duplicates = sorted(str(ref) for ref in destination.keys() & source.keys())
     if duplicates:

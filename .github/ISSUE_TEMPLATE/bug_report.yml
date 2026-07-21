@@ -1,0 +1,61 @@
+name: Bug report
+description: Report reproducible incorrect RouteDeck behavior.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private data, or unsanitized traces.
+  - type: input
+    id: version
+    attributes:
+      label: Version or source revision
+      description: Package version, or the source revision/checkout you tested.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Exact commands, inputs, and smallest code needed to reproduce.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and evidence
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python, Node, pnpm, adapter versions, and runtime location.
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Observed source of truth
+      options:
+        - Real end-to-end integration
+        - Local framework/runtime path
+        - Focused unit or contract test
+        - Static inspection only
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I removed credentials, private data, and sensitive traces.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

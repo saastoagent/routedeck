@@ -49,7 +49,16 @@ def test_critical_coverage_groups_are_explicit() -> None:
         "persistence",
         "observable_store",
     }
-    assert all(group.branch_threshold == 85 for group in config.groups.values())
+    assert {
+        name: group.branch_threshold for name, group in config.groups.items()
+    } == {
+        "state": 100,
+        "navigation": 85,
+        "supervision": 85,
+        "projection": 85,
+        "persistence": 85,
+        "observable_store": 100,
+    }
     assert {group.source for group in config.groups.values()} == {
         "python",
         "typescript",
@@ -107,8 +116,8 @@ def test_release_gate_names_match_the_approved_design() -> None:
     )
 
 
-def test_release_boundary_fixture_requires_schema_v3_runtime_ownership() -> None:
-    assert release_summary.BOUNDARY_REPORT_SCHEMA_VERSION == 3
+def test_release_boundary_fixture_requires_schema_v4_runtime_ownership() -> None:
+    assert release_summary.BOUNDARY_REPORT_SCHEMA_VERSION == 4
     assert release_summary.REQUIRED_BOUNDARY_CHECKS == (
         "core_imports",
         "store_endpoint_inventory",
@@ -122,7 +131,7 @@ def test_release_boundary_fixture_requires_schema_v3_runtime_ownership() -> None
 
     def report(
         *,
-        schema_version: int = 3,
+        schema_version: int = 4,
         names: tuple[str, ...] | None = None,
     ) -> dict[str, object]:
         check_names = names or release_summary.REQUIRED_BOUNDARY_CHECKS
@@ -144,7 +153,7 @@ def test_release_boundary_fixture_requires_schema_v3_runtime_ownership() -> None
     release_summary._validate_boundary_report(report())
     with pytest.raises(
         release_summary.IncompleteReleaseEvidence,
-        match="schema version 3",
+        match="schema version 4",
     ):
         release_summary._validate_boundary_report(report(schema_version=2))
     with pytest.raises(
@@ -159,6 +168,15 @@ def test_release_boundary_fixture_requires_schema_v3_runtime_ownership() -> None
                 )
             )
         )
+
+
+def test_release_verifier_uses_the_current_medusa_compiler_factory() -> None:
+    verifier = (
+        ROOT / "examples" / "medusa-agent" / "scripts" / "release-verify.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "medusa_agent.composition:compile_medusa_app" in verifier
+    assert "compile_medusa_app_spec" not in verifier
 
 
 def test_release_summary_requires_every_gate_to_pass() -> None:

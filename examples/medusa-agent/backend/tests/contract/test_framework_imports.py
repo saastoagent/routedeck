@@ -91,7 +91,10 @@ def test_product_main_imports_only_the_public_runtime_router_plane() -> None:
     ]
 
     assert fastapi_imports == {
+        "GuestCookieSessionSelector",
+        "GuestCookieSettings",
         "RouteDeckDependencyUnavailable",
+        "RouteDeckSessionSelector",
         "SameOriginMutationPolicy",
         "create_routedeck_router_from_runtime_provider",
     }

@@ -1,11 +1,12 @@
 # RouteDeck Context
 
-Last updated: 2026-07-20
-Status: the seven boundary/quality remediation slices are implemented and
-focused static, real-Medusa, and live checkout gates pass. ADR implementation
-status, canonical coverage, and one reusable source/contract/proof knowledge
-crosswalk now cover the complete implementation. Work is local Windows only;
-the protected stack is stopped.
+Last updated: 2026-07-21
+Status: M0 public-alpha publication is active. The current runtime remains
+proven by the dated evidence below; the protected stack is stopped. Boundary 1
+has repaired release-contract drift, added the public roadmap/project contract,
+and established clean artifact and non-destructive CI paths. No public release,
+registry package, Git operation, protected reset, or external namespace setup
+is claimed.
 
 ## Start Here
 
@@ -19,6 +20,9 @@ the protected stack is stopped.
 8. [Post-fix quality and boundary audit](./audits/2026-07-20-routedeck-quality-boundary-post-fix-audit.md)
 9. [Implementation coverage crosswalk](./knowledgebase/runtime-boundary-implementation-coverage.md)
 10. [Latest checkpoint](./context_checkpoints/context_checkpoint_20-07-2026-5-20PM.md)
+11. [Public roadmap](./ROADMAP.md)
+12. [Active public-alpha plan](./plans/2026-07-21-routedeck-public-alpha.md)
+13. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
 ADR-005 controls named state/feature structure. ADR-004 controls scope,
@@ -82,6 +86,25 @@ frontend surface decoders.
 
 ## Current Evidence
 
+- Coverage hardening checkpoint: a clean temporary Python environment installed
+  from this standalone checkout collected the maintained suite without the old
+  `agent-core` editable checkout. The Python state subsystem reached 100%
+  statement and branch coverage (200/200 statements, 48/48 branches; 49 focused
+  tests), and `RouteDeckObservableState` reached 100% statements, branches,
+  functions, and lines (44/44, 45/45, 21/21, 40/40; 10 focused tests). The full
+  clean non-live Python regression passed 513 tests. This is an in-progress
+  checkpoint, not a claim of repository-wide 100% coverage.
+
+- M0 Boundary 1 verification: 500 non-live Python tests passed; clean mypy
+  found no issues in 224 source files; 114 TypeScript tests passed; workspace
+  typecheck/build passed; boundary schema 4 passed with zero violations; and
+  documentation mapped 596/596 live files. Exact commands and caveats are in
+  `logs/2026-07-21-public-alpha-boundary-1.md`.
+- Fresh candidate artifacts under
+  `C:\Users\ragha\AppData\Local\Temp\routedeck-m0-final-20260721` passed archive
+  inspection and isolated Python/npm consumer checks. These are local
+  artifacts, not registry releases.
+
 - Schema-4 boundary report: pass, zero violations at
   `C:\Users\ragha\AppData\Local\Temp\routedeck-boundaries-docs-final.json`.
 - Documentation coverage: 574/574 maintained files mapped; context architecture
@@ -103,6 +126,15 @@ not be assumed running in a later session.
 
 ## Known Gaps And Next Step
 
+- Repository-wide 100% executable coverage is intentionally not an M0 launch
+  requirement. Continue the coverage-hardening plan as a baseline-and-ratchet
+  effort, prioritizing critical failure and recovery semantics without delaying
+  the usable alpha for exhaustive line execution.
+- The developer's global Python environment contains an editable
+  `routedeck-core` entry for the older `agent-core` checkout. Coverage and
+  collection evidence must use the clean temporary environment or another
+  isolated install until that external environment is intentionally repaired.
+
 - A production principal-aware selector example is not implemented. Add it in
   a consumer integration with two users, multiple sessions, and cross-user
   denial; do not move identity policy into RouteDeck.
@@ -113,12 +145,15 @@ not be assumed running in a later session.
   Instrument save/resync timing before making a performance change.
 - Nine maintained production modules exceed 400 lines. Treat them as
   feature-driven refactor candidates, not boundary defects.
-- Public release remains unclaimed until an explicitly authorized clean
-  packaging/release run produces sanitized evidence.
+- Public release remains unclaimed until the explicitly authorized protected
+  harness, external namespace/trusted-publisher setup, Git release work, and
+  registry publication each produce current evidence.
 
-The next recommended feature is the authenticated consumer selector example
-plus measured multi-user/session E2E proof. Use focused tests during the feature
-and one real E2E at its end.
+The immediate next step is to finish Boundary 1's non-destructive verification
+record, then stop for approval. The following gates remain outside Boundary 1:
+Git operations, repository visibility, package-name reservation, trusted
+publisher configuration, the protected demo reset/full release harness, and
+PyPI/npm publication. M1 feature work begins only after the M0 alpha is released.
 
 ## Maintenance Contract
 

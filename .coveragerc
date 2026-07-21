@@ -15,7 +15,7 @@ show_missing = True
 source = python
 include =
     routedeck_core/state/*.py
-branch_threshold = 85
+branch_threshold = 100
 
 [routedeck:coverage_group:navigation]
 source = python
@@ -51,4 +51,4 @@ branch_threshold = 85
 source = typescript
 include =
     packages/core/src/store/observable.ts
-branch_threshold = 85
+branch_threshold = 100

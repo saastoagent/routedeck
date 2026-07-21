@@ -97,12 +97,12 @@ class AgentContextLens:
             add(policy)
         for refs in ref_groups:
             for ref in refs:
-                policy = self.app.agent_policies.get(ref.id)
-                if policy is None:
+                resolved_policy = self.app.agent_policies.get(ref.id)
+                if resolved_policy is None:
                     raise RouteDeckValidationError(
                         f"Compiled app references missing agent policy {ref.id!r}"
                     )
-                add(policy)
+                add(resolved_policy)
         return tuple(resolved)
 
     def _current_node(self, session: RouteDeckSession) -> Node:

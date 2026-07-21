@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable
+from typing import cast
 
 from fastapi import Request
 
@@ -55,7 +56,7 @@ def dependencies_from_runtime(
         app=services.app.app,
         runner=services.runner,
         store=services.store,
-        notifier=services.notifier,
+        notifier=cast(EventWakeupNotifier, services.notifier),
         projector=services.projector,
         private_form_codec=runtime.private_form_codec,
         session_factory=make_session,

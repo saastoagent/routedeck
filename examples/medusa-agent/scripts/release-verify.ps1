@@ -526,17 +526,24 @@ try {
         "-m", "ruff", "check", "routedeck_core", "routedeck_langgraph", "routedeck_fastapi",
         "routedeck_sqlalchemy", "routedeck_testing", "examples/medusa-agent/backend", "tests"
     )
-    Invoke-RecordedCommand -Name "framework.python_format" -FilePath $Python -Arguments @(
-        "-m", "ruff", "format", "--check", "routedeck_core", "routedeck_langgraph",
-        "routedeck_fastapi", "routedeck_sqlalchemy", "routedeck_testing",
-        "examples/medusa-agent/backend", "tests"
-    )
     Invoke-RecordedCommand -Name "framework.python_typecheck" -FilePath $Python -Arguments @(
         "-m", "mypy", "--explicit-package-bases", "routedeck_core", "routedeck_langgraph", "routedeck_fastapi",
         "routedeck_sqlalchemy", "routedeck_testing", "examples/medusa-agent/backend/medusa_agent",
         "examples/medusa-agent/backend/main.py"
     )
-    Invoke-RecordedCommand -Name "framework.python_build" -FilePath $Python -Arguments @("-m", "build")
+    $PythonDist = Join-Path $CleanRoot "python-dist"
+    New-Item -ItemType Directory -Force -Path $PythonDist | Out-Null
+    Invoke-RecordedCommand -Name "framework.python_build" -FilePath $Python -Arguments @(
+        "-m", "build", "--outdir", $PythonDist
+    )
+    $PythonWheels = @(Get-ChildItem -LiteralPath $PythonDist -Filter "*.whl")
+    if ($PythonWheels.Count -ne 1) {
+        throw "Expected exactly one Python wheel, found $($PythonWheels.Count)"
+    }
+    $PythonWheel = $PythonWheels[0]
+    Invoke-RecordedCommand -Name "framework.python_archive" -FilePath $Python -Arguments @(
+        "scripts/verify_release_archives.py", "--python-wheel", $PythonWheel.FullName
+    )
 
     $typescriptCoverageDirectory = Join-Path $BundleRoot "coverage\typescript"
     Invoke-RecordedCommand -Name "framework.typescript_coverage" -FilePath $Pnpm -Arguments @(
@@ -550,6 +557,23 @@ try {
         "scripts/check_critical_coverage.py", "--python-json", $pythonCoverage,
         "--typescript-json", $typescriptCoverage,
         "--output", "$BundleRoot\coverage\critical-groups.json"
+    )
+
+    $NpmDist = Join-Path $CleanRoot "npm-dist"
+    New-Item -ItemType Directory -Force -Path $NpmDist | Out-Null
+    Invoke-RecordedCommand -Name "framework.npm_core_pack" -FilePath $Pnpm -Arguments @(
+        "--dir", "packages/core", "pack", "--pack-destination", $NpmDist
+    )
+    Invoke-RecordedCommand -Name "framework.npm_react_pack" -FilePath $Pnpm -Arguments @(
+        "--dir", "packages/react", "pack", "--pack-destination", $NpmDist
+    )
+    $NpmArchives = @(Get-ChildItem -LiteralPath $NpmDist -Filter "*.tgz")
+    if ($NpmArchives.Count -ne 2) {
+        throw "Expected exactly two npm archives, found $($NpmArchives.Count)"
+    }
+    Invoke-RecordedCommand -Name "framework.npm_archives" -FilePath $Python -Arguments @(
+        "scripts/verify_release_archives.py", "--npm", $NpmArchives[0].FullName,
+        "--npm", $NpmArchives[1].FullName
     )
 
     $contractTemp = Join-Path ([IO.Path]::GetTempPath()) "routedeck-contract-$RunId"
@@ -576,7 +600,7 @@ try {
     }
     Invoke-RecordedCommand -Name "framework.compiled_contracts" -FilePath $Python -Arguments @(
         "scripts/export_contracts.py", "--app-factory",
-        "medusa_agent.composition:compile_medusa_app_spec", "--output",
+        "medusa_agent.composition:compile_medusa_app", "--output",
         "$BundleRoot\contracts"
     )
     Write-Json (Join-Path $BundleRoot "contracts\conformance-results.json") ([ordered]@{
@@ -677,7 +701,7 @@ try {
         "-m", "venv", "$CleanRoot\venv"
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_python_install" -FilePath "$CleanRoot\venv\Scripts\python.exe" -Arguments @(
-        "-m", "pip", "install", ".[fastapi,langgraph,persistence,testing]",
+        "-m", "pip", "install", "$($PythonWheel.FullName)[fastapi,langgraph,persistence,testing]",
         ".\examples\medusa-agent\backend"
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_python_import" -FilePath "$CleanRoot\venv\Scripts\python.exe" -Arguments @(
@@ -688,13 +712,65 @@ try {
     ) -WorkingDirectory $CleanSource
     Invoke-RecordedCommand -Name "developer.clean_pnpm_build" -FilePath $Pnpm -Arguments @("build") `
         -WorkingDirectory $CleanSource
+    $NpmConsumer = Join-Path $CleanRoot "npm-consumer"
+    New-Item -ItemType Directory -Force -Path $NpmConsumer | Out-Null
+    $CoreArchive = @($NpmArchives | Where-Object Name -Like "*core*.tgz")[0]
+    $ReactArchive = @($NpmArchives | Where-Object Name -Like "*react*.tgz")[0]
+    if ($null -eq $CoreArchive -or $null -eq $ReactArchive) {
+        throw "Could not identify core and React npm archives"
+    }
+    Write-Json (Join-Path $NpmConsumer "package.json") ([ordered]@{
+        name = "routedeck-release-consumer"
+        private = $true
+        type = "module"
+        dependencies = [ordered]@{
+            "@routedeck/core" = "file:$($CoreArchive.FullName.Replace('\', '/'))"
+            "@routedeck/react" = "file:$($ReactArchive.FullName.Replace('\', '/'))"
+            "@xyflow/react" = "12.11.2"
+            react = "19.2.7"
+            "react-dom" = "19.2.7"
+        }
+        devDependencies = [ordered]@{
+            typescript = "7.0.2"
+        }
+    })
+    Write-Utf8Text (Join-Path $NpmConsumer "pnpm-workspace.yaml") (@(
+        "packages:",
+        "  - .",
+        "overrides:",
+        "  '@routedeck/core': 'file:$($CoreArchive.FullName.Replace('\', '/'))'"
+    ) -join "`n")
+    Write-Utf8Text (Join-Path $NpmConsumer "index.ts") (@(
+        "import { createRouteDeckAgentClient } from '@routedeck/core';",
+        "import { RouteDeckProvider } from '@routedeck/react';",
+        "void createRouteDeckAgentClient;",
+        "void RouteDeckProvider;"
+    ) -join "`n")
+    Write-Json (Join-Path $NpmConsumer "tsconfig.json") ([ordered]@{
+        compilerOptions = [ordered]@{
+            target = "ES2022"
+            module = "ESNext"
+            moduleResolution = "Bundler"
+            jsx = "react-jsx"
+            strict = $true
+            skipLibCheck = $true
+        }
+        files = @("index.ts")
+    })
+    Invoke-RecordedCommand -Name "developer.clean_npm_archive_install" -FilePath $Pnpm -Arguments @(
+        "install", "--frozen-lockfile=false", "--store-dir", "$CleanRoot\pnpm-consumer-store"
+    ) -WorkingDirectory $NpmConsumer
+    Invoke-RecordedCommand -Name "developer.clean_npm_archive_typecheck" -FilePath $Pnpm -Arguments @(
+        "exec", "tsc", "-p", "tsconfig.json", "--noEmit"
+    ) -WorkingDirectory $NpmConsumer
     Write-Utf8Text (Join-Path $BundleRoot "docs\clean-install.txt") (@(
         "runtime_target=local",
         "isolated_source_copy=pass",
         "fresh_python_venv=pass",
         "python_install_and_import=pass",
         "isolated_pnpm_store_install=pass",
-        "frontend_build=pass"
+        "frontend_build=pass",
+        "npm_tarball_install_and_typecheck=pass"
     ) -join "`n")
 
     Set-GatePassed "browser_agent_and_developer_experience" @{

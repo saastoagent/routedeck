@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
-from routedeck_core.contracts.effects import SessionEffects
+from routedeck_core.contracts.effects import (
+    EntityBindingEffect,
+    EntityKindEffects,
+    PublicSurfaceEffect,
+    SessionEffects,
+)
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.operations import DeliveryPhase, OperationOutcome
-from routedeck_core.contracts.session import PrivateDraft
+from routedeck_core.contracts.projection import (
+    ClassifiedValue,
+    DataClassification,
+    FrozenJson,
+    PublicEntityHandle,
+    PublicValue,
+)
+from routedeck_core.contracts.session import (
+    PrivateDraft,
+    PrivateEntityBinding,
+    PublicSurfaceState,
+)
 from routedeck_core.state.effects import session_state_with_effects
 from routedeck_testing.factories import session_factory
 
@@ -77,3 +93,83 @@ def test_failed_operations_cannot_request_session_completion() -> None:
                 public_message="Payment was declined.",
             ),
         )
+
+
+def test_entity_and_surface_effects_replace_their_exact_canonical_keys() -> None:
+    session = session_factory()
+    session = session.model_copy(
+        update={
+            "private_state": session.private_state.model_copy(
+                update={
+                    "entity_bindings": (
+                        PrivateEntityBinding(
+                            entity_kind="product",
+                            public_handle="old-product",
+                            private_id="private-old-product",
+                        ),
+                    )
+                }
+            ),
+            "public_state": session.public_state.model_copy(
+                update={
+                    "entity_handles": (
+                        PublicEntityHandle(
+                            entity_kind="product", handle="old-product"
+                        ),
+                    ),
+                    "surface_state": (
+                        PublicSurfaceState(
+                            surface_id="catalog.grid",
+                            values=(
+                                ClassifiedValue(
+                                    name="title",
+                                    value="Old title",
+                                    classification=DataClassification.PUBLIC,
+                                ),
+                            ),
+                        ),
+                        PublicSurfaceState(surface_id="catalog.frame"),
+                    ),
+                }
+            ),
+        }
+    )
+    effects = SessionEffects(
+        replace_entities=(
+            EntityKindEffects(
+                entity_kind="product",
+                bindings=(
+                    EntityBindingEffect(
+                        public=PublicEntityHandle(
+                            entity_kind="product", handle="new-product"
+                        ),
+                        private_id=SecretStr("private-new-product"),
+                        allowed_operation_ids=("catalog.open",),
+                    ),
+                ),
+            ),
+        ),
+        surface_updates=(
+            PublicSurfaceEffect(
+                surface_id="catalog.grid",
+                values=(PublicValue(name="title", value=FrozenJson("New title")),),
+            ),
+            PublicSurfaceEffect(surface_id="catalog.summary"),
+        ),
+    )
+
+    private_state, public_state = session_state_with_effects(session, effects)
+
+    assert tuple(binding.public_handle for binding in private_state.entity_bindings) == (
+        "new-product",
+    )
+    assert private_state.entity_bindings[0].private_id == "private-new-product"
+    assert public_state.entity_handles == (
+        PublicEntityHandle(entity_kind="product", handle="new-product"),
+    )
+    assert tuple(surface.surface_id for surface in public_state.surface_state) == (
+        "catalog.grid",
+        "catalog.frame",
+        "catalog.summary",
+    )
+    assert public_state.surface_state[0].values[0].value.to_python() == "New title"

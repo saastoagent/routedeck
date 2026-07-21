@@ -1,6 +1,6 @@
 # Structure - RouteDeck
 
-Last updated: 2026-07-20
+Last updated: 2026-07-21
 
 ```text
 routedeck/
@@ -27,9 +27,11 @@ routedeck/
   routedeck_langgraph/   # generic driver, context, prompt, conversation, tools
   routedeck_testing/     # Python test-only support
   packages/
-    core/src/            # strict browser contracts/clients/store/routing/forms
-      conversation/assistant.ts # reusable assistant-only convergence
-    react/src/           # provider/hooks/conversation/surfaces/review/Navgraph
+    core/                # public npm metadata, README, and clean build config
+      src/               # strict browser contracts/clients/store/routing/forms
+        conversation/assistant.ts # reusable assistant-only convergence
+    react/               # public React metadata, README, and clean build config
+      src/               # provider/hooks/conversation/surfaces/review/Navgraph
     testing/             # private frontend test harnesses
   examples/medusa-agent/
     backend/medusa_agent/
@@ -57,12 +59,16 @@ routedeck/
     route-deck-reference.md
     using-routedeck.md
     medusa-agent-reference-app.md
+    releasing.md         # local candidate vs external publication gates
     archive/             # superseded/completed historical material
   decisions/             # ADR-006 current runtime authority
   tests/                 # Python framework/boundary suites
   test_index/            # validation meaning and commands
   skills/                # live repeatable developer workflows only
   context_*/ logs/       # restart/session history
+  .github/               # read-only CI, dependency updates, contribution forms
+  ROADMAP.md             # directional M0-M3 outcomes, not architecture authority
+  CONTRIBUTING.md, SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md
 ```
 
 ## Dependency Rules

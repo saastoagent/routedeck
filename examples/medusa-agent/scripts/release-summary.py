@@ -66,7 +66,7 @@ REQUIRED_BOUNDARY_CHECKS = (
     "source_policy_scan",
     "architectural_review",
 )
-BOUNDARY_REPORT_SCHEMA_VERSION = 3
+BOUNDARY_REPORT_SCHEMA_VERSION = 4
 
 _SENSITIVE_KEYS = frozenset(
     {

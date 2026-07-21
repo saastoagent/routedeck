@@ -154,6 +154,22 @@ the exact Playwright result and retained absolute artifact path.
 
 ## Release Gate
 
+The non-destructive package-candidate lane is:
+
+```powershell
+python -m pytest tests/test_release_harness.py tests/test_release_archives.py tests/test_public_api.py -q
+python -m build --outdir "$env:TEMP\routedeck-python-dist"
+pnpm build
+pnpm --dir packages/core pack --pack-destination "$env:TEMP\routedeck-npm-dist"
+pnpm --dir packages/react pack --pack-destination "$env:TEMP\routedeck-npm-dist"
+python scripts/verify_release_archives.py --python-wheel <wheel> --npm <core-tarball> --npm <react-tarball>
+```
+
+This proves archive shape only when run against freshly built paths. A separate
+temporary venv and temporary npm consumer must install those exact artifacts
+to prove consumption. Neither lane proves real Medusa, browser, model, registry,
+or publication behavior.
+
 `examples/medusa-agent/scripts/release-verify.ps1` is the consolidated local
 release harness. It covers framework correctness, boundaries, real commerce,
 browser experience, critical coverage groups, packaging, and sanitized

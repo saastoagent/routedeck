@@ -97,7 +97,7 @@ def migrate_database(engine: Engine) -> int:
 
 
 def _prepare_sqlite_path(database: str | None) -> None:
-    if database in {None, "", ":memory:"}:
+    if database is None or database in {"", ":memory:"}:
         return
     Path(database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 

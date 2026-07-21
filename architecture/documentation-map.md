@@ -1,6 +1,6 @@
 # RouteDeck Documentation Map
 
-Last updated: 2026-07-20
+Last updated: 2026-07-21
 
 This map prevents historical implementation material from competing with live
 architecture. When documents disagree, use the highest applicable row below.
@@ -19,6 +19,15 @@ architecture. When documents disagree, use the highest applicable row below.
 | 8 | `test_index/README.md` | Validation commands and the claims they can support. |
 | 9 | `structure.md` | Maintained live source tree and dependency direction. |
 | 10 | `docs/using-routedeck.md`, `docs/minimal-example.md`, and reference-app docs | Developer guidance built on the contracts above. |
+
+## Public Direction And Active Work
+
+| Document | Owns | Authority boundary |
+| --- | --- | --- |
+| `ROADMAP.md` | Outcome-based public direction, milestone status, and non-goals. | Forward-looking only; it cannot establish implemented behavior or override source, ADRs, or canonical contracts. |
+| `plans/README.md` and the linked active plan | Current approved implementation sequence and approval gates. | Execution aid only; archive it at completion and never use it to override accepted architecture. |
+| `CHANGELOG.md` | User-visible released changes by published version. | Records releases only; unreleased intent belongs in the roadmap or active plan. |
+| `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `SUPPORT.md` | Public participation, reporting, conduct, and support expectations. | Process guidance; no runtime or package contract authority. |
 
 ## Historical But Retained
 
@@ -50,6 +59,8 @@ is explicitly outside the product/documentation authority chain.
 Any feature or boundary change must update the feature matrix and its owning
 code-map/component row. Any change to authority or lifecycle folders must also
 update this map, `context_pipeline.md`, and the context-architecture component.
+Roadmap changes must preserve the forward-looking classification above and link
+to an ADR before presenting an architectural decision as accepted.
 When an implementation spans several owners, keep one reusable
 implementation-to-contract-to-proof crosswalk in `knowledgebase/` and link it
 from the affected ADRs/canonical coverage rows instead of duplicating the same

@@ -164,3 +164,23 @@ def test_projection_rejects_only_globally_unknown_canonical_surface_state() -> N
 
     with pytest.raises(RouteDeckValidationError, match="unknown canonical surface"):
         ProjectionProjector(app).project(invalid)
+
+
+def test_projection_rejects_duplicate_canonical_surface_state() -> None:
+    app = _lifecycle_app()
+    session = _session_with_surface_state(app)
+    duplicate = session.model_copy(
+        update={
+            "public_state": session.public_state.model_copy(
+                update={
+                    "surface_state": (
+                        PublicSurfaceState(surface_id="flow.stable"),
+                        PublicSurfaceState(surface_id="flow.stable"),
+                    )
+                }
+            )
+        }
+    )
+
+    with pytest.raises(RouteDeckValidationError, match="duplicate canonical surface"):
+        ProjectionProjector(app).project(duplicate)

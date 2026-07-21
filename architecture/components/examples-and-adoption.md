@@ -28,6 +28,7 @@ A new application follows one current path:
 - `docs/minimal-example.md`
 - `docs/using-routedeck.md`
 - `docs/medusa-agent-reference-app.md`
+- `README.md`, `ROADMAP.md`, and the public participation documents
 
 ## Public Interfaces
 
@@ -54,6 +55,8 @@ A new application follows one current path:
 - `pnpm --filter @routedeck/medusa-agent typecheck`
 - `pnpm --filter @routedeck/medusa-agent build`
 - protected local browser and release harnesses listed in `test_index/README.md`
+- built-artifact inventory and isolated-consumer checks listed in
+  `docs/releasing.md`
 
 ## Update Triggers
 
