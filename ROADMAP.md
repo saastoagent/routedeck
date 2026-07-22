@@ -75,6 +75,26 @@ Outcomes:
 - a clean-room adoption gate in which an external developer or coding agent
   creates a valid feature without changing RouteDeck core.
 
+### Planned: Typed Operation Middleware
+
+Status: planned after the initial alpha package release. Track the public
+proposal in [GitHub issue #4](https://github.com/saastoagent/routedeck/issues/4).
+
+RouteDeck will provide optional, ordered, typed middleware around its single
+supervised operation path. Applications will be able to add reusable pre- and
+post-operation behavior such as authentication integration, auditing,
+telemetry, request context, and transport response handling without replacing
+the runner or moving product semantics into RouteDeck.
+
+The earlier ideas of making session handoff the foundational primitive or
+adding an authentication-specific response effect were discarded. Session
+handoff incorrectly assumes that authentication changes the durable RouteDeck
+interaction context, while an authentication-specific effect overfits the
+first Medusa use case. An HTTP-only hook may still be an adapter concern, but
+it is not the definition of the planned middleware capability. Exact lifecycle,
+failure, ordering, and replay contracts require a public design proposal and
+ADR before implementation.
+
 A second example is justified only when it proves a missing reusable
 authoring boundary. It must not become a second product-development roadmap.
 
