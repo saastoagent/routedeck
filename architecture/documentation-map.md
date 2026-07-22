@@ -18,7 +18,7 @@ architecture. When documents disagree, use the highest applicable row below.
 | 7 | `SYSTEM_FLOW_INDEX.md` | Current runtime, conversation, operation, navigation, and bootstrap sequences. |
 | 8 | `test_index/README.md` | Validation commands and the claims they can support. |
 | 9 | `structure.md` | Maintained live source tree and dependency direction. |
-| 10 | `docs/using-routedeck.md`, `docs/minimal-example.md`, and reference-app docs | Developer guidance built on the contracts above. |
+| 10 | `wiki/`, `docs/using-routedeck.md`, `docs/minimal-example.md`, and reference-app docs | Learning paths and developer guidance built on the contracts above. |
 
 ## Public Direction And Active Work
 
@@ -46,6 +46,10 @@ architecture. When documents disagree, use the highest applicable row below.
 Historical material never overrides current source or the canonical spine. Its
 commands, paths, API names, and status may intentionally describe an older
 state.
+
+`wiki/` is current public learning material, not a second contract owner. It
+must link back to the canonical reference for normative semantics and remain
+source-publishable as a GitHub Wiki without changing the authority order.
 
 ## Generated And Local-Only Material
 

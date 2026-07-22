@@ -32,7 +32,10 @@ APP = Application(
 )
 
 compiled = compile_app(APP)
-bound = bind_app(compiled, FeatureBindings())
+bound = bind_app(
+    compiled,
+    FeatureBindings(handlers={}, providers={}, guards={}),
+)
 ```
 
 Real applications add operations, providers, guards, surfaces, route entries,
@@ -45,5 +48,6 @@ does not construct its own operation runner, navigation runner, or FastAPI
 dependency bundle.
 
 Use the standalone Medusa app for a complete real-data example. See
+`examples/hello-world/hello_world.py` for the runnable zero-dependency version,
 `docs/using-routedeck.md` for the integration sequence and
 `docs/route-deck-reference.md` for all contract rules.

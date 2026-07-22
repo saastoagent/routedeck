@@ -17,6 +17,11 @@ The standalone app in [`examples/medusa-agent`](examples/medusa-agent/README.md)
 is the reference consumer. It implements a real local Medusa guest-buyer flow
 without putting commerce code in RouteDeck.
 
+New here? Start with the repository-local [RouteDeck wiki](wiki/Home.md) and
+its runnable, zero-API-key [Hello World tutorial](wiki/Hello-World.md). The wiki
+is the learning layer; the canonical framework contract remains
+[`docs/route-deck-reference.md`](docs/route-deck-reference.md).
+
 ## Alpha Status
 
 RouteDeck is preparing for its first open-source alpha. The source is locally
@@ -173,6 +178,9 @@ browser contract.
 See [`docs/route-deck-reference.md`](docs/route-deck-reference.md) for the full
 contract and [`docs/using-routedeck.md`](docs/using-routedeck.md) for adoption
 guidance.
+
+The smallest executable authoring example is
+[`examples/hello-world/hello_world.py`](examples/hello-world/hello_world.py).
 
 ## LangGraph Relationship
 

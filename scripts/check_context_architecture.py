@@ -50,6 +50,8 @@ def active_markdown_files() -> list[Path]:
         "skills",
         "test_index",
         "plans",
+        "wiki",
+        "examples/hello-world/README.md",
         "examples/medusa-agent/README.md",
     ):
         path = PROJECT_ROOT / relative

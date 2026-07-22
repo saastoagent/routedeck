@@ -1,8 +1,7 @@
 # RouteDeck Context
 
-Last updated: 2026-07-22
-Status: M0 public source launch complete; repository-local wiki source complete;
-registry package and GitHub Wiki publication pending.
+Last updated: 2026-07-21
+Status: M0 public source launch complete; registry package release pending.
 RouteDeck is public at
 [`github.com/saastoagent/routedeck`](https://github.com/saastoagent/routedeck),
 and the first corrective GitHub Actions run is green. The protected local stack
@@ -17,10 +16,9 @@ is stopped. No PyPI or npm package publication is claimed.
 5. [Subsystem code map](./architecture/code-map.md)
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
-8. [Latest checkpoint](./context_checkpoints/context_checkpoint_22-07-2026-wiki.md)
+8. [Latest checkpoint](./context_checkpoints/context_checkpoint_21-07-2026-publication-and-ci.md)
 9. [Public roadmap](./ROADMAP.md)
 10. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
-11. [RouteDeck learning wiki](./wiki/Home.md)
 
 ADR-006 controls runtime assembly and generic conversation. Non-superseded
 ADR-005 controls named state and feature structure. ADR-004 controls scope,
@@ -64,9 +62,6 @@ and form values remain outside public/model state.
 - Python and TypeScript CI jobs passed tests, lint/type checks, builds,
   architecture checks, and package/archive inspection.
 - Local `artifacts/` evidence was intentionally excluded from publication.
-- A repository-local 19-file learning wiki with a tested zero-key Hello World
-  and 14 Mermaid diagrams is complete under `wiki/`. It has not been pushed to
-  the separate GitHub Wiki repository.
 - PyPI and npm identities, trusted publishers, versions, and registry installs
   remain unproven and unpublished.
 
@@ -77,10 +72,6 @@ The completed implementation plan is archived at
 
 ## Current Evidence
 
-- Wiki closeout: 19 Markdown files, 1,208 lines, 14 Mermaid diagrams, one
-  focused Hello World test passed, 618/618 live files mapped, and 63 active
-  Markdown files passed the context/link check. Full evidence is in
-  [`logs/20260722_route_deck_wiki_closeout.md`](./logs/20260722_route_deck_wiki_closeout.md).
 - Public GitHub Actions run `29831749835`: completed successfully for commit
   `6ec2d6d94009fdc1df98f2360b598775405d810c`.
 - Pre-publication clean regression: 513 non-live Python tests and 122
@@ -105,8 +96,6 @@ assumed running in a later session.
 - The developer's global Python environment still contains an editable
   `routedeck-core` entry for the older `agent-core` checkout. Coverage evidence
   must use an isolated environment until that external environment is repaired.
-- Publishing the checked-in `wiki/` source to the separate GitHub Wiki
-  repository requires explicit authorization for git operations.
 - A production principal-aware selector example is not implemented. Identity
   policy remains consumer-owned.
 - Private-form save/resync latency needs instrumentation before any performance

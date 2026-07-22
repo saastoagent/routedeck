@@ -33,6 +33,7 @@ routedeck/
     react/               # public React metadata, README, and clean build config
       src/               # provider/hooks/conversation/surfaces/review/Navgraph
     testing/             # private frontend test harnesses
+  examples/hello-world/  # zero-key compiler/binding first-success tutorial
   examples/medusa-agent/
     backend/medusa_agent/
       features/          # catalog/cart/checkout/orders complete feature slices
@@ -61,6 +62,7 @@ routedeck/
     medusa-agent-reference-app.md
     releasing.md         # local candidate vs external publication gates
     archive/             # superseded/completed historical material
+  wiki/                  # public learning path; subordinate to canonical docs
   decisions/             # ADR-006 current runtime authority
   tests/                 # Python framework/boundary suites
   test_index/            # validation meaning and commands
@@ -81,7 +83,9 @@ routedeck/
 | `routedeck_langgraph/` | Generic graph driving/context/tool boundary. | Product topology, prompts, model selection, or wording. |
 | `packages/core/` | Authoritative browser mirror and transport/routing mechanics. | React rendering or product route inference. |
 | `packages/react/` | Product-neutral React primitives and read-only diagnostics. | Product components/copy/Store calls or second state authority. |
+| `examples/hello-world/` | Explicit compiler/binding tutorial with no runtime or integration claim. | Product fallback data or production behavior. |
 | `examples/medusa-agent/` | All commerce, Store API, product graph, market, UI, and local stack behavior. | Generic RouteDeck runtime/driver/transport construction. |
+| `wiki/` | Current tutorials, concepts, diagrams, and task-oriented learning paths. | Normative contract authority or historical session state. |
 
 New products declare/bind features, supply session/product graph callbacks, and
 call a RouteDeck runtime opener. They do not construct generic runners,
