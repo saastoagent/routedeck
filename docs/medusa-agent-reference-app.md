@@ -164,6 +164,12 @@ browser profiles receive isolated guest sessions; tabs in one profile share the
 cookie/session. Authenticated user or multi-session authorization is not part of
 this guest reference adapter.
 
+`MedusaApplicationRoot` mounts `RouteDeckBootstrapBoundary`. RouteDeck React
+maps canonical bootstrap and navigation recovery to the legal actions; Medusa's
+shell owns only buyer-facing wording, styling, and button placement. The product
+does not inspect retained request identity or independently decide whether
+retry, abandon, resync, or new-session actions are legal.
+
 ## Surface Contract
 
 The app declares product surfaces with exact public prop schemas and registers
@@ -337,16 +343,19 @@ Generic RouteDeck:
 - `GET /api/routedeck/inspect`
 
 Generic routes contain no product names or Medusa behavior. Medusa supplies
-product graphs/prompts/models and the frontend bootstrap chooses when to call
-the typed assistant operation; RouteDeck owns the driver, transport, and
-durable conversation state. `main.py` mounts exactly one generic router from a
-runtime provider plus the product health router.
+product graphs/prompts/models and the post-bootstrap conversation gate chooses
+when to call the typed assistant operation; RouteDeck owns the bootstrap
+boundary, driver, transport, and durable conversation state. `main.py` mounts
+exactly one generic router from a runtime provider plus the product health
+router.
 
 After successful session/navigation bootstrap, the frontend loads durable
 conversation. When it is empty, it starts one assistant-initiated turn through
 the generic conversation route. The loading shell does not expose internal
 restore phases, and reload does not manufacture a greeting when conversation is
-already durable.
+already durable. A missing or expired conversation triggers one authoritative
+resync and one reload; a persistent conversation failure renders product copy,
+while a failed resync returns control to the RouteDeck recovery boundary.
 
 `health` is process liveness. `ready` verifies the RouteDeck store and real
 Medusa dependency and returns `503` until the buyer application can serve real

@@ -16,6 +16,7 @@ named conversation presentation actions, and UI primitives.
 - `packages/core/src/conversation/{types,codec,client,assistant}.ts`
 - `packages/core/src/store/{store,bootstrap,synchronization,operations,lifecycle}.ts`
 - `packages/core/src/{client,routing,private-forms}/*`
+- `packages/react/src/bootstrap/*`
 - `packages/react/src/conversation/{presentation,useRouteDeckConversation}.ts`
 - `packages/react/src/{provider,hooks,surfaces,navigation,private-forms,review,status,inspector}/*`
 - `packages/testing/src/*`
@@ -33,6 +34,12 @@ named conversation presentation actions, and UI primitives.
   internal.
 - `RouteDeckObservableState` and named store actions/selectors remain the
   canonical browser view of session/projection state.
+- `useRouteDeckBootstrapRecovery(store)` maps the canonical store state to
+  loading, ready, disposed, or product-rendered recovery and exposes only the
+  exact legal store actions for that state. It does not expose retained request
+  IDs or make product policy decisions.
+- `RouteDeckBootstrapBoundary` starts an idle store and gates product children
+  on that normalized state; consumers supply loading and recovery rendering.
 - `ConversationPresentationActions` exposes named methods such as
   `beginTurn`, `restoreSnapshot`, `showUserMessage`, `appendAssistantText`,
   `finalizeAssistant`, `requireReview`, `completeTurn`, and `failTurn`.
@@ -51,9 +58,10 @@ transition callback API.
 
 Generic core/React production messages are product-neutral. A consumer may wrap
 framework error codes with product-specific wording, but it must not inspect the
-assistant stream or reproduce the coordinator state machine. Medusa's initial
-conversation module now chooses greeting request identity and translates copy,
-then delegates the lifecycle to `runAssistantInitiatedTurn(...)`.
+assistant stream or reproduce the coordinator or bootstrap recovery state
+machines. Medusa renders its product recovery shell from the normalized React
+adapter and its initial conversation module chooses greeting request identity
+and copy before delegating the lifecycle to `runAssistantInitiatedTurn(...)`.
 
 ## Evidence
 

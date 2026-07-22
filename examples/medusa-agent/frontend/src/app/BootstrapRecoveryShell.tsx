@@ -1,64 +1,26 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-
-import type { RouteDeckStore } from "@routedeck/core";
+import type {
+  RouteDeckBootstrapActionRequiredState,
+  RouteDeckBootstrapDisposedState,
+  RouteDeckBootstrapRecoveryActionKind,
+} from "@routedeck/react";
 
 export interface BootstrapRecoveryShellProps {
-  store: RouteDeckStore;
-  onReady(): void;
+  state:
+    | RouteDeckBootstrapActionRequiredState
+    | RouteDeckBootstrapDisposedState;
 }
 
 export function BootstrapRecoveryShell({
-  store,
-  onReady,
+  state,
 }: BootstrapRecoveryShellProps) {
-  const state = useSyncExternalStore(
-    store.subscribe,
-    store.getState,
-    store.getState,
-  );
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const pendingBootstrap = state.pendingBootstrap;
-  const pendingNavigation = state.pendingNavigation;
-  const expired = pendingBootstrap?.kind === "resume_expired";
-  const missing = pendingBootstrap?.kind === "resume_missing";
-  const contractMismatch =
-    pendingBootstrap?.kind === "resume_contract_mismatch";
-  const canReconnectCurrent =
-    pendingBootstrap === null && pendingNavigation === null;
-  const canStartNew =
-    pendingBootstrap?.kind === "session_create" ||
-    expired ||
-    missing ||
-    contractMismatch;
-
-  useEffect(() => {
-    if (state.syncStatus === "live") onReady();
-  }, [onReady, state.syncStatus]);
-
-  const recover = useCallback(
-    async (action: () => Promise<void>) => {
-      setBusy(true);
-      setActionError(null);
-      try {
-        await action();
-        if (store.getState().syncStatus !== "live") {
-          throw new Error(
-            "RouteDeck recovery completed without a live buyer session.",
-          );
-        }
-        setBusy(false);
-      } catch (error) {
-        setBusy(false);
-        setActionError(
-          error instanceof Error
-            ? error.message
-            : "RouteDeck could not recover the buyer session.",
-        );
-      }
-    },
-    [store],
-  );
+  const reason = state.phase === "recovery" ? state.reason : "disposed";
+  const expired = reason === "resume_expired";
+  const missing = reason === "resume_missing";
+  const contractMismatch = reason === "resume_contract_mismatch";
+  const sessionCreate = reason === "session_create";
+  const navigation = reason === "navigation";
+  const action = (kind: RouteDeckBootstrapRecoveryActionKind) =>
+    state.actions.find((candidate) => candidate.kind === kind) ?? null;
 
   return (
     <section className="bootstrap-error" role="alert">
@@ -69,7 +31,7 @@ export function BootstrapRecoveryShell({
             ? "Buyer session unavailable"
             : contractMismatch
               ? "Buyer session contract changed"
-            : "Medusa Agent needs session recovery"}
+              : "Medusa Agent needs session recovery"}
       </h1>
       <p>
         {expired
@@ -78,70 +40,76 @@ export function BootstrapRecoveryShell({
             ? "This session-bound link has no available buyer session. Start a new session explicitly to continue."
             : contractMismatch
               ? "The application contract changed. Start a new buyer session explicitly to continue."
-            : (actionError ??
-            state.error?.message ??
-            "The buyer session did not finish starting.")}
+              : (state.error?.message ??
+                "The buyer session did not finish starting.")}
       </p>
-      {pendingBootstrap?.kind === "session_create" ? (
+      {sessionCreate ? (
         <p>
           Session creation may already have committed. Retrying securely reuses
           the retained recovery request.
         </p>
       ) : null}
-      {pendingNavigation !== null ? (
+      {navigation ? (
         <p>
           The requested route may already be open. Retry that exact navigation
           or abandon it and load the authoritative session.
         </p>
       ) : null}
       <div className="bootstrap-actions">
-        {pendingBootstrap?.kind === "session_create" ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void recover(store.retrySessionCreate)}
-          >
-            Retry creating this buyer session
-          </button>
-        ) : null}
-        {pendingNavigation !== null ? (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void recover(store.retryNavigation)}
-            >
-              Retry opening this route
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void recover(store.abandonNavigation)}
-            >
-              Abandon route and use current session
-            </button>
-          </>
-        ) : null}
-        {canReconnectCurrent ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void recover(store.resync)}
-          >
-            Reconnect current buyer session
-          </button>
-        ) : null}
-        {canStartNew ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void recover(store.startNewSession)}
-          >
-            Start a new buyer session
-          </button>
-        ) : null}
+        <RecoveryButton
+          action={action("retry_session_create")}
+          disabled={state.busy}
+        >
+          Retry creating this buyer session
+        </RecoveryButton>
+        <RecoveryButton
+          action={action("retry_navigation")}
+          disabled={state.busy}
+        >
+          Retry opening this route
+        </RecoveryButton>
+        <RecoveryButton
+          action={action("abandon_navigation")}
+          disabled={state.busy}
+        >
+          Abandon route and use current session
+        </RecoveryButton>
+        <RecoveryButton action={action("resync")} disabled={state.busy}>
+          Reconnect current buyer session
+        </RecoveryButton>
+        <RecoveryButton
+          action={action("start_new_session")}
+          disabled={state.busy}
+        >
+          Start a new buyer session
+        </RecoveryButton>
       </div>
-      {expired && actionError !== null ? <p>{actionError}</p> : null}
+      {(expired || missing || contractMismatch) && state.error !== null ? (
+        <p>{state.error.message}</p>
+      ) : null}
     </section>
+  );
+}
+
+function RecoveryButton({
+  action,
+  disabled,
+  children,
+}: {
+  action: {
+    run(): Promise<void>;
+  } | null;
+  disabled: boolean;
+  children: string;
+}) {
+  if (action === null) return null;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => void action.run()}
+    >
+      {children}
+    </button>
   );
 }

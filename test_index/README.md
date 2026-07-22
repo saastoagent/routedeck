@@ -46,9 +46,9 @@ The workspace requires Node.js 22.13 or newer and pnpm 11.7.0.
 | --- | --- | --- |
 | Headless core | `pnpm --filter @routedeck/core test` | Strict decoding, clients, SSE, bootstrap/resync, retained requests, routing/history, forms, and observable state. |
 | Headless types/build | `pnpm --filter @routedeck/core typecheck` and `pnpm --filter @routedeck/core build` | Public TypeScript API and emitted package. |
-| React | `pnpm --filter @routedeck/react test` and `pnpm --filter @routedeck/react typecheck` | Named conversation presentation, operations, surfaces, forms, review, navigation, status, and inspector primitives. |
+| React | `pnpm --filter @routedeck/react test` and `pnpm --filter @routedeck/react typecheck` | Bootstrap phase/legal-action mapping and boundary gating, named conversation presentation, operations, surfaces, forms, review, navigation, status, and inspector primitives. |
 | Testing package | `pnpm --filter @routedeck/testing test` | Explicit frontend test factories/harnesses. |
-| Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Product bootstrap/recovery, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
+| Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Framework-bound product bootstrap/recovery and conversation restore, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
 | Medusa surface-props parity | `python -m pytest examples/medusa-agent/backend/tests/contract/test_surface_props_parity.py -q` and `pnpm --dir examples/medusa-agent/frontend exec vitest run --config vitest.config.ts src/tests/surface-props-parity.test.ts` | The same 16 valid/invalid vectors agree across compiled backend schemas and eight corresponding product frontend decoders. |
 | Medusa type/build | `pnpm --filter @routedeck/medusa-agent typecheck` and `pnpm --filter @routedeck/medusa-agent build` | Product/public contract integration and production bundle. |
 

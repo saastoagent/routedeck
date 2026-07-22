@@ -108,7 +108,8 @@ RouteDeck owns:
 - encrypted private-form persistence and generic HTTP/SSE transport.
 - framework runtime/services assembly and the generic LangGraph driver;
 - typed assistant initiation, headless convergence, and named React
-  conversation presentation actions.
+  conversation presentation actions;
+- canonical bootstrap/recovery action legality and the reusable React boundary.
 
 The Medusa app owns:
 
@@ -118,6 +119,8 @@ The Medusa app owns:
 - the buyer prompt, OpenAI models, user/assistant graph construction, and UI components;
 - guest/auth session-selection policy, browser origins, cookie policy, and
   deployment/runtime values;
+- bootstrap/recovery wording, styling, and button placement from the normalized
+  RouteDeck React state;
 - recovery decisions such as order reconciliation after an uncertain write.
 
 ## Route And Surface Contract
@@ -314,7 +317,10 @@ Session creation is an idempotent mutation and requires
 private-form, and chat writes likewise use caller-owned request identities.
 After an outcome-unknown transport failure, the frontend retains the exact
 request ID and payload for an explicit retry; it does not auto-retry or replace
-the ID. The same ID with different input is rejected.
+the ID. The same ID with different input is rejected. Medusa consumes
+`RouteDeckBootstrapBoundary` and invokes only the recovery actions it exposes;
+the product shell does not interpret the retained request or retry state
+machine.
 
 ## Development Checks
 

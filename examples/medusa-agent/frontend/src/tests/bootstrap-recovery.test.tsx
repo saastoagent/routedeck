@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
+import { useEffect } from "react";
 import {
   act,
   cleanup,
@@ -15,6 +16,7 @@ import {
   RouteDeckOutcomeUnknownError,
   RouteDeckStreamError,
 } from "@routedeck/core";
+import { RouteDeckBootstrapBoundary } from "@routedeck/react";
 import {
   MemoryHistoryHarness,
   routeDeckFrontendContractFixture,
@@ -24,6 +26,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 
 import { BootstrapRecoveryShell } from "../app/BootstrapRecoveryShell";
+import { BootstrapLoadingShell } from "../app/BootstrapLoadingShell";
 
 afterEach(cleanup);
 
@@ -51,7 +54,7 @@ it("retries the retained session create and keeps new-session creation distinct"
   );
   const onReady = vi.fn();
 
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   expect(
     screen.getByRole("button", { name: "Retry creating this buyer session" }),
@@ -81,7 +84,7 @@ it("reconnects the current session after an initial stream failure", async () =>
   await expect(store.startNewSession()).rejects.toMatchObject({
     code: "new_session_recovery_unavailable",
   });
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   expect(
     screen.getByRole("button", { name: "Reconnect current buyer session" }),
@@ -103,7 +106,7 @@ it("reconnects the current session after an initial stream failure", async () =>
 it("opens the App when background recovery makes the subscribed store live", async () => {
   const { store } = await initialStreamFailureHarness();
   const onReady = vi.fn();
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   await act(async () => store.resync());
 
@@ -152,7 +155,7 @@ it("offers retry and abandon actions for initial navigation recovery", async () 
   );
   const onReady = vi.fn();
 
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   expect(
     screen.getByRole("button", { name: "Retry opening this route" }),
@@ -192,7 +195,7 @@ it("requires an explicit new-session action after resume expiry", async () => {
   await expect(store.bootstrap()).rejects.toMatchObject({ status: 410 });
   const onReady = vi.fn();
 
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   expect(
     screen.getByRole("heading", { name: "Buyer session expired" }),
@@ -247,7 +250,7 @@ it("requires an explicit new session for a missing no-cookie session-bound link"
   await expect(store.bootstrap()).rejects.toMatchObject({ status: 404 });
   const onReady = vi.fn();
 
-  render(<BootstrapRecoveryShell store={store} onReady={onReady} />);
+  renderRecoveryBoundary(store, onReady);
 
   expect(
     screen.getByRole("heading", { name: "Buyer session unavailable" }),
@@ -312,4 +315,23 @@ async function initialStreamFailureHarness() {
     () => undefined,
   );
   return { client, store };
+}
+
+function renderRecoveryBoundary(
+  store: ReturnType<typeof createRouteDeckStore>,
+  onReady: () => void,
+) {
+  function Ready() {
+    useEffect(onReady, []);
+    return null;
+  }
+  return render(
+    <RouteDeckBootstrapBoundary
+      store={store}
+      loading={<BootstrapLoadingShell />}
+      recovery={(state) => <BootstrapRecoveryShell state={state} />}
+    >
+      <Ready />
+    </RouteDeckBootstrapBoundary>,
+  );
 }

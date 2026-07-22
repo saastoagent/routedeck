@@ -43,7 +43,10 @@ install its own `RouteDeckSessionSelector`; authentication and authorization do
 not move into RouteDeck.
 
 Medusa retains only greeting policy/copy around RouteDeck's reusable
-assistant-turn coordinator. Checkout and orders share the product-owned
+assistant-turn coordinator. Its application root consumes
+`RouteDeckBootstrapBoundary`; the recovery shell receives normalized state and
+renders product wording/buttons without reading pending requests or calling
+store recovery methods directly. Checkout and orders share the product-owned
 `contact_identity.py` fingerprint. Backend JSON schemas and eight corresponding
 frontend decoders execute the same checked-in parity vectors under
 `contracts/surface-props-parity.json`. This parity gate covers those eight
