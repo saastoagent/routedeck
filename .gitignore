@@ -21,7 +21,6 @@ logs/
 *.log
 .codex-run/
 /.superpowers/
-/.worktrees/
 examples/medusa-agent/e2e/test-results/
 examples/medusa-agent/e2e/playwright-report/
 examples/medusa-agent/e2e/blob-report/
