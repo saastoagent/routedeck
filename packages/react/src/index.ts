@@ -1,4 +1,7 @@
 export * from "./provider/RouteDeckProvider";
+export * from "./bootstrap/types";
+export * from "./bootstrap/useRouteDeckBootstrapRecovery";
+export * from "./bootstrap/RouteDeckBootstrapBoundary";
 export * from "./hooks/store";
 export * from "./hooks/projection";
 export * from "./hooks/navigation";

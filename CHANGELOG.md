@@ -8,6 +8,9 @@ claim a published package release.
 
 ### Added
 
+- `RouteDeckBootstrapBoundary` and `useRouteDeckBootstrapRecovery` in
+  `@routedeck/react`, exposing product-neutral bootstrap phases and only the
+  recovery actions that are legal for the current RouteDeck store state.
 - Public source repository under the SaaStoAgent organization with a green
   Python and TypeScript CI baseline.
 - Public roadmap and project-health documentation.

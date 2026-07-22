@@ -477,6 +477,9 @@ is not a second state authority.
 
 `@routedeck/react` provides:
 
+- `RouteDeckBootstrapBoundary` and `useRouteDeckBootstrapRecovery`, which start
+  an idle store, gate children on readiness, and expose only recovery actions
+  legal for the current canonical store state;
 - `RouteDeckProvider` and selectors/hooks;
 - `RouteDeckSurfaceHost` plus a product component registry;
 - private-form, review, navigation, status, and error primitives;
@@ -496,8 +499,11 @@ projection and always renders the full Navgraph, with current and reachable
 nodes highlighted in place. The same complete graph can be expanded for closer
 inspection.
 
-React owns rendering and component-local interaction state. It does not own
-canonical operation state, infer legal actions, or call product domain APIs.
+React owns rendering and component-local interaction state. Its bootstrap
+adapter projects legal actions already defined by the headless store; it does
+not reimplement retry legality. React does not own canonical operation state or
+call product domain APIs. Products retain recovery wording, styling, and
+product-specific policy.
 `createRouteDeckAgentClient(...)` loads canonical history and streams both user
 chat and assistant initiation. `RouteDeckObservableState` remains the canonical
 session/projection authority; presentation messages never replace it.

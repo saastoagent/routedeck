@@ -1,7 +1,7 @@
 {
   "name": "@routedeck/react",
   "version": "0.1.0",
-  "description": "React bindings, surfaces, navigation controls, review UI, and inspector components for RouteDeck.",
+  "description": "React bootstrap recovery, bindings, surfaces, navigation, review, and inspector components for RouteDeck.",
   "license": "MIT",
   "repository": {
     "type": "git",

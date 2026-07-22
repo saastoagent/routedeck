@@ -247,7 +247,28 @@ For `resume_or_create_shareable` bootstrap:
 Session-bound links do not create replacement state. Outcome-unknown creation
 or navigation retains the exact request ID and payload for explicit recovery.
 
-`@routedeck/react` then supplies provider/hooks, conversation presentation,
+Use the React boundary without decoding `pendingBootstrap`,
+`pendingNavigation`, or retry legality in product code:
+
+```tsx
+import { RouteDeckBootstrapBoundary } from "@routedeck/react";
+
+<RouteDeckBootstrapBoundary
+  store={store}
+  loading={<ProductLoading />}
+  recovery={(state) => <ProductRecovery state={state} />}
+>
+  <App />
+</RouteDeckBootstrapBoundary>;
+```
+
+The recovery renderer owns product copy, styling, and policy. It must invoke
+only actions present in `state.actions`; RouteDeck maps uncertain creation,
+expired/missing/contract-mismatched resume, uncertain navigation, resync, and
+disposal to the legal action set. For custom composition use
+`useRouteDeckBootstrapRecovery(store)` directly.
+
+`@routedeck/react` also supplies provider/hooks, conversation presentation,
 surface host, operations, private forms, review, navigation, status/error, and
 read-only Navgraph primitives. Product components and copy remain outside the
 framework package.
