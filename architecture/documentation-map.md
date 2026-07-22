@@ -50,6 +50,8 @@ state.
 `wiki/` is current public learning material, not a second contract owner. It
 must link back to the canonical reference for normative semantics and remain
 source-publishable as a GitHub Wiki without changing the authority order.
+`wiki-site/` is a local reader for that checked-in source. It does not fork the
+wiki content or acquire contract authority.
 
 ## Generated And Local-Only Material
 

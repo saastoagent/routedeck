@@ -1,8 +1,8 @@
 # RouteDeck Context
 
 Last updated: 2026-07-22
-Status: M0 public source launch complete; repository-local wiki source complete;
-registry package and GitHub Wiki publication pending.
+Status: M0 public source launch complete; repository-local wiki source and local
+reader complete; registry package and GitHub Wiki publication pending.
 RouteDeck is public at
 [`github.com/saastoagent/routedeck`](https://github.com/saastoagent/routedeck),
 and the first corrective GitHub Actions run is green. The protected local stack
@@ -17,7 +17,7 @@ is stopped. No PyPI or npm package publication is claimed.
 5. [Subsystem code map](./architecture/code-map.md)
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
-8. [Latest checkpoint](./context_checkpoints/context_checkpoint_22-07-2026-wiki.md)
+8. [Latest checkpoint](./context_checkpoints/context_checkpoint_22-07-2026-wiki-reader.md)
 9. [Public roadmap](./ROADMAP.md)
 10. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
 11. [RouteDeck learning wiki](./wiki/Home.md)
@@ -67,6 +67,8 @@ and form values remain outside public/model state.
 - A repository-local 19-file learning wiki with a tested zero-key Hello World
   and 14 Mermaid diagrams is complete under `wiki/`. It has not been pushed to
   the separate GitHub Wiki repository.
+- A local React reader for the checked-in wiki source is available through
+  `pnpm wiki:dev`; it does not duplicate or replace the Markdown authority.
 - PyPI and npm identities, trusted publishers, versions, and registry installs
   remain unproven and unpublished.
 
@@ -81,6 +83,9 @@ The completed implementation plan is archived at
   focused Hello World test passed, 618/618 live files mapped, and 63 active
   Markdown files passed the context/link check. Full evidence is in
   [`logs/20260722_route_deck_wiki_closeout.md`](./logs/20260722_route_deck_wiki_closeout.md).
+- Local wiki reader: 4 focused tests passed, strict TypeScript typecheck passed,
+  production build passed, and documentation coverage mapped 631/631 live
+  files after its ownership row was extended.
 - Public GitHub Actions run `29831749835`: completed successfully for commit
   `6ec2d6d94009fdc1df98f2360b598775405d810c`.
 - Pre-publication clean regression: 513 non-live Python tests and 122

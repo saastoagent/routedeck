@@ -63,6 +63,7 @@ routedeck/
     releasing.md         # local candidate vs external publication gates
     archive/             # superseded/completed historical material
   wiki/                  # public learning path; subordinate to canonical docs
+  wiki-site/             # local React reader for the checked-in wiki source
   decisions/             # ADR-006 current runtime authority
   tests/                 # Python framework/boundary suites
   test_index/            # validation meaning and commands
@@ -86,6 +87,7 @@ routedeck/
 | `examples/hello-world/` | Explicit compiler/binding tutorial with no runtime or integration claim. | Product fallback data or production behavior. |
 | `examples/medusa-agent/` | All commerce, Store API, product graph, market, UI, and local stack behavior. | Generic RouteDeck runtime/driver/transport construction. |
 | `wiki/` | Current tutorials, concepts, diagrams, and task-oriented learning paths. | Normative contract authority or historical session state. |
+| `wiki-site/` | Local reader for checked-in wiki content. | Independent documentation truth or runtime framework behavior. |
 
 New products declare/bind features, supply session/product graph callbacks, and
 call a RouteDeck runtime opener. They do not construct generic runners,

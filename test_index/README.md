@@ -15,6 +15,7 @@ Run from the RouteDeck project root:
 | --- | --- | --- |
 | Public API | `python -m pytest tests/test_public_api.py -q` | Sole `Application`/`Feature` compiler API, canonical exports, and absence of retired aliases/imports. |
 | Hello World tutorial | `python -m pytest tests/examples/test_hello_world_example.py -q` | The checked-in zero-key tutorial compiles, binds, and prints the documented output against the current checkout. |
+| Local wiki reader | `pnpm wiki:test && pnpm --filter @routedeck/wiki-site typecheck && pnpm wiki:build` | The reader loads checked-in wiki content, supports navigation/search, typechecks strictly, and produces a deployable static build without becoming a documentation authority. |
 | Application compiler | `python -m pytest tests/app -q` | Feature composition, node-owned transitions, incoming derivation, routes/entry bindings, frontend contract, executable paths, and fail-loud validation. |
 | Context and projection | `python -m pytest tests/context tests/projection -q` | Default-deny context/projection, public/private separation, suggested actions, and recovery projection. |
 | Canonical state | `python -m pytest tests/state -q` | Immutable sessions, named aggregate actions, effects, leases, ports, runtime builder/defaults, and public exports. |

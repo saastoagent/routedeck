@@ -22,6 +22,9 @@ its runnable, zero-API-key [Hello World tutorial](wiki/Hello-World.md). The wiki
 is the learning layer; the canonical framework contract remains
 [`docs/route-deck-reference.md`](docs/route-deck-reference.md).
 
+Run `pnpm wiki:dev` to browse the checked-in wiki through the local reader at
+`http://127.0.0.1:5176`.
+
 ## Alpha Status
 
 RouteDeck is preparing for its first open-source alpha. The source is locally

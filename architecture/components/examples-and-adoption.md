@@ -27,6 +27,7 @@ A new application follows one current path:
 - `examples/medusa-agent/*`
 - `examples/hello-world/*`
 - `wiki/*`
+- `wiki-site/*`
 - `docs/minimal-example.md`
 - `docs/using-routedeck.md`
 - `docs/medusa-agent-reference-app.md`
@@ -51,6 +52,9 @@ A new application follows one current path:
 ## Tests And Evidence
 
 - `python -m pytest tests/examples/test_hello_world_example.py -q`
+- `pnpm wiki:test`
+- `pnpm --filter @routedeck/wiki-site typecheck`
+- `pnpm wiki:build`
 - `python -m pytest tests/app tests/supervision tests/test_langgraph_agent_driver.py -q`
 - `python -m pytest examples/medusa-agent/backend/tests -q` with real-Medusa
   lanes run only against the configured protected local stack.
@@ -65,8 +69,8 @@ A new application follows one current path:
 
 Update this doc and `architecture/code-map.md` when feature composition,
 binding, runner ownership, optional LangGraph integration, example routes,
-frontend package consumption, wiki structure, Hello World behavior, or adoption
-instructions change.
+frontend package consumption, wiki structure, local reader behavior, Hello
+World behavior, or adoption instructions change.
 
 Examples use real in-process behavior or an explicitly configured real
 integration and fail loudly when required data or credentials are unavailable.

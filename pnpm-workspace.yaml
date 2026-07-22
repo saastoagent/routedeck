@@ -1,4 +1,5 @@
 packages:
   - "packages/*"
+  - "wiki-site"
   - "examples/medusa-agent/frontend"
   - "examples/medusa-agent/e2e"

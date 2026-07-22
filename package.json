@@ -8,6 +8,9 @@
   },
   "scripts": {
     "contracts:generate": "python scripts/export_contracts.py --schema-output packages/core/schema/routedeck.schema.json && json2ts -i packages/core/schema/routedeck.schema.json -o packages/core/src/contracts/generated.ts",
+    "wiki:dev": "pnpm --filter @routedeck/wiki-site dev",
+    "wiki:test": "pnpm --filter @routedeck/wiki-site test",
+    "wiki:build": "pnpm --filter @routedeck/wiki-site build",
     "test": "pnpm -r test",
     "typecheck": "pnpm --filter @routedeck/core build && pnpm --filter @routedeck/react build && pnpm --filter @routedeck/testing build && pnpm -r typecheck",
     "build": "pnpm -r build"
