@@ -7,6 +7,7 @@ from routedeck_core.contracts.conversation import (
     ConversationRole,
     FinalizedConversationTurn,
 )
+from routedeck_core.contracts.failures import FailureKind
 from routedeck_core.contracts.mutations import MutationKind
 from routedeck_core.ports import (
     AssistantInitiatedTrigger,
@@ -24,7 +25,7 @@ from ..conversation_replay import (
 )
 from ..conversation_stream import ConversationTurnRequest, stream_agent_turn
 from ..dependencies import RouteDeckDependencies, RouteDeckDependencyUnavailable
-from ..responses import exception_response
+from ..responses import exception_response, transport_failure
 from ..security import RouteDeckMutationPolicy
 from ..session_http import selected_session_id, resolve_dependencies, validated_body
 from . import DependencyProvider
@@ -124,10 +125,9 @@ async def _conversation_turn_response(
             recorded.kind is not MutationKind.CHAT
             or recorded.request_fingerprint != fingerprint
         ):
-            return _problem_response(
-                409,
+            return _conversation_conflict_response(
                 code="request_id_reused",
-                message="This request ID was already used for another mutation.",
+                public_message="This request ID was already used for another mutation.",
             )
         replay_snapshot = await dependencies.store.load(session_id)
         require_current_session(dependencies.app, replay_snapshot.state)
@@ -139,10 +139,9 @@ async def _conversation_turn_response(
     snapshot = await dependencies.store.load(session_id)
     require_current_session(dependencies.app, snapshot.state)
     if snapshot.session_version != expected_session_version:
-        return _problem_response(
-            409,
+        return _conversation_conflict_response(
             code="version_conflict",
-            message="The session changed before this conversation turn began.",
+            public_message="The session changed before this conversation turn began.",
         )
     return StreamingResponse(
         stream_agent_turn(
@@ -167,10 +166,20 @@ def _require_agent_driver(dependencies: RouteDeckDependencies) -> None:
         )
 
 
-def _problem_response(status: int, *, code: str, message: str) -> JSONResponse:
+def _conversation_conflict_response(
+    *,
+    code: str,
+    public_message: str,
+) -> JSONResponse:
+    failure = transport_failure(
+        kind=FailureKind.STATE_CONFLICT,
+        code=code,
+        phase="conversation_turn",
+        public_message=public_message,
+    )
     return JSONResponse(
-        status_code=status,
-        content={"failure": {"code": code, "message": message}},
+        status_code=409,
+        content={"failure": failure.model_dump(mode="json")},
         headers={"Cache-Control": "private, no-store"},
     )
 

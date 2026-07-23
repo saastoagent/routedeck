@@ -11,6 +11,8 @@ claim a published package release.
 - `RouteDeckBootstrapBoundary` and `useRouteDeckBootstrapRecovery` in
   `@routedeck/react`, exposing product-neutral bootstrap phases and only the
   recovery actions that are legal for the current RouteDeck store state.
+- Core-owned bootstrap recovery selection/execution APIs and semantic
+  missing/expired conversation-session classification.
 - Public source repository under the SaaStoAgent organization with a green
   Python and TypeScript CI baseline.
 - Public roadmap and project-health documentation.
@@ -19,6 +21,8 @@ claim a published package release.
 
 ### Changed
 
+- Conversation HTTP failures now use the canonical `RouteDeckFailure` envelope
+  across FastAPI and the TypeScript conversation client.
 - npm production builds exclude test output and TypeScript build metadata.
 - Package metadata now identifies the repository, license, support boundary,
   and alpha status.

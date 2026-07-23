@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -10,11 +9,14 @@ import type {
   RouteDeckClientState,
   RouteDeckStore,
 } from "@routedeck/core";
+import {
+  runRouteDeckBootstrapRecoveryAction,
+  selectRouteDeckBootstrapRecovery,
+} from "@routedeck/core";
 
 import type {
   RouteDeckBootstrapRecoveryAction,
   RouteDeckBootstrapRecoveryActionKind,
-  RouteDeckBootstrapRecoveryReason,
   RouteDeckBootstrapRecoveryState,
 } from "./types";
 
@@ -58,16 +60,13 @@ export function useRouteDeckBootstrapRecovery(
   }, [store]);
 
   const runRecovery = useCallback(
-    async (
-      kind: RouteDeckBootstrapRecoveryActionKind,
-      action: () => Promise<void>,
-    ): Promise<void> => {
+    async (kind: RouteDeckBootstrapRecoveryActionKind): Promise<void> => {
       setActiveAction(kind);
       setActionFailure(null);
       try {
-        await action();
+        await runRouteDeckBootstrapRecoveryAction(store, kind);
         const completed = store.getState();
-        if (!isReady(completed)) {
+        if (selectRouteDeckBootstrapRecovery(completed).phase !== "ready") {
           setActionFailure({
             state: completed,
             error: completed.error ?? RECOVERY_INCOMPLETE,
@@ -86,11 +85,7 @@ export function useRouteDeckBootstrapRecovery(
     [store],
   );
 
-  const actions = useMemo(
-    () => createRecoveryActions(store, runRecovery),
-    [runRecovery, store],
-  );
-  const selection = selectRecovery(state);
+  const selection = selectRouteDeckBootstrapRecovery(state);
   if (selection.phase === "disposed") {
     return {
       phase: "disposed",
@@ -118,10 +113,15 @@ export function useRouteDeckBootstrapRecovery(
     phase: "recovery",
     syncStatus: state.syncStatus,
     reason: selection.reason,
-    busy: activeAction !== null || isInProgress(state),
+    busy: activeAction !== null,
     activeAction,
     error: actionFailure?.state === state ? actionFailure.error : state.error,
-    actions: selection.actionKinds.map((kind) => actions[kind]),
+    actions:
+      activeAction === null
+        ? selection.actionKinds.map((kind) =>
+            action(kind, () => runRecovery(kind)),
+          )
+        : [],
   };
 }
 
@@ -130,116 +130,9 @@ interface RouteDeckBootstrapActionFailure {
   readonly error: RouteDeckClientErrorState;
 }
 
-type RunRecovery = (
-  kind: RouteDeckBootstrapRecoveryActionKind,
-  action: () => Promise<void>,
-) => Promise<void>;
-
-function createRecoveryActions(
-  store: RouteDeckStore,
-  runRecovery: RunRecovery,
-): Readonly<
-  Record<RouteDeckBootstrapRecoveryActionKind, RouteDeckBootstrapRecoveryAction>
-> {
-  return Object.freeze({
-    retry_session_create: action("retry_session_create", () =>
-      runRecovery("retry_session_create", store.retrySessionCreate),
-    ),
-    start_new_session: action("start_new_session", () =>
-      runRecovery("start_new_session", store.startNewSession),
-    ),
-    retry_navigation: action("retry_navigation", () =>
-      runRecovery("retry_navigation", store.retryNavigation),
-    ),
-    abandon_navigation: action("abandon_navigation", () =>
-      runRecovery("abandon_navigation", store.abandonNavigation),
-    ),
-    resync: action("resync", () => runRecovery("resync", store.resync)),
-  });
-}
-
 function action(
   kind: RouteDeckBootstrapRecoveryActionKind,
   run: () => Promise<void>,
 ): RouteDeckBootstrapRecoveryAction {
   return Object.freeze({ kind, run });
-}
-
-type RecoverySelection =
-  | Readonly<{ phase: "loading" }>
-  | Readonly<{ phase: "ready" }>
-  | Readonly<{ phase: "disposed" }>
-  | Readonly<{
-      phase: "recovery";
-      reason: RouteDeckBootstrapRecoveryReason;
-      actionKinds: readonly RouteDeckBootstrapRecoveryActionKind[];
-    }>;
-
-function selectRecovery(state: RouteDeckClientState): RecoverySelection {
-  if (state.syncStatus === "disposed") return { phase: "disposed" };
-  if (state.pendingBootstrap !== null && state.pendingNavigation !== null) {
-    return { phase: "recovery", reason: "invalid_state", actionKinds: [] };
-  }
-  if (state.syncStatus === "bootstrapping") return { phase: "loading" };
-  if (state.pendingNavigation !== null) {
-    return {
-      phase: "recovery",
-      reason: "navigation",
-      actionKinds: ["retry_navigation", "abandon_navigation"],
-    };
-  }
-  switch (state.pendingBootstrap?.kind) {
-    case "session_create":
-      return {
-        phase: "recovery",
-        reason: "session_create",
-        actionKinds: ["retry_session_create", "start_new_session"],
-      };
-    case "resume_expired":
-      return {
-        phase: "recovery",
-        reason: "resume_expired",
-        actionKinds: ["start_new_session"],
-      };
-    case "resume_missing":
-      return {
-        phase: "recovery",
-        reason: "resume_missing",
-        actionKinds: ["start_new_session"],
-      };
-    case "resume_contract_mismatch":
-      return {
-        phase: "recovery",
-        reason: "resume_contract_mismatch",
-        actionKinds: ["start_new_session"],
-      };
-    default:
-      break;
-  }
-  if (state.syncStatus === "live") return { phase: "ready" };
-  if (state.syncStatus === "error") {
-    return {
-      phase: "recovery",
-      reason: "resync",
-      actionKinds: ["resync"],
-    };
-  }
-  return { phase: "loading" };
-}
-
-function isReady(state: RouteDeckClientState): boolean {
-  return (
-    state.syncStatus === "live" &&
-    state.pendingBootstrap === null &&
-    state.pendingNavigation === null
-  );
-}
-
-function isInProgress(state: RouteDeckClientState): boolean {
-  return (
-    state.syncStatus === "bootstrapping" ||
-    state.syncStatus === "connecting" ||
-    state.syncStatus === "navigating" ||
-    state.syncStatus === "resyncing"
-  );
 }

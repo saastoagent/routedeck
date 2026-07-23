@@ -253,6 +253,23 @@ def runtime_session_id(client: httpx.AsyncClient) -> str:
     return session_id
 
 
+def assert_canonical_failure(
+    response: httpx.Response,
+    *,
+    code: str,
+    kind: str = "state_conflict",
+    phase: str = "conversation_turn",
+) -> None:
+    failure = response.json()["failure"]
+    assert failure["kind"] == kind
+    assert failure["code"] == code
+    assert failure["phase"] == phase
+    assert isinstance(failure["correlation_id"], str)
+    assert failure["correlation_id"]
+    assert isinstance(failure["public_message"], str)
+    assert "message" not in failure
+
+
 async def post_completed_chat(
     client: httpx.AsyncClient,
     *,
@@ -348,7 +365,7 @@ async def test_chat_request_id_cannot_be_reused_for_assistant_turn(
     response = await post_assistant_turn(client, request_id="shared-id")
 
     assert response.status_code == 409
-    assert response.json()["failure"]["code"] == "request_id_reused"
+    assert_canonical_failure(response, code="request_id_reused")
     assert graphs.assistant.calls == []
 
 
@@ -370,7 +387,7 @@ async def test_assistant_request_id_cannot_be_reused_for_chat(
     )
 
     assert response.status_code == 409
-    assert response.json()["failure"]["code"] == "request_id_reused"
+    assert_canonical_failure(response, code="request_id_reused")
     assert graphs.user.calls == []
 
 
@@ -387,10 +404,27 @@ async def test_stale_assistant_turn_version_is_rejected_before_graph(
     )
 
     assert response.status_code == 409
-    assert response.json()["failure"]["code"] == "version_conflict"
+    assert_canonical_failure(response, code="version_conflict")
     assert graphs.assistant.calls == []
     snapshot = await runtime.services.store.load(runtime_session_id(client))
     assert snapshot.state.conversation == ()
+
+
+@pytest.mark.asyncio
+async def test_missing_conversation_session_uses_canonical_failure_envelope(
+    client: httpx.AsyncClient,
+) -> None:
+    client.cookies.clear()
+
+    response = await client.get("/api/routedeck/conversation")
+
+    assert response.status_code == 404
+    assert_canonical_failure(
+        response,
+        code="session_not_found",
+        kind="contract",
+        phase="http_transport",
+    )
 
 
 @pytest.mark.asyncio

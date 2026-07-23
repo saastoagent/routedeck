@@ -14,7 +14,7 @@ named conversation presentation actions, and UI primitives.
 
 - `packages/core/src/contracts/{decode,json,projection,events,operations,frontend,privateForms,inspection}.ts`
 - `packages/core/src/conversation/{types,codec,client,assistant}.ts`
-- `packages/core/src/store/{store,bootstrap,synchronization,operations,lifecycle}.ts`
+- `packages/core/src/store/{store,bootstrap,recovery,synchronization,operations,lifecycle}.ts`
 - `packages/core/src/{client,routing,private-forms}/*`
 - `packages/react/src/bootstrap/*`
 - `packages/react/src/conversation/{presentation,useRouteDeckConversation}.ts`
@@ -32,12 +32,15 @@ named conversation presentation actions, and UI primitives.
 - `createRouteDeckStore(...)` remains the public coordinator facade; focused
   bootstrap, synchronization, operation, and lifecycle coordinators are
   internal.
+- `selectRouteDeckBootstrapRecovery(...)` is the product-neutral recovery
+  descriptor, and `runRouteDeckBootstrapRecoveryAction(...)` rechecks and
+  executes only a currently legal action. Both are owned by core.
 - `RouteDeckObservableState` and named store actions/selectors remain the
   canonical browser view of session/projection state.
-- `useRouteDeckBootstrapRecovery(store)` maps the canonical store state to
-  loading, ready, disposed, or product-rendered recovery and exposes only the
-  exact legal store actions for that state. It does not expose retained request
-  IDs or make product policy decisions.
+- `useRouteDeckBootstrapRecovery(store)` adapts the core recovery descriptor to
+  loading, ready, disposed, or product-rendered recovery and attaches action
+  runners through the core executor. It does not expose retained request IDs,
+  reconstruct legality, or make product policy decisions.
 - `RouteDeckBootstrapBoundary` starts an idle store and gates product children
   on that normalized state; consumers supply loading and recovery rendering.
 - `ConversationPresentationActions` exposes named methods such as

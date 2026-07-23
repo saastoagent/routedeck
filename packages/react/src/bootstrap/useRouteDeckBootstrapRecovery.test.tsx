@@ -54,80 +54,22 @@ describe("useRouteDeckBootstrapRecovery", () => {
     });
   });
 
-  it.each([
-    {
-      label: "uncertain session creation",
-      state: {
-        pendingBootstrap: { kind: "session_create" as const },
-      },
-      reason: "session_create",
-      actions: ["retry_session_create", "start_new_session"],
-    },
-    {
-      label: "expired resume",
-      state: {
-        pendingBootstrap: { kind: "resume_expired" as const, status: 410 as const },
-      },
-      reason: "resume_expired",
-      actions: ["start_new_session"],
-    },
-    {
-      label: "missing resume",
-      state: {
-        pendingBootstrap: { kind: "resume_missing" as const, status: 404 as const },
-      },
-      reason: "resume_missing",
-      actions: ["start_new_session"],
-    },
-    {
-      label: "contract-mismatched resume",
-      state: {
-        pendingBootstrap: {
-          kind: "resume_contract_mismatch" as const,
-          status: 409 as const,
-        },
-      },
-      reason: "resume_contract_mismatch",
-      actions: ["start_new_session"],
-    },
-    {
-      label: "uncertain navigation",
-      state: {
-        pendingNavigation: {
-          requestId: "private-navigation-request",
-          fingerprint: "private-navigation-fingerprint",
-          intent: { kind: "open_path" as const, path: "/products/public" },
-        },
-      },
-      reason: "navigation",
-      actions: ["retry_navigation", "abandon_navigation"],
-    },
-    {
-      label: "ordinary synchronization failure",
-      state: {},
-      reason: "resync",
-      actions: ["resync"],
-    },
-  ])("exposes only legal actions for $label", async ({
-    state,
-    reason,
-    actions,
-  }) => {
+  it("exposes no action while retained navigation recovery is in progress", async () => {
     const harness = createStoreHarness({
-      syncStatus: "error",
-      error: { code: "bootstrap_failed", message: "Bootstrap failed." },
-      ...state,
+      syncStatus: "navigating",
+      pendingNavigation: {
+        requestId: "navigation-1",
+        fingerprint: "fingerprint-1",
+        intent: { kind: "open_path", path: "/products/public" },
+      },
     });
 
     await renderRecoveryHook(harness.store);
 
-    const recovery = currentState();
-    expect(recovery.phase).toBe("recovery");
-    if (recovery.phase !== "recovery") throw new Error("Expected recovery state");
-    expect(recovery.reason).toBe(reason);
-    expect(recovery.actions.map((action) => action.kind)).toEqual(actions);
-    expect(JSON.stringify(recovery)).not.toContain("private-navigation-request");
-    expect(JSON.stringify(recovery)).not.toContain("private-navigation-fingerprint");
+    expect(currentState()).toMatchObject({
+      phase: "loading",
+      syncStatus: "navigating",
+    });
   });
 
   it("invokes the exact store action and returns ready after recovery", async () => {
@@ -158,21 +100,6 @@ describe("useRouteDeckBootstrapRecovery", () => {
 
     expect(harness.actions.abandonNavigation).toHaveBeenCalledOnce();
     expect(currentState().phase).toBe("ready");
-  });
-
-  it("leaves duplicate-action semantics to the core store", async () => {
-    const harness = createStoreHarness({ syncStatus: "error" });
-    await renderRecoveryHook(harness.store);
-
-    const recovery = currentState();
-    if (recovery.phase !== "recovery") throw new Error("Expected recovery state");
-    const resync = recovery.actions.find((action) => action.kind === "resync");
-    if (resync === undefined) throw new Error("Missing resync action");
-    await act(async () => {
-      await Promise.all([resync.run(), resync.run()]);
-    });
-
-    expect(harness.actions.resync).toHaveBeenCalledTimes(2);
   });
 
   it("reports the store's safe failure when a recovery action fails", async () => {
@@ -285,13 +212,37 @@ function createStoreHarness(initial: Partial<RouteDeckClientState>) {
     abandonNavigation: vi.fn(async () => undefined),
     resync: vi.fn(async () => undefined),
   };
-  const store = {
+  const store: RouteDeckStore = {
     getState: () => state,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    ...actions,
-  } as unknown as RouteDeckStore;
+    bootstrap: actions.bootstrap,
+    dispatch: async () => {
+      throw new Error("Unexpected dispatch.");
+    },
+    acceptReview: async () => {
+      throw new Error("Unexpected review acceptance.");
+    },
+    rejectReview: async () => {
+      throw new Error("Unexpected review rejection.");
+    },
+    inspect: async () => {
+      throw new Error("Unexpected inspection.");
+    },
+    receiveEvent() {},
+    resync: actions.resync,
+    synchronizeTo: async () => undefined,
+    openPath: async () => undefined,
+    back() {},
+    forward() {},
+    cancel: async () => undefined,
+    retrySessionCreate: actions.retrySessionCreate,
+    startNewSession: actions.startNewSession,
+    retryNavigation: actions.retryNavigation,
+    abandonNavigation: actions.abandonNavigation,
+    dispose() {},
+  };
   return { store, setState, actions };
 }

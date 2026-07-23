@@ -472,6 +472,9 @@ is not a second state authority.
 - `runAssistantInitiatedTurn(...)` for request/event validation, terminal proof,
   conflict convergence, synchronization, and final history reload;
 - authoritative event/session store with replay and resync;
+- `selectRouteDeckBootstrapRecovery(...)` plus
+  `runRouteDeckBootstrapRecoveryAction(...)` as the single recovery descriptor
+  and invocation-time legality gate;
 - route codec, browser-history adapter, and navigation reconciliation;
 - isolated private-form client state.
 
@@ -500,8 +503,8 @@ nodes highlighted in place. The same complete graph can be expanded for closer
 inspection.
 
 React owns rendering and component-local interaction state. Its bootstrap
-adapter projects legal actions already defined by the headless store; it does
-not reimplement retry legality. React does not own canonical operation state or
+adapter consumes legal actions selected and rechecked by core; it does not
+reimplement retry legality. React does not own canonical operation state or
 call product domain APIs. Products retain recovery wording, styling, and
 product-specific policy.
 `createRouteDeckAgentClient(...)` loads canonical history and streams both user

@@ -16,3 +16,4 @@ export * from "./store/state";
 export * from "./store/observable";
 export * from "./store/store";
 export * from "./store/selectors";
+export * from "./store/recovery";

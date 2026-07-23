@@ -5,6 +5,7 @@ import {
   type AgentHistoryTurn,
   type AgentStreamEvent,
 } from "./types";
+import { decodeFailureEnvelope } from "../contracts/decode";
 
 interface SseFrame {
   event: string;
@@ -80,21 +81,19 @@ export async function agentResponseError(
   response: Response,
 ): Promise<AgentChatError> {
   try {
-    const payload = record(await response.json(), "response");
-    const failure = record(payload.failure, "response.failure");
+    const failure = decodeFailureEnvelope(await response.json()).failure;
     return new AgentChatError(
-      stringValue(failure.code, "response.failure.code"),
-      stringValue(failure.message, "response.failure.message"),
+      failure.code,
+      failure.public_message,
       response.status,
       response.status >= 500 && response.status <= 599
         ? "unknown"
         : "rejected",
     );
-  } catch (error) {
-    if (error instanceof AgentChatError) return error;
-    return new AgentChatError(
-      "chat_request_failed",
-      `The agent request failed with status ${response.status}.`,
+  } catch {
+    throw new AgentChatError(
+      "chat_contract_invalid",
+      "The agent conversation error contract is invalid.",
       response.status,
       response.status >= 500 && response.status <= 599
         ? "unknown"

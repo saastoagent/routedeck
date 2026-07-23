@@ -102,3 +102,11 @@ export class AgentChatError extends Error {
     this.outcome = outcome;
   }
 }
+
+const SESSION_RECOVERY_CODES = new Set(["session_not_found", "session_expired"]);
+
+export function isRouteDeckConversationSessionRecoveryError(
+  error: unknown,
+): error is AgentChatError {
+  return error instanceof AgentChatError && SESSION_RECOVERY_CODES.has(error.code);
+}

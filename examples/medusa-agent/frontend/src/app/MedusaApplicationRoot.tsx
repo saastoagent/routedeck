@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AgentChatError,
+  isRouteDeckConversationSessionRecoveryError,
   type AgentHistoryTurn,
   type RouteDeckAgentClient,
 } from "@routedeck/core";
@@ -116,7 +116,7 @@ async function restoreInitialConversation(
   try {
     return await loadConversation(routeDeck, chatClient, requestId);
   } catch (error) {
-    if (!isMissingOrExpiredSession(error)) throw error;
+    if (!isRouteDeckConversationSessionRecoveryError(error)) throw error;
     await routeDeck.store.resync();
     return loadConversation(routeDeck, chatClient, requestId);
   }
@@ -131,13 +131,6 @@ function loadConversation(
     routeDeck,
     chatClient,
     requestId === undefined ? {} : { requestId },
-  );
-}
-
-function isMissingOrExpiredSession(error: unknown): boolean {
-  return (
-    error instanceof AgentChatError &&
-    (error.status === 404 || error.status === 410)
   );
 }
 

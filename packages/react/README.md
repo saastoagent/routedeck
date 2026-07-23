@@ -26,8 +26,10 @@ import { RouteDeckBootstrapBoundary } from "@routedeck/react";
 The boundary starts an idle store, renders children only when bootstrap and
 navigation recovery are complete, and passes normalized recovery state to the
 product. The product owns wording, styling, and policy such as button placement;
-it calls only the actions present in `state.actions`. Use the headless
-`useRouteDeckBootstrapRecovery(store)` hook for a custom composition.
+it calls only the actions present in `state.actions`. The adapter consumes the
+core-owned recovery descriptor and executor; it does not reconstruct retry or
+new-session legality. Use the headless `useRouteDeckBootstrapRecovery(store)`
+hook for a custom composition.
 
 RouteDeck is alpha software. Public API changes are recorded in the repository
 changelog; security reports follow the repository security policy.

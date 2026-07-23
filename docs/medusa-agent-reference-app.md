@@ -353,8 +353,9 @@ After successful session/navigation bootstrap, the frontend loads durable
 conversation. When it is empty, it starts one assistant-initiated turn through
 the generic conversation route. The loading shell does not expose internal
 restore phases, and reload does not manufacture a greeting when conversation is
-already durable. A missing or expired conversation triggers one authoritative
-resync and one reload; a persistent conversation failure renders product copy,
+already durable. A core-classified missing or expired session error triggers
+one authoritative resync and one reload; Medusa does not infer session recovery
+from raw HTTP status. A persistent conversation failure renders product copy,
 while a failed resync returns control to the RouteDeck recovery boundary.
 
 `health` is process liveness. `ready` verifies the RouteDeck store and real

@@ -57,7 +57,7 @@ it("resyncs once and shows a conversation failure when history stays unavailable
   const chatClient = createChatClient();
   chatClient.loadConversation.mockRejectedValue(
     new AgentChatError(
-      "conversation_session_missing",
+      "session_not_found",
       "The buyer conversation session is missing.",
       404,
       "rejected",
@@ -98,7 +98,7 @@ it("returns to bootstrap recovery when the authoritative resync fails", async ()
   const chatClient = createChatClient();
   chatClient.loadConversation.mockRejectedValue(
     new AgentChatError(
-      "conversation_session_expired",
+      "session_expired",
       "The buyer conversation session expired.",
       410,
       "rejected",
@@ -121,6 +121,34 @@ it("returns to bootstrap recovery when the authoritative resync fails", async ()
     screen.getByRole("button", { name: "Reconnect current buyer session" }),
   ).toBeVisible();
   expect(harness.actions.resync).toHaveBeenCalledOnce();
+});
+
+it("does not resync for an unrelated missing conversation endpoint", async () => {
+  const harness = createStoreHarness({ syncStatus: "live" });
+  const chatClient = createChatClient();
+  chatClient.loadConversation.mockRejectedValue(
+    new AgentChatError(
+      "conversation_endpoint_missing",
+      "The buyer conversation endpoint is unavailable.",
+      404,
+      "rejected",
+    ),
+  );
+
+  render(
+    <MedusaApplicationRoot
+      routeDeck={asMedusaRouteDeck(harness.store)}
+      chatClient={chatClient}
+    />,
+  );
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "Buyer conversation could not load",
+    }),
+  ).toBeVisible();
+  expect(chatClient.loadConversation).toHaveBeenCalledOnce();
+  expect(harness.actions.resync).not.toHaveBeenCalled();
 });
 
 function createChatClient() {
@@ -153,13 +181,37 @@ function createStoreHarness(initial: Partial<RouteDeckClientState>) {
     retryNavigation: vi.fn(async () => undefined),
     abandonNavigation: vi.fn(async () => undefined),
   };
-  const store = {
+  const store: RouteDeckStore = {
     getState: () => state,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    ...actions,
-  } as unknown as RouteDeckStore;
+    bootstrap: actions.bootstrap,
+    dispatch: async () => {
+      throw new Error("Unexpected dispatch.");
+    },
+    acceptReview: async () => {
+      throw new Error("Unexpected review acceptance.");
+    },
+    rejectReview: async () => {
+      throw new Error("Unexpected review rejection.");
+    },
+    inspect: async () => {
+      throw new Error("Unexpected inspection.");
+    },
+    receiveEvent() {},
+    resync: actions.resync,
+    synchronizeTo: async () => undefined,
+    openPath: async () => undefined,
+    back() {},
+    forward() {},
+    cancel: async () => undefined,
+    retrySessionCreate: actions.retrySessionCreate,
+    startNewSession: actions.startNewSession,
+    retryNavigation: actions.retryNavigation,
+    abandonNavigation: actions.abandonNavigation,
+    dispose() {},
+  };
   return { store, setState, actions };
 }

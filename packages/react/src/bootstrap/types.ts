@@ -1,23 +1,14 @@
 import type {
+  RouteDeckBootstrapRecoveryActionKind,
+  RouteDeckBootstrapRecoveryReason,
   RouteDeckClientErrorState,
   RouteDeckSyncStatus,
 } from "@routedeck/core";
 
-export type RouteDeckBootstrapRecoveryReason =
-  | "session_create"
-  | "resume_expired"
-  | "resume_missing"
-  | "resume_contract_mismatch"
-  | "navigation"
-  | "resync"
-  | "invalid_state";
-
-export type RouteDeckBootstrapRecoveryActionKind =
-  | "retry_session_create"
-  | "start_new_session"
-  | "retry_navigation"
-  | "abandon_navigation"
-  | "resync";
+export type {
+  RouteDeckBootstrapRecoveryActionKind,
+  RouteDeckBootstrapRecoveryReason,
+} from "@routedeck/core";
 
 export interface RouteDeckBootstrapRecoveryAction {
   readonly kind: RouteDeckBootstrapRecoveryActionKind;

@@ -77,13 +77,37 @@ function createStoreHarness(initial: Partial<RouteDeckClientState>) {
     state = Object.freeze({ ...state, ...next });
     for (const listener of listeners) listener();
   };
-  const store = {
+  const store: RouteDeckStore = {
     getState: () => state,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     bootstrap: vi.fn(async () => undefined),
-  } as unknown as RouteDeckStore;
+    dispatch: async () => {
+      throw new Error("Unexpected dispatch.");
+    },
+    acceptReview: async () => {
+      throw new Error("Unexpected review acceptance.");
+    },
+    rejectReview: async () => {
+      throw new Error("Unexpected review rejection.");
+    },
+    inspect: async () => {
+      throw new Error("Unexpected inspection.");
+    },
+    receiveEvent() {},
+    resync: async () => undefined,
+    synchronizeTo: async () => undefined,
+    openPath: async () => undefined,
+    back() {},
+    forward() {},
+    cancel: async () => undefined,
+    retrySessionCreate: async () => undefined,
+    startNewSession: async () => undefined,
+    retryNavigation: async () => undefined,
+    abandonNavigation: async () => undefined,
+    dispose() {},
+  };
   return { store, setState };
 }
