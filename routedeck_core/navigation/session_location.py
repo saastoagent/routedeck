@@ -6,7 +6,10 @@ from ..app import CompiledApplication
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.session import Location, RouteDeckSession
 from ..state.session import require_current_session
-from ..validation import RouteDeckValidationError
+from ..validation import (
+    RouteDeckResumeCapabilityExpired,
+    RouteDeckValidationError,
+)
 from .routes import PublicRouteKeyValidator
 
 
@@ -40,13 +43,22 @@ def validate_session_location(
         raise RouteDeckValidationError(
             "Session-bound location requires an aware injected clock"
         )
-    if not any(
-        capability.session_id == session.session_id
+    matching_capabilities = tuple(
+        capability
+        for capability in session.private_state.resume_capabilities
+        if capability.session_id == session.session_id
         and capability.node_id == node_id
         and capability.route_params == candidate.route_params
-        and capability.expires_at > now
-        for capability in session.private_state.resume_capabilities
+    )
+    if any(
+        capability.expires_at > now for capability in matching_capabilities
     ):
+        return
+    if matching_capabilities:
+        raise RouteDeckResumeCapabilityExpired(
+            "Session-bound location resume capability has expired"
+        )
+    else:
         raise RouteDeckValidationError(
             "Session-bound location requires an exact active resume capability"
         )

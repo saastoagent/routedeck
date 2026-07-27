@@ -5,4 +5,8 @@ class RouteDeckValidationError(ValueError):
     """Raised when a RouteDeck declaration or interaction is invalid."""
 
 
-__all__ = ["RouteDeckValidationError"]
+class RouteDeckResumeCapabilityExpired(RouteDeckValidationError):
+    """Raised when a session-bound location has only expired resume authority."""
+
+
+__all__ = ["RouteDeckResumeCapabilityExpired", "RouteDeckValidationError"]

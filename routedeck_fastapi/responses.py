@@ -13,7 +13,10 @@ from routedeck_core.contracts.operations import (
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.navigation.transactions import NavigationTransactionError
 from routedeck_core.ports import SessionStoreError
-from routedeck_core.validation import RouteDeckValidationError
+from routedeck_core.validation import (
+    RouteDeckResumeCapabilityExpired,
+    RouteDeckValidationError,
+)
 
 from .contracts import RouteDeckHttpProblem
 from .dependencies import RouteDeckDependencyUnavailable
@@ -152,6 +155,13 @@ def failure_for_exception(error: Exception) -> tuple[int, RouteDeckFailure]:
                 phase="navigation",
                 public_message=error.public_message,
             ),
+        )
+    if isinstance(error, RouteDeckResumeCapabilityExpired):
+        return 410, transport_failure(
+            kind=FailureKind.STATE_CONFLICT,
+            code="resume_capability_expired",
+            phase="session_validation",
+            public_message="The RouteDeck session resume capability has expired.",
         )
     if (
         isinstance(error, RouteDeckValidationError)
