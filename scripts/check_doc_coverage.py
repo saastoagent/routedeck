@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,7 @@ EXCLUDED_PART_NAMES = {
     ".ruff_cache",
     ".superpowers",
     ".venv",
+    ".worktrees",
     "__pycache__",
     "artifacts",
     "codex_chats_and_memories",
@@ -125,11 +127,17 @@ def is_source_file(path: str) -> bool:
 
 
 def all_source_files() -> list[str]:
-    return sorted(
-        path.relative_to(PROJECT_ROOT).as_posix()
-        for path in PROJECT_ROOT.rglob("*")
-        if path.is_file() and not _excluded(path) and is_source_file(path.as_posix())
-    )
+    source_files: list[str] = []
+    for directory, directory_names, file_names in os.walk(PROJECT_ROOT):
+        current = Path(directory)
+        directory_names[:] = [
+            name for name in directory_names if not _excluded(current / name)
+        ]
+        for file_name in file_names:
+            path = current / file_name
+            if not _excluded(path) and is_source_file(path.as_posix()):
+                source_files.append(path.relative_to(PROJECT_ROOT).as_posix())
+    return sorted(source_files)
 
 
 def matches_any(path: str, patterns: tuple[str, ...]) -> bool:

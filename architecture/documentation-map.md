@@ -1,6 +1,6 @@
 # RouteDeck Documentation Map
 
-Last updated: 2026-07-21
+Last updated: 2026-07-22
 
 This map prevents historical implementation material from competing with live
 architecture. When documents disagree, use the highest applicable row below.

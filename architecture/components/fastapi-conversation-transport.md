@@ -38,6 +38,9 @@ product routes, authentication policy, graph topology, or tool behavior.
   or stage review.
 - Mutation origin policy, session selection, cache headers, and public-safe
   error mapping are explicit.
+- An expired session-bound resume capability is a terminal HTTP 410 bootstrap
+  condition, allowing the framework client to offer its legal new-session
+  recovery instead of retrying an internal-error response.
 - Every non-streaming conversation error uses the canonical `RouteDeckFailure`
   envelope; conversation routes do not define a second compact error shape.
 - Missing runtime, session, driver, or contract state fails visibly.
