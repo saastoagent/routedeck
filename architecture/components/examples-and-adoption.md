@@ -7,6 +7,11 @@ agent is the current product-owned reference consumer; generic framework docs
 explain the same product-neutral contracts without moving Medusa behavior into
 RouteDeck.
 
+The local wiki reader renders the checked-in Mermaid sources through pinned
+`mermaid` 11.16.0 with strict client-side sanitization. It lazy-loads the
+renderer, preserves source disclosure, and reports rendering failures visibly;
+the Markdown remains the documentation authority.
+
 A new application follows one current path:
 
 1. Declare product-owned `Feature` modules whose nodes own their outgoing
@@ -69,8 +74,8 @@ A new application follows one current path:
 
 Update this doc and `architecture/code-map.md` when feature composition,
 binding, runner ownership, optional LangGraph integration, example routes,
-frontend package consumption, wiki structure, local reader behavior, Hello
-World behavior, or adoption instructions change.
+frontend package consumption, wiki structure, local reader or diagram-renderer
+behavior, Hello World behavior, or adoption instructions change.
 
 Examples use real in-process behavior or an explicitly configured real
 integration and fail loudly when required data or credentials are unavailable.

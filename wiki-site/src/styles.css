@@ -428,15 +428,15 @@ input:focus-visible {
   border-top: 1px solid var(--line);
 }
 
-.diagram-source {
+.diagram-frame {
   max-width: 820px;
   margin: 28px 0;
   overflow: hidden;
-  background: #fbfcfe;
+  background: #fff;
   border: 1px solid #cfd7e4;
 }
 
-.diagram-source figcaption {
+.diagram-frame figcaption {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -448,12 +448,66 @@ input:focus-visible {
   font-weight: 650;
 }
 
-.diagram-source .diagram-format {
+.diagram-frame .diagram-format {
   color: var(--faint);
   font-weight: 500;
 }
 
-.diagram-source pre {
+.diagram-canvas {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px;
+  overflow: auto;
+  background: #fff;
+}
+
+.diagram-canvas svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 640px;
+}
+
+.diagram-loading {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  color: var(--muted);
+  background: #fbfcfe;
+  font-size: 14px;
+}
+
+.diagram-error {
+  display: grid;
+  gap: 5px;
+  padding: 18px 20px;
+  color: #8c2430;
+  background: #fff5f6;
+  border-left: 3px solid #d43d51;
+  font-size: 14px;
+}
+
+.diagram-error span {
+  color: #7c4a50;
+}
+
+.diagram-source-details {
+  background: #f7f9fc;
+  border-top: 1px solid var(--line);
+}
+
+.diagram-source-details summary {
+  padding: 10px 13px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.diagram-source-details pre {
   margin: 0;
   border: 0;
   background: #f7f9fc;
@@ -676,7 +730,7 @@ input:focus-visible {
   }
 
   .markdown-article pre,
-  .diagram-source {
+  .diagram-frame {
     margin-inline: -6px;
   }
 

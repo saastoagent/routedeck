@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { DocPage } from "./content";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 type MarkdownArticleProps = {
   page: DocPage;
@@ -50,18 +51,6 @@ function internalSlug(href: string | undefined): string | null {
   return target || null;
 }
 
-function MermaidSource({ children }: { children: ReactNode }) {
-  return (
-    <figure className="diagram-source" data-testid="diagram-source">
-      <figcaption>
-        <span>Diagram</span>
-        <span className="diagram-format">Mermaid source</span>
-      </figcaption>
-      <pre><code>{children}</code></pre>
-    </figure>
-  );
-}
-
 export function MarkdownArticle({ page, onNavigate }: MarkdownArticleProps) {
   const components: Components = {
     h1: ({ node: _node, children, ...props }) => (
@@ -93,7 +82,7 @@ export function MarkdownArticle({ page, onNavigate }: MarkdownArticleProps) {
     },
     code: ({ node: _node, className, children, ...props }) => {
       if (className === "language-mermaid") {
-        return <MermaidSource>{children}</MermaidSource>;
+        return <MermaidDiagram source={textFromChildren(children)} />;
       }
       return <code className={className} {...props}>{children}</code>;
     },

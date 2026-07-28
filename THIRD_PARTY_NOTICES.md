@@ -11,6 +11,9 @@ Current dependency surfaces include:
 - Python optional adapter: `langgraph`
 - Python build backend: `hatchling`
 - React peer dependencies: `react`, `react-dom`, `@xyflow/react`
+- Local wiki reader: pinned `mermaid` `11.16.0` (MIT) from
+  `https://github.com/mermaid-js/mermaid`, used only to turn checked-in wiki
+  diagram source into strict client-side SVG output
 - React package smoke tooling: npm package metadata and `npm pack --dry-run`
 - Medusa demo server: exact Medusa `2.13.6` packages and a generated npm lock
 - Local validation tooling: `pytest` and related plugins available in the

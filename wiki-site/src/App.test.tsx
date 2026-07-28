@@ -1,12 +1,27 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+
+const mermaidMocks = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  render: vi.fn(async (id: string, source: string) => ({
+    svg: `<svg id="${id}" data-source="${source.split("\n", 1)[0]}"></svg>`,
+  })),
+}));
+
+vi.mock("mermaid", () => ({
+  default: mermaidMocks,
+}));
 
 describe("RouteDeck wiki site", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    mermaidMocks.render.mockClear();
+    mermaidMocks.render.mockImplementation(async (id: string, source: string) => ({
+      svg: `<svg id="${id}" data-source="${source.split("\n", 1)[0]}"></svg>`,
+    }));
     window.history.replaceState({}, "", "/?page=Home");
     window.scrollTo = () => undefined;
   });
@@ -41,13 +56,30 @@ describe("RouteDeck wiki site", () => {
     expect(within(results).getByRole("button", { name: /operations and supervision/i })).toBeVisible();
   });
 
-  it("preserves Mermaid diagrams as explicit source until a renderer is approved", () => {
+  it("renders Mermaid source as a secured SVG diagram", async () => {
     window.history.replaceState({}, "", "/?page=Architecture");
     render(<App />);
 
-    const diagrams = screen.getAllByTestId("diagram-source");
-    expect(diagrams.length).toBeGreaterThan(0);
-    expect(diagrams.every((diagram) => diagram.textContent?.includes("Mermaid source"))).toBe(true);
-    expect(diagrams.some((diagram) => diagram.textContent?.includes("flowchart TB"))).toBe(true);
+    const diagrams = await screen.findAllByTestId("diagram-rendered");
+    expect(diagrams).toHaveLength(1);
+    expect(diagrams[0].querySelector("svg")).not.toBeNull();
+    expect(mermaidMocks.render).toHaveBeenCalledWith(
+      expect.stringMatching(/^routedeck-diagram-/),
+      expect.stringContaining("flowchart TB"),
+    );
+    await waitFor(() => {
+      expect(mermaidMocks.initialize).toHaveBeenCalledWith(
+        expect.objectContaining({ securityLevel: "strict", startOnLoad: false }),
+      );
+    });
+  });
+
+  it("shows a visible error and the original source when Mermaid cannot render", async () => {
+    mermaidMocks.render.mockRejectedValueOnce(new Error("invalid diagram"));
+    window.history.replaceState({}, "", "/?page=Architecture");
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Diagram could not be rendered");
+    expect(screen.getByText("flowchart TB", { exact: false })).toBeVisible();
   });
 });
