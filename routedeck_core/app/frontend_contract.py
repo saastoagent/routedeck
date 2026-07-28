@@ -33,6 +33,7 @@ def _build_frontend_contract(
                 deep_link_policy=node.route.deep_link_policy,
                 surfaces=_frontend_surface_slots(node.surfaces),
                 operation_ids=tuple(operation.id for operation in node.operations),
+                conversation_input=node.conversation_input,
             )
             for node in nodes
         },

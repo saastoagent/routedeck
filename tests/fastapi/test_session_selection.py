@@ -41,7 +41,11 @@ async def test_guest_selector_reads_and_attaches_the_configured_cookie() -> None
     assert await selected_session_id(request, selector) == "session-internal-1"
 
     response = JSONResponse({"ok": True})
-    selector.attach_created_session(response, "session-internal-2")
+    await selector.attach_created_session(
+        request,
+        response,
+        "session-internal-2",
+    )
     cookie = response.headers["set-cookie"]
     assert "route_session=session-internal-2" in cookie
     assert "HttpOnly" in cookie
@@ -67,12 +71,13 @@ class PrincipalHandleSelector:
                 "The selected session is unavailable.",
             ) from error
 
-    def attach_created_session(
+    async def attach_created_session(
         self,
+        request: Request,
         response: JSONResponse,
         session_id: str,
     ) -> None:
-        del response
+        del request, response
         self.attached.append(session_id)
 
 

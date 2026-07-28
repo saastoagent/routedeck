@@ -58,6 +58,8 @@ export type ProjectionVersion = number | null;
 export type SessionVersion = number;
 export type EntryNodeId = string;
 export type Name1 = string;
+export type DisabledMessage = string | null;
+export type Enabled = boolean;
 export type DeepLinkPolicy = "shareable" | "session_bound";
 export type Id = string;
 export type OperationIds = string[];
@@ -75,7 +77,7 @@ export type Title = string;
 export type Event = string;
 export type Id1 = string;
 export type Id2 = string;
-export type Affordances = SurfaceAffordanceSpec[];
+export type Affordances = SurfaceAffordance[];
 export type Component = string;
 export type Id3 = string;
 export type SurfaceLifecycle = "ephemeral" | "stable";
@@ -249,12 +251,20 @@ export interface Nodes {
   [k: string]: FrontendNodeContract;
 }
 export interface FrontendNodeContract {
+  conversation_input: ConversationInputPolicy;
   deep_link_policy: DeepLinkPolicy;
   id: Id;
   operation_ids: OperationIds;
   route_template: RouteTemplate;
   surfaces: FrontendSurfaceSlots;
   title: Title;
+}
+/**
+ * Static node policy for whether a conversation composer may accept input.
+ */
+export interface ConversationInputPolicy {
+  disabled_message: DisabledMessage;
+  enabled: Enabled;
 }
 export interface FrontendSurfaceSlots {
   active: Active;
@@ -277,7 +287,7 @@ export interface FrontendSurfaceContract {
   lifecycle: SurfaceLifecycle;
   public_props_schema: PublicPropsSchema;
 }
-export interface SurfaceAffordanceSpec {
+export interface SurfaceAffordance {
   event: Event;
   id: Id1;
   operation?: OperationRef | null;

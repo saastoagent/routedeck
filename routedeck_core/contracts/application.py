@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 from .agent import AgentPolicyRef
+from .conversation import ConversationInputPolicy
 from .navigation import (
     CompiledTransition,
     NavigationPolicy,
@@ -79,6 +80,10 @@ class Node(_FrozenContract):
     suggested_actions: tuple[SuggestedAction, ...] = ()
     navigation: NavigationPolicy = NavigationPolicy()
     recovery: RecoveryPolicy = RecoveryPolicy()
+    conversation_input: ConversationInputPolicy = ConversationInputPolicy(
+        enabled=True,
+        disabled_message=None,
+    )
     public_metadata: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )

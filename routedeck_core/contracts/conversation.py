@@ -23,6 +23,26 @@ class ConversationTurnStatus(StrEnum):
     INTERRUPTED = "turn_interrupted"
 
 
+class ConversationInputPolicy(_FrozenContract):
+    """Static node policy for whether a conversation composer may accept input."""
+
+    enabled: bool
+    disabled_message: str | None
+
+    @model_validator(mode="after")
+    def _disabled_message_matches_enabled_state(self) -> ConversationInputPolicy:
+        message = self.disabled_message
+        if self.enabled and message is not None:
+            raise ValueError(
+                "disabled_message must be omitted when conversation input is enabled"
+            )
+        if not self.enabled and (message is None or not message.strip()):
+            raise ValueError(
+                "disabled_message is required when conversation input is disabled"
+            )
+        return self
+
+
 class ConversationToolCall(_FrozenContract):
     """Framework-neutral metadata needed to replay one observed tool call.
 
@@ -65,6 +85,7 @@ class FinalizedConversationTurn(ConversationTurn):
 
 
 __all__ = [
+    "ConversationInputPolicy",
     "ConversationRole",
     "ConversationToolCall",
     "ConversationTurn",

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, model_serializer
 
 from ..contracts.agent import AgentPolicy
 from ..contracts.application import CompiledGraph, Node
+from ..contracts.conversation import ConversationInputPolicy
 from ..contracts.navigation import DeepLinkPolicy
 from ..contracts.operations import (
     Guard,
@@ -53,6 +54,7 @@ class FrontendNodeContract(_FrozenContract):
     deep_link_policy: DeepLinkPolicy
     surfaces: FrontendSurfaceSlots
     operation_ids: tuple[str, ...]
+    conversation_input: ConversationInputPolicy
 
 
 class FrontendTransitionContract(_FrozenContract):

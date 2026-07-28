@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
 import {
   RouteDeckStateError,
+  type FrontendContract,
   type FrontendSurfaceContract,
   type JsonObject,
   type RouteDeckDispatchResult,
   type RouteDeckProjectedSurface,
-  type SurfaceAffordanceSpec,
 } from "@routedeck/core";
 
 export type RouteDeckSurfaceSlot =
@@ -41,6 +41,38 @@ export function defineRouteDeckSurfaceRegistry<
   return Object.freeze({ ...registry });
 }
 
+export function validateRouteDeckSurfaceRegistry(
+  contract: FrontendContract,
+  registry: RouteDeckSurfaceRegistry,
+): void {
+  const declaredComponents = new Set(
+    Object.values(contract.surfaces).map((surface) => surface.component),
+  );
+  const registeredComponents = new Set(Object.keys(registry));
+  const missing = [...declaredComponents]
+    .filter((component) => !registeredComponents.has(component))
+    .sort();
+  const extra = [...registeredComponents]
+    .filter((component) => !declaredComponents.has(component))
+    .sort();
+
+  if (missing.length === 0 && extra.length === 0) {
+    return;
+  }
+
+  const details = [
+    missing.length > 0 ? `Missing: ${missing.join(", ")}.` : undefined,
+    extra.length > 0 ? `Extra: ${extra.join(", ")}.` : undefined,
+  ]
+    .filter((detail): detail is string => detail !== undefined)
+    .join(" ");
+
+  throw new RouteDeckStateError(
+    "surface_registry_mismatch",
+    `Surface registry does not match the compiled contract. ${details}`,
+  );
+}
+
 export function projectedSurfaceProps(
   surface: RouteDeckProjectedSurface,
 ): Readonly<JsonObject> {
@@ -60,7 +92,7 @@ export function projectedSurfaceProps(
 export function findSurfaceAffordance(
   spec: FrontendSurfaceContract,
   affordanceId: string,
-): SurfaceAffordanceSpec {
+): NonNullable<FrontendSurfaceContract["affordances"]>[number] {
   const affordance = spec.affordances?.find((item) => item.id === affordanceId);
   if (!affordance) {
     throw new RouteDeckStateError(

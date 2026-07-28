@@ -7,7 +7,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "contracts:generate": "python scripts/export_contracts.py --schema-output packages/core/schema/routedeck.schema.json && json2ts -i packages/core/schema/routedeck.schema.json -o packages/core/src/contracts/generated.ts",
+    "contracts:generate": "uv run python scripts/export_contracts.py --schema-output packages/core/schema/routedeck.schema.json && json2ts -i packages/core/schema/routedeck.schema.json -o packages/core/src/contracts/generated.ts",
     "wiki:dev": "pnpm --filter @routedeck/wiki-site dev",
     "wiki:test": "pnpm --filter @routedeck/wiki-site test",
     "wiki:build": "pnpm --filter @routedeck/wiki-site build",

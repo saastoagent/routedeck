@@ -1,5 +1,32 @@
 {
   "$defs": {
+    "ConversationInputPolicy": {
+      "additionalProperties": false,
+      "description": "Static node policy for whether a conversation composer may accept input.",
+      "properties": {
+        "disabled_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disabled Message"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "disabled_message"
+      ],
+      "title": "ConversationInputPolicy",
+      "type": "object"
+    },
     "DeepLinkPolicy": {
       "enum": [
         "shareable",
@@ -186,6 +213,9 @@
     "FrontendNodeContract": {
       "additionalProperties": false,
       "properties": {
+        "conversation_input": {
+          "$ref": "#/$defs/ConversationInputPolicy"
+        },
         "deep_link_policy": {
           "$ref": "#/$defs/DeepLinkPolicy"
         },
@@ -218,7 +248,8 @@
         "route_template",
         "deep_link_policy",
         "surfaces",
-        "operation_ids"
+        "operation_ids",
+        "conversation_input"
       ],
       "title": "FrontendNodeContract",
       "type": "object"
@@ -229,7 +260,7 @@
         "affordances": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/SurfaceAffordanceSpec"
+            "$ref": "#/$defs/SurfaceAffordance"
           },
           "title": "Affordances",
           "type": "array"
@@ -1396,7 +1427,7 @@
       "title": "RouteDeckInteractionState",
       "type": "object"
     },
-    "SurfaceAffordanceSpec": {
+    "SurfaceAffordance": {
       "additionalProperties": false,
       "properties": {
         "event": {
@@ -1425,7 +1456,7 @@
         "id",
         "event"
       ],
-      "title": "SurfaceAffordanceSpec",
+      "title": "SurfaceAffordance",
       "type": "object"
     },
     "SurfaceLifecycle": {

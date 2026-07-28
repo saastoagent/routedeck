@@ -15,7 +15,7 @@ import {
   ScriptedRouteDeckClient,
 } from "@routedeck/testing";
 
-import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
+import { testSurfaceRegistryForContract } from "./surfaceRegistry";
 
 const PRODUCT_INTERACTION_HANDLE = "prd_opaque_buyer_7f3c";
 const VARIANT_ONE_HANDLE = "var_opaque_buyer_31aa";
@@ -36,7 +36,7 @@ it("keeps projected surfaces inert while RouteDeck reports an active chat turn",
 
   const harness = await renderRouteDeckComponent(
     <RouteDeckSurfaceHost
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(catalogContract())}
       slots={["active"]}
     />,
     {
@@ -71,7 +71,7 @@ it("searches and clears the catalog through declared RouteDeck affordances", asy
 
   const harness = await renderRouteDeckComponent(
     <RouteDeckSurfaceHost
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(catalogContract())}
       slots={["active"]}
     />,
     {
@@ -130,7 +130,7 @@ it("browses, opens, selects, and adds only through RouteDeck without Store API t
 
   const harness = await renderRouteDeckComponent(
     <RouteDeckSurfaceHost
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(catalogContract())}
       slots={["active"]}
     />,
     {
@@ -373,6 +373,7 @@ function catalogContract(): FrontendContract {
         title: "Products",
         route_template: "/products",
         deep_link_policy: "shareable",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: [
           "catalog.list",
           "catalog.search",
@@ -385,6 +386,7 @@ function catalogContract(): FrontendContract {
         title: "Product",
         route_template: "/products/{product_handle}",
         deep_link_policy: "shareable",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["catalog.select_variant", "cart.add_item"],
         surfaces: { active: "catalog.product_detail", ...emptySlots },
       },

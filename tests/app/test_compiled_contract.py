@@ -136,6 +136,8 @@ def test_frontend_contract_contains_rich_surface_slots_and_no_private_bindings()
     assert frontend_contact.lifecycle == contact_node.surfaces.active.lifecycle
     assert frontend_contact.affordances == contact_node.surfaces.active.affordances
     assert product.surfaces.active == "catalog.product_detail"
+    assert product.conversation_input.enabled is True
+    assert product.conversation_input.disabled_message is None
     assert product.surfaces.frame
     assert set(type(product.surfaces).model_fields) >= {
         "active",

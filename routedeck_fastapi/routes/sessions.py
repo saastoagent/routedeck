@@ -66,7 +66,8 @@ def create_session_routes(
                 content={"projection": public_projection(projection)},
                 headers={"Cache-Control": PRIVATE_CACHE_CONTROL},
             )
-            dependencies.session_selector.attach_created_session(
+            await dependencies.session_selector.attach_created_session(
+                request,
                 response,
                 session_id,
             )

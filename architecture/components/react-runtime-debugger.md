@@ -40,12 +40,24 @@ named conversation presentation actions, and UI primitives.
   executes only a currently legal action. Both are owned by core.
 - `RouteDeckObservableState` and named store actions/selectors remain the
   canonical browser view of session/projection state.
+- `RouteDeckSurfaceHost` validates the complete product component registry
+  against the compiled frontend contract before rendering. Missing components
+  and stale extra registrations produce the visible
+  `surface_registry_mismatch` failure.
+- `useRouteDeckConversationInputPolicy()` resolves the current node's typed,
+  static conversation-input contract. The framework owns contract validation
+  and current-node lookup; the consumer owns node declarations and disabled
+  wording.
 - `useRouteDeckBootstrapRecovery(store)` adapts the core recovery descriptor to
   loading, ready, disposed, or product-rendered recovery and attaches action
   runners through the core executor. It does not expose retained request IDs,
-  reconstruct legality, or make product policy decisions.
+  reconstruct legality, or make product policy decisions. After a store first
+  reaches ready, projection resync/reconnect work remains background work and
+  does not unmount the product application; a terminal synchronization error
+  still returns to explicit recovery.
 - `RouteDeckBootstrapBoundary` starts an idle store and gates product children
-  on that normalized state; consumers supply loading and recovery rendering.
+  on initial readiness while preserving those children across later background
+  synchronization; consumers supply loading and recovery rendering.
 - `ConversationPresentationActions` exposes named methods such as
   `beginTurn`, `restoreSnapshot`, `showUserMessage`, `appendAssistantText`,
   `finalizeAssistant`, `requireReview`, `completeTurn`, and `failTurn`.
@@ -82,4 +94,5 @@ pnpm --filter @routedeck/react test
 
 Update this document when strict decoding, assistant/chat clients, observable
 state, named presentation actions, retained-request behavior, routing/history,
-forms, or React primitive ownership changes.
+forms, surface-registry enforcement, conversation-input policy, or React
+primitive ownership changes.

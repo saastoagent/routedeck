@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -53,6 +54,7 @@ export function useRouteDeckBootstrapRecovery(
     useState<RouteDeckBootstrapRecoveryActionKind | null>(null);
   const [actionFailure, setActionFailure] =
     useState<RouteDeckBootstrapActionFailure | null>(null);
+  const readyStore = useRef<RouteDeckStore | null>(null);
 
   useEffect(() => {
     if (store.getState().syncStatus !== "idle") return;
@@ -86,6 +88,18 @@ export function useRouteDeckBootstrapRecovery(
   );
 
   const selection = selectRouteDeckBootstrapRecovery(state);
+  if (selection.phase === "ready") readyStore.current = store;
+  if (
+    readyStore.current === store &&
+    selection.phase === "loading" &&
+    isBackgroundSynchronization(state)
+  ) {
+    return {
+      phase: "ready",
+      syncStatus: "live",
+      busy: false,
+    };
+  }
   if (selection.phase === "disposed") {
     return {
       phase: "disposed",
@@ -123,6 +137,16 @@ export function useRouteDeckBootstrapRecovery(
           )
         : [],
   };
+}
+
+function isBackgroundSynchronization(state: RouteDeckClientState): boolean {
+  return (
+    state.pendingBootstrap === null &&
+    state.pendingNavigation === null &&
+    (state.syncStatus === "resync_required" ||
+      state.syncStatus === "resyncing" ||
+      state.syncStatus === "connecting")
+  );
 }
 
 interface RouteDeckBootstrapActionFailure {

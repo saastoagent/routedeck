@@ -24,10 +24,10 @@ import {
 } from "@routedeck/testing";
 
 import type { AgentChatClient } from "@routedeck/core";
-import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
 import { AgentShell } from "../ui/AgentShell";
 import { BuyerNavigation } from "../ui/BuyerNavigation";
 import { NavgraphSidebar } from "../ui/NavgraphSidebar";
+import { testSurfaceRegistryForContract } from "./surfaceRegistry";
 
 const REVIEW_ID = "review_opaque_shell_82c4";
 const CONTACT_FORM_HANDLE = "form_opaque_shell_30f1";
@@ -52,7 +52,7 @@ it("places the home suggestion after the model greeting without a welcome surfac
 
   const harness = await renderRouteDeckComponent(
     <AgentShell
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(frontendContract())}
       client={idleChatClient}
       initialConversation={[
         {
@@ -146,7 +146,10 @@ it("shows an animated thinking row immediately after the submitted user message"
   });
   projection.surfaces.active = null;
   const harness = await renderRouteDeckComponent(
-    <AgentShell registry={medusaRouteDeckSurfaces} client={client} />,
+    <AgentShell
+      registry={testSurfaceRegistryForContract(frontendContract())}
+      client={client}
+    />,
     { contract: frontendContract(), projection },
   );
 
@@ -340,7 +343,10 @@ it("keeps proposal and acceptance disabled while private delivery hydrates", asy
   );
 
   const harness = await renderRouteDeckComponent(
-    <AgentShell registry={medusaRouteDeckSurfaces} client={idleChatClient} />,
+    <AgentShell
+      registry={testSurfaceRegistryForContract(reviewShellContract())}
+      client={idleChatClient}
+    />,
     {
       contract: reviewShellContract(),
       projection: pendingReviewProjection(),
@@ -372,7 +378,10 @@ it("keeps proposal and acceptance disabled when the hydrated address is invalid"
   });
 
   const harness = await renderRouteDeckComponent(
-    <AgentShell registry={medusaRouteDeckSurfaces} client={idleChatClient} />,
+    <AgentShell
+      registry={testSurfaceRegistryForContract(reviewShellContract())}
+      client={idleChatClient}
+    />,
     {
       contract: reviewShellContract(),
       projection: pendingReviewProjection(),
@@ -393,7 +402,10 @@ it("enables proposal and acceptance after private delivery hydration succeeds", 
   client.privateValues.set(CONTACT_FORM_HANDLE, privateReviewSnapshot());
 
   const harness = await renderRouteDeckComponent(
-    <AgentShell registry={medusaRouteDeckSurfaces} client={idleChatClient} />,
+    <AgentShell
+      registry={testSurfaceRegistryForContract(reviewShellContract())}
+      client={idleChatClient}
+    />,
     {
       contract: reviewShellContract(),
       projection: pendingReviewProjection(),
@@ -439,7 +451,10 @@ it("keeps rejection available when private delivery hydration fails", async () =
   });
 
   const harness = await renderRouteDeckComponent(
-    <AgentShell registry={medusaRouteDeckSurfaces} client={idleChatClient} />,
+    <AgentShell
+      registry={testSurfaceRegistryForContract(reviewShellContract())}
+      client={idleChatClient}
+    />,
     {
       contract: reviewShellContract(),
       projection: pendingReviewProjection(),
@@ -563,6 +578,7 @@ function reviewShellContract(): FrontendContract {
         title: "Review",
         route_template: "/checkout/review",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.place_order"],
         surfaces: {
           active: "checkout.order_review",
@@ -616,6 +632,7 @@ function frontendContract(): FrontendContract {
         title: "Welcome",
         route_template: "/",
         deep_link_policy: "shareable",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["catalog.list"],
         surfaces: { active: null, ...emptySlots },
       },
@@ -624,6 +641,7 @@ function frontendContract(): FrontendContract {
         title: "Catalog",
         route_template: "/products",
         deep_link_policy: "shareable",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: [],
         surfaces: { active: null, ...emptySlots },
       },

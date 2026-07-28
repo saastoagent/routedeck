@@ -10,6 +10,7 @@ import { RouteDeckError } from "../status/RouteDeckError";
 import {
   findSurfaceAffordance,
   projectedSurfaceProps,
+  validateRouteDeckSurfaceRegistry,
   type RouteDeckSurfaceRegistry,
   type RouteDeckSurfaceSlot,
 } from "./registry";
@@ -39,7 +40,16 @@ export function RouteDeckSurfaceHost({
   className,
   empty = null,
 }: RouteDeckSurfaceHostProps) {
+  const contract = useRouteDeckContract();
   const projection = useRouteDeckProjection();
+  try {
+    validateRouteDeckSurfaceRegistry(contract, registry);
+  } catch (error) {
+    if (error instanceof RouteDeckStateError) {
+      return <RouteDeckError code={error.code} message={error.message} />;
+    }
+    throw error;
+  }
   if (projection === null) return <>{empty}</>;
   const entries = slots.flatMap((slot) => {
     const projected = projection.surfaces[slot];

@@ -1,6 +1,6 @@
 # RouteDeck Context
 
-Last updated: 2026-07-22
+Last updated: 2026-07-28
 Status: M0 public source launch complete; repository-local wiki source and local
 reader complete; registry package and GitHub Wiki publication pending.
 RouteDeck is public at
@@ -38,15 +38,26 @@ historical material under `docs/archive/`.
 - One `RouteDeckRuntime` owns canonical session, conversation, operation,
   review, navigation, surface, event, and projection state. One supervised
   runner governs application-semantic operations from agents and UI.
-- FastAPI requires a host-owned session selector. The optional LangGraph
+- FastAPI requires a host-owned session selector for both current-session
+  authorization and request-aware created-session binding; principal, opaque
+  handle, and guest policy remain host-owned. The optional LangGraph
   adapter drives product-supplied graphs without owning product topology,
   prompts, models, authentication, or business logic.
 - `@routedeck/core` owns strict browser contracts and authoritative state;
   `@routedeck/react` supplies product-neutral UI primitives and the read-only
   Navgraph.
+- Once `RouteDeckBootstrapBoundary` has reached ready, later projection
+  resync/reconnect phases keep the application mounted. Initial bootstrap,
+  replacement, retained navigation, and terminal recovery remain gated.
 - Headless assistant initiation now publishes accumulated, product-neutral
   presentation progress after every validated delta while preserving the same
   terminal proof, synchronization, conflict convergence, and canonical reload.
+- Compiled node contracts now carry typed static conversation-input
+  availability. React resolves it for the current node while consumers retain
+  ownership of affected nodes and displayed wording.
+- `RouteDeckSurfaceHost` now validates the complete consumer registry against
+  the compiled frontend contract before rendering and reports missing or stale
+  components as `surface_registry_mismatch`.
 
 Medusa remains the reference consumer. It owns Store API transport, commerce
 truth, product features, prompts/models/graphs, session policy, deployment,
@@ -82,6 +93,22 @@ The completed implementation plan is archived at
 [`docs/archive/2026-07-21-routedeck-public-alpha.md`](./docs/archive/2026-07-21-routedeck-public-alpha.md).
 
 ## Current Evidence
+
+- The post-ready synchronization regression failed against the former boundary
+  for `resync_required`, `resyncing`, and `connecting`, then passed after the
+  fix. The full React package passed 18 tests, strict typecheck, and build. A
+  rebuilt Corpus browser run held the Lounge for 150/150 samples over 15
+  seconds with zero loading transitions and zero console warnings/errors;
+  the pre-fix run switched 33 times in six seconds.
+- The request-aware created-session selector change passed all 25 FastAPI
+  tests and focused Ruff checks. The Corpus consumer passed 63 backend and 23
+  frontend tests, strict typecheck/build, and a rebuilt local browser run whose
+  expired owner route recovered through `410 -> 201 -> event stream 200` to the
+  Lounge without exposing framework expiry copy.
+- The 2026-07-28 contract-boundary regression passed 520 non-real Python tests,
+  all root package tests (47 core, 15 React, 15 testing, 71 Medusa frontend,
+  and 5 wiki), root typecheck, and root build. The four protected real-Medusa
+  tests remain a separate live-stack gate and were not needed for this change.
 
 - Wiki closeout: 19 Markdown files, 1,208 lines, 14 Mermaid diagrams, one
   focused Hello World test passed, 618/618 live files mapped, and 63 active

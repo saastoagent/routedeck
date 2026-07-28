@@ -15,7 +15,7 @@ import {
   ScriptedRouteDeckClient,
 } from "@routedeck/testing";
 
-import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
+import { testSurfaceRegistryForContract } from "./surfaceRegistry";
 
 it("starts checkout exactly once from a non-empty cart", async () => {
   const client = new ScriptedRouteDeckClient();
@@ -23,7 +23,7 @@ it("starts checkout exactly once from a non-empty cart", async () => {
   const projection = cartProjection(1, true);
   const harness = await renderRouteDeckComponent(
     <RouteDeckSurfaceHost
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(cartContract())}
       slots={["active"]}
     />,
     { contract: cartContract(), projection, client },
@@ -55,7 +55,7 @@ it("starts checkout exactly once from a non-empty cart", async () => {
 it("does not render checkout for an empty cart", async () => {
   const harness = await renderRouteDeckComponent(
     <RouteDeckSurfaceHost
-      registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(cartContract())}
       slots={["active"]}
     />,
     {
@@ -135,6 +135,7 @@ function cartContract(): FrontendContract {
         title: "Cart",
         route_template: "/cart",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.start"],
         surfaces: {
           active: "cart.summary",

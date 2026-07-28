@@ -31,6 +31,7 @@ location:
 - context/entity providers and guards;
 - operations and declared outcomes;
 - surfaces, capabilities, and suggested actions;
+- static conversation-input availability and consumer-owned disabled copy;
 - outgoing transitions;
 - navigation and recovery policy.
 
@@ -147,6 +148,11 @@ and renders the visual design.
 
 A surface affordance and an agent tool dispatch the same declared operation.
 The Navgraph inspector is orientation-only and never dispatches or navigates.
+
+The React surface registry must match the unique component names in the
+compiled frontend contract exactly. `RouteDeckSurfaceHost` fails visibly for
+missing registrations and stale extras instead of discovering drift only when
+a particular surface becomes active.
 
 ## 6. Open One Runtime
 
@@ -272,6 +278,11 @@ disposal to the legal action set. For custom composition use
 surface host, operations, private forms, review, navigation, status/error, and
 read-only Navgraph primitives. Product components and copy remain outside the
 framework package.
+
+Use `useRouteDeckConversationInputPolicy()` to drive a product composer from
+the current node's compiled policy. Do not maintain a second frontend list of
+node IDs. RouteDeck validates and resolves the policy; the product declares
+which nodes disable input and supplies the displayed reason.
 
 ## 10. Preserve Failure Semantics
 

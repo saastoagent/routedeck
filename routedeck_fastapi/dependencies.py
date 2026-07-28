@@ -60,8 +60,9 @@ class RouteDeckSessionSelector(Protocol):
 
     async def selected_session_id(self, request: Request) -> str: ...
 
-    def attach_created_session(
+    async def attach_created_session(
         self,
+        request: Request,
         response: Response,
         session_id: str,
     ) -> None: ...

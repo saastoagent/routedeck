@@ -373,7 +373,11 @@ request retains its exact request identity for explicit retry or abandonment.
 RouteDeck owns one selected session's durable interaction state. Every FastAPI
 router requires a host-owned `RouteDeckSessionSelector`, which returns one
 already-authorized internal session ID. Authentication, users, tenants, session
-listing, and authorization remain consumer-owned.
+listing, authorization, and replacement ownership remain consumer-owned. After
+creating a session, RouteDeck awaits the selector's request-aware
+`attach_created_session(request, response, session_id)` hook so the host can
+atomically bind the replacement to its principal/opaque handle or explicit
+guest policy; RouteDeck does not choose between those policies.
 
 The Medusa reference explicitly installs `GuestCookieSessionSelector` with a
 host-configured HTTP-only cookie: separate browser profiles are isolated and
@@ -482,8 +486,9 @@ is not a second state authority.
 `@routedeck/react` provides:
 
 - `RouteDeckBootstrapBoundary` and `useRouteDeckBootstrapRecovery`, which start
-  an idle store, gate children on readiness, and expose only recovery actions
-  legal for the current canonical store state;
+  an idle store, gate children on initial readiness, preserve the mounted
+  application during post-ready projection resync/reconnect, and expose only
+  recovery actions legal for the current canonical store state;
 - `RouteDeckProvider` and selectors/hooks;
 - `RouteDeckSurfaceHost` plus a product component registry;
 - private-form, review, navigation, status, and error primitives;

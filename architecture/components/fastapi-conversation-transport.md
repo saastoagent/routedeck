@@ -50,7 +50,11 @@ product routes, authentication policy, graph topology, or tool behavior.
 `RouteDeckSessionSelector` is the required transport seam. A production host
 may resolve `(authenticated principal, opaque consumer session handle)` to one
 already-authorized internal RouteDeck session ID. RouteDeck never trusts a raw
-browser-supplied internal ID and never silently selects a replacement session.
+browser-supplied internal ID and never chooses a consumer's replacement policy.
+When RouteDeck creates a session, it awaits the selector's request-aware
+`attach_created_session(request, response, session_id)` hook. The host may use
+that hook to atomically bind the new internal session to an authenticated
+principal and opaque handle, or attach its explicit guest policy.
 
 `GuestCookieSessionSelector` is an explicit reference adapter for guest mode.
 Its `GuestCookieSettings` requires the cookie name, `secure` flag, and path;

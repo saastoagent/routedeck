@@ -14,7 +14,7 @@ from routedeck_core.contracts.events import PublicRouteDeckEvent
 from routedeck_core.contracts.failures import RouteDeckFailure
 from routedeck_core.contracts.operations import OperationResult
 from routedeck_core.contracts.projection import PublicProjection
-from routedeck_fastapi.router import (
+from routedeck_fastapi.contracts import (
     DispatchRequest,
     PrivateFormWriteRequest,
     ReviewRequest,

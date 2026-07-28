@@ -123,11 +123,13 @@ class GuestCookieSessionSelector:
             )
         return session_id
 
-    def attach_created_session(
+    async def attach_created_session(
         self,
+        request: Request,
         response: Response,
         session_id: str,
     ) -> None:
+        del request
         response.set_cookie(
             key=self.settings.name,
             value=session_id,

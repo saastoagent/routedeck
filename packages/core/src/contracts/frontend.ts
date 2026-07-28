@@ -9,6 +9,7 @@ const {
   decodeArray,
   decodeNullableString,
   decodeStringArray,
+  expectBoolean,
   expectJsonObject,
   expectOneOf,
   expectRecord,
@@ -45,7 +46,15 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
     const node = expectRecord(
       rawNode,
       `$contract.nodes.${key}`,
-      ["id", "title", "route_template", "deep_link_policy", "surfaces", "operation_ids"],
+      [
+        "id",
+        "title",
+        "route_template",
+        "deep_link_policy",
+        "surfaces",
+        "operation_ids",
+        "conversation_input",
+      ],
     );
     const id = expectString(node.id, `$contract.nodes.${key}.id`);
     if (id !== key) fail(`$contract.nodes.${key}.id`, "must match its map key");
@@ -54,6 +63,31 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
       `$contract.nodes.${key}.surfaces`,
       ["active", "frame", "peer", "detail", "form", "review", "status", "error", "diagnostic"],
     );
+    const conversationInput = expectRecord(
+      node.conversation_input,
+      `$contract.nodes.${key}.conversation_input`,
+      ["enabled", "disabled_message"],
+    );
+    const conversationInputEnabled = expectBoolean(
+      conversationInput.enabled,
+      `$contract.nodes.${key}.conversation_input.enabled`,
+    );
+    const disabledMessage = decodeNullableString(
+      conversationInput.disabled_message,
+      `$contract.nodes.${key}.conversation_input.disabled_message`,
+    );
+    if (conversationInputEnabled && disabledMessage !== null) {
+      fail(
+        `$contract.nodes.${key}.conversation_input.disabled_message`,
+        "must be null when conversation input is enabled",
+      );
+    }
+    if (!conversationInputEnabled && disabledMessage === null) {
+      fail(
+        `$contract.nodes.${key}.conversation_input.disabled_message`,
+        "is required when conversation input is disabled",
+      );
+    }
     nodes[key] = {
       id,
       title: expectString(node.title, `$contract.nodes.${key}.title`, true),
@@ -87,6 +121,10 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
         node.operation_ids,
         `$contract.nodes.${key}.operation_ids`,
       ),
+      conversation_input: {
+        enabled: conversationInputEnabled,
+        disabled_message: disabledMessage,
+      },
     };
   }
   const transitions = decodeArray(

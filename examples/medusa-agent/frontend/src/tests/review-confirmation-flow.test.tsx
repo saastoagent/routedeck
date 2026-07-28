@@ -20,7 +20,7 @@ import {
 } from "@routedeck/testing";
 
 import { CheckoutReviewAuthorityProvider } from "../features/checkout/CheckoutReviewAuthority";
-import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
+import { testSurfaceRegistryForContract } from "./surfaceRegistry";
 
 const PAYMENT_PROVIDER_REF = "pay_opaque_system_470a";
 const CONTACT_FORM_HANDLE = "form_opaque_review_553f";
@@ -89,7 +89,7 @@ it("moves from payment through reviewed recovery to verified confirmation", asyn
     >
       <CheckoutReviewAuthorityProvider>
         <RouteDeckSurfaceHost
-          registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(checkoutContract())}
           slots={["active", "review", "diagnostic"]}
         />
       </CheckoutReviewAuthorityProvider>
@@ -378,6 +378,7 @@ function checkoutContract(): FrontendContract {
         title: "Payment",
         route_template: "/checkout/payment",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.select_payment"],
         surfaces: { active: "checkout.payment_method", ...emptySlots },
       },
@@ -386,6 +387,7 @@ function checkoutContract(): FrontendContract {
         title: "Review",
         route_template: "/checkout/review",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.place_order", "orders.reconcile"],
         surfaces: {
           active: "checkout.order_review",
@@ -399,6 +401,7 @@ function checkoutContract(): FrontendContract {
         title: "Order confirmed",
         route_template: "/orders/{confirmation_handle}/confirmation",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["catalog.continue_shopping"],
         surfaces: { active: "orders.confirmation", ...emptySlots },
       },

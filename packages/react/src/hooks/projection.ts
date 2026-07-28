@@ -1,4 +1,5 @@
 import {
+  RouteDeckStateError,
   selectCurrentNode,
   selectProjection,
   selectSurfaces,
@@ -18,6 +19,20 @@ export function useRouteDeckProjection() {
 
 export function useRouteDeckCurrentNode() {
   return useRouteDeckSelector(selectCurrentNode);
+}
+
+export function useRouteDeckConversationInputPolicy() {
+  const contract = useRouteDeckContract();
+  const currentNode = useRouteDeckCurrentNode();
+  if (currentNode === null) return null;
+  const node = contract.nodes[currentNode];
+  if (!node) {
+    throw new RouteDeckStateError(
+      "frontend_node_contract_mismatch",
+      `Current node ${currentNode} is absent from the compiled frontend contract.`,
+    );
+  }
+  return node.conversation_input;
 }
 
 export function useRouteDeckSurfaces() {

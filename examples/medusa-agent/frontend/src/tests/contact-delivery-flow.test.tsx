@@ -19,7 +19,7 @@ import {
   ScriptedRouteDeckClient,
 } from "@routedeck/testing";
 
-import { medusaRouteDeckSurfaces } from "../routedeck/surfaces";
+import { testSurfaceRegistryForContract } from "./surfaceRegistry";
 
 const FORM_HANDLE = "form_opaque_checkout_81d3";
 const SHIPPING_OPTION_HANDLE = "ship_opaque_checkout_f227";
@@ -71,7 +71,7 @@ it("keeps contact private and selects projected delivery without Store API traff
       createRequestId={() => `checkout-request-${++requestSequence}`}
     >
       <RouteDeckSurfaceHost
-        registry={medusaRouteDeckSurfaces}
+      registry={testSurfaceRegistryForContract(checkoutContract())}
         slots={["active"]}
       />
     </RouteDeckProvider>,
@@ -209,7 +209,7 @@ it("reports synchronous contact extraction failures through RouteDeck", async ()
       createRequestId={() => "contact-error-request"}
     >
       <RouteDeckSurfaceHost
-        registry={medusaRouteDeckSurfaces}
+        registry={testSurfaceRegistryForContract(checkoutContract())}
         slots={["active"]}
       />
     </RouteDeckProvider>,
@@ -343,6 +343,7 @@ function checkoutContract(): FrontendContract {
         title: "Contact",
         route_template: "/checkout/contact",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.save_contact"],
         surfaces: { active: "checkout.contact_form", ...emptySlots },
       },
@@ -351,6 +352,7 @@ function checkoutContract(): FrontendContract {
         title: "Delivery",
         route_template: "/checkout/delivery",
         deep_link_policy: "session_bound",
+        conversation_input: { enabled: true, disabled_message: null },
         operation_ids: ["checkout.select_shipping"],
         surfaces: { active: "checkout.shipping_options", ...emptySlots },
       },

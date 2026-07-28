@@ -67,6 +67,40 @@ it("renders loading, product recovery, and children from framework state", async
   expect(container.textContent).not.toContain("Recover");
 });
 
+it.each(["resync_required", "resyncing", "connecting"] as const)(
+  "keeps the ready application mounted during background %s synchronization",
+  async (syncStatus) => {
+    const harness = createStoreHarness({ syncStatus: "live" });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <RouteDeckBootstrapBoundary
+          store={harness.store}
+          loading={<p>Loading buyer session</p>}
+          recovery={(state) => (
+            <p>
+              Recover {state.phase === "recovery" ? state.reason : state.phase}
+            </p>
+          )}
+        >
+          <main>Buyer application</main>
+        </RouteDeckBootstrapBoundary>,
+      );
+    });
+    expect(container.textContent).toContain("Buyer application");
+
+    await act(async () => {
+      harness.setState({ syncStatus });
+    });
+
+    expect(container.textContent).toContain("Buyer application");
+    expect(container.textContent).not.toContain("Loading buyer session");
+  },
+);
+
 function createStoreHarness(initial: Partial<RouteDeckClientState>) {
   let state: RouteDeckClientState = Object.freeze({
     ...createInitialRouteDeckState(),
