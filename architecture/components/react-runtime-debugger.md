@@ -28,7 +28,10 @@ named conversation presentation actions, and UI primitives.
   `streamAssistantTurn(...)`.
 - `runAssistantInitiatedTurn(...)` owns request/event validation, durable
   completion proof, version synchronization, conflict convergence, and final
-  conversation reload for headless assistant-only turns.
+  conversation reload for headless assistant-only turns. Its optional typed
+  progress observer publishes accumulated assistant text after every validated
+  delta, before terminal completion, without exposing the raw stream state
+  machine to consumers.
 - `createRouteDeckStore(...)` remains the public coordinator facade; focused
   bootstrap, synchronization, operation, and lifecycle coordinators are
   internal.
@@ -64,7 +67,8 @@ framework error codes with product-specific wording, but it must not inspect the
 assistant stream or reproduce the coordinator or bootstrap recovery state
 machines. Medusa renders its product recovery shell from the normalized React
 adapter and its initial conversation module chooses greeting request identity
-and copy before delegating the lifecycle to `runAssistantInitiatedTurn(...)`.
+and copy before delegating the lifecycle to `runAssistantInitiatedTurn(...)`;
+it may render the coordinator's typed accumulated progress directly.
 
 ## Evidence
 

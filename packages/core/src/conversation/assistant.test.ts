@@ -23,6 +23,34 @@ afterEach(() => {
 });
 
 describe("runAssistantInitiatedTurn", () => {
+  it("publishes accumulated assistant progress before returning durable conversation", async () => {
+    let releaseCompletion!: () => void;
+    const completionGate = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
+    });
+    const harness = assistantHarness({
+      conversationLoads: [[ASSISTANT_TURN]],
+      stream: gatedAssistantStream(completionGate),
+    });
+    const progress: string[] = [];
+
+    let completed = false;
+    const loading = runAssistantInitiatedTurn(harness.store, harness.client, {
+      requestId: REQUEST_ID,
+      onProgress: (update) => progress.push(update.content),
+    }).then((conversation) => {
+      completed = true;
+      return conversation;
+    });
+
+    await vi.waitFor(() => expect(progress).toEqual(["Wel"]));
+    expect(completed).toBe(false);
+    releaseCompletion();
+    await loading;
+
+    expect(progress).toEqual(["Wel", "Welcome."]);
+  });
+
   it("commits one completed assistant turn and reloads durable conversation", async () => {
     const harness = assistantHarness({
       conversationLoads: [[ASSISTANT_TURN]],
@@ -212,7 +240,7 @@ describe("runAssistantInitiatedTurn", () => {
 
 function assistantHarness(options: {
   conversationLoads: readonly (readonly AgentHistoryTurn[])[];
-  stream: readonly AgentStreamEvent[];
+  stream: readonly AgentStreamEvent[] | AsyncIterable<AgentStreamEvent>;
   state?: RouteDeckClientState;
   beforeSubscribeState?: RouteDeckClientState;
 }) {
@@ -249,7 +277,9 @@ function assistantHarness(options: {
       expected_session_version: number;
     }) => {
       assistantRequests.push(request);
-      return scriptedStream(options.stream);
+      return Symbol.asyncIterator in options.stream
+        ? options.stream
+        : scriptedStream(options.stream);
     },
   } as unknown as RouteDeckAgentClient;
   return {
@@ -270,6 +300,39 @@ async function* scriptedStream(
   events: readonly AgentStreamEvent[],
 ): AsyncIterable<AgentStreamEvent> {
   for (const event of events) yield event;
+}
+
+async function* gatedAssistantStream(
+  completionGate: Promise<void>,
+): AsyncIterable<AgentStreamEvent> {
+  yield {
+    type: "stream_start",
+    request_id: REQUEST_ID,
+    session_version: 3,
+  };
+  yield {
+    type: "assistant_delta",
+    request_id: REQUEST_ID,
+    content: "Wel",
+  };
+  await completionGate;
+  yield {
+    type: "assistant_delta",
+    request_id: REQUEST_ID,
+    content: "come.",
+  };
+  yield {
+    type: "assistant_end",
+    request_id: REQUEST_ID,
+    session_version: 4,
+    projection_version: 4,
+    turn_id: "turn-assistant",
+  };
+  yield {
+    type: "stream_end",
+    request_id: REQUEST_ID,
+    status: "completed",
+  };
 }
 
 function completedAssistantStream(): readonly AgentStreamEvent[] {

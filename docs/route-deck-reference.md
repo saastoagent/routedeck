@@ -469,8 +469,9 @@ is not a second state authority.
 - strict decoders generated from Python contracts;
 - credential-aware HTTP and SSE clients;
 - the RouteDeck conversation client for public history and assistant streaming;
-- `runAssistantInitiatedTurn(...)` for request/event validation, terminal proof,
-  conflict convergence, synchronization, and final history reload;
+- `runAssistantInitiatedTurn(...)` for request/event validation, accumulated
+  live assistant presentation progress, terminal proof, conflict convergence,
+  synchronization, and final history reload;
 - authoritative event/session store with replay and resync;
 - `selectRouteDeckBootstrapRecovery(...)` plus
   `runRouteDeckBootstrapRecoveryAction(...)` as the single recovery descriptor

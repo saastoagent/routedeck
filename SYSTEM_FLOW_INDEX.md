@@ -79,7 +79,9 @@ assistant trigger + request id + expected session version
   -> same turn lease/replay/interruption lifecycle
   -> product entry graph, without synthetic HumanMessage
   -> exactly one streamed non-tool assistant result
+  -> headless coordinator publishes accumulated presentation text per validated delta
   -> persist assistant turn + terminal event
+  -> synchronize versions and reload canonical finalized conversation
 ```
 
 Tools or review output on this path are contract failures.

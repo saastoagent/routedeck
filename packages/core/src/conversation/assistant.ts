@@ -12,6 +12,12 @@ const CONFLICT_CODES = new Set(["operation_in_progress", "version_conflict"]);
 export interface AssistantInitiatedTurnOptions {
   requestId: string;
   convergenceTimeoutMs?: number;
+  onProgress?(progress: AssistantInitiatedTurnProgress): void;
+}
+
+export interface AssistantInitiatedTurnProgress {
+  readonly requestId: string;
+  readonly content: string;
 }
 
 type AssistantTurnStore = Pick<
@@ -32,7 +38,13 @@ export async function runAssistantInitiatedTurn(
     );
   }
   try {
-    return await runTurn(store, client, options.requestId, sessionVersion);
+    return await runTurn(
+      store,
+      client,
+      options.requestId,
+      sessionVersion,
+      options.onProgress,
+    );
   } catch (error) {
     if (!isConflict(error)) throw error;
     return convergeWithWinningTurn(store, client, options);
@@ -44,11 +56,13 @@ async function runTurn(
   client: RouteDeckAgentClient,
   requestId: string,
   sessionVersion: number,
+  onProgress: AssistantInitiatedTurnOptions["onProgress"],
 ): Promise<readonly AgentHistoryTurn[]> {
   let completedVersions:
     | { sessionVersion: number; projectionVersion: number }
     | null = null;
   let streamCompleted = false;
+  let assistantContent = "";
   for await (const event of client.streamAssistantTurn({
     request_id: requestId,
     expected_session_version: sessionVersion,
@@ -66,8 +80,16 @@ async function runTurn(
       case "conversation_snapshot":
         break;
       case "assistant_delta":
+        requireRequestId(event.request_id, requestId);
+        assistantContent += event.content;
+        onProgress?.(
+          Object.freeze({ requestId, content: assistantContent }),
+        );
+        break;
       case "assistant_reset":
         requireRequestId(event.request_id, requestId);
+        assistantContent = "";
+        onProgress?.(Object.freeze({ requestId, content: "" }));
         break;
       case "assistant_end":
         requireRequestId(event.request_id, requestId);
