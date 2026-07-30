@@ -81,6 +81,7 @@ class RouteDeckModelContext(_FrozenContract):
     """The default-deny RouteDeck state made visible to one model call."""
 
     current_node: str = Field(min_length=1)
+    feature_prompt: str | None = None
     active_surface: ModelContextSurface | None = None
     visible_entities: tuple[ModelContextEntity, ...] = ()
     legal_tools: tuple[ModelContextTool, ...] = ()
@@ -167,6 +168,7 @@ def build_model_context(
     status_code = session.public_state.status_code
     return RouteDeckModelContext(
         current_node=node.id,
+        feature_prompt=resolved.feature_prompt,
         active_surface=(
             ModelContextSurface(
                 surface_id=surface_spec.id,

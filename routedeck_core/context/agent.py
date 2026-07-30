@@ -29,6 +29,7 @@ class ResolvedAgentContext:
     active_surface: Surface | None
     visible_entities: tuple[PublicEntityHandle, ...]
     suggested_actions: tuple[SuggestedAction, ...]
+    feature_prompt: str | None
     policies: tuple[AgentPolicy, ...]
 
 
@@ -77,6 +78,7 @@ class AgentContextLens:
                 declared_entity_kinds,
             ),
             suggested_actions=suggested_actions,
+            feature_prompt=feature.agent_prompt,
             policies=self._resolve_policies(policy_refs),
         )
 

@@ -14,6 +14,7 @@ class _FrozenContract(BaseModel):
 class Feature(_FrozenContract):
     namespace: str = Field(min_length=1)
     nodes: tuple[Node, ...]
+    agent_prompt: str | None = Field(default=None, min_length=1)
     agent_policies: tuple[AgentPolicy, ...] = ()
     policy_refs: tuple[AgentPolicyRef, ...] = ()
 

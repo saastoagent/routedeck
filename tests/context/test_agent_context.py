@@ -75,6 +75,7 @@ def _compiled_app(*, active_surface: bool):
                 Feature(
                     namespace="test",
                     nodes=(node,),
+                    agent_prompt="You are the test feature agent.",
                     agent_policies=policies,
                     policy_refs=(
                         by_id["test.feature"].ref,
@@ -104,6 +105,7 @@ def test_agent_context_lens_resolves_current_scopes_in_stable_deduplicated_order
         "test.surface",
         "test.operation",
     )
+    assert context.feature_prompt == "You are the test feature agent."
     assert context.active_surface is not None
     assert context.active_surface.id == "test.surface"
     assert tuple(action.id for action in context.suggested_actions) == (
