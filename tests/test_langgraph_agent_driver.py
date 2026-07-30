@@ -36,7 +36,6 @@ EventFactory = Callable[
 class RecordingGraph:
     event_factory: EventFactory
     inputs: list[Mapping[str, Any]] = field(default_factory=list)
-    invocation_kwargs: list[Mapping[str, Any]] = field(default_factory=list)
 
     def astream_events(
         self,
@@ -49,7 +48,6 @@ class RecordingGraph:
         del config
         assert version == "v2"
         self.inputs.append(input)
-        self.invocation_kwargs.append(kwargs)
         return self.event_factory({"input": input, "kwargs": kwargs})
 
 
@@ -208,10 +206,6 @@ async def test_assistant_graph_sends_no_user_marker_and_persists_only_assistant(
     assert isinstance(completed, AgentTurnCompleted)
     assert [turn.role for turn in completed.turns] == [ConversationRole.ASSISTANT]
     assert assistant_graph.inputs == [{"messages": []}]
-    context = assistant_graph.invocation_kwargs[0]["context"]
-    assert context["session_id"] == "session-1"
-    assert context["request_id_prefix"] == "request-1"
-    assert context["turn"].session_id == "session-1"
     assert all(
         not isinstance(message, HumanMessage)
         for graph_input in assistant_graph.inputs

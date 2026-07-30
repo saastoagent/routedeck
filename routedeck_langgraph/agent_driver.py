@@ -240,7 +240,7 @@ class RouteDeckLangGraphAgentDriver:
         if isinstance(turn.trigger, UserMessageTrigger):
             return self._user_message_invocation(turn, turn.trigger)
         if isinstance(turn.trigger, AssistantInitiatedTrigger):
-            return self._assistant_initiated_invocation(turn)
+            return self._assistant_initiated_invocation()
         _invalid("The RouteDeck conversation trigger is unsupported.")
 
     def _user_message_invocation(
@@ -273,18 +273,8 @@ class RouteDeckLangGraphAgentDriver:
 
     def _assistant_initiated_invocation(
         self,
-        turn: RouteDeckAgentTurn,
-    ) -> tuple[
-        LangGraphEventStream,
-        Mapping[str, Any],
-        RouteDeckInvocationContext,
-    ]:
-        context: RouteDeckInvocationContext = {
-            "session_id": turn.session_id,
-            "request_id_prefix": turn.request_id,
-            "turn": turn.lease,
-        }
-        return self.graphs.assistant_initiated, {"messages": []}, context
+    ) -> tuple[LangGraphEventStream, Mapping[str, Any], None]:
+        return self.graphs.assistant_initiated, {"messages": []}, None
 
     def _extract(
         self,

@@ -43,9 +43,6 @@ rejects tool calls or review output.
 
 - RouteDeck's navgraph and the product model graph remain separate.
 - Middleware exposes only default-deny current context and legal operations.
-- Middleware selects the product-authored prompt from the feature that owns the
-  current node and composes it before resolved policies and untrusted JSON
-  context; RouteDeck does not author product prompt content.
 - Every structured product tool call reaches the runtime's one operation
   runner; the adapter never calls a product handler directly.
 - A product graph factory returns an explicit graph set or `None`; a missing or
@@ -59,6 +56,5 @@ rejects tool calls or review output.
 python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q
 ```
 
-Update this document when trigger rules, feature-prompt selection,
-graph-factory ownership, model-context filtering, event translation, stream
-cleanup, or tool supervision changes.
+Update this document when trigger rules, graph-factory ownership, model-context
+filtering, event translation, stream cleanup, or tool supervision changes.

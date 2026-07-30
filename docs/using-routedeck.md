@@ -8,9 +8,6 @@ interaction nodes and supplies product behavior; RouteDeck composes, validates,
 and runs the shared state, supervision, navigation, conversation, and browser
 machinery.
 
-For the product-design decisions that come before implementation, read the
-[Feature and Node Design Guide](./feature-and-node-design-guide.md).
-
 ## Mental Model
 
 ```text

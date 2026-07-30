@@ -27,7 +27,6 @@ from .model_context import (
 )
 from .prompt import (
     ROUTEDECK_CONTEXT_SECTION,
-    ROUTEDECK_FEATURE_PROMPT_SECTION,
     ROUTEDECK_POLICY_SECTION,
     render_agent_system_message,
 )
@@ -62,7 +61,6 @@ __all__ = [
     "RouteDeckToolConfigurationError",
     "RouteDeckToolWrapper",
     "ROUTEDECK_CONTEXT_SECTION",
-    "ROUTEDECK_FEATURE_PROMPT_SECTION",
     "ROUTEDECK_POLICY_SECTION",
     "awrap_tool_call",
     "build_model_context",

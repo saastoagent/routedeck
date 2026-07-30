@@ -48,9 +48,9 @@ RouteDeck contains no Medusa, commerce, or other product-specific branches.
 ### `Application` and `Feature`
 
 An application is a name, an entry node, and feature modules. Each `Feature`
-owns a unique namespace, an optional product-authored agent prompt, and complete
-nodes. Each node owns its outgoing local and cross-feature transitions; their
-source is implicit from the declaring node.
+owns a unique namespace and complete nodes. Each node owns its outgoing local
+and cross-feature transitions; their source is implicit from the declaring
+node.
 
 Composition selects independently authored features and the entry node.
 RouteDeck resolves feature-owned nodes and their outgoing transitions, derives
@@ -395,11 +395,8 @@ RouteDeck's navgraph and a LangGraph model graph have different jobs.
 - Product LangGraph: model/tool orchestration chosen by the application.
 
 `RouteDeckMiddleware` loads the current session before a model call, rebuilds
-durable finalized messages, resolves the product-authored prompt for the
-feature that owns the current node, injects that prompt followed by resolved
-AgentPolicies and a default-deny JSON context, and filters the model's tools to
-currently legal RouteDeck operations. The product retains ownership of the
-prompt text; RouteDeck only selects and composes the active declaration.
+durable finalized messages, injects a default-deny JSON context, and filters
+the model's tools to currently legal RouteDeck operations.
 `RouteDeckToolWrapper` validates the invocation context and sends tool calls
 through `RouteDeckOperationRunner`. Tool observations become durable turns only
 through the supervised parent-turn lifecycle.
@@ -415,10 +412,8 @@ call `astream_events(...)` or construct that driver.
 Extraction requires exactly one matching `HumanMessage` and retains that turn.
 `AssistantInitiatedTrigger` sends no `HumanMessage`, accepts exactly one
 streamed non-tool assistant result, persists only that assistant turn, and
-rejects tool calls or review output. Both triggers receive the selected session
-context so product middleware can resolve the same active feature prompt and
-policies, and both use the same RouteDeck turn lease, completion, interruption,
-cleanup, and replay model.
+rejects tool calls or review output. Both triggers use the same RouteDeck turn
+lease, completion, interruption, cleanup, and replay model.
 
 The application retains its existing `create_agent(...)` or raw `StateGraph`.
 For raw graphs, use the wrapper around `ToolNode` tool calls. RouteDeck does not
