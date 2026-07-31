@@ -127,6 +127,7 @@ export function RouteDeckNavGraph({
                 <NavGraphInspector
                   {...inspectorProps}
                   canvasHeight="calc(100vh - 15rem)"
+                  showMiniMap={false}
                 />
               </section>
             </div>,

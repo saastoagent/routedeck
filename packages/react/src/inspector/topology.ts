@@ -19,15 +19,17 @@ export interface NavGraphLayoutNode {
 export interface NavGraphTopology {
   nodes: NavGraphLayoutNode[];
   edges: NavGraphInspectorEdge[];
+  structuralConnections: Array<{ from: string; to: string }>;
   width: number;
   height: number;
 }
 
 const NODE_WIDTH = 184;
 const NODE_HEIGHT = 86;
-const FAMILY_COLUMN_GAP = 72;
-const FAMILY_ROW_GAP = 54;
-const ROOT_TO_FAMILIES_GAP = 104;
+const COLUMN_GAP = 42;
+const LAYER_GAP = 72;
+const WRAPPED_ROW_GAP = 28;
+const MAX_COLUMNS_PER_ROW = 6;
 const PADDING = 56;
 
 export function buildNavGraphTopology(
@@ -45,7 +47,13 @@ export function buildNavGraphTopology(
     }
   }
   if (sourceNodes.length === 0) {
-    return { nodes: [], edges: [...edges], width: 0, height: 0 };
+    return {
+      nodes: [],
+      edges: [...edges],
+      structuralConnections: [],
+      width: 0,
+      height: 0,
+    };
   }
 
   const root = nodeIds.has(contract.entry_node_id)
@@ -58,6 +66,7 @@ export function buildNavGraphTopology(
   for (const values of outgoing.values()) values.sort();
 
   const depth = new Map<string, number>([[root, 0]]);
+  const structuralConnections: Array<{ from: string; to: string }> = [];
   const orderedNodeIds = [root];
   const queue = [root];
   while (queue.length > 0) {
@@ -66,93 +75,108 @@ export function buildNavGraphTopology(
     for (const target of outgoing.get(current) ?? []) {
       if (depth.has(target)) continue;
       depth.set(target, nextDepth);
+      structuralConnections.push({ from: current, to: target });
       orderedNodeIds.push(target);
       queue.push(target);
     }
   }
-  let detachedDepth = Math.max(...depth.values()) + 1;
+  const detachedDepth = Math.max(...depth.values()) + 1;
   for (const node of sourceNodes) {
     if (!depth.has(node.id)) {
-      depth.set(node.id, detachedDepth++);
+      depth.set(node.id, detachedDepth);
       orderedNodeIds.push(node.id);
     }
   }
   const layoutNodeIds = orderNodesWithinDepth(orderedNodeIds, depth, edges);
-  const sitemap = buildSitemapLayout(contract, layoutNodeIds, root);
+  const sitemap = buildLayeredSitemapLayout(layoutNodeIds, depth, edges);
   const shifted = sourceNodes.map((node) => ({
     id: node.id,
     label: node.title,
-    familyLabel: sitemap.familyLabels.get(node.id) ?? null,
+    familyLabel: null,
     depth: depth.get(node.id)!,
     ...sitemap.positions.get(node.id)!,
   }));
   return {
     nodes: shifted,
     edges: [...edges],
+    structuralConnections,
     width: sitemap.width,
     height: sitemap.height,
   };
 }
 
-function buildSitemapLayout(
-  contract: FrontendContract,
+function buildLayeredSitemapLayout(
   orderedNodeIds: readonly string[],
-  root: string,
+  depth: ReadonlyMap<string, number>,
+  edges: readonly NavGraphInspectorEdge[],
 ) {
-  const families = new Map<string, string[]>();
+  const layers = new Map<number, string[]>();
   for (const nodeId of orderedNodeIds) {
-    if (nodeId === root) continue;
-    const family = sitemapFamily(contract.nodes[nodeId]!.route_template);
-    families.set(family, [...(families.get(family) ?? []), nodeId]);
+    const nodeDepth = depth.get(nodeId)!;
+    layers.set(nodeDepth, [...(layers.get(nodeDepth) ?? []), nodeId]);
   }
-  const familyEntries = [...families.entries()];
-  const columns = Math.max(1, familyEntries.length);
-  const contentWidth =
-    columns * NODE_WIDTH +
-    Math.max(0, columns - 1) * FAMILY_COLUMN_GAP;
-  const positions = new Map<string, { x: number; y: number }>([
-    [
-      root,
-      {
-        x: PADDING + (contentWidth - NODE_WIDTH) / 2,
-        y: PADDING,
-      },
-    ],
-  ]);
-  const familyLabels = new Map<string, string>();
-  const familyTop = PADDING + NODE_HEIGHT + ROOT_TO_FAMILIES_GAP;
-  let longestFamily = 0;
-  familyEntries.forEach(([family, nodeIds], column) => {
-    longestFamily = Math.max(longestFamily, nodeIds.length);
-    nodeIds.forEach((nodeId, row) => {
-      positions.set(nodeId, {
-        x: PADDING + column * (NODE_WIDTH + FAMILY_COLUMN_GAP),
-        y: familyTop + row * (NODE_HEIGHT + FAMILY_ROW_GAP),
-      });
-      if (row === 0) familyLabels.set(nodeId, family);
+  const orderedLayers = [...layers.entries()].sort(([left], [right]) => left - right);
+  const precedingOrder = new Map<string, number>();
+  for (const [, layer] of orderedLayers) {
+    layer.sort((left, right) => {
+      const leftBarycenter = incomingBarycenter(left, edges, precedingOrder);
+      const rightBarycenter = incomingBarycenter(right, edges, precedingOrder);
+      return leftBarycenter - rightBarycenter || left.localeCompare(right);
     });
-  });
-  const familyHeight =
-    longestFamily === 0
-      ? 0
-      : longestFamily * NODE_HEIGHT +
-        Math.max(0, longestFamily - 1) * FAMILY_ROW_GAP;
+    layer.forEach((nodeId, index) => precedingOrder.set(nodeId, index));
+  }
+  const widestRow = Math.max(
+    1,
+    ...orderedLayers.map(([, layer]) => Math.min(layer.length, MAX_COLUMNS_PER_ROW)),
+  );
+  const contentWidth =
+    widestRow * NODE_WIDTH + Math.max(0, widestRow - 1) * COLUMN_GAP;
+  const positions = new Map<string, { x: number; y: number }>();
+  let y = PADDING;
+  for (const [, layer] of orderedLayers) {
+    const rows = chunk(layer, MAX_COLUMNS_PER_ROW);
+    rows.forEach((row, rowIndex) => {
+      const rowWidth =
+        row.length * NODE_WIDTH + Math.max(0, row.length - 1) * COLUMN_GAP;
+      const rowLeft = PADDING + (contentWidth - rowWidth) / 2;
+      row.forEach((nodeId, column) => {
+        positions.set(nodeId, {
+          x: rowLeft + column * (NODE_WIDTH + COLUMN_GAP),
+          y: y + rowIndex * (NODE_HEIGHT + WRAPPED_ROW_GAP),
+        });
+      });
+    });
+    y +=
+      rows.length * NODE_HEIGHT +
+      Math.max(0, rows.length - 1) * WRAPPED_ROW_GAP +
+      LAYER_GAP;
+  }
   return {
     positions,
-    familyLabels,
     width: PADDING * 2 + contentWidth,
-    height:
-      PADDING * 2 +
-      NODE_HEIGHT +
-      (familyHeight === 0 ? 0 : ROOT_TO_FAMILIES_GAP + familyHeight),
+    height: Math.max(0, y - LAYER_GAP + PADDING),
   };
 }
 
-function sitemapFamily(routeTemplate: string): string {
-  const firstSegment = routeTemplate
-    .split("/")
-    .find((segment) => segment.length > 0);
-  return firstSegment === undefined ? "/" : `/${firstSegment}`;
+function incomingBarycenter(
+  nodeId: string,
+  edges: readonly NavGraphInspectorEdge[],
+  precedingOrder: ReadonlyMap<string, number>,
+): number {
+  const positions = edges
+    .filter((edge) => edge.to === nodeId)
+    .map((edge) => precedingOrder.get(edge.from))
+    .filter((value): value is number => value !== undefined);
+  if (positions.length === 0) return Number.MAX_SAFE_INTEGER;
+  return positions.reduce((total, value) => total + value, 0) / positions.length;
+}
+
+function chunk<T>(values: readonly T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    rows.push(values.slice(index, index + size));
+  }
+  return rows;
 }
 
 function orderNodesWithinDepth(

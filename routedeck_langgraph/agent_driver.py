@@ -16,6 +16,7 @@ from langchain_core.messages import (
 
 from routedeck_core.contracts.conversation import ConversationRole
 from routedeck_core.contracts.session import SessionSnapshot
+from routedeck_core.context import AgentContextLens
 from routedeck_core.ports import (
     AgentReviewRequired,
     AgentTurnCompleted,
@@ -35,8 +36,8 @@ from .conversation import (
     extract_assistant_initiated_turn,
     extract_conversation_turns,
 )
-from .model_context import build_model_context
-from .prompt import render_agent_system_message
+from .model_context import build_model_context, reconstruct_messages
+from .prompt import agent_system_prompt_parts
 from .tool_wrapper import RouteDeckInvocationContext
 from .tool_wrapper import operation_tool_name
 
@@ -62,6 +63,7 @@ class RouteDeckLangGraphGraphs:
     assistant_initiated: LangGraphEventStream
     ignored_event_tags: frozenset[str]
     system_prompt: str | None = None
+    model_configuration: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for graph in (self.user_message, self.assistant_initiated):
@@ -107,6 +109,32 @@ class _CompletedModelRun:
     chunks: tuple[str, ...]
 
 
+def _inspection_message(message: BaseMessage) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": message.id,
+        "role": message.type,
+        "content": message.text,
+    }
+    if isinstance(message, AIMessage) and message.tool_calls:
+        payload["tool_calls"] = [
+            {
+                "id": call.get("id"),
+                "name": call.get("name"),
+                "arguments": call.get("args", {}),
+            }
+            for call in message.tool_calls
+        ]
+    if isinstance(message, ToolMessage):
+        payload.update(
+            {
+                "name": message.name,
+                "tool_call_id": message.tool_call_id,
+                "status": message.status,
+            }
+        )
+    return payload
+
+
 @dataclass(frozen=True)
 class RouteDeckLangGraphAgentDriver:
     """Translate product-supplied LangGraph events into RouteDeck events."""
@@ -130,13 +158,55 @@ class RouteDeckLangGraphAgentDriver:
                 )
             }
         )
-        system_message = render_agent_system_message(
-            SystemMessage(content=self.graphs.system_prompt),
-            model_context,
-        )
+        base_message = SystemMessage(content=self.graphs.system_prompt)
+        prompt = agent_system_prompt_parts(base_message, model_context)
+        resolved = AgentContextLens(
+            self.app.app if hasattr(self.app, "app") else self.app
+        ).resolve(snapshot.state)
         return {
+            "kind": "current_snapshot",
+            "snapshot": {
+                "session_version": snapshot.session_version,
+                "projection_version": snapshot.projection_version,
+                "event_cursor": snapshot.event_cursor,
+                "interaction_phase": snapshot.state.interaction.phase.value,
+            },
+            "model": dict(self.graphs.model_configuration or {}),
             "model_context": model_context.model_dump(mode="json"),
-            "system_prompt": system_message.text,
+            "policy_resolution": [
+                {
+                    "policy_id": item.policy.id,
+                    "instruction": item.policy.instruction,
+                    "scope": item.scope,
+                    "owner_id": item.owner_id,
+                    "source_order": item.source_order,
+                }
+                for item in resolved.policy_provenance
+            ],
+            "prompt": {
+                "base": prompt.base_prompt,
+                "policy_section": prompt.policy_section,
+                "context_section": prompt.context_section,
+                "assembled": prompt.assembled_prompt,
+            },
+            "system_prompt": prompt.assembled_prompt,
+            "messages": [
+                _inspection_message(message)
+                for message in reconstruct_messages(
+                    snapshot,
+                    tool_name_factory=operation_tool_name,
+                )
+            ],
+            "tools": [tool.model_dump(mode="json") for tool in model_context.legal_tools],
+            "limits": {"recent_observations": 8},
+            "intentional_exclusions": [
+                "private_form_values",
+                "private_entity_ids",
+                "unrelated_state",
+                "runtime_secrets",
+                "historical_model_request_proof",
+                "provider_serialization",
+            ],
         }
 
     async def stream(

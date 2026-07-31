@@ -40,11 +40,15 @@ RouteDeck owns the reusable driver and never synthesizes a product graph.
   port.
 - `RouteDeckMiddleware`, `RouteDeckToolWrapper`,
   `RouteDeckInvocationContext`, and `build_model_context(...)`.
-- `RouteDeckLangGraphAgentDriver.inspect_agent_context(...)` uses the same
-  model context, tool-name projection, policy rendering, and product base
-  prompt as middleware. It returns `None` when the product did not explicitly
-  opt into prompt inspection; it never guesses or extracts a prompt from an
-  opaque graph.
+- `RouteDeckLangGraphAgentDriver.inspect_agent_context(...)` owns complete
+  current-snapshot inspection. It uses the same model context, reconstructed
+  messages, tool-name projection, policy rendering, and product base prompt as
+  middleware, and adds policy provenance, prompt composition, safe
+  product-supplied model configuration, limits, and intentional exclusions.
+  The payload labels itself as recomputed current-snapshot context rather than
+  historical model-call evidence. It returns `None` when the product did not
+  explicitly opt into prompt inspection; it never guesses or extracts a prompt
+  from an opaque graph.
 - strict durable user/assistant conversation extraction helpers.
 
 User-message extraction requires exactly one matching `HumanMessage` marker

@@ -102,6 +102,12 @@ function determineSides(source: NavGraphLayoutNode, target: NavGraphLayoutNode) 
   if (source.id === target.id) {
     return { sourceSide: "right", targetSide: "right" } as const;
   }
+  if (target.depth > source.depth) {
+    return { sourceSide: "bottom", targetSide: "top" } as const;
+  }
+  if (target.depth < source.depth) {
+    return { sourceSide: "top", targetSide: "bottom" } as const;
+  }
   const sourceCenter = center(source);
   const targetCenter = center(target);
   const dx = targetCenter.x - sourceCenter.x;
@@ -156,9 +162,19 @@ function groupOffsets(
   }
   const offsets = new Map<string, number>();
   for (const group of groups.values()) {
-    const sorted = [...group].sort((left, right) =>
-      left.edge.id.localeCompare(right.edge.id),
-    );
+    const sorted = [...group].sort((left, right) => {
+      const leftOpposite = center(
+        perspective === "source" ? left.target : left.source,
+      );
+      const rightOpposite = center(
+        perspective === "source" ? right.target : right.source,
+      );
+      return (
+        leftOpposite.x - rightOpposite.x ||
+        leftOpposite.y - rightOpposite.y ||
+        left.edge.id.localeCompare(right.edge.id)
+      );
+    });
     sorted.forEach((entry, index) => {
       const span = 20;
       const offset =

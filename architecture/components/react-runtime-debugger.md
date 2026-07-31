@@ -10,6 +10,15 @@ observable RouteDeck state. `@routedeck/react` owns product-neutral bindings,
 named conversation presentation actions, and UI primitives.
 `@routedeck/testing` remains test-only.
 
+`RouteDeckInspector` owns the complete framework NavGraph/current-context
+viewer: graph/context switching, inspection refresh, topology diagnostics,
+messages, tools, policy provenance, prompt composition, limits, exclusions,
+and invalid/unavailable states. Product applications mount this component in
+their shell; they do not reimplement its diagnostic interpretation. Its root
+accepts standard `className` and `style` overrides and publishes stable
+`data-routedeck-inspector` plus diagnostic-region attributes so a product can
+theme the framework UI without taking ownership of its behavior.
+
 Strict object-field legality is generated from the Pydantic transport schema.
 `generatedRuntime.ts` owns each decoded object's required fields, optional
 fields, and `additionalProperties` posture. Handwritten decoders retain value,
@@ -83,6 +92,15 @@ canonical Python turn contract.
   unmount aborts the reconnect loop.
 - React provider/hooks, surface host, operations, forms, review, navigation,
   status/error, and lazy Navgraph primitives.
+- Navgraph automatic fitting may shrink a complete sitemap to the available
+  canvas, but it does not enlarge node cards beyond their authored 1:1 size;
+  product typography therefore cannot turn state badges into dominant cards.
+- The Navgraph canvas derives a deterministic sitemap backbone from
+  shortest-path discovery at the declared entry node, orders each depth by
+  incoming barycenter, wraps broad layers at six cards, and groups detached
+  nodes in one final layer. It renders that backbone plus currently legal
+  outgoing transitions; the focused-node details retain the complete
+  transition inventory without forcing every secondary edge onto the canvas.
 - `RouteDeckInspection.agent_context` is a private authenticated inspection
   value containing the driver-produced model context and exact assembled
   system prompt, or `null` when the driver does not support inspection. Core

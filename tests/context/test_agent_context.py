@@ -104,6 +104,20 @@ def test_agent_context_lens_resolves_current_scopes_in_stable_deduplicated_order
         "test.surface",
         "test.operation",
     )
+    assert tuple(
+        (item.policy.id, item.scope, item.owner_id, item.source_order)
+        for item in context.policy_provenance
+    ) == (
+        (RouteDeckAgentPolicyType.EXECUTION_AUTHORITY, "framework", "routedeck", 0),
+        (RouteDeckAgentPolicyType.INTENT_AUTHORITY, "framework", "routedeck", 1),
+        (RouteDeckAgentPolicyType.STATE_AUTHORITY, "framework", "routedeck", 2),
+        ("test.feature", "feature", "test", 3),
+        ("test.shared", "feature", "test", 4),
+        ("test.node", "node", "test.home", 5),
+        ("test.capability", "capability", "test.capability", 6),
+        ("test.surface", "surface", "test.surface", 7),
+        ("test.operation", "operation", "test.open", 8),
+    )
     assert context.active_surface is not None
     assert context.active_surface.id == "test.surface"
     assert tuple(action.id for action in context.suggested_actions) == (

@@ -69,11 +69,25 @@ function InspectorNode({ data, selected }: NodeProps<InspectorFlowNode>) {
         </code>
       )}
       <Handle type="target" position={Position.Top} style={HIDDEN_HANDLE_STYLE} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
         <strong style={{ minWidth: 0, fontSize: 13 }}>{data.title}</strong>
         <span
+          data-routedeck-navgraph-node-badge=""
           style={{
+            display: "inline-flex",
+            alignItems: "center",
+            alignSelf: "flex-start",
+            justifyContent: "center",
             flex: "0 0 auto",
+            minWidth: 0,
+            minHeight: 0,
             borderRadius: 999,
             background: data.tone === "current" ? "#ffffff" : `${color}18`,
             padding: "0.1rem 0.35rem",
@@ -81,7 +95,9 @@ function InspectorNode({ data, selected }: NodeProps<InspectorFlowNode>) {
             fontSize: 8,
             fontWeight: 800,
             letterSpacing: "0.05em",
+            lineHeight: 1.25,
             textTransform: "uppercase",
+            whiteSpace: "nowrap",
           }}
         >
           {data.tone === "current"

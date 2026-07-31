@@ -63,7 +63,9 @@ export interface NavGraphInspectorProps {
   onFocusChange?: (nodeId: string) => void;
 }
 
-const FIT_VIEW_OPTIONS = { padding: 0.2 } as const;
+// Fit the complete sitemap when it is larger than the viewport, but never
+// enlarge cards beyond their authored size in a roomy/fullscreen canvas.
+const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: 1 } as const;
 
 export function NavGraphInspectorView({
   contract,
@@ -187,19 +189,28 @@ export function NavGraphInspectorView({
   const flowEdges = useMemo<InspectorFlowEdge[]>(
     () => {
       const visualEdges = bundleNavGraphEdges(topology.edges);
+      const structuralConnections = new Set(
+        topology.structuralConnections.map(({ from, to }) =>
+          JSON.stringify([from, to]),
+        ),
+      );
       const routes = new Map(
         routeNavGraphEdges(topology.nodes, visualEdges).map((route) => [
           route.id,
           route,
         ]),
       );
-      return visualEdges.map((edge) => {
+      return visualEdges.flatMap((edge) => {
         const active = edge.from === currentNodeId && reachable.has(edge.to);
+        const structural = structuralConnections.has(
+          JSON.stringify([edge.from, edge.to]),
+        );
+        if (!active && !structural) return [];
         const route = routes.get(edge.id);
         if (route === undefined) {
           throw new Error(`Navgraph edge ${edge.id} has no resolved route.`);
         }
-        return {
+        return [{
           id: edge.id,
           source: edge.from,
           target: edge.to,
@@ -208,17 +219,16 @@ export function NavGraphInspectorView({
           data: {
             active,
             route,
-            ...(edge.label === undefined ? {} : { label: edge.label }),
           },
           style: {
             stroke: active ? "#e56545" : "#9aa49e",
             strokeWidth: active ? 2.5 : 1.25,
             opacity: active ? 0.95 : 0.48,
           },
-        };
+        }];
       });
     },
-    [currentNodeId, reachable, topology.edges],
+    [currentNodeId, reachable, topology.edges, topology.structuralConnections],
   );
   const focused = focusedNodeId ? contract.nodes[focusedNodeId] : undefined;
   const focusedTone =

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -59,6 +60,7 @@ def inspection(
     snapshot: SessionSnapshot,
     projection: PublicProjection,
 ) -> dict[str, Any]:
+    inspected_at = datetime.now(UTC).isoformat()
     current_node_id = projection.current.node_id
     node = next(
         node for node in dependencies.app.graph.nodes if node.id == current_node_id
@@ -109,6 +111,7 @@ def inspection(
         "route_traces": route_traces,
         "diagnostics": {
             **projection.diagnostics.model_dump(mode="json"),
+            "inspected_at": inspected_at,
             "session_version": snapshot.session_version,
             "projection_version": snapshot.projection_version,
             "event_cursor": snapshot.event_cursor,

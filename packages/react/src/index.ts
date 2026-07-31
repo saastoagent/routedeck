@@ -27,3 +27,4 @@ export * from "./inspector/edgeRouting";
 export type { NavGraphInspectorProps } from "./inspector/NavGraphInspector";
 export * from "./inspector/lazy";
 export * from "./inspector/RouteDeckNavGraph";
+export * from "./inspector/RouteDeckInspector";
