@@ -414,14 +414,17 @@ async def test_scripted_agent_chat_runs_serial_tools_then_model_only_follow_up(
             guards=guards,
         )
 
-    def graph_factory(services):
+    def graph_factory(services, invocation_traces):
         return RouteDeckLangGraphGraphs(
             user_message=create_medusa_agent(
                 model=model,
                 runtime=services,
+                invocation_traces=invocation_traces,
             ),
             assistant_initiated=create_medusa_entry_agent(
-                model=ScriptedTextModel("Hi from the explicit entry test graph.")
+                model=ScriptedTextModel("Hi from the explicit entry test graph."),
+                runtime=services,
+                invocation_traces=invocation_traces,
             ),
             ignored_event_tags=frozenset(),
         )

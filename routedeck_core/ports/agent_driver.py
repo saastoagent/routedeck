@@ -107,6 +107,16 @@ class RouteDeckAgentContextInspector(Protocol):
 
 
 @runtime_checkable
+class RouteDeckInvocationTraceInspector(Protocol):
+    """Optional driver-owned model invocation evidence."""
+
+    def inspect_invocation_traces(
+        self,
+        snapshot: "SessionSnapshot",
+    ) -> dict[str, Any] | None: ...
+
+
+@runtime_checkable
 class RouteDeckAgentDriverFactory(Protocol):
     """Create an optional conversation driver after runtime services exist."""
 
@@ -124,6 +134,7 @@ __all__ = [
     "AssistantTextReset",
     "RouteDeckAgentDriver",
     "RouteDeckAgentContextInspector",
+    "RouteDeckInvocationTraceInspector",
     "RouteDeckAgentDriverFactory",
     "RouteDeckAgentEvent",
     "RouteDeckAgentStreamError",

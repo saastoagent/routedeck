@@ -7,7 +7,7 @@ from fastapi import Request
 
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import SessionSnapshot
-from routedeck_core.ports import RouteDeckAgentContextInspector
+from routedeck_core.ports import RouteDeckAgentContextInspector, RouteDeckInvocationTraceInspector
 
 from .contracts import RouteDeckHttpProblem
 from .dependencies import RouteDeckDependencies
@@ -88,6 +88,11 @@ def inspection(
         if isinstance(dependencies.agent_driver, RouteDeckAgentContextInspector)
         else None
     )
+    invocation_traces = (
+        dependencies.agent_driver.inspect_invocation_traces(snapshot)
+        if isinstance(dependencies.agent_driver, RouteDeckInvocationTraceInspector)
+        else None
+    )
     return {
         "current_node": current_node_id,
         "reachable_nodes": reachable,
@@ -117,6 +122,7 @@ def inspection(
             "event_cursor": snapshot.event_cursor,
         },
         "agent_context": agent_context,
+        "invocation_traces": invocation_traces,
     }
 
 

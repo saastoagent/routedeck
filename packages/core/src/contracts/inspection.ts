@@ -21,6 +21,7 @@ export interface RouteDeckInspection {
   route_traces: JsonObject[];
   diagnostics: JsonObject;
   agent_context: JsonObject | null;
+  invocation_traces: JsonObject | null;
 }
 
 export function decodeInspection(value: unknown): RouteDeckInspection {
@@ -61,5 +62,9 @@ export function decodeInspection(value: unknown): RouteDeckInspection {
       record.agent_context === null
         ? null
         : expectJsonObject(record.agent_context, "$inspection.agent_context"),
+    invocation_traces:
+      record.invocation_traces === null
+        ? null
+        : expectJsonObject(record.invocation_traces, "$inspection.invocation_traces"),
   };
 }

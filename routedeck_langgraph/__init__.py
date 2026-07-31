@@ -12,6 +12,7 @@ from .agent_driver import (
     RouteDeckLangGraphGraphs,
 )
 from .middleware import RouteDeckMiddleware
+from .invocation_trace import RouteDeckInvocationTraceRecorder
 from .model_context import (
     ModelContextEntity,
     ModelContextObservation,
@@ -56,6 +57,7 @@ __all__ = [
     "RouteDeckLangGraphDriverFactory",
     "RouteDeckLangGraphGraphs",
     "RouteDeckMiddleware",
+    "RouteDeckInvocationTraceRecorder",
     "RouteDeckModelContext",
     "RouteDeckRunnerRuntime",
     "RouteDeckToolConfigurationError",

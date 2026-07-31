@@ -20,6 +20,7 @@ from .model_context import (
     reconstruct_messages,
 )
 from .prompt import render_agent_system_message
+from .invocation_trace import RouteDeckInvocationTraceRecorder
 from .tool_wrapper import (
     RouteDeckInvocationContext,
     RouteDeckRunnerRuntime,
@@ -41,9 +42,10 @@ class RouteDeckMiddleware(
 
     tools: tuple[BaseTool, ...] = ()
 
-    def __init__(self, runtime: RouteDeckRunnerRuntime) -> None:
+    def __init__(self, runtime: RouteDeckRunnerRuntime, invocation_traces: RouteDeckInvocationTraceRecorder) -> None:
         self.runtime = runtime
         self.tool_wrapper = RouteDeckToolWrapper(runtime)
+        self.invocation_traces = invocation_traces
 
     async def prepare_model_request(
         self,
@@ -101,8 +103,17 @@ class RouteDeckMiddleware(
         request: ModelRequest[RouteDeckInvocationContext],
         handler: ModelHandler,
     ) -> ModelResponse[Any]:
-        prepared, _ = await self.prepare_model_request(request)
-        return await handler(prepared)
+        prepared, model_context = await self.prepare_model_request(request)
+        runtime_context = getattr(request.runtime, "context", None)
+        session_id = self.tool_wrapper.session_id(runtime_context)
+        trace, started = self.invocation_traces.start(session_id, prepared, model_context)
+        try:
+            response = await handler(prepared)
+        except Exception as error:
+            self.invocation_traces.fail(trace, started, error)
+            raise
+        self.invocation_traces.complete(trace, started, response)
+        return response
 
     async def awrap_tool_call(
         self,

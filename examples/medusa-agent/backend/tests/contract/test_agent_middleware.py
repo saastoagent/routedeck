@@ -20,6 +20,7 @@ from routedeck_core.contracts.operations import DeliveryPhase
 from routedeck_core.context.framework_policies import RouteDeckAgentPolicyType
 from routedeck_langgraph import (
     RouteDeckMiddleware,
+    RouteDeckInvocationTraceRecorder,
     RouteDeckToolConfigurationError,
     RouteDeckToolWrapper,
     build_model_context,
@@ -123,6 +124,7 @@ async def test_conversational_response_keeps_legal_tools_available_without_execu
     agent = create_medusa_agent(
         model=model,
         runtime=runtime.services,
+        invocation_traces=RouteDeckInvocationTraceRecorder(),
     )
 
     result = await agent.ainvoke(
@@ -197,6 +199,7 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
     agent = create_medusa_agent(
         model=model,
         runtime=runtime.services,
+        invocation_traces=RouteDeckInvocationTraceRecorder(),
     )
 
     result = await agent.ainvoke(
@@ -248,6 +251,7 @@ async def test_agent_tool_execution_requires_explicit_session_context() -> None:
     )
     runtime = build_test_runtime(client=client, market=buyer_market())
     agent = create_medusa_agent(
+        invocation_traces=RouteDeckInvocationTraceRecorder(),
         model=ScriptedToolModel(
             [
                 tool_call(
@@ -278,6 +282,7 @@ async def test_agent_tool_execution_requires_explicit_parent_request_prefix() ->
     )
     runtime = build_test_runtime(client=client, market=buyer_market())
     agent = create_medusa_agent(
+        invocation_traces=RouteDeckInvocationTraceRecorder(),
         model=ScriptedToolModel(
             [
                 tool_call(

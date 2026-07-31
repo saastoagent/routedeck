@@ -19,6 +19,7 @@ from routedeck_core.contracts.session import Location
 from routedeck_langgraph import (
     RouteDeckLangGraphAgentDriver,
     RouteDeckLangGraphGraphs,
+    RouteDeckInvocationTraceRecorder,
 )
 from routedeck_fastapi import GuestCookieSessionSelector, GuestCookieSettings
 from routedeck_testing import ScriptedTextModel
@@ -55,7 +56,10 @@ async def test_home_entry_persists_a_model_greeting_without_a_synthetic_user_mes
         initial_location=Location(node_id="buyer.home"),
     )
     model = _StreamingScriptedTextModel("Hi — what would you like to explore?")
-    graph = create_medusa_entry_agent(model=model)
+    traces = RouteDeckInvocationTraceRecorder()
+    graph = create_medusa_entry_agent(
+        model=model, runtime=runtime.services, invocation_traces=traces
+    )
     driver = RouteDeckLangGraphAgentDriver(
         graphs=RouteDeckLangGraphGraphs(
             user_message=graph,
@@ -63,6 +67,7 @@ async def test_home_entry_persists_a_model_greeting_without_a_synthetic_user_mes
             ignored_event_tags=frozenset(),
         ),
         id_factory=runtime.services.id_factory,
+        invocation_traces=traces,
     )
     runtime = replace(runtime, agent_driver=driver)
     before_entry = await runtime.services.store.load("session-1")

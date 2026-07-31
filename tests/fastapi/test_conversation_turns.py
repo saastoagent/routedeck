@@ -163,7 +163,7 @@ async def runtime(
     def application_factory(_resources: SqlAlchemyRuntimeResources):
         return bind_app(compiled, bindings)
 
-    def graph_factory(_services):
+    def graph_factory(_services, _invocation_traces):
         return RouteDeckLangGraphGraphs(
             user_message=graphs.user,
             assistant_initiated=graphs.assistant,

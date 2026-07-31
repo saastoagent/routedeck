@@ -40,6 +40,7 @@ from .model_context import build_model_context, reconstruct_messages
 from .prompt import agent_system_prompt_parts
 from .tool_wrapper import RouteDeckInvocationContext
 from .tool_wrapper import operation_tool_name
+from .invocation_trace import RouteDeckInvocationTraceRecorder
 
 
 _LOGGER = logging.getLogger("uvicorn.error.routedeck.langgraph")
@@ -76,7 +77,7 @@ class RouteDeckLangGraphGraphs:
 
 
 GraphFactory = Callable[
-    [RouteDeckRuntimeServices],
+    [RouteDeckRuntimeServices, RouteDeckInvocationTraceRecorder],
     RouteDeckLangGraphGraphs | None,
 ]
 
@@ -89,7 +90,8 @@ class RouteDeckLangGraphDriverFactory:
         self,
         services: RouteDeckRuntimeServices,
     ) -> RouteDeckAgentDriver | None:
-        graphs = self.graph_factory(services)
+        invocation_traces = RouteDeckInvocationTraceRecorder()
+        graphs = self.graph_factory(services, invocation_traces)
         if graphs is None:
             return None
         if not isinstance(graphs, RouteDeckLangGraphGraphs):
@@ -100,6 +102,7 @@ class RouteDeckLangGraphDriverFactory:
             graphs=graphs,
             id_factory=services.id_factory,
             app=services.app,
+            invocation_traces=invocation_traces,
         )
 
 
@@ -142,6 +145,12 @@ class RouteDeckLangGraphAgentDriver:
     graphs: RouteDeckLangGraphGraphs
     id_factory: Callable[[str], str]
     app: Any | None = None
+    invocation_traces: RouteDeckInvocationTraceRecorder | None = None
+
+    def inspect_invocation_traces(self, snapshot: SessionSnapshot) -> dict[str, Any] | None:
+        if self.invocation_traces is None:
+            return None
+        return self.invocation_traces.inspect(snapshot.session_id)
 
     def inspect_agent_context(
         self,

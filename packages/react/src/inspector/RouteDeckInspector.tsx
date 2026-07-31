@@ -7,7 +7,7 @@ import { useRouteDeckRuntime } from "../provider/RouteDeckProvider";
 import { RouteDeckNavGraph } from "./RouteDeckNavGraph";
 
 export interface RouteDeckInspectorProps {
-  initialView?: "graph" | "context";
+  initialView?: "graph" | "context" | "trace";
   className?: string;
   style?: CSSProperties;
 }
@@ -20,7 +20,7 @@ export function RouteDeckInspector({
 }: RouteDeckInspectorProps) {
   const runtime = useRouteDeckRuntime();
   const projection = useRouteDeckProjection();
-  const [view, setView] = useState<"graph" | "context">(initialView);
+  const [view, setView] = useState<"graph" | "context" | "trace">(initialView);
   const [inspection, setInspection] = useState<RouteDeckInspection | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,7 @@ export function RouteDeckInspector({
   }, [runtime.store]);
 
   useEffect(() => {
-    if (view !== "context") return;
+    if (view === "graph") return;
     void loadInspection();
   }, [loadInspection, projection?.projection_version, view]);
 
@@ -68,19 +68,72 @@ export function RouteDeckInspector({
         >
           Agent context
         </button>
+        <button
+          type="button"
+          aria-pressed={view === "trace"}
+          onClick={() => setView("trace")}
+        >
+          Invocation trace
+        </button>
       </div>
       {view === "graph" ? (
         <div data-navgraph-map="">
           <RouteDeckNavGraph />
         </div>
-      ) : (
+      ) : view === "context" ? (
         <RouteDeckAgentContext
           inspection={inspection}
           error={error}
           loading={loading}
           onRefresh={() => void loadInspection()}
         />
+      ) : (
+        <RouteDeckInvocationTrace
+          inspection={inspection}
+          error={error}
+          loading={loading}
+          onRefresh={() => void loadInspection()}
+        />
       )}
+    </section>
+  );
+}
+
+export function RouteDeckInvocationTrace({ inspection, error, loading, onRefresh }: {
+  inspection: RouteDeckInspection | null;
+  error: Error | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  if (loading && inspection === null) return <p data-invocation-trace-state="">Loading invocation traces…</p>;
+  if (error !== null) return (
+    <section role="alert" data-invocation-trace-state="">
+      <strong>Invocation traces unavailable</strong><span>{error.message}</span>
+      <button type="button" onClick={onRefresh}>Retry</button>
+    </section>
+  );
+  const payload = inspection?.invocation_traces;
+  if (payload === null || payload === undefined) return (
+    <section data-invocation-trace-state="">
+      <strong>Invocation traces unavailable</strong>
+      <p>The configured agent driver does not expose model invocation evidence.</p>
+    </section>
+  );
+  const traces = requireObjectArray(payload.traces, "invocation_traces.traces");
+  return (
+    <section aria-label="Invocation traces" data-invocation-traces="">
+      <header><div><strong>Invocation traces</strong><small>Sanitized RouteDeck-to-model evidence</small></div>
+        <button type="button" disabled={loading} onClick={onRefresh}>Refresh</button></header>
+      <p>Provider serialization is shown only when a provider transport hook captured it.</p>
+      {traces.length === 0 ? <p>No model invocation has occurred in this session.</p> : traces.map((trace, index) => (
+        <article data-invocation-trace="" key={`${String(trace.started_at)}-${index}`}>
+          <h3>{String(trace.status)} · {String(trace.started_at)}</h3>
+          <JsonSection title="RouteDeck context" value={trace.route_deck_context} />
+          <JsonSection title="Model boundary request" value={trace.model_boundary_request} />
+          <JsonSection title="Provider serialization" value={trace.provider_serialization} />
+          <JsonSection title="Provider result" value={trace.provider_result} />
+        </article>
+      ))}
     </section>
   );
 }

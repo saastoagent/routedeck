@@ -8,6 +8,7 @@ from langchain_openai import ChatOpenAI
 
 from routedeck_langgraph import (
     RouteDeckInvocationContext,
+    RouteDeckInvocationTraceRecorder,
     RouteDeckMiddleware,
     RouteDeckRunnerRuntime,
     RouteDeckToolWrapper,
@@ -44,11 +45,12 @@ def create_medusa_agent(
     *,
     model: BaseChatModel,
     runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
 ) -> Any:
     """Create a request-scoped Medusa agent with an injected model and runtime."""
 
     wrapper = RouteDeckToolWrapper(runtime)
-    middleware = RouteDeckMiddleware(runtime)
+    middleware = RouteDeckMiddleware(runtime, invocation_traces)
     agent = create_agent(
         model=model,
         tools=wrapper.tools,
@@ -65,12 +67,17 @@ def create_medusa_agent(
     return agent
 
 
-def create_medusa_entry_agent(*, model: BaseChatModel) -> Any:
+def create_medusa_entry_agent(
+    *, model: BaseChatModel, runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
+) -> Any:
     """Create the no-tool agent used to begin a buyer.home conversation."""
 
+    middleware = RouteDeckMiddleware(runtime, invocation_traces)
     return create_agent(
         model=model,
         tools=(),
+        middleware=(middleware,),
         system_prompt=BUYER_AGENT_PROMPT,
         name="medusa_buyer_entry_agent",
     )
@@ -80,20 +87,27 @@ def create_live_medusa_agent(
     *,
     settings: Settings,
     runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
 ) -> Any:
     """Create the live OpenAI-backed buyer agent without a fallback model."""
 
     return create_medusa_agent(
         model=_create_live_tool_model(settings=settings),
         runtime=runtime,
+        invocation_traces=invocation_traces,
     )
 
 
-def create_live_medusa_entry_agent(*, settings: Settings) -> Any:
+def create_live_medusa_entry_agent(
+    *, settings: Settings, runtime: RouteDeckRunnerRuntime,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
+) -> Any:
     """Create the live no-tool agent that begins a buyer.home conversation."""
 
     return create_medusa_entry_agent(
-        model=_create_live_entry_model(settings=settings)
+        model=_create_live_entry_model(settings=settings),
+        runtime=runtime,
+        invocation_traces=invocation_traces,
     )
 
 

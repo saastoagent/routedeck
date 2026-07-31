@@ -14,6 +14,7 @@ from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
 from routedeck_langgraph import (
     RouteDeckLangGraphDriverFactory,
     RouteDeckLangGraphGraphs,
+    RouteDeckInvocationTraceRecorder,
 )
 from routedeck_sqlalchemy import (
     RouteDeckInstanceLeaseLost,
@@ -155,6 +156,7 @@ async def open_live_medusa_application(
 def _create_configured_graphs(
     settings: Settings,
     services: RouteDeckRuntimeServices,
+    invocation_traces: RouteDeckInvocationTraceRecorder,
 ) -> RouteDeckLangGraphGraphs | None:
     """Select one explicit product graph set without a fallback path."""
 
@@ -166,8 +168,12 @@ def _create_configured_graphs(
             user_message=create_live_medusa_agent(
                 settings=settings,
                 runtime=services,
+                invocation_traces=invocation_traces,
             ),
-            assistant_initiated=create_live_medusa_entry_agent(settings=settings),
+            assistant_initiated=create_live_medusa_entry_agent(
+                settings=settings, runtime=services,
+                invocation_traces=invocation_traces,
+            ),
             ignored_event_tags=frozenset(),
         )
     if mode == "scripted-test-only":
@@ -181,7 +187,7 @@ def _create_configured_graphs(
             raise LiveRuntimeConfigurationError(
                 "scripted-test-only graph support is not installed"
             )
-        graphs = factory(runtime=services)
+        graphs = factory(runtime=services, invocation_traces=invocation_traces)
         if not isinstance(graphs, RouteDeckLangGraphGraphs):
             raise LiveRuntimeConfigurationError(
                 "scripted-test-only graph support returned an invalid graph set"

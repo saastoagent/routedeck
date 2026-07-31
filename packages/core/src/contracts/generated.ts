@@ -138,6 +138,9 @@ export type Capabilities = {
 }[];
 export type CurrentNode = string;
 export type GuardExplanations = string[];
+export type InvocationTraces = {
+  [k: string]: unknown;
+} | null;
 export type LegalOperations = {
   [k: string]: unknown;
 }[];
@@ -491,6 +494,7 @@ export interface InspectionPayload {
   current_node: CurrentNode;
   diagnostics: Diagnostics;
   guard_explanations: GuardExplanations;
+  invocation_traces: InvocationTraces;
   legal_operations: LegalOperations;
   reachable_nodes: ReachableNodes;
   route_traces: RouteTraces;

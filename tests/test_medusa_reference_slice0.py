@@ -256,7 +256,7 @@ def test_langgraph_adapter_wraps_execution_without_owning_topology() -> None:
     assert not (ROOT / "routedeck_langgraph/transition.py").exists()
     assert not (ROOT / "routedeck_langgraph/validation.py").exists()
     assert "agent = create_agent(" in agent
-    assert "middleware = RouteDeckMiddleware(runtime)" in agent
+    assert "middleware = RouteDeckMiddleware(runtime, invocation_traces)" in agent
     assert "wrapper = RouteDeckToolWrapper(runtime)" in agent
     assert "StateGraph(" not in agent
 

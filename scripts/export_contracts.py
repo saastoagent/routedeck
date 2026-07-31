@@ -93,6 +93,7 @@ class InspectionPayload(_TransportPayload):
     route_traces: list[dict[str, Any]]
     diagnostics: dict[str, Any]
     agent_context: dict[str, Any] | None
+    invocation_traces: dict[str, Any] | None
 
 
 class RouteDeckTransportContracts(BaseModel):

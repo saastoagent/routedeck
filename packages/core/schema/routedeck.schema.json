@@ -912,6 +912,18 @@
           "title": "Guard Explanations",
           "type": "array"
         },
+        "invocation_traces": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Invocation Traces"
+        },
         "legal_operations": {
           "items": {
             "additionalProperties": true,
@@ -951,7 +963,8 @@
         "surfaces",
         "route_traces",
         "diagnostics",
-        "agent_context"
+        "agent_context",
+        "invocation_traces"
       ],
       "title": "InspectionPayload",
       "type": "object"

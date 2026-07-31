@@ -65,6 +65,11 @@ it("owns and renders the complete current-snapshot context inspection", async ()
       limits: { recent_observations: 8 },
       intentional_exclusions: ["private_form_values"],
     },
+    invocation_traces: {
+      kind: "invocation_trace_history",
+      retention_per_session: 20,
+      traces: [],
+    },
   } satisfies RouteDeckInspection;
   const inspect = vi.fn(async () => inspection);
   const state = {
@@ -111,4 +116,28 @@ it("owns and renders the complete current-snapshot context inspection", async ()
   expect(document.body.textContent).toContain("node · test.home");
   expect(document.body.textContent).toContain("Exact assembled prompt");
   expect(document.body.textContent).toContain("Navgraph diagnostics");
+});
+
+it("renders invocation traces separately from agent context", async () => {
+  const inspection = {
+    current_node: "test.home", reachable_nodes: [], legal_operations: [], blocked_operations: [],
+    guard_explanations: [], capabilities: [], surfaces: {}, route_traces: [], diagnostics: {},
+    agent_context: null,
+    invocation_traces: { kind: "invocation_trace_history", retention_per_session: 20, traces: [{
+      started_at: "2026-07-31T00:00:00Z", status: "completed",
+      route_deck_context: { status: "captured", sha256: "a", value: {} },
+      model_boundary_request: { status: "captured", sha256: "b", value: {} },
+      provider_serialization: { status: "unavailable", reason: "No transport hook." },
+      provider_result: { status: "captured", sha256: "c", value: {} },
+    }] },
+  } satisfies RouteDeckInspection;
+  const state = { projection: null, sessionVersion: 1, projectionVersion: 1, eventCursor: 1,
+    syncStatus: "live", lastEvent: null, error: null, pendingBootstrap: null, pendingNavigation: null } satisfies RouteDeckClientState;
+  const store = { getState: () => state, subscribe: () => () => undefined, inspect: async () => inspection } as unknown as RouteDeckStore;
+  const host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+  await act(async () => { root?.render(<RouteDeckProvider store={store} contract={{} as FrontendContract}><RouteDeckInspector initialView="trace" /></RouteDeckProvider>); });
+  expect(document.body.textContent).toContain("Invocation traces");
+  expect(document.body.textContent).toContain("Model boundary request");
+  expect(document.body.textContent).toContain("Provider serialization");
+  expect(document.body.textContent).not.toContain("Current agent context");
 });
