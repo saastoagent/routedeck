@@ -3,12 +3,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, runtime_checkable
 
 from ..contracts.conversation import FinalizedConversationTurn
 from ..state.leases import TurnLease
 
 if TYPE_CHECKING:
+    from ..contracts.session import SessionSnapshot
     from ..runtime import RouteDeckRuntimeServices
 
 
@@ -96,6 +97,16 @@ class RouteDeckAgentDriver(Protocol):
 
 
 @runtime_checkable
+class RouteDeckAgentContextInspector(Protocol):
+    """Optional driver-owned view of the exact context prepared for its model."""
+
+    def inspect_agent_context(
+        self,
+        snapshot: "SessionSnapshot",
+    ) -> dict[str, Any] | None: ...
+
+
+@runtime_checkable
 class RouteDeckAgentDriverFactory(Protocol):
     """Create an optional conversation driver after runtime services exist."""
 
@@ -112,6 +123,7 @@ __all__ = [
     "AssistantTextDelta",
     "AssistantTextReset",
     "RouteDeckAgentDriver",
+    "RouteDeckAgentContextInspector",
     "RouteDeckAgentDriverFactory",
     "RouteDeckAgentEvent",
     "RouteDeckAgentStreamError",

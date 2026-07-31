@@ -157,7 +157,7 @@ export const generatedObjectDescriptors = Object.freeze({
     defaults: Object.freeze({}),
   }),
   InspectionPayload: Object.freeze({
-    required: Object.freeze(["blocked_operations", "capabilities", "current_node", "diagnostics", "guard_explanations", "legal_operations", "reachable_nodes", "route_traces", "surfaces"]),
+    required: Object.freeze(["agent_context", "blocked_operations", "capabilities", "current_node", "diagnostics", "guard_explanations", "legal_operations", "reachable_nodes", "route_traces", "surfaces"]),
     optional: Object.freeze([]),
     additionalProperties: false,
     defaults: Object.freeze({}),

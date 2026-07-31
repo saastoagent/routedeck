@@ -648,6 +648,46 @@ class _SmokeAgent:
             yield None
 
 
+class _InspectableSmokeAgent(_SmokeAgent):
+    def inspect_agent_context(self, snapshot: SessionSnapshot):
+        return {
+            "model_context": {
+                "current_node": snapshot.state.current.node_id,
+                "policies": [
+                    {"policy_id": "test.policy", "instruction": "Stay scoped."}
+                ],
+            },
+            "system_prompt": "Exact inspected prompt",
+        }
+
+
+def test_inspection_exposes_driver_owned_agent_context_without_session_identity() -> None:
+    dependencies, _, _ = _smoke_dependencies()
+    client = TestClient(
+        _test_transport_app(dependencies, agent_driver=_InspectableSmokeAgent())
+    )
+    created = client.post(
+        "/api/routedeck/sessions",
+        json={"request_id": "inspect-agent-context"},
+    )
+    assert created.status_code == 201
+
+    response = client.get("/api/routedeck/inspect")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.json()["agent_context"] == {
+        "model_context": {
+            "current_node": "buyer.home",
+            "policies": [
+                {"policy_id": "test.policy", "instruction": "Stay scoped."}
+            ],
+        },
+        "system_prompt": "Exact inspected prompt",
+    }
+    assert "session_id" not in response.text
+
+
 @dataclass
 class _SmokeReadinessProbe:
     routedeck_store: bool = True

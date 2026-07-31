@@ -127,6 +127,9 @@ export type Outcome = string;
 export type Source = string;
 export type Target = string;
 export type Transitions = FrontendTransitionContract[];
+export type AgentContext = {
+  [k: string]: unknown;
+} | null;
 export type BlockedOperations = {
   [k: string]: unknown;
 }[];
@@ -482,6 +485,7 @@ export interface FrontendContractEnvelope {
   frontend_contract: FrontendContract;
 }
 export interface InspectionPayload {
+  agent_context: AgentContext;
   blocked_operations: BlockedOperations;
   capabilities: Capabilities;
   current_node: CurrentNode;

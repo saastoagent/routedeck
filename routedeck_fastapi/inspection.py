@@ -6,6 +6,7 @@ from fastapi import Request
 
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import SessionSnapshot
+from routedeck_core.ports import RouteDeckAgentContextInspector
 
 from .contracts import RouteDeckHttpProblem
 from .dependencies import RouteDeckDependencies
@@ -80,6 +81,11 @@ def inspection(
         for transition in dependencies.app.graph.transitions
         if transition.source.id == current_node_id
     ]
+    agent_context = (
+        dependencies.agent_driver.inspect_agent_context(snapshot)
+        if isinstance(dependencies.agent_driver, RouteDeckAgentContextInspector)
+        else None
+    )
     return {
         "current_node": current_node_id,
         "reachable_nodes": reachable,
@@ -107,6 +113,7 @@ def inspection(
             "projection_version": snapshot.projection_version,
             "event_cursor": snapshot.event_cursor,
         },
+        "agent_context": agent_context,
     }
 
 

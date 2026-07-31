@@ -6,9 +6,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, NoReturn, Protocol
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
 from routedeck_core.contracts.conversation import ConversationRole
+from routedeck_core.contracts.session import SessionSnapshot
 from routedeck_core.ports import (
     AgentReviewRequired,
     AgentTurnCompleted,
@@ -28,7 +35,10 @@ from .conversation import (
     extract_assistant_initiated_turn,
     extract_conversation_turns,
 )
+from .model_context import build_model_context
+from .prompt import render_agent_system_message
 from .tool_wrapper import RouteDeckInvocationContext
+from .tool_wrapper import operation_tool_name
 
 
 _LOGGER = logging.getLogger("uvicorn.error.routedeck.langgraph")
@@ -51,6 +61,7 @@ class RouteDeckLangGraphGraphs:
     user_message: LangGraphEventStream
     assistant_initiated: LangGraphEventStream
     ignored_event_tags: frozenset[str]
+    system_prompt: str | None = None
 
     def __post_init__(self) -> None:
         for graph in (self.user_message, self.assistant_initiated):
@@ -58,6 +69,8 @@ class RouteDeckLangGraphGraphs:
                 raise TypeError("RouteDeck LangGraph graphs must expose astream_events")
         if any(not tag for tag in self.ignored_event_tags):
             raise ValueError("ignored LangGraph event tags must be non-empty")
+        if self.system_prompt is not None and not self.system_prompt.strip():
+            raise ValueError("RouteDeck LangGraph system prompt must be non-empty")
 
 
 GraphFactory = Callable[
@@ -84,6 +97,7 @@ class RouteDeckLangGraphDriverFactory:
         return RouteDeckLangGraphAgentDriver(
             graphs=graphs,
             id_factory=services.id_factory,
+            app=services.app,
         )
 
 
@@ -99,6 +113,31 @@ class RouteDeckLangGraphAgentDriver:
 
     graphs: RouteDeckLangGraphGraphs
     id_factory: Callable[[str], str]
+    app: Any | None = None
+
+    def inspect_agent_context(
+        self,
+        snapshot: SessionSnapshot,
+    ) -> dict[str, Any] | None:
+        if self.graphs.system_prompt is None or self.app is None:
+            return None
+        context = build_model_context(snapshot, self.app)
+        model_context = context.model_copy(
+            update={
+                "legal_tools": tuple(
+                    tool.model_copy(update={"name": operation_tool_name(tool.name)})
+                    for tool in context.legal_tools
+                )
+            }
+        )
+        system_message = render_agent_system_message(
+            SystemMessage(content=self.graphs.system_prompt),
+            model_context,
+        )
+        return {
+            "model_context": model_context.model_dump(mode="json"),
+            "system_prompt": system_message.text,
+        }
 
     async def stream(
         self,

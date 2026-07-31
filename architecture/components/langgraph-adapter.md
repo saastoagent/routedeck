@@ -23,7 +23,8 @@ RouteDeck owns the reusable driver and never synthesizes a product graph.
 ## Public Interfaces
 
 - `RouteDeckLangGraphGraphs`: explicit `user_message` and
-  `assistant_initiated` streams plus ignored event tags.
+  `assistant_initiated` streams plus ignored event tags and an optional,
+  product-declared inspection system prompt.
 - `RouteDeckLangGraphDriverFactory`: calls the product graph factory once after
   `RouteDeckRuntimeServices` exists and constructs the generic driver.
 - `RouteDeckLangGraphAgentDriver`: translates `astream_events(...)` into typed
@@ -39,6 +40,11 @@ RouteDeck owns the reusable driver and never synthesizes a product graph.
   port.
 - `RouteDeckMiddleware`, `RouteDeckToolWrapper`,
   `RouteDeckInvocationContext`, and `build_model_context(...)`.
+- `RouteDeckLangGraphAgentDriver.inspect_agent_context(...)` uses the same
+  model context, tool-name projection, policy rendering, and product base
+  prompt as middleware. It returns `None` when the product did not explicitly
+  opt into prompt inspection; it never guesses or extracts a prompt from an
+  opaque graph.
 - strict durable user/assistant conversation extraction helpers.
 
 User-message extraction requires exactly one matching `HumanMessage` marker

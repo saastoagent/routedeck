@@ -868,6 +868,18 @@
     "InspectionPayload": {
       "additionalProperties": false,
       "properties": {
+        "agent_context": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Agent Context"
+        },
         "blocked_operations": {
           "items": {
             "additionalProperties": true,
@@ -938,7 +950,8 @@
         "capabilities",
         "surfaces",
         "route_traces",
-        "diagnostics"
+        "diagnostics",
+        "agent_context"
       ],
       "title": "InspectionPayload",
       "type": "object"

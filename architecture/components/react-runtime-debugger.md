@@ -83,6 +83,10 @@ canonical Python turn contract.
   unmount aborts the reconnect loop.
 - React provider/hooks, surface host, operations, forms, review, navigation,
   status/error, and lazy Navgraph primitives.
+- `RouteDeckInspection.agent_context` is a private authenticated inspection
+  value containing the driver-produced model context and exact assembled
+  system prompt, or `null` when the driver does not support inspection. Core
+  transports and decodes it; consumers choose whether and how to display it.
 
 Presentation state contains only rendered conversation messages, status,
 error, review, and retained-request display. It is not an alternate

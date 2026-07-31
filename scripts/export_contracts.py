@@ -92,6 +92,7 @@ class InspectionPayload(_TransportPayload):
     surfaces: dict[str, Any]
     route_traces: list[dict[str, Any]]
     diagnostics: dict[str, Any]
+    agent_context: dict[str, Any] | None
 
 
 class RouteDeckTransportContracts(BaseModel):

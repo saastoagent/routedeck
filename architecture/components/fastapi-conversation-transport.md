@@ -78,6 +78,11 @@ product routes, authentication policy, graph topology, or tool behavior.
 - Every non-streaming conversation error uses the canonical `RouteDeckFailure`
   envelope; conversation routes do not define a second compact error shape.
 - Missing runtime, session, driver, or contract state fails visibly.
+- Authenticated inspection includes an optional driver-owned `agent_context`.
+  The LangGraph adapter populates it only when the product explicitly declares
+  its inspection system prompt; otherwise the field is `null`. The payload is
+  derived from the same canonical snapshot and default-deny model-context
+  builder used for model calls, and remains private/no-store.
 - A non-durable interruption is never cached or emitted as terminal. If
   interruption persistence fails, run reads fail visibly; if the commit
   succeeded before a later response-path failure, the next read reconstructs

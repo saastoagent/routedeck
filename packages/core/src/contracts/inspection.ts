@@ -20,6 +20,7 @@ export interface RouteDeckInspection {
   surfaces: JsonObject;
   route_traces: JsonObject[];
   diagnostics: JsonObject;
+  agent_context: JsonObject | null;
 }
 
 export function decodeInspection(value: unknown): RouteDeckInspection {
@@ -56,5 +57,9 @@ export function decodeInspection(value: unknown): RouteDeckInspection {
       "$inspection.route_traces",
     ),
     diagnostics: expectJsonObject(record.diagnostics, "$inspection.diagnostics"),
+    agent_context:
+      record.agent_context === null
+        ? null
+        : expectJsonObject(record.agent_context, "$inspection.agent_context"),
   };
 }

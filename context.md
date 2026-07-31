@@ -46,6 +46,10 @@ historical material under `docs/archive/`.
 - `@routedeck/core` owns strict browser contracts and authoritative state;
   `@routedeck/react` supplies product-neutral UI primitives and the read-only
   Navgraph.
+- Authenticated inspection can now include a driver-owned current model
+  context and exact assembled system prompt. The LangGraph adapter derives it
+  from the same default-deny context and prompt renderer used for model calls;
+  products must explicitly declare the inspection base prompt.
 - Once `RouteDeckBootstrapBoundary` has reached ready, later projection
   resync/reconnect phases keep the application mounted. Initial bootstrap,
   replacement, retained navigation, and terminal recovery remain gated.
@@ -109,6 +113,11 @@ The completed implementation plan is archived at
   all root package tests (47 core, 15 React, 15 testing, 71 Medusa frontend,
   and 5 wiki), root typecheck, and root build. The four protected real-Medusa
   tests remain a separate live-stack gate and were not needed for this change.
+- Agent-context inspection passed 84 focused FastAPI/LangGraph tests, 88 core
+  tests, 18 React tests, Ruff, strict typechecks, generated-contract drift, and
+  package builds. The broader Python run passed 518/520; its two unrelated
+  failures remain stale server-owned-conversation/public-export expectations,
+  including one fixture imported from the older `agent-core` checkout.
 
 - Wiki closeout: 19 Markdown files, 1,208 lines, 14 Mermaid diagrams, one
   focused Hello World test passed, 618/618 live files mapped, and 63 active
