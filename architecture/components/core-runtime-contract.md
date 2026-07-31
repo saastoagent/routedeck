@@ -31,10 +31,22 @@ runtime-ownership decision.
 - `RouteDeckRuntimeServices`, containing the bound app, store, clock, notifier,
   ID factory, one runner, navigation over that same runner, and projector.
 - `RouteDeckRuntime`, adding the sensitive codec, session callbacks, optional
-  configured agent driver, and explicit lifecycle.
+  configured agent driver, runtime-owned process-local conversation-run
+  coordinator, callable declared-entry ensure, and explicit lifecycle.
+- `RouteDeckRuntime.provision_session(...)`, the one public provisioning path
+  for host-supplied session/request IDs, canonical durable creation
+  fingerprinting, async factory/initializer execution, identity/version
+  validation, declared entry-run attachment, and current-snapshot reload.
 - `build_routedeck_runtime(...)`, which constructs the runner once, passes it
   to navigation, builds the configured projector, then creates the optional
   driver exactly once after services exist.
+
+The coordinator owns detached tasks and transient progress while reusing the
+existing durable turn lease, mutation, conversation, and restart-recovery
+contracts. It does not add durable run rows, renewable leases, or a recovery
+worker. It claims the durable turn before accepting a run, retains only the
+latest accumulated snapshot, evicts durable terminals, bounds recent
+persistence failures, and reconstructs terminal truth from mutations.
 
 The builder never selects an alternate store, model, notifier, driver, or
 cached result after a supplied dependency fails. `RouteDeckRuntime.close()`
@@ -57,6 +69,13 @@ must exactly match the compiled graph. `require_node(...)` is the shared
 fail-closed lookup used by context, projection, navigation, and supervision;
 those subsystems do not scan the graph or invent different missing-node
 semantics.
+
+Session provisioning preserves `create_for_request(...)` replay and collision
+semantics. Exact request-ID replay resolves the originally journaled session
+even when the host supplies a newly generated candidate session ID; a different
+stored fingerprint remains `request_id_reused`. Factory identity mismatch and
+initializer identity/version regression fail before any usable snapshot is
+returned.
 
 ## Dependent Flows
 

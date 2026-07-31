@@ -47,7 +47,8 @@ class TurnLifecycleMixin:
             RouteDeckSessionAggregate(session)
             .set_interaction(
                 RouteDeckInteractionState.active(
-                    RouteDeckInteractionOwnerType.CHAT
+                    RouteDeckInteractionOwnerType.CHAT,
+                    claim.request_id,
                 )
             )
             .record_public_events(1)

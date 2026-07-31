@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 from .agent import AgentPolicyRef
-from .conversation import ConversationInputPolicy
+from .conversation import ConversationInputPolicy, EntryTurnDeclaration
 from .navigation import (
     CompiledTransition,
     NavigationPolicy,
@@ -84,6 +84,7 @@ class Node(_FrozenContract):
         enabled=True,
         disabled_message=None,
     )
+    entry_turn: EntryTurnDeclaration | None = None
     public_metadata: FrozenJsonObject = Field(
         default_factory=lambda: FrozenJsonObject({})
     )
@@ -108,6 +109,7 @@ __all__ = [
     "CapabilityRef",
     "Capability",
     "CompiledGraph",
+    "EntryTurnDeclaration",
     "Node",
     "RouteEntry",
     "RouteParameterBinding",

@@ -13,6 +13,7 @@ from medusa_agent.features.catalog.providers import CatalogRouteKeyValidator
 from medusa_agent.features.checkout.providers import EncryptedCheckoutPrivateFormReader
 from medusa_agent.medusa.client.models import CreateCartRequest, CreateCartResult
 from medusa_agent.session import BuyerMarket, create_medusa_session
+from routedeck_core.conversation_runs import conversation_fingerprint
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationTurn,
@@ -51,6 +52,7 @@ from routedeck_core.contracts.session import (
     StoredOperationAttempt,
 )
 from routedeck_core.ports.session_store import SessionStoreError, SessionStoreErrorCode
+from routedeck_core.ports import UserMessageTrigger
 from routedeck_core.runtime_defaults import UtcClock
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_core.state.leases import TurnClaim, TurnOwnerKind
@@ -395,7 +397,10 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     active_state = (
         RouteDeckSessionAggregate(review_snapshot.state)
         .set_interaction(
-            RouteDeckInteractionState.active(RouteDeckInteractionOwnerType.CHAT)
+            RouteDeckInteractionState.active(
+                RouteDeckInteractionOwnerType.CHAT,
+                "legacy-chat-request",
+            )
         )
         .record_public_events(1)
         .commit()
@@ -415,6 +420,48 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         ),
     )
     await first_store.start_turn(abandoned_claim, active_state, (started_event,))
+
+    private_message = "private interrupted user message"
+    private_user_turn = FinalizedConversationTurn(
+        turn_id="private-user-turn",
+        role=ConversationRole.USER,
+        content=private_message,
+        request_id="private-user-interrupted",
+    )
+    private_trigger = UserMessageTrigger(
+        message=private_message,
+        user_turn=private_user_turn,
+    )
+    private_session = await first_store.create(
+        create_medusa_session(
+            app=compiled,
+            session_id="private-user-interrupted-session",
+            market=market,
+        )
+    )
+    private_lease = await first_runtime.services.runner.begin_turn(
+        TurnClaim(
+            session_id=private_session.session_id,
+            expected_session_version=private_session.session_version,
+            request_id=private_user_turn.request_id,
+            request_fingerprint=conversation_fingerprint(private_trigger),
+            owner_kind=TurnOwnerKind.CHAT,
+        )
+    )
+    private_claimed = await first_store.load(private_session.session_id)
+    await first_runtime.services.runner.interrupt_turn(
+        private_lease,
+        expected_session_version=private_claimed.session_version,
+        failure=RouteDeckFailure(
+            kind=FailureKind.INTERNAL,
+            code="turn_interrupted",
+            phase="agent_stream",
+            correlation_id="private-user-interrupted-correlation",
+            request_id=private_user_turn.request_id,
+            public_message="The agent turn was interrupted.",
+        ),
+    )
+    assert private_message.encode() not in database_path.read_bytes()
     await first_runtime.close()
 
     second_runtime = await open_runtime("second")
@@ -427,6 +474,22 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
         reopened.session_id, "contact"
     )
     replay = await second_store.events_after(reopened.session_id, 0, 20)
+    recovered_private_run = await second_runtime.conversation_runs.get(
+        private_session.session_id,
+        private_user_turn.request_id,
+    )
+    attached_private_run = await second_runtime.conversation_runs.start_or_attach(
+        session_id=private_session.session_id,
+        request_id=private_user_turn.request_id,
+        expected_session_version=0,
+        trigger=private_trigger,
+    )
+
+    assert recovered_private_run.kind.value == "user_message"
+    assert recovered_private_run.stage.value == "interrupted"
+    assert recovered_private_run.user_message is None
+    assert recovered_private_run.user_turn_id is None
+    assert attached_private_run == recovered_private_run
 
     assert reopened.state.current.node_id == "buyer.home"
     assert reopened.state.operation is not None
@@ -501,7 +564,10 @@ async def test_medusa_session_review_reopens_and_replays_after_restart(
     legacy_active_state = (
         RouteDeckSessionAggregate(legacy.state)
         .set_interaction(
-            RouteDeckInteractionState.active(RouteDeckInteractionOwnerType.CHAT)
+            RouteDeckInteractionState.active(
+                RouteDeckInteractionOwnerType.CHAT,
+                "legacy-chat-request",
+            )
         )
         .record_public_events(1)
         .commit()

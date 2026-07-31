@@ -469,7 +469,7 @@ def _typescript_production_files(root: Path) -> tuple[Path, ...]:
         and path.suffix in {".ts", ".tsx"}
         and "tests" not in path.relative_to(root).parts
         and ".test." not in path.name
-        and path.name != "generated.ts"
+        and path.name not in {"generated.ts", "generatedRuntime.ts"}
     )
 
 
@@ -960,6 +960,7 @@ def check_runtime_ownership(project_root: Path = PROJECT_ROOT) -> BoundaryCheck:
         ast.unparse(node.value)
         for node in ast.walk(fastapi_tree)
         if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and node.value is not None
         and any(name == "services" for name in _assigned_names(node))
     ]
 

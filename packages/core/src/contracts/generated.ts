@@ -5,11 +5,52 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type ExpectedSessionVersion = number;
-export type OperationId = string;
+export type Content = string;
 export type RequestId = string;
-export type CreatedAt = string;
+export type ProjectionVersion = number;
+export type RequestId1 = string;
+export type SessionVersion = number;
+export type TurnId = string;
+export type RequestId2 = string;
+export type Code = string;
+export type Message = string;
+export type Content1 = string;
+export type RequestId3 = string | null;
+export type Role = "user" | "assistant";
+export type TurnId1 = string;
+export type Turns = PublicConversationTurn[];
+export type ExpiresAt = string;
+export type OperationId = string;
+export type ReviewId = string;
+export type Status = "requires_review";
+export type AssistantContent = string;
 export type Cursor = number;
+export type Code1 = string;
+export type Message1 = string;
+export type Kind = "user_message" | "assistant_initiated";
+export type ProjectionVersion1 = number | null;
+export type RequestId4 = string;
+export type ExpiresAt1 = string;
+export type OperationId1 = string;
+export type ReviewId1 = string;
+export type SessionVersion1 = number | null;
+export type Stage = "starting" | "awaiting_model" | "generating" | "completed" | "interrupted";
+export type TurnId2 = string | null;
+export type UserMessage = string | null;
+export type UserTurnId = string | null;
+export type Turns1 = PublicConversationTurn[];
+export type RequestId5 = string;
+export type Status1 = "completed" | "requires_review" | "rejected" | "turn_interrupted" | "outcome_unknown";
+export type RequestId6 = string;
+export type SessionVersion2 = number;
+export type Content2 = string;
+export type RequestId7 = string;
+export type TurnId3 = string;
+export type ExpectedSessionVersion = number;
+export type OperationId2 = string;
+export type RequestId8 = string;
+export type CreatedAt = string;
+export type Cursor1 = number;
 export type EventId = string;
 export type RouteDeckEventType =
   | "session_created"
@@ -26,7 +67,7 @@ export type EntityKind = string;
 export type Handle = string;
 export type Values = PublicValue[];
 export type EntityHandles = PublicEntityHandle[];
-export type Code = string;
+export type Code2 = string;
 export type CorrelationId = string;
 export type FailureKind =
   | "contract"
@@ -40,22 +81,22 @@ export type FailureKind =
   | "persistence"
   | "external_outcome_unknown"
   | "internal";
-export type OperationId1 = string | null;
+export type OperationId3 = string | null;
 export type Phase = string;
 export type PublicMessage = string;
 export type RecoveryDirective = string | null;
-export type RequestId1 = string | null;
+export type RequestId9 = string | null;
 export type AffectedCapability = string | null;
 export type DeliveryPhase = ("not_sent" | "possibly_sent" | "response_received") | null;
 export type HttpStatus = number | null;
 export type Provider = string | null;
 export type ProviderCode = string | null;
 export type NodeId = string | null;
-export type OperationId2 = string | null;
-export type RequestId2 = string | null;
+export type OperationId4 = string | null;
+export type RequestId10 = string | null;
 export type StatusCode = string | null;
-export type ProjectionVersion = number | null;
-export type SessionVersion = number;
+export type ProjectionVersion2 = number | null;
+export type SessionVersion3 = number;
 export type EntryNodeId = string;
 export type Name1 = string;
 export type DisabledMessage = string | null;
@@ -72,7 +113,7 @@ export type Form = string[];
 export type Frame = string[];
 export type Peer = string[];
 export type Review = string[];
-export type Status = string[];
+export type Status2 = string[];
 export type Title = string;
 export type Event = string;
 export type Id1 = string;
@@ -81,11 +122,26 @@ export type Affordances = SurfaceAffordance[];
 export type Component = string;
 export type Id3 = string;
 export type SurfaceLifecycle = "ephemeral" | "stable";
-export type OperationId3 = string;
+export type OperationId5 = string;
 export type Outcome = string;
 export type Source = string;
 export type Target = string;
 export type Transitions = FrontendTransitionContract[];
+export type BlockedOperations = {
+  [k: string]: unknown;
+}[];
+export type Capabilities = {
+  [k: string]: unknown;
+}[];
+export type CurrentNode = string;
+export type GuardExplanations = string[];
+export type LegalOperations = {
+  [k: string]: unknown;
+}[];
+export type ReachableNodes = string[];
+export type RouteTraces = {
+  [k: string]: unknown;
+}[];
 export type OperationDisposition =
   "completed" | "blocked" | "needs_input" | "requires_review" | "pending" | "failed" | "external_outcome_unknown";
 export type AttemptId = string;
@@ -110,17 +166,25 @@ export type RequestFingerprint = string;
 export type ResultFingerprint = string | null;
 export type ResultId = string | null;
 export type OperationSource = "surface" | "agent" | "system" | "route";
-export type OperationId4 = string;
+export type OperationId6 = string;
 export type Outcome1 = string | null;
-export type ProjectionVersion1 = number;
-export type RequestId3 = string;
-export type ExpiresAt = string;
+export type ProjectionVersion3 = number;
+export type RequestId11 = string;
+export type ExpiresAt2 = string;
 export type Id4 = string;
-export type SessionId = string;
-export type SessionVersion1 = number;
+export type SessionVersion4 = number;
 export type Complete = boolean;
+export type FormId = string;
+export type ProjectionVersion4 = number;
+export type Revision = number;
+export type SessionVersion5 = number;
+export type Complete1 = boolean;
+export type FormId1 = string;
+export type Revision1 = number;
+export type SessionVersion6 = number;
+export type Complete2 = boolean;
 export type ExpectedSessionVersion1 = number;
-export type RequestId4 = string;
+export type RequestId12 = string;
 export type NodeId1 = string;
 export type RouteParams = PublicValue[];
 export type CurrentNodeId = string;
@@ -131,11 +195,12 @@ export type Entities = PublicEntityHandle[];
 export type EventCursor = number;
 export type RouteDeckInteractionOwnerType = "chat" | "surface" | "review" | "system" | "navigation";
 export type RouteDeckInteractionPhase = "idle" | "active";
-export type OperationId5 = string;
+export type RequestId13 = string | null;
+export type OperationId7 = string;
 export type ReviewRequired = boolean;
 export type SafetyClass = string;
 export type Title1 = string;
-export type LegalOperations = ProjectedOperation[];
+export type LegalOperations1 = ProjectedOperation[];
 export type BackNodeId = string | null;
 export type CanBack = boolean;
 export type CanCancel = boolean;
@@ -145,13 +210,13 @@ export type CurrentEntryId = number;
 export type ForwardNodeId = string | null;
 export type ResumeHandle = string | null;
 export type RouteTemplate1 = string;
-export type ProjectionVersion2 = number;
-export type SessionVersion2 = number;
-export type Code1 = string;
-export type Message = string | null;
+export type ProjectionVersion5 = number;
+export type SessionVersion7 = number;
+export type Code3 = string;
+export type Message2 = string | null;
 export type ActionId = string;
 export type Label = string;
-export type OperationId6 = string;
+export type OperationId8 = string;
 export type SuggestedActions = ProjectedSuggestedAction[];
 export type Component1 = string;
 export type Props = PublicValue[];
@@ -163,28 +228,134 @@ export type Form1 = ProjectedSurface[];
 export type Frame1 = ProjectedSurface[];
 export type Peer1 = ProjectedSurface[];
 export type Review1 = ProjectedSurface[];
-export type Status1 = ProjectedSurface[];
+export type Status3 = ProjectedSurface[];
 export type ExpectedSessionVersion2 = number;
-export type RequestId5 = string;
+export type RequestId14 = string;
+export type Entities1 = PublicEntityHandle[];
+export type EventCursor1 = number;
+export type GraphNode = string | null;
+export type LegalOperations2 = ProjectedOperation[];
+export type ProjectionVersion6 = number;
+export type SessionVersion8 = number;
+export type SuggestedActions1 = ProjectedSuggestedAction[];
+export type EventType = "stream_reset_required";
+export type RequestedAfter = number;
+export type RetainedFromCursor = number | null;
 
 /**
  * Schema catalog consumed by the headless TypeScript package.
  */
 export interface RouteDeckTransportContracts {
+  conversation_assistant_delta: ConversationAssistantDeltaPayload;
+  conversation_assistant_end: ConversationAssistantEndPayload;
+  conversation_assistant_reset: ConversationAssistantResetPayload;
+  conversation_chat_error: ConversationChatErrorPayload;
+  conversation_history: ConversationHistoryEnvelope;
+  conversation_review_required: ConversationReviewRequiredPayload;
+  conversation_run_envelope: ConversationRunEnvelope;
+  conversation_run_failure: ConversationRunFailurePayload;
+  conversation_run_review: ConversationRunReviewPayload;
+  conversation_run_snapshot: ConversationRunSnapshotPayload;
+  conversation_snapshot: ConversationSnapshotPayload;
+  conversation_stream_end: ConversationStreamEndPayload;
+  conversation_stream_start: ConversationStreamStartPayload;
+  conversation_turn: PublicConversationTurn;
+  conversation_user_message: ConversationUserMessagePayload;
   dispatch_request: DispatchRequest;
   event: PublicRouteDeckEvent;
   failure: RouteDeckFailure;
+  failure_envelope: FailureEnvelope;
   frontend_contract: FrontendContract;
-  operation_result: OperationResult;
+  frontend_contract_envelope: FrontendContractEnvelope;
+  inspection: InspectionPayload;
+  operation_result: PublicOperationResult;
+  private_form_saved: PrivateFormSaved;
+  private_form_snapshot: PrivateFormSnapshot;
   private_form_write_request: PrivateFormWriteRequest;
   public_projection: PublicProjection;
   review_request: ReviewRequest;
+  session_envelope: SessionEnvelope;
+  stream_reset: StreamResetPayload;
+}
+export interface ConversationAssistantDeltaPayload {
+  content: Content;
+  request_id: RequestId;
+}
+export interface ConversationAssistantEndPayload {
+  projection_version: ProjectionVersion;
+  request_id: RequestId1;
+  session_version: SessionVersion;
+  turn_id: TurnId;
+}
+export interface ConversationAssistantResetPayload {
+  request_id: RequestId2;
+}
+export interface ConversationChatErrorPayload {
+  code: Code;
+  message: Message;
+}
+export interface ConversationHistoryEnvelope {
+  turns: Turns;
+}
+export interface PublicConversationTurn {
+  content: Content1;
+  request_id: RequestId3;
+  role: Role;
+  turn_id: TurnId1;
+}
+export interface ConversationReviewRequiredPayload {
+  expires_at: ExpiresAt;
+  operation_id: OperationId;
+  review_id: ReviewId;
+  status: Status;
+}
+export interface ConversationRunEnvelope {
+  run: ConversationRunSnapshotPayload;
+}
+export interface ConversationRunSnapshotPayload {
+  assistant_content?: AssistantContent;
+  cursor: Cursor;
+  failure?: ConversationRunFailurePayload | null;
+  kind: Kind;
+  projection_version?: ProjectionVersion1;
+  request_id: RequestId4;
+  review?: ConversationRunReviewPayload | null;
+  session_version?: SessionVersion1;
+  stage: Stage;
+  turn_id?: TurnId2;
+  user_message?: UserMessage;
+  user_turn_id?: UserTurnId;
+}
+export interface ConversationRunFailurePayload {
+  code: Code1;
+  message: Message1;
+}
+export interface ConversationRunReviewPayload {
+  expires_at: ExpiresAt1;
+  operation_id: OperationId1;
+  review_id: ReviewId1;
+}
+export interface ConversationSnapshotPayload {
+  turns: Turns1;
+}
+export interface ConversationStreamEndPayload {
+  request_id: RequestId5;
+  status: Status1;
+}
+export interface ConversationStreamStartPayload {
+  request_id: RequestId6;
+  session_version: SessionVersion2;
+}
+export interface ConversationUserMessagePayload {
+  content: Content2;
+  request_id: RequestId7;
+  turn_id: TurnId3;
 }
 export interface DispatchRequest {
   arguments?: Arguments;
   expected_session_version: ExpectedSessionVersion;
-  operation_id: OperationId;
-  request_id: RequestId;
+  operation_id: OperationId2;
+  request_id: RequestId8;
 }
 export interface Arguments {
   [k: string]: unknown;
@@ -194,20 +365,20 @@ export interface Arguments {
  */
 export interface PublicRouteDeckEvent {
   created_at: CreatedAt;
-  cursor: Cursor;
+  cursor: Cursor1;
   event_id: EventId;
   event_type: RouteDeckEventType;
   payload: PublicEventPayload;
-  projection_version?: ProjectionVersion;
-  session_version: SessionVersion;
+  projection_version?: ProjectionVersion2;
+  session_version: SessionVersion3;
 }
 export interface PublicEventPayload {
   details?: Details;
   entity_handles?: EntityHandles;
   failure?: RouteDeckFailure | null;
   node_id?: NodeId;
-  operation_id?: OperationId2;
-  request_id?: RequestId2;
+  operation_id?: OperationId4;
+  request_id?: RequestId10;
   status_code?: StatusCode;
 }
 export interface PublicValue {
@@ -223,14 +394,14 @@ export interface PublicEntityHandle {
   values?: Values;
 }
 export interface RouteDeckFailure {
-  code: Code;
+  code: Code2;
   correlation_id: CorrelationId;
   kind: FailureKind;
-  operation_id?: OperationId1;
+  operation_id?: OperationId3;
   phase: Phase;
   public_message: PublicMessage;
   recovery_directive?: RecoveryDirective;
-  request_id?: RequestId1;
+  request_id?: RequestId9;
   safe_details?: FailureSafeDetails;
 }
 export interface FailureSafeDetails {
@@ -239,6 +410,9 @@ export interface FailureSafeDetails {
   http_status?: HttpStatus;
   provider?: Provider;
   provider_code?: ProviderCode;
+}
+export interface FailureEnvelope {
+  failure: RouteDeckFailure;
 }
 export interface FrontendContract {
   entry_node_id: EntryNodeId;
@@ -275,7 +449,7 @@ export interface FrontendSurfaceSlots {
   frame?: Frame;
   peer?: Peer;
   review?: Review;
-  status?: Status;
+  status?: Status2;
 }
 export interface Surfaces {
   [k: string]: FrontendSurfaceContract;
@@ -299,22 +473,44 @@ export interface PublicPropsSchema {
   [k: string]: unknown;
 }
 export interface FrontendTransitionContract {
-  operation_id: OperationId3;
+  operation_id: OperationId5;
   outcome: Outcome;
   source: Source;
   target: Target;
 }
-export interface OperationResult {
+export interface FrontendContractEnvelope {
+  frontend_contract: FrontendContract;
+}
+export interface InspectionPayload {
+  blocked_operations: BlockedOperations;
+  capabilities: Capabilities;
+  current_node: CurrentNode;
+  diagnostics: Diagnostics;
+  guard_explanations: GuardExplanations;
+  legal_operations: LegalOperations;
+  reachable_nodes: ReachableNodes;
+  route_traces: RouteTraces;
+  surfaces: Surfaces1;
+}
+export interface Diagnostics {
+  [k: string]: unknown;
+}
+export interface Surfaces1 {
+  [k: string]: unknown;
+}
+/**
+ * Operation result safe to emit without the private session identifier.
+ */
+export interface PublicOperationResult {
   disposition: OperationDisposition;
   evidence: OperationEvidence;
   failure?: RouteDeckFailure | null;
-  operation_id: OperationId4;
+  operation_id: OperationId6;
   outcome?: Outcome1;
-  projection_version: ProjectionVersion1;
-  request_id: RequestId3;
+  projection_version: ProjectionVersion3;
+  request_id: RequestId11;
   review?: OperationReview | null;
-  session_id: SessionId;
-  session_version: SessionVersion1;
+  session_version: SessionVersion4;
 }
 export interface OperationEvidence {
   attempt_id: AttemptId;
@@ -326,16 +522,33 @@ export interface OperationEvidence {
   source: OperationSource;
 }
 export interface OperationReview {
-  expires_at: ExpiresAt;
+  expires_at: ExpiresAt2;
   id: Id4;
 }
-export interface PrivateFormWriteRequest {
-  complete?: Complete;
-  expected_session_version: ExpectedSessionVersion1;
-  request_id: RequestId4;
+export interface PrivateFormSaved {
+  complete: Complete;
+  form_id: FormId;
+  projection_version: ProjectionVersion4;
+  revision: Revision;
+  session_version: SessionVersion5;
+}
+export interface PrivateFormSnapshot {
+  complete: Complete1;
+  form_id: FormId1;
+  revision: Revision1;
+  session_version: SessionVersion6;
   value: Value1;
 }
 export interface Value1 {
+  [k: string]: unknown;
+}
+export interface PrivateFormWriteRequest {
+  complete?: Complete2;
+  expected_session_version: ExpectedSessionVersion1;
+  request_id: RequestId12;
+  value: Value2;
+}
+export interface Value2 {
   [k: string]: unknown;
 }
 export interface PublicProjection {
@@ -345,10 +558,10 @@ export interface PublicProjection {
   event_cursor: EventCursor;
   failure?: RouteDeckFailure | null;
   interaction: RouteDeckInteractionState;
-  legal_operations: LegalOperations;
+  legal_operations: LegalOperations1;
   navigation: ProjectedNavigation;
-  projection_version: ProjectionVersion2;
-  session_version: SessionVersion2;
+  projection_version: ProjectionVersion5;
+  session_version: SessionVersion7;
   status: ProjectionStatus;
   suggested_actions: SuggestedActions;
   surfaces: ProjectedSurfaceSlots;
@@ -366,9 +579,10 @@ export interface ProjectionDiagnostics {
 export interface RouteDeckInteractionState {
   owner?: RouteDeckInteractionOwnerType | null;
   phase?: RouteDeckInteractionPhase;
+  request_id?: RequestId13;
 }
 export interface ProjectedOperation {
-  operation_id: OperationId5;
+  operation_id: OperationId7;
   review_required?: ReviewRequired;
   safety_class: SafetyClass;
   title: Title1;
@@ -386,14 +600,14 @@ export interface ProjectedNavigation {
   route_template: RouteTemplate1;
 }
 export interface ProjectionStatus {
-  code?: Code1;
-  message?: Message;
+  code?: Code3;
+  message?: Message2;
 }
 export interface ProjectedSuggestedAction {
   action_id: ActionId;
   arguments?: Arguments1;
   label: Label;
-  operation_id: OperationId6;
+  operation_id: OperationId8;
 }
 export interface Arguments1 {
   [k: string]: unknown;
@@ -407,7 +621,7 @@ export interface ProjectedSurfaceSlots {
   frame?: Frame1;
   peer?: Peer1;
   review?: Review1;
-  status?: Status1;
+  status?: Status3;
 }
 export interface ProjectedSurface {
   component: Component1;
@@ -416,5 +630,32 @@ export interface ProjectedSurface {
 }
 export interface ReviewRequest {
   expected_session_version: ExpectedSessionVersion2;
-  request_id: RequestId5;
+  request_id: RequestId14;
+}
+export interface SessionEnvelope {
+  projection: PublicProjectionResponse;
+}
+/**
+ * Projection shape emitted by the FastAPI transport.
+ */
+export interface PublicProjectionResponse {
+  current: ProjectionLocation;
+  diagnostics: ProjectionDiagnostics;
+  entities: Entities1;
+  event_cursor: EventCursor1;
+  failure?: RouteDeckFailure | null;
+  graph_node?: GraphNode;
+  interaction: RouteDeckInteractionState;
+  legal_operations: LegalOperations2;
+  navigation: ProjectedNavigation;
+  projection_version: ProjectionVersion6;
+  session_version: SessionVersion8;
+  status: ProjectionStatus;
+  suggested_actions: SuggestedActions1;
+  surfaces: ProjectedSurfaceSlots;
+}
+export interface StreamResetPayload {
+  event_type?: EventType;
+  requested_after: RequestedAfter;
+  retained_from_cursor?: RetainedFromCursor;
 }

@@ -6,7 +6,6 @@ from typing import cast
 
 from fastapi import Request
 
-from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
 from routedeck_core.runtime import RouteDeckRuntime
 
 from .dependencies import (
@@ -42,16 +41,6 @@ def dependencies_from_runtime(
             "RouteDeck followed SSE requires a cursor-aware runtime notifier"
         )
 
-    def make_session(
-        session_id: str,
-    ) -> RouteDeckSession | Awaitable[RouteDeckSession]:
-        return runtime.session_factory(services.app.app, session_id)
-
-    def initialize_session(
-        snapshot: SessionSnapshot,
-    ) -> SessionSnapshot | Awaitable[SessionSnapshot]:
-        return runtime.session_initializer(services, snapshot)
-
     return RouteDeckDependencies(
         app=services.app.app,
         runner=services.runner,
@@ -59,11 +48,11 @@ def dependencies_from_runtime(
         notifier=cast(EventWakeupNotifier, services.notifier),
         projector=services.projector,
         private_form_codec=runtime.private_form_codec,
-        session_factory=make_session,
+        session_provisioner=runtime.provision_session,
         agent_driver=runtime.agent_driver,
         navigation=services.navigation,
-        session_initializer=initialize_session,
         session_selector=session_selector,
+        conversation_runs=runtime.conversation_runs,
         sse=effective_sse,
     )
 

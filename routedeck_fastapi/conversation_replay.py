@@ -18,6 +18,7 @@ from routedeck_core.ports import (
 )
 
 from .conversation_projection import public_conversation
+from .conversation_sse import encode_conversation_sse
 
 
 def conversation_fingerprint(trigger: RouteDeckConversationTrigger) -> str:
@@ -115,13 +116,7 @@ def conversation_stream_headers() -> dict[str, str]:
 
 
 def sse(event: str, data: Mapping[str, object]) -> str:
-    payload = json.dumps(
-        dict(data),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    return f"event: {event}\ndata: {payload}\n\n"
+    return encode_conversation_sse(event, data)
 
 
 def _require_replay_result(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -28,6 +29,10 @@ from .conversation import (
     extract_conversation_turns,
 )
 from .tool_wrapper import RouteDeckInvocationContext
+
+
+_LOGGER = logging.getLogger("uvicorn.error.routedeck.langgraph")
+_MODEL_STARTED_EVENT = "routedeck_langgraph_model_started"
 
 
 class LangGraphEventStream(Protocol):
@@ -112,6 +117,11 @@ class RouteDeckLangGraphAgentDriver:
         )
         try:
             async for event in event_stream:
+                if event.get("event") == "on_chat_model_start":
+                    _log_model_started(
+                        request_id=turn.request_id,
+                        langchain_run_id=_model_run_id(event),
+                    )
                 if self._is_ignored_event(event):
                     continue
                 event_name = event.get("event")
@@ -240,7 +250,7 @@ class RouteDeckLangGraphAgentDriver:
         if isinstance(turn.trigger, UserMessageTrigger):
             return self._user_message_invocation(turn, turn.trigger)
         if isinstance(turn.trigger, AssistantInitiatedTrigger):
-            return self._assistant_initiated_invocation()
+            return self._assistant_initiated_invocation(turn)
         _invalid("The RouteDeck conversation trigger is unsupported.")
 
     def _user_message_invocation(
@@ -273,8 +283,19 @@ class RouteDeckLangGraphAgentDriver:
 
     def _assistant_initiated_invocation(
         self,
-    ) -> tuple[LangGraphEventStream, Mapping[str, Any], None]:
-        return self.graphs.assistant_initiated, {"messages": []}, None
+        turn: RouteDeckAgentTurn,
+    ) -> tuple[
+        LangGraphEventStream,
+        Mapping[str, Any],
+        RouteDeckInvocationContext,
+    ]:
+        context: RouteDeckInvocationContext = {
+            "session_id": turn.session_id,
+            "request_id_prefix": turn.request_id,
+            "turn": turn.lease,
+            "review_turns": (),
+        }
+        return self.graphs.assistant_initiated, {"messages": []}, context
 
     def _extract(
         self,
@@ -346,6 +367,20 @@ def _model_run_id(event: Mapping[str, Any]) -> str:
     if not isinstance(run_id, str) or not run_id:
         _invalid("The product agent returned an invalid streaming event.")
     return run_id
+
+
+def _log_model_started(*, request_id: str, langchain_run_id: str) -> None:
+    _LOGGER.info(
+        "%s request_id=%s langchain_run_id=%s",
+        _MODEL_STARTED_EVENT,
+        request_id,
+        langchain_run_id,
+        extra={
+            "routedeck_event": _MODEL_STARTED_EVENT,
+            "request_id": request_id,
+            "langchain_run_id": langchain_run_id,
+        },
+    )
 
 
 def _message_text(message: object) -> str:

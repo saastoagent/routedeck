@@ -3,6 +3,7 @@ import type {
   FrontendContract,
   FrontendNodeContract,
 } from "./generated";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import strictJsonDecoders from "./json";
 
 const {
@@ -25,20 +26,22 @@ export interface RouteDeckFrontendContractEnvelope {
 export function decodeFrontendContractEnvelope(
   value: unknown,
 ): RouteDeckFrontendContractEnvelope {
-  const record = expectRecord(value, "$", ["frontend_contract"]);
+  const record = expectRecord(
+    value,
+    "$",
+    generatedObjectDescriptors.FrontendContractEnvelope,
+  );
   return {
     frontend_contract: decodeFrontendContract(record.frontend_contract),
   };
 }
 
 export function decodeFrontendContract(value: unknown): FrontendContract {
-  const record = expectRecord(value, "$contract", [
-    "name",
-    "entry_node_id",
-    "nodes",
-    "transitions",
-    "surfaces",
-  ]);
+  const record = expectRecord(
+    value,
+    "$contract",
+    generatedObjectDescriptors.FrontendContract,
+  );
   const nodesRecord = expectRecordMap(record.nodes, "$contract.nodes");
   const surfacesRecord = expectRecordMap(record.surfaces, "$contract.surfaces");
   const nodes: Record<string, FrontendNodeContract> = {};
@@ -46,27 +49,19 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
     const node = expectRecord(
       rawNode,
       `$contract.nodes.${key}`,
-      [
-        "id",
-        "title",
-        "route_template",
-        "deep_link_policy",
-        "surfaces",
-        "operation_ids",
-        "conversation_input",
-      ],
+      generatedObjectDescriptors.FrontendNodeContract,
     );
     const id = expectString(node.id, `$contract.nodes.${key}.id`);
     if (id !== key) fail(`$contract.nodes.${key}.id`, "must match its map key");
     const slots = expectRecord(
       node.surfaces,
       `$contract.nodes.${key}.surfaces`,
-      ["active", "frame", "peer", "detail", "form", "review", "status", "error", "diagnostic"],
+      generatedObjectDescriptors.FrontendSurfaceSlots,
     );
     const conversationInput = expectRecord(
       node.conversation_input,
       `$contract.nodes.${key}.conversation_input`,
-      ["enabled", "disabled_message"],
+      generatedObjectDescriptors.ConversationInputPolicy,
     );
     const conversationInputEnabled = expectBoolean(
       conversationInput.enabled,
@@ -105,15 +100,36 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
           slots.active,
           `$contract.nodes.${key}.surfaces.active`,
         ),
-        frame: decodeStringArray(slots.frame, `$contract.nodes.${key}.surfaces.frame`),
-        peer: decodeStringArray(slots.peer, `$contract.nodes.${key}.surfaces.peer`),
-        detail: decodeStringArray(slots.detail, `$contract.nodes.${key}.surfaces.detail`),
-        form: decodeStringArray(slots.form, `$contract.nodes.${key}.surfaces.form`),
-        review: decodeStringArray(slots.review, `$contract.nodes.${key}.surfaces.review`),
-        status: decodeStringArray(slots.status, `$contract.nodes.${key}.surfaces.status`),
-        error: decodeStringArray(slots.error, `$contract.nodes.${key}.surfaces.error`),
+        frame: decodeStringArray(
+          slots.frame === undefined ? [] : slots.frame,
+          `$contract.nodes.${key}.surfaces.frame`,
+        ),
+        peer: decodeStringArray(
+          slots.peer === undefined ? [] : slots.peer,
+          `$contract.nodes.${key}.surfaces.peer`,
+        ),
+        detail: decodeStringArray(
+          slots.detail === undefined ? [] : slots.detail,
+          `$contract.nodes.${key}.surfaces.detail`,
+        ),
+        form: decodeStringArray(
+          slots.form === undefined ? [] : slots.form,
+          `$contract.nodes.${key}.surfaces.form`,
+        ),
+        review: decodeStringArray(
+          slots.review === undefined ? [] : slots.review,
+          `$contract.nodes.${key}.surfaces.review`,
+        ),
+        status: decodeStringArray(
+          slots.status === undefined ? [] : slots.status,
+          `$contract.nodes.${key}.surfaces.status`,
+        ),
+        error: decodeStringArray(
+          slots.error === undefined ? [] : slots.error,
+          `$contract.nodes.${key}.surfaces.error`,
+        ),
         diagnostic: decodeStringArray(
-          slots.diagnostic,
+          slots.diagnostic === undefined ? [] : slots.diagnostic,
           `$contract.nodes.${key}.surfaces.diagnostic`,
         ),
       },
@@ -131,12 +147,11 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
     record.transitions,
     "$contract.transitions",
     (rawTransition, path) => {
-      const transition = expectRecord(rawTransition, path, [
-        "source",
-        "operation_id",
-        "outcome",
-        "target",
-      ]);
+      const transition = expectRecord(
+        rawTransition,
+        path,
+        generatedObjectDescriptors.FrontendTransitionContract,
+      );
       const source = expectString(transition.source, `${path}.source`);
       const target = expectString(transition.target, `${path}.target`);
       if (!(source in nodes)) {
@@ -161,7 +176,7 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
     const surface = expectRecord(
       rawSurface,
       `$contract.surfaces.${key}`,
-      ["id", "component", "lifecycle", "affordances", "public_props_schema"],
+      generatedObjectDescriptors.FrontendSurfaceContract,
     );
     const id = expectString(surface.id, `$contract.surfaces.${key}.id`);
     if (id !== key) fail(`$contract.surfaces.${key}.id`, "must match its map key");
@@ -174,23 +189,27 @@ export function decodeFrontendContract(value: unknown): FrontendContract {
         ["ephemeral", "stable"] as const,
       ),
       affordances: decodeArray(
-        surface.affordances,
+        surface.affordances === undefined ? [] : surface.affordances,
         `$contract.surfaces.${key}.affordances`,
         (item, itemPath) => {
           const affordance = expectRecord(
             item,
             itemPath,
-            ["id", "event", "operation"],
+            generatedObjectDescriptors.SurfaceAffordance,
           );
           return {
             id: expectString(affordance.id, `${itemPath}.id`),
             event: expectString(affordance.event, `${itemPath}.event`),
             operation:
-              affordance.operation === null
+              affordance.operation === undefined || affordance.operation === null
                 ? null
                 : {
                     id: expectString(
-                      expectRecord(affordance.operation, `${itemPath}.operation`, ["id"]).id,
+                      expectRecord(
+                        affordance.operation,
+                        `${itemPath}.operation`,
+                        generatedObjectDescriptors.OperationRef,
+                      ).id,
                       `${itemPath}.operation.id`,
                     ),
                   },

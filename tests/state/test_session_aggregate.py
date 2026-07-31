@@ -105,7 +105,8 @@ def test_session_aggregate_commits_each_named_private_and_public_change() -> Non
         request_id="request-1",
     )
     interaction = RouteDeckInteractionState.active(
-        RouteDeckInteractionOwnerType.CHAT
+        RouteDeckInteractionOwnerType.CHAT,
+        "request-1",
     )
     operation = OperationState()
     private_state = initial.private_state.model_copy(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import inspect
 import json
 from typing import TypeVar
@@ -21,8 +20,6 @@ from .dependencies import (
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
     RouteDeckSessionSelector,
-    SessionFactory,
-    SessionInitializer,
 )
 from .security import RouteDeckMutationPolicy, RouteDeckMutationRejected
 
@@ -37,42 +34,6 @@ async def resolve_dependencies(provider, request: Request) -> RouteDeckDependenc
     if not isinstance(dependencies, RouteDeckDependencies):
         raise RouteDeckDependencyUnavailable("RouteDeck runtime is not configured")
     return dependencies
-
-
-async def make_session(factory: SessionFactory, session_id: str):
-    session = factory(session_id)
-    return await session if inspect.isawaitable(session) else session
-
-
-async def initialize_session(
-    initializer: SessionInitializer | None,
-    snapshot: SessionSnapshot,
-) -> SessionSnapshot:
-    if initializer is None:
-        return snapshot
-    initialized = initializer(snapshot)
-    if inspect.isawaitable(initialized):
-        initialized = await initialized
-    if not isinstance(initialized, SessionSnapshot):
-        raise RouteDeckHttpProblem(
-            500,
-            "session_initializer_invalid",
-            "The session could not be initialized.",
-            FailureKind.INTERNAL,
-            "session_creation",
-        )
-    if (
-        initialized.state.session_id != snapshot.state.session_id
-        or initialized.session_version < snapshot.session_version
-    ):
-        raise RouteDeckHttpProblem(
-            500,
-            "session_initializer_invalid",
-            "The session could not be initialized.",
-            FailureKind.INTERNAL,
-            "session_creation",
-        )
-    return initialized
 
 
 async def validated_body(
@@ -174,18 +135,11 @@ def project(
     return dependencies.projector.project(snapshot.state)
 
 
-def session_creation_fingerprint() -> str:
-    return hashlib.sha256(b"routedeck.session-creation.v1").hexdigest()
-
-
 __all__ = [
     "authenticated_snapshot",
     "GuestCookieSessionSelector",
-    "initialize_session",
-    "make_session",
     "project",
     "resolve_dependencies",
     "selected_session_id",
-    "session_creation_fingerprint",
     "validated_body",
 ]

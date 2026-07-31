@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from routedeck_core.contracts.operations import OperationRequest, OperationSource
+from routedeck_core.contracts.operations import OperationDisposition
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.navigation.transactions import NavigationRequest
 
@@ -14,6 +15,7 @@ from ..contracts import (
     ReviewRequest,
     RouteDeckHttpProblem,
 )
+from ..conversation_runs import ensure_current_node_entry_turn
 from ..dependencies import RouteDeckDependencyUnavailable
 from ..responses import (
     PRIVATE_CACHE_CONTROL,
@@ -62,6 +64,19 @@ def create_operation_routes(
                     "The request is invalid.",
                 ) from error
             result = await dependencies.runner.run(operation_request)
+            if result.disposition is OperationDisposition.COMPLETED:
+                entry_run = await ensure_current_node_entry_turn(
+                    dependencies=dependencies,
+                    session_id=session_id,
+                )
+                if entry_run is not None:
+                    claimed = await dependencies.store.load(session_id)
+                    result = result.model_copy(
+                        update={
+                            "session_version": claimed.session_version,
+                            "projection_version": claimed.projection_version,
+                        }
+                    )
             return operation_response(result)
         except Exception as error:
             return exception_response(error)
@@ -91,6 +106,13 @@ def create_operation_routes(
                     intent=body.intent,
                 )
             )
+            entry_run = await ensure_current_node_entry_turn(
+                dependencies=dependencies,
+                session_id=session_id,
+                snapshot=snapshot,
+            )
+            if entry_run is not None:
+                snapshot = await dependencies.store.load(session_id)
             projection = project(dependencies, snapshot)
             return JSONResponse(
                 content={"projection": public_projection(projection)},
@@ -148,6 +170,19 @@ async def _review_response(
             expected_session_version=body.expected_session_version,
             session_id=session_id,
         )
+        if result.disposition is OperationDisposition.COMPLETED:
+            entry_run = await ensure_current_node_entry_turn(
+                dependencies=dependencies,
+                session_id=session_id,
+            )
+            if entry_run is not None:
+                claimed = await dependencies.store.load(session_id)
+                result = result.model_copy(
+                    update={
+                        "session_version": claimed.session_version,
+                        "projection_version": claimed.projection_version,
+                    }
+                )
         return operation_response(result)
     except Exception as error:
         return exception_response(error)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.contracts.conversation import (
     ConversationRole,
@@ -14,10 +14,16 @@ from routedeck_core.contracts.session import SessionSnapshot
 class PublicConversationTurn(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    turn_id: str
+    turn_id: str = Field(min_length=1)
     request_id: str | None
     role: Literal["user", "assistant"]
     content: str
+
+
+class ConversationHistoryEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    turns: tuple[PublicConversationTurn, ...]
 
 
 def public_conversation(snapshot: SessionSnapshot) -> list[dict[str, object]]:
@@ -34,4 +40,15 @@ def public_conversation(snapshot: SessionSnapshot) -> list[dict[str, object]]:
     ]
 
 
-__all__ = ["PublicConversationTurn", "public_conversation"]
+def public_conversation_envelope(snapshot: SessionSnapshot) -> dict[str, object]:
+    return ConversationHistoryEnvelope.model_validate(
+        {"turns": public_conversation(snapshot)}
+    ).model_dump(mode="json")
+
+
+__all__ = [
+    "ConversationHistoryEnvelope",
+    "PublicConversationTurn",
+    "public_conversation",
+    "public_conversation_envelope",
+]

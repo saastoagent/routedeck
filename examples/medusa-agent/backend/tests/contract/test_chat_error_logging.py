@@ -43,6 +43,10 @@ def _guest_selector() -> GuestCookieSessionSelector:
     )
 
 
+async def _unused_session_provisioner(**_kwargs) -> SessionSnapshot:
+    raise AssertionError("conversation-stream tests do not provision sessions")
+
+
 class _FailingInterruptStore:
     def __init__(self, snapshot: SessionSnapshot) -> None:
         self.snapshot = snapshot
@@ -185,7 +189,7 @@ async def test_assistant_delta_is_emitted_before_the_turn_is_committed(
         notifier=object(),  # type: ignore[arg-type]
         projector=object(),  # type: ignore[arg-type]
         private_form_codec=object(),  # type: ignore[arg-type]
-        session_factory=lambda _session_id: session,
+        session_provisioner=_unused_session_provisioner,
         session_selector=_guest_selector(),
         agent_driver=_StreamingDriver(),
         sse=SseSettings(follow=False),
@@ -241,7 +245,7 @@ async def test_interrupt_persistence_failure_is_reported_as_outcome_unknown(
         notifier=object(),  # type: ignore[arg-type]
         projector=object(),  # type: ignore[arg-type]
         private_form_codec=object(),  # type: ignore[arg-type]
-        session_factory=lambda _session_id: session,
+        session_provisioner=_unused_session_provisioner,
         session_selector=_guest_selector(),
         agent_driver=_FailingDriver(),
         sse=SseSettings(follow=False),

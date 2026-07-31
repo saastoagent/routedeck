@@ -23,6 +23,63 @@ class ConversationTurnStatus(StrEnum):
     INTERRUPTED = "turn_interrupted"
 
 
+class EntryTurnOccurrence(StrEnum):
+    ONCE_PER_SESSION_NODE = "once_per_session_node"
+
+
+class EntryTurnDeclaration(_FrozenContract):
+    """Declare one product-authored assistant turn on entry to a node."""
+
+    id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._-]+$")
+    occurrence: EntryTurnOccurrence = EntryTurnOccurrence.ONCE_PER_SESSION_NODE
+
+
+class ConversationRunKind(StrEnum):
+    USER_MESSAGE = "user_message"
+    ASSISTANT_INITIATED = "assistant_initiated"
+
+
+class ConversationRunStage(StrEnum):
+    STARTING = "starting"
+    AWAITING_MODEL = "awaiting_model"
+    GENERATING = "generating"
+    COMPLETED = "completed"
+    INTERRUPTED = "interrupted"
+
+
+class ConversationRunFailure(_FrozenContract):
+    code: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+
+class ConversationRunReview(_FrozenContract):
+    operation_id: str = Field(min_length=1)
+    review_id: str = Field(min_length=1)
+    expires_at: str = Field(min_length=1)
+
+
+class ConversationRunSnapshot(_FrozenContract):
+    request_id: str = Field(min_length=1, max_length=256)
+    kind: ConversationRunKind
+    stage: ConversationRunStage
+    cursor: int = Field(ge=1)
+    assistant_content: str = ""
+    user_message: str | None = None
+    user_turn_id: str | None = Field(default=None, min_length=1)
+    session_version: int | None = Field(default=None, ge=0)
+    projection_version: int | None = Field(default=None, ge=0)
+    turn_id: str | None = Field(default=None, min_length=1)
+    failure: ConversationRunFailure | None = None
+    review: ConversationRunReview | None = None
+
+    @property
+    def terminal(self) -> bool:
+        return self.stage in {
+            ConversationRunStage.COMPLETED,
+            ConversationRunStage.INTERRUPTED,
+        }
+
+
 class ConversationInputPolicy(_FrozenContract):
     """Static node policy for whether a conversation composer may accept input."""
 
@@ -86,9 +143,16 @@ class FinalizedConversationTurn(ConversationTurn):
 
 __all__ = [
     "ConversationInputPolicy",
+    "ConversationRunFailure",
+    "ConversationRunKind",
+    "ConversationRunReview",
+    "ConversationRunSnapshot",
+    "ConversationRunStage",
     "ConversationRole",
     "ConversationToolCall",
     "ConversationTurn",
     "ConversationTurnStatus",
+    "EntryTurnDeclaration",
+    "EntryTurnOccurrence",
     "FinalizedConversationTurn",
 ]

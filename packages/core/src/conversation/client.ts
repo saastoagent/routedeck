@@ -11,7 +11,16 @@ import {
   type AgentChatRequest,
   type RouteDeckAgentClient,
 } from "./types";
+import {
+  decodeConversationRunEnvelope,
+  parseConversationRunSse,
+  validateConversationRunCursor,
+  validateConversationRunRequestId,
+} from "./runs";
+import { generatedObjectDescriptors } from "../contracts/generatedRuntime";
+import strictJsonDecoders from "../contracts/json";
 
+const { expectRecord } = strictJsonDecoders;
 
 export function createRouteDeckAgentClient(
   options: { baseUrl?: string; fetch?: typeof fetch } = {},
@@ -37,14 +46,17 @@ export function createRouteDeckAgentClient(
       });
       if (!response.ok) throw await agentResponseError(response);
       const value: unknown = await response.json();
-      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      let payload: Record<string, unknown>;
+      try {
+        payload = expectRecord(
+          value,
+          "conversation",
+          generatedObjectDescriptors.ConversationHistoryEnvelope,
+        );
+      } catch {
         return invalidConversation();
       }
-      const payload = value as Record<string, unknown>;
-      if (
-        !Array.isArray(payload.turns) ||
-        Object.keys(payload).some((key) => key !== "turns")
-      ) {
+      if (!Array.isArray(payload.turns)) {
         return invalidConversation();
       }
       return Object.freeze(
@@ -101,6 +113,72 @@ export function createRouteDeckAgentClient(
         );
       }
       yield* parseAgentSse(response.body);
+    },
+    async startAssistantRun(
+      request: AgentAssistantTurnRequest,
+      signal?: AbortSignal,
+    ) {
+      validateAgentAssistantTurnRequest(request);
+      const response = await fetcher(`${baseUrl}/conversation/runs`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...request, trigger: "assistant_initiated" }),
+        ...(signal === undefined ? {} : { signal }),
+      });
+      if (!response.ok) throw await agentResponseError(response);
+      return decodeConversationRunEnvelope(await response.json());
+    },
+    async loadConversationRun(requestId: string, signal?: AbortSignal) {
+      validateConversationRunRequestId(requestId);
+      const response = await fetcher(
+        `${baseUrl}/conversation/runs/${encodeURIComponent(requestId)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+          ...(signal === undefined ? {} : { signal }),
+        },
+      );
+      if (!response.ok) throw await agentResponseError(response);
+      return decodeConversationRunEnvelope(await response.json());
+    },
+    async *streamConversationRunEvents(
+      requestId: string,
+      after: number,
+      signal?: AbortSignal,
+    ) {
+      validateConversationRunRequestId(requestId);
+      validateConversationRunCursor(after);
+      const response = await fetcher(
+        `${baseUrl}/conversation/runs/${encodeURIComponent(requestId)}/events?after=${after}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: { Accept: "text/event-stream" },
+          cache: "no-store",
+          ...(signal === undefined ? {} : { signal }),
+        },
+      );
+      if (!response.ok) throw await agentResponseError(response);
+      if (!response.headers.get("content-type")?.startsWith("text/event-stream")) {
+        throw new AgentChatError(
+          "conversation_run_stream_content_type_invalid",
+          "The conversation run event stream has an invalid content type.",
+        );
+      }
+      if (response.body === null) {
+        throw new AgentChatError(
+          "conversation_run_stream_body_missing",
+          "The conversation run event stream has no response body.",
+          response.status,
+          "unknown",
+        );
+      }
+      yield* parseConversationRunSse(response.body);
     },
   });
 }

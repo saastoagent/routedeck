@@ -1,5 +1,117 @@
 {
   "$defs": {
+    "ConversationAssistantDeltaPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "request_id"
+      ],
+      "title": "ConversationAssistantDeltaPayload",
+      "type": "object"
+    },
+    "ConversationAssistantEndPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "projection_version": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_version": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        },
+        "turn_id": {
+          "minLength": 1,
+          "title": "Turn Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "session_version",
+        "projection_version",
+        "turn_id"
+      ],
+      "title": "ConversationAssistantEndPayload",
+      "type": "object"
+    },
+    "ConversationAssistantResetPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id"
+      ],
+      "title": "ConversationAssistantResetPayload",
+      "type": "object"
+    },
+    "ConversationChatErrorPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ConversationChatErrorPayload",
+      "type": "object"
+    },
+    "ConversationHistoryEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "turns": {
+          "items": {
+            "$ref": "#/$defs/PublicConversationTurn"
+          },
+          "title": "Turns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "turns"
+      ],
+      "title": "ConversationHistoryEnvelope",
+      "type": "object"
+    },
     "ConversationInputPolicy": {
       "additionalProperties": false,
       "description": "Static node policy for whether a conversation composer may accept input.",
@@ -25,6 +137,330 @@
         "disabled_message"
       ],
       "title": "ConversationInputPolicy",
+      "type": "object"
+    },
+    "ConversationReviewRequiredPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "minLength": 1,
+          "title": "Expires At",
+          "type": "string"
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "review_id": {
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        },
+        "status": {
+          "const": "requires_review",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "operation_id",
+        "review_id",
+        "expires_at"
+      ],
+      "title": "ConversationReviewRequiredPayload",
+      "type": "object"
+    },
+    "ConversationRunEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/ConversationRunSnapshotPayload"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "ConversationRunEnvelope",
+      "type": "object"
+    },
+    "ConversationRunFailurePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ConversationRunFailurePayload",
+      "type": "object"
+    },
+    "ConversationRunReviewPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "minLength": 1,
+          "title": "Expires At",
+          "type": "string"
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "review_id": {
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "review_id",
+        "expires_at"
+      ],
+      "title": "ConversationRunReviewPayload",
+      "type": "object"
+    },
+    "ConversationRunSnapshotPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "assistant_content": {
+          "default": "",
+          "title": "Assistant Content",
+          "type": "string"
+        },
+        "cursor": {
+          "minimum": 1,
+          "title": "Cursor",
+          "type": "integer"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConversationRunFailurePayload"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kind": {
+          "enum": [
+            "user_message",
+            "assistant_initiated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "projection_version": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Projection Version"
+        },
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConversationRunReviewPayload"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "session_version": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Version"
+        },
+        "stage": {
+          "enum": [
+            "starting",
+            "awaiting_model",
+            "generating",
+            "completed",
+            "interrupted"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "turn_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Turn Id"
+        },
+        "user_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Message"
+        },
+        "user_turn_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Turn Id"
+        }
+      },
+      "required": [
+        "request_id",
+        "kind",
+        "stage",
+        "cursor"
+      ],
+      "title": "ConversationRunSnapshotPayload",
+      "type": "object"
+    },
+    "ConversationSnapshotPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "turns": {
+          "items": {
+            "$ref": "#/$defs/PublicConversationTurn"
+          },
+          "title": "Turns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "turns"
+      ],
+      "title": "ConversationSnapshotPayload",
+      "type": "object"
+    },
+    "ConversationStreamEndPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "requires_review",
+            "rejected",
+            "turn_interrupted",
+            "outcome_unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "status"
+      ],
+      "title": "ConversationStreamEndPayload",
+      "type": "object"
+    },
+    "ConversationStreamStartPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_version": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "session_version"
+      ],
+      "title": "ConversationStreamStartPayload",
+      "type": "object"
+    },
+    "ConversationUserMessagePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "request_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "turn_id": {
+          "minLength": 1,
+          "title": "Turn Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "request_id",
+        "turn_id"
+      ],
+      "title": "ConversationUserMessagePayload",
       "type": "object"
     },
     "DeepLinkPolicy": {
@@ -74,6 +510,19 @@
         "operation_id"
       ],
       "title": "DispatchRequest",
+      "type": "object"
+    },
+    "FailureEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "failure": {
+          "$ref": "#/$defs/RouteDeckFailure"
+        }
+      },
+      "required": [
+        "failure"
+      ],
+      "title": "FailureEnvelope",
       "type": "object"
     },
     "FailureKind": {
@@ -208,6 +657,19 @@
         "surfaces"
       ],
       "title": "FrontendContract",
+      "type": "object"
+    },
+    "FrontendContractEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "frontend_contract": {
+          "$ref": "#/$defs/FrontendContract"
+        }
+      },
+      "required": [
+        "frontend_contract"
+      ],
+      "title": "FrontendContractEnvelope",
       "type": "object"
     },
     "FrontendNodeContract": {
@@ -403,6 +865,84 @@
       "title": "FrontendTransitionContract",
       "type": "object"
     },
+    "InspectionPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_operations": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Blocked Operations",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "current_node": {
+          "title": "Current Node",
+          "type": "string"
+        },
+        "diagnostics": {
+          "additionalProperties": true,
+          "title": "Diagnostics",
+          "type": "object"
+        },
+        "guard_explanations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Guard Explanations",
+          "type": "array"
+        },
+        "legal_operations": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Legal Operations",
+          "type": "array"
+        },
+        "reachable_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reachable Nodes",
+          "type": "array"
+        },
+        "route_traces": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Route Traces",
+          "type": "array"
+        },
+        "surfaces": {
+          "additionalProperties": true,
+          "title": "Surfaces",
+          "type": "object"
+        }
+      },
+      "required": [
+        "current_node",
+        "reachable_nodes",
+        "legal_operations",
+        "blocked_operations",
+        "guard_explanations",
+        "capabilities",
+        "surfaces",
+        "route_traces",
+        "diagnostics"
+      ],
+      "title": "InspectionPayload",
+      "type": "object"
+    },
     "OperationDisposition": {
       "enum": [
         "completed",
@@ -521,88 +1061,6 @@
       "title": "OperationRef",
       "type": "object"
     },
-    "OperationResult": {
-      "additionalProperties": false,
-      "properties": {
-        "disposition": {
-          "$ref": "#/$defs/OperationDisposition"
-        },
-        "evidence": {
-          "$ref": "#/$defs/OperationEvidence"
-        },
-        "failure": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RouteDeckFailure"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "operation_id": {
-          "minLength": 1,
-          "title": "Operation Id",
-          "type": "string"
-        },
-        "outcome": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outcome"
-        },
-        "projection_version": {
-          "minimum": 0,
-          "title": "Projection Version",
-          "type": "integer"
-        },
-        "request_id": {
-          "minLength": 1,
-          "title": "Request Id",
-          "type": "string"
-        },
-        "review": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/OperationReview"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "session_id": {
-          "minLength": 1,
-          "title": "Session Id",
-          "type": "string"
-        },
-        "session_version": {
-          "minimum": 0,
-          "title": "Session Version",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "disposition",
-        "session_id",
-        "request_id",
-        "operation_id",
-        "session_version",
-        "projection_version",
-        "evidence"
-      ],
-      "title": "OperationResult",
-      "type": "object"
-    },
     "OperationReview": {
       "additionalProperties": false,
       "properties": {
@@ -633,6 +1091,82 @@
       ],
       "title": "OperationSource",
       "type": "string"
+    },
+    "PrivateFormSaved": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "form_id": {
+          "minLength": 1,
+          "title": "Form Id",
+          "type": "string"
+        },
+        "projection_version": {
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "form_id",
+        "revision",
+        "complete",
+        "session_version",
+        "projection_version"
+      ],
+      "title": "PrivateFormSaved",
+      "type": "object"
+    },
+    "PrivateFormSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "form_id": {
+          "minLength": 1,
+          "title": "Form Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        },
+        "value": {
+          "additionalProperties": true,
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "form_id",
+        "revision",
+        "complete",
+        "session_version",
+        "value"
+      ],
+      "title": "PrivateFormSnapshot",
+      "type": "object"
     },
     "PrivateFormWriteRequest": {
       "additionalProperties": false,
@@ -1008,6 +1542,47 @@
       "title": "ProjectionStatus",
       "type": "object"
     },
+    "PublicConversationTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "turn_id": {
+          "minLength": 1,
+          "title": "Turn Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turn_id",
+        "request_id",
+        "role",
+        "content"
+      ],
+      "title": "PublicConversationTurn",
+      "type": "object"
+    },
     "PublicEntityHandle": {
       "additionalProperties": false,
       "properties": {
@@ -1119,6 +1694,83 @@
       "title": "PublicEventPayload",
       "type": "object"
     },
+    "PublicOperationResult": {
+      "additionalProperties": false,
+      "description": "Operation result safe to emit without the private session identifier.",
+      "properties": {
+        "disposition": {
+          "$ref": "#/$defs/OperationDisposition"
+        },
+        "evidence": {
+          "$ref": "#/$defs/OperationEvidence"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operation_id": {
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "projection_version": {
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperationReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "disposition",
+        "request_id",
+        "operation_id",
+        "session_version",
+        "projection_version",
+        "evidence"
+      ],
+      "title": "PublicOperationResult",
+      "type": "object"
+    },
     "PublicProjection": {
       "additionalProperties": false,
       "properties": {
@@ -1203,6 +1855,105 @@
         "diagnostics"
       ],
       "title": "PublicProjection",
+      "type": "object"
+    },
+    "PublicProjectionResponse": {
+      "additionalProperties": false,
+      "description": "Projection shape emitted by the FastAPI transport.",
+      "properties": {
+        "current": {
+          "$ref": "#/$defs/ProjectionLocation"
+        },
+        "diagnostics": {
+          "$ref": "#/$defs/ProjectionDiagnostics"
+        },
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/PublicEntityHandle"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "event_cursor": {
+          "minimum": 0,
+          "title": "Event Cursor",
+          "type": "integer"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteDeckFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "graph_node": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Graph Node"
+        },
+        "interaction": {
+          "$ref": "#/$defs/RouteDeckInteractionState"
+        },
+        "legal_operations": {
+          "items": {
+            "$ref": "#/$defs/ProjectedOperation"
+          },
+          "title": "Legal Operations",
+          "type": "array"
+        },
+        "navigation": {
+          "$ref": "#/$defs/ProjectedNavigation"
+        },
+        "projection_version": {
+          "minimum": 0,
+          "title": "Projection Version",
+          "type": "integer"
+        },
+        "session_version": {
+          "minimum": 0,
+          "title": "Session Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/ProjectionStatus"
+        },
+        "suggested_actions": {
+          "items": {
+            "$ref": "#/$defs/ProjectedSuggestedAction"
+          },
+          "title": "Suggested Actions",
+          "type": "array"
+        },
+        "surfaces": {
+          "$ref": "#/$defs/ProjectedSurfaceSlots"
+        }
+      },
+      "required": [
+        "session_version",
+        "projection_version",
+        "event_cursor",
+        "current",
+        "interaction",
+        "navigation",
+        "legal_operations",
+        "suggested_actions",
+        "entities",
+        "surfaces",
+        "status",
+        "diagnostics"
+      ],
+      "title": "PublicProjectionResponse",
       "type": "object"
     },
     "PublicRouteDeckEvent": {
@@ -1422,9 +2173,69 @@
         "phase": {
           "$ref": "#/$defs/RouteDeckInteractionPhase",
           "default": "idle"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Id"
         }
       },
       "title": "RouteDeckInteractionState",
+      "type": "object"
+    },
+    "SessionEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "projection": {
+          "$ref": "#/$defs/PublicProjectionResponse"
+        }
+      },
+      "required": [
+        "projection"
+      ],
+      "title": "SessionEnvelope",
+      "type": "object"
+    },
+    "StreamResetPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "const": "stream_reset_required",
+          "default": "stream_reset_required",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "requested_after": {
+          "minimum": 0,
+          "title": "Requested After",
+          "type": "integer"
+        },
+        "retained_from_cursor": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retained From Cursor"
+        }
+      },
+      "required": [
+        "requested_after"
+      ],
+      "title": "StreamResetPayload",
       "type": "object"
     },
     "SurfaceAffordance": {
@@ -1471,6 +2282,51 @@
   "additionalProperties": false,
   "description": "Schema catalog consumed by the headless TypeScript package.",
   "properties": {
+    "conversation_assistant_delta": {
+      "$ref": "#/$defs/ConversationAssistantDeltaPayload"
+    },
+    "conversation_assistant_end": {
+      "$ref": "#/$defs/ConversationAssistantEndPayload"
+    },
+    "conversation_assistant_reset": {
+      "$ref": "#/$defs/ConversationAssistantResetPayload"
+    },
+    "conversation_chat_error": {
+      "$ref": "#/$defs/ConversationChatErrorPayload"
+    },
+    "conversation_history": {
+      "$ref": "#/$defs/ConversationHistoryEnvelope"
+    },
+    "conversation_review_required": {
+      "$ref": "#/$defs/ConversationReviewRequiredPayload"
+    },
+    "conversation_run_envelope": {
+      "$ref": "#/$defs/ConversationRunEnvelope"
+    },
+    "conversation_run_failure": {
+      "$ref": "#/$defs/ConversationRunFailurePayload"
+    },
+    "conversation_run_review": {
+      "$ref": "#/$defs/ConversationRunReviewPayload"
+    },
+    "conversation_run_snapshot": {
+      "$ref": "#/$defs/ConversationRunSnapshotPayload"
+    },
+    "conversation_snapshot": {
+      "$ref": "#/$defs/ConversationSnapshotPayload"
+    },
+    "conversation_stream_end": {
+      "$ref": "#/$defs/ConversationStreamEndPayload"
+    },
+    "conversation_stream_start": {
+      "$ref": "#/$defs/ConversationStreamStartPayload"
+    },
+    "conversation_turn": {
+      "$ref": "#/$defs/PublicConversationTurn"
+    },
+    "conversation_user_message": {
+      "$ref": "#/$defs/ConversationUserMessagePayload"
+    },
     "dispatch_request": {
       "$ref": "#/$defs/DispatchRequest"
     },
@@ -1480,11 +2336,26 @@
     "failure": {
       "$ref": "#/$defs/RouteDeckFailure"
     },
+    "failure_envelope": {
+      "$ref": "#/$defs/FailureEnvelope"
+    },
     "frontend_contract": {
       "$ref": "#/$defs/FrontendContract"
     },
+    "frontend_contract_envelope": {
+      "$ref": "#/$defs/FrontendContractEnvelope"
+    },
+    "inspection": {
+      "$ref": "#/$defs/InspectionPayload"
+    },
     "operation_result": {
-      "$ref": "#/$defs/OperationResult"
+      "$ref": "#/$defs/PublicOperationResult"
+    },
+    "private_form_saved": {
+      "$ref": "#/$defs/PrivateFormSaved"
+    },
+    "private_form_snapshot": {
+      "$ref": "#/$defs/PrivateFormSnapshot"
     },
     "private_form_write_request": {
       "$ref": "#/$defs/PrivateFormWriteRequest"
@@ -1494,6 +2365,12 @@
     },
     "review_request": {
       "$ref": "#/$defs/ReviewRequest"
+    },
+    "session_envelope": {
+      "$ref": "#/$defs/SessionEnvelope"
+    },
+    "stream_reset": {
+      "$ref": "#/$defs/StreamResetPayload"
     }
   },
   "required": [
@@ -1504,7 +2381,29 @@
     "frontend_contract",
     "dispatch_request",
     "review_request",
-    "private_form_write_request"
+    "private_form_write_request",
+    "session_envelope",
+    "frontend_contract_envelope",
+    "failure_envelope",
+    "private_form_snapshot",
+    "private_form_saved",
+    "inspection",
+    "conversation_history",
+    "conversation_turn",
+    "conversation_stream_start",
+    "conversation_snapshot",
+    "conversation_user_message",
+    "conversation_assistant_delta",
+    "conversation_assistant_reset",
+    "conversation_assistant_end",
+    "conversation_review_required",
+    "conversation_chat_error",
+    "conversation_stream_end",
+    "conversation_run_envelope",
+    "conversation_run_snapshot",
+    "conversation_run_failure",
+    "conversation_run_review",
+    "stream_reset"
   ],
   "title": "RouteDeckTransportContracts",
   "type": "object"

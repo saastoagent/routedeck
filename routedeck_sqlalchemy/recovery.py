@@ -149,11 +149,8 @@ def recover_abandoned_turn_batch(
                 TurnLeaseRow.session_id == SessionRow.session_id,
             )
             .where(TurnLeaseRow.session_id.is_(None))
-            .where(
-                SessionRow.state_json.contains(
-                    '"interaction":{"owner":"chat","phase":"active"}'
-                )
-            )
+            .where(SessionRow.state_json.contains('"phase":"active"'))
+            .where(SessionRow.state_json.contains('"owner":"chat"'))
             .where(
                 SessionRow.state_json.contains('"status":"turn_interrupted"')
             )
@@ -173,8 +170,8 @@ def recover_abandoned_turn_batch(
     for session_row in legacy_rows:
         session = deserialize_session(database, session_row, codec)
         if (
-            session.interaction
-            != RouteDeckInteractionState.active(RouteDeckInteractionOwnerType.CHAT)
+            session.interaction.phase.value != "active"
+            or session.interaction.owner is not RouteDeckInteractionOwnerType.CHAT
             or not session.conversation
             or session.conversation[-1].status
             is not ConversationTurnStatus.INTERRUPTED

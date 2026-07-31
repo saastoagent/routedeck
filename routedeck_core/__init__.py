@@ -12,6 +12,8 @@ from .app import (
     compile_app,
 )
 from .contracts.effects import SessionEffects
+from .contracts.conversation import EntryTurnDeclaration, EntryTurnOccurrence
+from .conversation_runs import ConversationRunCoordinator
 from .contracts.events import RouteDeckEvent, RouteDeckEventType
 from .contracts.failures import FailureKind, FailureSafeDetails, RouteDeckFailure
 from .contracts.projection import PublicProjection
@@ -27,6 +29,8 @@ from .runtime import (
     RouteDeckRuntime,
     RouteDeckRuntimeLifecycle,
     RouteDeckRuntimeServices,
+    SessionProvisioningError,
+    SessionProvisioningErrorCode,
     build_routedeck_runtime,
 )
 from .state import RouteDeckSessionAggregate
@@ -37,8 +41,11 @@ __all__ = [
     "BoundApplication",
     "CompiledApplication",
     "ConfiguredSessionProjector",
+    "ConversationRunCoordinator",
     "ContextScopeBuilder",
     "DeepLinkEngine",
+    "EntryTurnDeclaration",
+    "EntryTurnOccurrence",
     "FailureKind",
     "FailureSafeDetails",
     "FeatureBindings",
@@ -55,6 +62,8 @@ __all__ = [
     "RouteDeckRuntime",
     "RouteDeckRuntimeLifecycle",
     "RouteDeckRuntimeServices",
+    "SessionProvisioningError",
+    "SessionProvisioningErrorCode",
     "RouteDeckRetentionPolicy",
     "RouteDeckSession",
     "RouteDeckSessionAggregate",

@@ -1,9 +1,13 @@
 import { decodeEvent, type RouteDeckEvent } from "../contracts/decode";
+import { generatedObjectDescriptors } from "../contracts/generatedRuntime";
+import strictJsonDecoders from "../contracts/json";
 import type { RouteDeckFetch } from "./http";
 import {
   RouteDeckContractError,
   RouteDeckStreamError,
 } from "./errors";
+
+const { expectRecord } = strictJsonDecoders;
 
 export interface RouteDeckStreamReset {
   event_type: "stream_reset_required";
@@ -246,19 +250,18 @@ function decodeReset(frame: ParsedSseFrame): RouteDeckStreamReset {
       { cause: error },
     );
   }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new RouteDeckStreamError(
-      "stream_reset_invalid",
-      "stream_reset_required data must be an object.",
+  let record: Record<string, unknown>;
+  try {
+    record = expectRecord(
+      value,
+      "$sse.reset",
+      generatedObjectDescriptors.StreamResetPayload,
     );
-  }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  const expected = ["event_type", "requested_after", "retained_from_cursor"];
-  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+  } catch (error) {
     throw new RouteDeckStreamError(
       "stream_reset_invalid",
-      "stream_reset_required contains undeclared fields.",
+      "stream_reset_required data violates the generated contract.",
+      { cause: error },
     );
   }
   if (record.event_type !== "stream_reset_required") {

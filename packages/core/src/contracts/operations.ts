@@ -3,11 +3,12 @@ import type {
   FailureKind,
   OperationDisposition,
   OperationPhase,
-  OperationResult,
+  PublicOperationResult,
   OperationSource,
   ReviewRequest,
   RouteDeckFailure,
 } from "./generated";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import strictJsonDecoders from "./json";
 
 const {
@@ -23,7 +24,7 @@ const {
 
 export type RouteDeckDispatchRequest = DispatchRequest;
 export type RouteDeckReviewRequest = ReviewRequest;
-export type RouteDeckDispatchResult = Omit<OperationResult, "session_id">;
+export type RouteDeckDispatchResult = PublicOperationResult;
 
 export interface RouteDeckFailureEnvelope {
   failure: RouteDeckFailure;
@@ -78,30 +79,12 @@ export function decodeDispatchResult(value: unknown): RouteDeckDispatchResult {
   const record = expectRecord(
     value,
     "$result",
-    [
-      "disposition",
-      "operation_id",
-      "request_id",
-      "session_version",
-      "projection_version",
-      "evidence",
-      "review",
-      "outcome",
-      "failure",
-    ],
+    generatedObjectDescriptors.PublicOperationResult,
   );
   const evidence = expectRecord(
     record.evidence,
     "$result.evidence",
-    [
-      "source",
-      "phases",
-      "attempt_id",
-      "request_fingerprint",
-      "delivery_phase",
-      "result_id",
-      "result_fingerprint",
-    ],
+    generatedObjectDescriptors.OperationEvidence,
   );
   return {
     disposition: expectEnum(
@@ -134,33 +117,45 @@ export function decodeDispatchResult(value: unknown): RouteDeckDispatchResult {
         "$result.evidence.request_fingerprint",
       ),
       delivery_phase:
-        evidence.delivery_phase === null
+        evidence.delivery_phase === undefined || evidence.delivery_phase === null
           ? null
           : expectOneOf(
               evidence.delivery_phase,
               "$result.evidence.delivery_phase",
               ["not_sent", "possibly_sent", "response_received"] as const,
             ),
-      result_id: decodeNullableString(evidence.result_id, "$result.evidence.result_id"),
+      result_id: decodeNullableString(
+        evidence.result_id === undefined ? null : evidence.result_id,
+        "$result.evidence.result_id",
+      ),
       result_fingerprint: decodeNullableString(
-        evidence.result_fingerprint,
+        evidence.result_fingerprint === undefined
+          ? null
+          : evidence.result_fingerprint,
         "$result.evidence.result_fingerprint",
       ),
     },
     review:
-      record.review === null
+      record.review === undefined || record.review === null
         ? null
         : decodeReview(record.review, "$result.review"),
-    outcome: decodeNullableString(record.outcome, "$result.outcome"),
+    outcome: decodeNullableString(
+      record.outcome === undefined ? null : record.outcome,
+      "$result.outcome",
+    ),
     failure:
-      record.failure === null
+      record.failure === undefined || record.failure === null
         ? null
         : decodeFailure(record.failure, "$result.failure"),
   };
 }
 
 export function decodeFailureEnvelope(value: unknown): RouteDeckFailureEnvelope {
-  const record = expectRecord(value, "$error", ["failure"]);
+  const record = expectRecord(
+    value,
+    "$error",
+    generatedObjectDescriptors.FailureEnvelope,
+  );
   return { failure: decodeFailure(record.failure, "$error.failure") };
 }
 
@@ -168,7 +163,11 @@ function decodeReview(
   value: unknown,
   path: string,
 ): NonNullable<RouteDeckDispatchResult["review"]> {
-  const record = expectRecord(value, path, ["id", "expires_at"]);
+  const record = expectRecord(
+    value,
+    path,
+    generatedObjectDescriptors.OperationReview,
+  );
   return {
     id: expectString(record.id, `${path}.id`),
     expires_at: expectIsoDate(record.expires_at, `${path}.expires_at`),
@@ -179,57 +178,52 @@ function decodeFailure(value: unknown, path: string): RouteDeckFailure {
   const record = expectRecord(
     value,
     path,
-    [
-      "kind",
-      "code",
-      "phase",
-      "correlation_id",
-      "operation_id",
-      "request_id",
-      "public_message",
-      "recovery_directive",
-      "safe_details",
-    ],
+    generatedObjectDescriptors.RouteDeckFailure,
   );
   const details = expectRecord(
-    record.safe_details,
+    record.safe_details === undefined ? {} : record.safe_details,
     `${path}.safe_details`,
-    [
-      "affected_capability",
-      "provider",
-      "provider_code",
-      "http_status",
-      "delivery_phase",
-    ],
+    generatedObjectDescriptors.FailureSafeDetails,
   );
   return {
     kind: expectEnum(record.kind, `${path}.kind`, FAILURE_KINDS),
     code: expectString(record.code, `${path}.code`),
     phase: expectString(record.phase, `${path}.phase`),
     correlation_id: expectString(record.correlation_id, `${path}.correlation_id`),
-    operation_id: decodeNullableString(record.operation_id, `${path}.operation_id`),
-    request_id: decodeNullableString(record.request_id, `${path}.request_id`),
+    operation_id: decodeNullableString(
+      record.operation_id === undefined ? null : record.operation_id,
+      `${path}.operation_id`,
+    ),
+    request_id: decodeNullableString(
+      record.request_id === undefined ? null : record.request_id,
+      `${path}.request_id`,
+    ),
     public_message: expectString(record.public_message, `${path}.public_message`, true),
     recovery_directive: decodeNullableString(
-      record.recovery_directive,
+      record.recovery_directive === undefined ? null : record.recovery_directive,
       `${path}.recovery_directive`,
     ),
     safe_details: {
       affected_capability: decodeNullableString(
-        details.affected_capability,
+        details.affected_capability === undefined
+          ? null
+          : details.affected_capability,
         `${path}.safe_details.affected_capability`,
       ),
-      provider: decodeNullableString(details.provider, `${path}.safe_details.provider`),
+      provider: decodeNullableString(
+        details.provider === undefined ? null : details.provider,
+        `${path}.safe_details.provider`,
+      ),
       provider_code: decodeNullableString(
-        details.provider_code,
+        details.provider_code === undefined ? null : details.provider_code,
         `${path}.safe_details.provider_code`,
       ),
       http_status:
-        details.http_status === null
+        details.http_status === undefined || details.http_status === null
           ? null
           : expectInteger(details.http_status, `${path}.safe_details.http_status`, 100),
       delivery_phase:
-        details.delivery_phase === null
+        details.delivery_phase === undefined || details.delivery_phase === null
           ? null
           : expectOneOf(
               details.delivery_phase,

@@ -1,4 +1,5 @@
 import type { JsonObject } from "./json";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import strictJsonDecoders from "./json";
 
 const {
@@ -25,17 +26,7 @@ export function decodeInspection(value: unknown): RouteDeckInspection {
   const record = expectRecord(
     value,
     "$inspection",
-    [
-      "current_node",
-      "reachable_nodes",
-      "legal_operations",
-      "blocked_operations",
-      "guard_explanations",
-      "capabilities",
-      "surfaces",
-      "route_traces",
-      "diagnostics",
-    ],
+    generatedObjectDescriptors.InspectionPayload,
   );
   return {
     current_node: expectString(record.current_node, "$inspection.current_node"),

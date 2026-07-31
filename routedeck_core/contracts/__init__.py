@@ -8,9 +8,16 @@ from .application import (
 )
 from .conversation import (
     ConversationRole,
+    ConversationRunFailure,
+    ConversationRunKind,
+    ConversationRunReview,
+    ConversationRunSnapshot,
+    ConversationRunStage,
     ConversationToolCall,
     ConversationTurn,
     ConversationTurnStatus,
+    EntryTurnDeclaration,
+    EntryTurnOccurrence,
     FinalizedConversationTurn,
 )
 from .events import EventPage, PublicRouteDeckEvent, RouteDeckEvent, RouteDeckEventType
@@ -101,9 +108,16 @@ __all__ = [
     "CompiledTransition",
     "ClassifiedValue",
     "ConversationRole",
+    "ConversationRunFailure",
+    "ConversationRunKind",
+    "ConversationRunReview",
+    "ConversationRunSnapshot",
+    "ConversationRunStage",
     "ConversationToolCall",
     "ConversationTurn",
     "ConversationTurnStatus",
+    "EntryTurnDeclaration",
+    "EntryTurnOccurrence",
     "ContextProvider",
     "DeliveryPhase",
     "DeepLinkPolicy",

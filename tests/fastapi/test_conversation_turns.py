@@ -27,6 +27,7 @@ from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationTurnStatus,
+    EntryTurnDeclaration,
 )
 from routedeck_core.contracts.mutations import MutationStatus
 from routedeck_core.contracts.navigation import DeepLinkPolicy, NodeKind, Route
@@ -42,6 +43,7 @@ from routedeck_fastapi import (
     SseSettings,
     create_routedeck_router_from_runtime_provider,
     dependencies_from_runtime,
+    entry_turn_request_id,
     stream_agent_turn,
 )
 from routedeck_langgraph import (
@@ -72,6 +74,7 @@ class _ScriptedGraph:
     wait_forever: bool = False
     started: asyncio.Event = field(default_factory=asyncio.Event)
     closed: asyncio.Event = field(default_factory=asyncio.Event)
+    release: asyncio.Event = field(default_factory=asyncio.Event)
 
     async def astream_events(
         self,
@@ -87,7 +90,7 @@ class _ScriptedGraph:
         self.started.set()
         try:
             if self.wait_forever:
-                await asyncio.Event().wait()
+                await self.release.wait()
             incoming = input.get("messages")
             assert isinstance(incoming, list)
             assert all(isinstance(message, BaseMessage) for message in incoming)
@@ -131,9 +134,11 @@ def graphs() -> _ConversationGraphs:
 
 @pytest_asyncio.fixture
 async def runtime(
+    request: pytest.FixtureRequest,
     tmp_path: Path,
     graphs: _ConversationGraphs,
 ) -> AsyncIterator[RouteDeckRuntime]:
+    entry_turn = getattr(request, "param", None)
     node = Node(
         id="test.home",
         title="Conversation transport test",
@@ -143,6 +148,7 @@ async def runtime(
             deep_link_policy=DeepLinkPolicy.SHAREABLE,
         ),
         surfaces=SurfaceSlots(active=None),
+        entry_turn=entry_turn,
     )
     compiled = compile_app(
         Application(
@@ -350,6 +356,7 @@ async def test_assistant_turn_exact_replay_does_not_invoke_graph(
     assert [event["event"] for event in sse_events(replay.text)] == [
         "stream_start",
         "conversation_snapshot",
+        "assistant_delta",
         "assistant_end",
         "stream_end",
     ]
@@ -365,7 +372,7 @@ async def test_chat_request_id_cannot_be_reused_for_assistant_turn(
     response = await post_assistant_turn(client, request_id="shared-id")
 
     assert response.status_code == 409
-    assert_canonical_failure(response, code="request_id_reused")
+    assert_canonical_failure(response, code="request_id_reused", phase="session_store")
     assert graphs.assistant.calls == []
 
 
@@ -387,7 +394,7 @@ async def test_assistant_request_id_cannot_be_reused_for_chat(
     )
 
     assert response.status_code == 409
-    assert_canonical_failure(response, code="request_id_reused")
+    assert_canonical_failure(response, code="request_id_reused", phase="session_store")
     assert graphs.user.calls == []
 
 
@@ -404,7 +411,7 @@ async def test_stale_assistant_turn_version_is_rejected_before_graph(
     )
 
     assert response.status_code == 409
-    assert_canonical_failure(response, code="version_conflict")
+    assert_canonical_failure(response, code="version_conflict", phase="session_store")
     assert graphs.assistant.calls == []
     snapshot = await runtime.services.store.load(runtime_session_id(client))
     assert snapshot.state.conversation == ()
@@ -584,3 +591,299 @@ async def test_concurrent_assistant_turn_preserves_typed_store_conflict(
     first_pending.cancel()
     with pytest.raises(asyncio.CancelledError):
         await first_pending
+
+
+@pytest.mark.asyncio
+async def test_conversation_run_is_idempotent_and_replays_monotonic_progress(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+) -> None:
+    started = await client.post(
+        "/api/routedeck/conversation/runs",
+        json={
+            "request_id": "run-1",
+            "expected_session_version": 1,
+            "trigger": "assistant_initiated",
+        },
+    )
+
+    assert started.status_code == 202
+    assert started.json()["run"]["stage"] == "awaiting_model"
+    for _ in range(100):
+        status = await client.get("/api/routedeck/conversation/runs/run-1")
+        assert status.status_code == 200
+        if status.json()["run"]["stage"] == "completed":
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("conversation run did not complete")
+
+    attached = await client.post(
+        "/api/routedeck/conversation/runs",
+        json={
+            "request_id": "run-1",
+            "expected_session_version": 999,
+            "trigger": "assistant_initiated",
+        },
+    )
+    events = await client.get(
+        "/api/routedeck/conversation/runs/run-1/events?after=0"
+    )
+
+    assert attached.status_code == 200
+    assert attached.json()["run"]["stage"] == "completed"
+    assert len(graphs.assistant.calls) == 1
+    frames = sse_events(events.text)
+    assert [frame["stage"] for frame in frames] == ["completed"]
+    assert frames[0]["cursor"] == 9_007_199_254_740_991
+    assert frames[0]["assistant_content"] == (
+        "Hello from the assistant-initiated graph."
+    )
+    assert (runtime_session_id(client), "run-1") not in (
+        runtime.conversation_runs._runs
+    )
+
+
+@pytest.mark.asyncio
+async def test_conversation_run_subscriber_disconnect_does_not_cancel_execution(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+) -> None:
+    graphs.assistant.wait_forever = True
+    coordinator = runtime.conversation_runs
+    run = await coordinator.start_or_attach(
+        session_id=runtime_session_id(client),
+        request_id="detached-run",
+        expected_session_version=1,
+        trigger=AssistantInitiatedTrigger(),
+    )
+    assert run.stage.value == "awaiting_model"
+    await graphs.assistant.started.wait()
+
+    subscriber = coordinator.events(
+        runtime_session_id(client),
+        "detached-run",
+        0,
+        0.01,
+    )
+    await anext(subscriber)
+    await subscriber.aclose()
+
+    graphs.assistant.release.set()
+    for _ in range(100):
+        terminal = await coordinator.get(runtime_session_id(client), "detached-run")
+        if terminal.terminal:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("detached conversation run did not complete")
+
+    assert terminal.stage.value == "completed"
+    assert len(graphs.assistant.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_user_run_disconnect_reconnects_by_cursor_and_projects_request_id(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+) -> None:
+    graphs.user.wait_forever = True
+    started = await client.post(
+        "/api/routedeck/conversation/runs",
+        json={
+            "request_id": "user-run",
+            "expected_session_version": 1,
+            "trigger": "user_message",
+            "message": "Hello RouteDeck.",
+        },
+    )
+    assert started.status_code == 202
+    await graphs.user.started.wait()
+
+    projection = (await client.get("/api/routedeck/session")).json()["projection"]
+    assert projection["interaction"] == {
+        "phase": "active",
+        "owner": "chat",
+        "request_id": "user-run",
+    }
+    session_id = runtime_session_id(client)
+    subscriber = runtime.conversation_runs.events(
+        session_id,
+        "user-run",
+        started.json()["run"]["cursor"],
+        0.01,
+    )
+    heartbeat = await anext(subscriber)
+    assert heartbeat is None
+    reconnect_cursor = started.json()["run"]["cursor"]
+    await subscriber.aclose()
+
+    graphs.user.release.set()
+    resumed = runtime.conversation_runs.events(
+        session_id,
+        "user-run",
+        reconnect_cursor,
+        0.01,
+    )
+    observed = [event async for event in resumed if event is not None]
+
+    terminal = await runtime.conversation_runs.get(session_id, "user-run")
+    assert (observed[-1].stage.value, terminal.stage.value, terminal.failure) == (
+        "completed",
+        "completed",
+        None,
+    ), ([(event.cursor, event.stage.value) for event in observed], terminal)
+    assert [event.cursor for event in observed] == sorted(
+        event.cursor for event in observed
+    )
+    assert len(graphs.user.calls) == 1
+    snapshot = await runtime.services.store.load(session_id)
+    assert [turn.role for turn in snapshot.state.conversation] == [
+        ConversationRole.USER,
+        ConversationRole.ASSISTANT,
+    ]
+
+
+@pytest.mark.parametrize(
+    "runtime",
+    [EntryTurnDeclaration(id="welcome")],
+    indirect=True,
+)
+@pytest.mark.asyncio
+async def test_declared_entry_turn_starts_on_session_creation_only_once(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+) -> None:
+    declaration = EntryTurnDeclaration(id="welcome")
+    request_id = entry_turn_request_id("test.home", declaration)
+    session_id = runtime_session_id(client)
+    for _ in range(100):
+        mutation = await runtime.services.store.find_mutation(session_id, request_id)
+        if mutation is not None:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("declared entry turn did not complete")
+
+    snapshot = await runtime.services.store.load(session_id)
+    attached = await runtime.ensure_declared_entry_run(snapshot)
+
+    assert attached is not None
+    assert attached.stage.value == "completed"
+    assert len(graphs.assistant.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "runtime",
+    [EntryTurnDeclaration(id="welcome")],
+    indirect=True,
+)
+@pytest.mark.asyncio
+async def test_session_creation_projects_durably_claimed_entry_run(
+    client: httpx.AsyncClient,
+    graphs: _ConversationGraphs,
+) -> None:
+    graphs.assistant.wait_forever = True
+    created = await client.post(
+        "/api/routedeck/sessions",
+        json={"request_id": "create-session-with-active-entry"},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["projection"]["interaction"] == {
+        "phase": "active",
+        "owner": "chat",
+        "request_id": entry_turn_request_id(
+            "test.home", EntryTurnDeclaration(id="welcome")
+        ),
+    }
+    graphs.assistant.release.set()
+
+
+@pytest.mark.asyncio
+async def test_interrupt_persistence_failure_is_loud_and_not_cached_as_terminal(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graphs.assistant.failure_after_delta = RuntimeError("private graph failure")
+
+    async def fail_interrupt(*_args, **_kwargs):
+        raise RuntimeError("persistence unavailable")
+
+    monkeypatch.setattr(runtime.services.runner, "interrupt_turn", fail_interrupt)
+    started = await client.post(
+        "/api/routedeck/conversation/runs",
+        json={
+            "request_id": "interrupt-persistence-failed",
+            "expected_session_version": 1,
+            "trigger": "assistant_initiated",
+        },
+    )
+    assert started.status_code == 202
+
+    for _ in range(100):
+        status = await client.get(
+            "/api/routedeck/conversation/runs/interrupt-persistence-failed"
+        )
+        if status.status_code == 503:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("conversation persistence failure was not surfaced")
+
+    assert status.json()["failure"]["code"] == "persistence_failure"
+    assert await runtime.services.store.find_mutation(
+        runtime_session_id(client), "interrupt-persistence-failed"
+    ) is None
+
+
+@pytest.mark.asyncio
+async def test_durable_interruption_reloads_after_post_commit_failure(
+    client: httpx.AsyncClient,
+    runtime: RouteDeckRuntime,
+    graphs: _ConversationGraphs,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graphs.assistant.failure_after_delta = RuntimeError("private graph failure")
+    interrupt = runtime.services.runner.interrupt_turn
+
+    async def commit_then_fail(*args, **kwargs):
+        await interrupt(*args, **kwargs)
+        raise RuntimeError("response path failed after commit")
+
+    monkeypatch.setattr(runtime.services.runner, "interrupt_turn", commit_then_fail)
+    started = await client.post(
+        "/api/routedeck/conversation/runs",
+        json={
+            "request_id": "interrupt-committed",
+            "expected_session_version": 1,
+            "trigger": "assistant_initiated",
+        },
+    )
+    assert started.status_code == 202
+
+    session_id = runtime_session_id(client)
+    for _ in range(100):
+        mutation = await runtime.services.store.find_mutation(
+            session_id, "interrupt-committed"
+        )
+        if mutation is not None:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("durable interruption did not commit")
+
+    loaded = await client.get(
+        "/api/routedeck/conversation/runs/interrupt-committed"
+    )
+    assert loaded.status_code == 200
+    assert loaded.json()["run"]["stage"] == "interrupted"
+    assert (session_id, "interrupt-committed") not in (
+        runtime.conversation_runs._runs
+    )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Protocol, runtime_checkable
@@ -8,6 +8,7 @@ from typing import Protocol, runtime_checkable
 from fastapi import Request, Response
 
 from routedeck_core.app import CompiledApplication
+from routedeck_core.conversation_runs import ConversationRunCoordinator
 from routedeck_core.contracts.events import RouteDeckEvent
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.contracts.session import RouteDeckSession, SessionSnapshot
@@ -44,14 +45,14 @@ class EventWakeupNotifier(Protocol):
         """Return true when an event newer than ``after_cursor`` is known."""
 
 
-SessionFactory = Callable[
-    [str],
-    RouteDeckSession | Awaitable[RouteDeckSession],
-]
-SessionInitializer = Callable[
-    [SessionSnapshot],
-    SessionSnapshot | Awaitable[SessionSnapshot],
-]
+@runtime_checkable
+class SessionProvisioner(Protocol):
+    async def __call__(
+        self,
+        *,
+        session_id: str,
+        request_id: str,
+    ) -> SessionSnapshot: ...
 
 
 @runtime_checkable
@@ -106,11 +107,11 @@ class RouteDeckDependencies:
     notifier: EventWakeupNotifier
     projector: SessionProjector
     private_form_codec: SensitiveCodec
-    session_factory: SessionFactory
+    session_provisioner: SessionProvisioner
     session_selector: RouteDeckSessionSelector
+    conversation_runs: ConversationRunCoordinator | None = None
     agent_driver: RouteDeckAgentDriver | None = None
     navigation: RouteDeckNavigationRunner | None = None
-    session_initializer: SessionInitializer | None = None
     sse: SseSettings = field(default_factory=SseSettings)
 
     def __post_init__(self) -> None:
@@ -133,8 +134,7 @@ __all__ = [
     "RouteDeckDependencies",
     "RouteDeckDependencyUnavailable",
     "RouteDeckSessionSelector",
-    "SessionFactory",
-    "SessionInitializer",
+    "SessionProvisioner",
     "SessionProjector",
     "SseSettings",
 ]

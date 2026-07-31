@@ -28,6 +28,13 @@ RouteDeck owns the reusable driver and never synthesizes a product graph.
   `RouteDeckRuntimeServices` exists and constructs the generic driver.
 - `RouteDeckLangGraphAgentDriver`: translates `astream_events(...)` into typed
   text/reset/review/completion events and closes the async stream.
+- Every raw LangGraph `on_chat_model_start` event emits one standard structured
+  `routedeck_langgraph_model_started` info log containing only the public
+  RouteDeck `request_id` and LangChain `run_id`. The formatted message includes
+  those same fields and uses the standard `uvicorn.error.routedeck.langgraph`
+  hierarchy so default local/Uvicorn logging can count actual model starts.
+  Prompts, event payloads, tokens, credentials, user/product data, and internal
+  session identifiers are never logged by this boundary.
 - `UserMessageTrigger` and `AssistantInitiatedTrigger` through the core driver
   port.
 - `RouteDeckMiddleware`, `RouteDeckToolWrapper`,
@@ -37,7 +44,11 @@ RouteDeck owns the reusable driver and never synthesizes a product graph.
 User-message extraction requires exactly one matching `HumanMessage` marker
 and may supervise serial tools/review. Assistant initiation sends no
 `HumanMessage`, permits exactly one streamed non-tool assistant result, and
-rejects tool calls or review output.
+rejects tool calls or review output. Both trigger kinds receive a typed
+`RouteDeckInvocationContext` containing the selected session, request prefix,
+and durable turn lease so middleware can load scoped state. Assistant
+initiation supplies `review_turns=()` and still starts with an empty message
+list; context availability never creates a synthetic user turn.
 
 ## Ownership Rules
 
@@ -53,8 +64,9 @@ rejects tool calls or review output.
 ## Evidence
 
 ```powershell
-python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q
+python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/integration/test_entry_conversation.py -q
 ```
 
 Update this document when trigger rules, graph-factory ownership, model-context
-filtering, event translation, stream cleanup, or tool supervision changes.
+filtering, model-invocation observability, event translation, stream cleanup, or
+tool supervision changes.

@@ -1,6 +1,6 @@
 # Runtime Boundary Implementation Coverage
 
-Verified: 2026-07-20
+Verified: 2026-07-30
 
 This document is the reusable source-to-contract-to-proof crosswalk for the
 RouteDeck/Medusa boundary remediation completed in commit `e82714e`. It records
@@ -11,6 +11,7 @@ ADR-005, ADR-004, `docs/route-deck-reference.md`, or current source.
 
 | Finding | Implemented behavior | RouteDeck owner | Medusa owner | Canonical contract | Focused proof |
 | --- | --- | --- | --- | --- | --- |
+| Central session provisioning | `RouteDeckRuntime.provision_session(...)` is the one product-neutral path for host-supplied session/request IDs, canonical `create_for_request` fingerprinting, async factory/initializer execution, initializer identity/version validation, declared entry-run attachment, and current snapshot return. FastAPI and Corpus delegate instead of reproducing that sequence. | `routedeck_core/runtime.py`; the FastAPI session route only validates transport, projects, responds, and attaches through the selector. | Consumers supply product callbacks and host-owned identity/authorization; Corpus reserves/releases its opaque public conversation around the shared provisioner. | ADR-006; core runtime and FastAPI component contracts; runtime assembly/session provisioning and generic HTTP feature rows. | `tests/state/test_runtime_builder.py`, `tests/fastapi/test_transport_smoke.py`, `tests/fastapi/test_conversation_turns.py`, and Corpus `backend/tests/auth/test_conversations_http.py`. |
 | QB-01 assistant-turn duplication | One reusable headless coordinator validates assistant events, publishes accumulated typed presentation progress before completion, proves durable completion, converges versions, handles conflicts, and reloads canonical conversation. | `packages/core/src/conversation/assistant.ts`, conversation client/codec exports, React conversation hook. | Consumer initial-conversation code owns greeting policy, request identity, product failure copy, and direct rendering of typed progress only; it does not inspect raw events. | ADR-006; headless/React component contract; user/assistant conversation feature row. | `packages/core/src/conversation/assistant.test.ts` proves progress while completion is gated, plus consumer initial-conversation/rendering tests. |
 | QB-02 implicit review identity | Review accept/reject require a non-empty keyword-only session ID through core, persistence, FastAPI, and product call sites. No `default_session_id` execution path remains. | `routedeck_core/supervision/review_*.py`, runner support, FastAPI operation routes, SQLAlchemy opener. | Product binding and tests pass the session selected by the host. | ADR-005 named actions; ADR-006 host boundary; review feature row. | Review lifecycle, fail-closed, runtime-builder, persistence, FastAPI, and Medusa binding tests. |
 | QB-03 product copy in generic packages | Generic Python/TypeScript production copy is product-neutral and checked structurally. | Generic conversation contracts, FastAPI transport, core/React presentation. | Medusa owns buyer wording and translation. | ADR-006; React and FastAPI component contracts. | Schema-4 vocabulary scanner and negative tests. |
@@ -41,6 +42,9 @@ relationship. Neither check alone substitutes for the other.
 ## Boundary Invariants Now Enforced
 
 - RouteDeck constructs one generic runtime/runner/navigation path.
+- RouteDeck provisions sessions through one runtime method; transports and
+  consumers do not recreate factory, durable creation, initialization, or
+  entry-run orchestration.
 - The host chooses and authorizes the session; RouteDeck validates the selected
   internal ID and never falls back to another session.
 - RouteDeck owns generic user/assistant turn mechanics; the consumer owns graph,

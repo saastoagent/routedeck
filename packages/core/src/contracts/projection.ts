@@ -4,6 +4,7 @@ import type {
   PublicProjection,
   PublicValue,
 } from "./generated";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import type { JsonObject, JsonValue } from "./json";
 import strictJsonDecoders from "./json";
 import operationDecoders from "./operations";
@@ -79,7 +80,7 @@ export interface RouteDeckSessionEnvelope {
 }
 
 export function decodeSessionEnvelope(value: unknown): RouteDeckSessionEnvelope {
-  const record = expectRecord(value, "$", ["projection"]);
+  const record = expectRecord(value, "$", generatedObjectDescriptors.SessionEnvelope);
   return { projection: decodeProjection(record.projection, "$.projection") };
 }
 
@@ -90,26 +91,12 @@ export function decodeProjection(
   const record = expectRecord(
     value,
     path,
-    [
-      "current",
-      "diagnostics",
-      "entities",
-      "event_cursor",
-      "failure",
-      "interaction",
-      "legal_operations",
-      "navigation",
-      "projection_version",
-      "session_version",
-      "status",
-      "suggested_actions",
-      "surfaces",
-    ],
-    ["graph_node"],
+    generatedObjectDescriptors.PublicProjectionResponse,
   );
   const current = decodeLocation(record.current, `${path}.current`);
   if (
     record.graph_node !== undefined &&
+    record.graph_node !== null &&
     expectString(record.graph_node, `${path}.graph_node`) !== current.node_id
   ) {
     fail(`${path}.graph_node`, "must match current.node_id");
@@ -117,54 +104,35 @@ export function decodeProjection(
   const navigationRecord = expectRecord(
     record.navigation,
     `${path}.navigation`,
-    [
-      "current",
-      "current_entry_id",
-      "route_template",
-      "resume_handle",
-      "can_back",
-      "can_forward",
-      "can_cancel",
-    ],
-    ["back_node_id", "forward_node_id", "cancel_target_node_id"],
+    generatedObjectDescriptors.ProjectedNavigation,
   );
   const surfacesRecord = expectRecord(
     record.surfaces,
     `${path}.surfaces`,
-    [
-      "active",
-      "detail",
-      "diagnostic",
-      "error",
-      "form",
-      "frame",
-      "peer",
-      "review",
-      "status",
-    ],
+    generatedObjectDescriptors.ProjectedSurfaceSlots,
   );
   const diagnosticsRecord = expectRecord(
     record.diagnostics,
     `${path}.diagnostics`,
-    ["schema_version", "navgraph_version", "current_node_id", "declared_provider_ids"],
+    generatedObjectDescriptors.ProjectionDiagnostics,
   );
   const statusRecord = expectRecord(
     record.status,
     `${path}.status`,
-    ["code", "message"],
+    generatedObjectDescriptors.ProjectionStatus,
   );
   const interactionRecord = expectRecord(
     record.interaction,
     `${path}.interaction`,
-    ["owner", "phase"],
+    generatedObjectDescriptors.RouteDeckInteractionState,
   );
   const interactionPhase = expectEnum(
-    interactionRecord.phase,
+    interactionRecord.phase === undefined ? "idle" : interactionRecord.phase,
     `${path}.interaction.phase`,
     new Set(["idle", "active"] as const),
   );
   const interactionOwner =
-    interactionRecord.owner === null
+    interactionRecord.owner === undefined || interactionRecord.owner === null
       ? null
       : expectEnum(
           interactionRecord.owner,
@@ -173,11 +141,20 @@ export function decodeProjection(
             ["chat", "surface", "review", "system", "navigation"] as const,
           ),
         );
+  const interactionRequestId = decodeNullableString(
+    interactionRecord.request_id === undefined ? null : interactionRecord.request_id,
+    `${path}.interaction.request_id`,
+  );
   if (
-    (interactionPhase === "idle" && interactionOwner !== null) ||
-    (interactionPhase === "active" && interactionOwner === null)
+    (interactionPhase === "idle" &&
+      (interactionOwner !== null || interactionRequestId !== null)) ||
+    (interactionPhase === "active" &&
+      (interactionOwner === null || interactionRequestId === null))
   ) {
-    fail(`${path}.interaction`, "phase and owner do not form a valid interaction state");
+    fail(
+      `${path}.interaction`,
+      "phase, owner, and request_id do not form a valid interaction state",
+    );
   }
   const projection: RouteDeckProjection = {
     current,
@@ -196,19 +173,22 @@ export function decodeProjection(
         `${path}.diagnostics.current_node_id`,
       ),
       declared_provider_ids: decodeStringArray(
-        diagnosticsRecord.declared_provider_ids,
+        diagnosticsRecord.declared_provider_ids === undefined
+          ? []
+          : diagnosticsRecord.declared_provider_ids,
         `${path}.diagnostics.declared_provider_ids`,
       ),
     },
     entities: decodeArray(record.entities, `${path}.entities`, decodeEntity),
     event_cursor: expectInteger(record.event_cursor, `${path}.event_cursor`, 0),
     failure:
-      record.failure === null
+      record.failure === undefined || record.failure === null
         ? null
         : decodeFailure(record.failure, `${path}.failure`),
     interaction: {
       phase: interactionPhase,
       owner: interactionOwner,
+      request_id: interactionRequestId,
     },
     legal_operations: decodeArray(
       record.legal_operations,
@@ -217,7 +197,7 @@ export function decodeProjection(
         const operation = expectRecord(
           item,
           itemPath,
-          ["operation_id", "title", "safety_class", "review_required"],
+          generatedObjectDescriptors.ProjectedOperation,
         );
         return {
           operation_id: expectString(operation.operation_id, `${itemPath}.operation_id`),
@@ -227,7 +207,9 @@ export function decodeProjection(
             `${itemPath}.safety_class`,
           ),
           review_required: expectBoolean(
-            operation.review_required,
+            operation.review_required === undefined
+              ? false
+              : operation.review_required,
             `${itemPath}.review_required`,
           ),
         };
@@ -261,15 +243,21 @@ export function decodeProjection(
         `${path}.navigation.can_cancel`,
       ),
       back_node_id: decodeNullableString(
-        navigationRecord.back_node_id,
+        navigationRecord.back_node_id === undefined
+          ? null
+          : navigationRecord.back_node_id,
         `${path}.navigation.back_node_id`,
       ),
       forward_node_id: decodeNullableString(
-        navigationRecord.forward_node_id,
+        navigationRecord.forward_node_id === undefined
+          ? null
+          : navigationRecord.forward_node_id,
         `${path}.navigation.forward_node_id`,
       ),
       cancel_target_node_id: decodeNullableString(
-        navigationRecord.cancel_target_node_id,
+        navigationRecord.cancel_target_node_id === undefined
+          ? null
+          : navigationRecord.cancel_target_node_id,
         `${path}.navigation.cancel_target_node_id`,
       ),
     },
@@ -284,8 +272,14 @@ export function decodeProjection(
       0,
     ),
     status: {
-      code: expectString(statusRecord.code, `${path}.status.code`),
-      message: decodeNullableString(statusRecord.message, `${path}.status.message`),
+      code: expectString(
+        statusRecord.code === undefined ? "ready" : statusRecord.code,
+        `${path}.status.code`,
+      ),
+      message: decodeNullableString(
+        statusRecord.message === undefined ? null : statusRecord.message,
+        `${path}.status.message`,
+      ),
     },
     suggested_actions: decodeArray(
       record.suggested_actions,
@@ -297,17 +291,38 @@ export function decodeProjection(
         surfacesRecord.active === null
           ? null
           : decodeSurface(surfacesRecord.active, `${path}.surfaces.active`),
-      detail: decodeSurfaceArray(surfacesRecord.detail, `${path}.surfaces.detail`),
+      detail: decodeSurfaceArray(
+        surfacesRecord.detail === undefined ? [] : surfacesRecord.detail,
+        `${path}.surfaces.detail`,
+      ),
       diagnostic: decodeSurfaceArray(
-        surfacesRecord.diagnostic,
+        surfacesRecord.diagnostic === undefined ? [] : surfacesRecord.diagnostic,
         `${path}.surfaces.diagnostic`,
       ),
-      error: decodeSurfaceArray(surfacesRecord.error, `${path}.surfaces.error`),
-      form: decodeSurfaceArray(surfacesRecord.form, `${path}.surfaces.form`),
-      frame: decodeSurfaceArray(surfacesRecord.frame, `${path}.surfaces.frame`),
-      peer: decodeSurfaceArray(surfacesRecord.peer, `${path}.surfaces.peer`),
-      review: decodeSurfaceArray(surfacesRecord.review, `${path}.surfaces.review`),
-      status: decodeSurfaceArray(surfacesRecord.status, `${path}.surfaces.status`),
+      error: decodeSurfaceArray(
+        surfacesRecord.error === undefined ? [] : surfacesRecord.error,
+        `${path}.surfaces.error`,
+      ),
+      form: decodeSurfaceArray(
+        surfacesRecord.form === undefined ? [] : surfacesRecord.form,
+        `${path}.surfaces.form`,
+      ),
+      frame: decodeSurfaceArray(
+        surfacesRecord.frame === undefined ? [] : surfacesRecord.frame,
+        `${path}.surfaces.frame`,
+      ),
+      peer: decodeSurfaceArray(
+        surfacesRecord.peer === undefined ? [] : surfacesRecord.peer,
+        `${path}.surfaces.peer`,
+      ),
+      review: decodeSurfaceArray(
+        surfacesRecord.review === undefined ? [] : surfacesRecord.review,
+        `${path}.surfaces.review`,
+      ),
+      status: decodeSurfaceArray(
+        surfacesRecord.status === undefined ? [] : surfacesRecord.status,
+        `${path}.surfaces.status`,
+      ),
     },
   };
   if (projection.navigation.current.node_id !== projection.current.node_id) {
@@ -323,11 +338,15 @@ export function decodeProjection(
 }
 
 function decodeLocation(value: unknown, path: string): RouteDeckProjectionLocation {
-  const record = expectRecord(value, path, ["node_id", "route_params"]);
+  const record = expectRecord(
+    value,
+    path,
+    generatedObjectDescriptors.ProjectionLocation,
+  );
   return {
     node_id: expectString(record.node_id, `${path}.node_id`),
     route_params: decodeArray(
-      record.route_params,
+      record.route_params === undefined ? [] : record.route_params,
       `${path}.route_params`,
       decodePublicValue,
     ),
@@ -335,7 +354,7 @@ function decodeLocation(value: unknown, path: string): RouteDeckProjectionLocati
 }
 
 function decodePublicValue(value: unknown, path: string): RouteDeckPublicValue {
-  const record = expectRecord(value, path, ["name", "value"]);
+  const record = expectRecord(value, path, generatedObjectDescriptors.PublicValue);
   return {
     name: expectString(record.name, `${path}.name`),
     value: expectJson(record.value, `${path}.value`),
@@ -343,20 +362,36 @@ function decodePublicValue(value: unknown, path: string): RouteDeckPublicValue {
 }
 
 function decodeEntity(value: unknown, path: string): RouteDeckPublicEntityHandle {
-  const record = expectRecord(value, path, ["entity_kind", "handle", "values"]);
+  const record = expectRecord(
+    value,
+    path,
+    generatedObjectDescriptors.PublicEntityHandle,
+  );
   return {
     entity_kind: expectString(record.entity_kind, `${path}.entity_kind`),
     handle: expectString(record.handle, `${path}.handle`),
-    values: decodeArray(record.values, `${path}.values`, decodePublicValue),
+    values: decodeArray(
+      record.values === undefined ? [] : record.values,
+      `${path}.values`,
+      decodePublicValue,
+    ),
   };
 }
 
 function decodeSurface(value: unknown, path: string): RouteDeckProjectedSurface {
-  const record = expectRecord(value, path, ["surface_id", "component", "props"]);
+  const record = expectRecord(
+    value,
+    path,
+    generatedObjectDescriptors.ProjectedSurface,
+  );
   return {
     surface_id: expectString(record.surface_id, `${path}.surface_id`),
     component: expectString(record.component, `${path}.component`),
-    props: decodeArray(record.props, `${path}.props`, decodePublicValue),
+    props: decodeArray(
+      record.props === undefined ? [] : record.props,
+      `${path}.props`,
+      decodePublicValue,
+    ),
   };
 }
 
@@ -367,13 +402,16 @@ function decodeSuggestedAction(
   const record = expectRecord(
     value,
     path,
-    ["action_id", "label", "operation_id", "arguments"],
+    generatedObjectDescriptors.ProjectedSuggestedAction,
   );
   return {
     action_id: expectString(record.action_id, `${path}.action_id`),
     label: expectString(record.label, `${path}.label`),
     operation_id: expectString(record.operation_id, `${path}.operation_id`),
-    arguments: expectJsonObject(record.arguments, `${path}.arguments`),
+    arguments: expectJsonObject(
+      record.arguments === undefined ? {} : record.arguments,
+      `${path}.arguments`,
+    ),
   };
 }
 

@@ -22,9 +22,9 @@ Run from the RouteDeck project root:
 | Supervision | `python -m pytest tests/supervision -q` | One runner, providers/guards, idempotency, review, crash windows, external-outcome-unknown, recovery, and turn lifecycle. |
 | Navigation | `python -m pytest tests/navigation -q` | Shareable/session-bound routes, resume capability, exact history identity, surface lifecycle, and navigation transactions. |
 | Persistence | `python -m pytest tests/sqlalchemy tests/sqlite/test_persistent_runtime_smoke.py -q` | SQLite/PostgreSQL ORM portability, fencing, durable journals/events/blobs, reopen, and restart recovery. |
-| HTTP/SSE | `python -m pytest tests/fastapi -q` | Runtime-derived routes, current-session selection, request-aware created-session binding, operations/reviews, navigation, typed conversation, replay/collision, cancellation, events, forms, inspection, and errors. |
-| Assistant initiation | `python -m pytest tests/fastapi/test_conversation_turns.py -q` | No synthetic user turn, shared durable lifecycle, replay/collision, interruption, and runtime/router integration. |
-| Headless assistant coordination | `pnpm --dir packages/core exec vitest run --config vitest.config.ts src/conversation/assistant.test.ts` | Assistant stream validation, accumulated progress published before completion, terminal proof, synchronization, conflict convergence, interruption, and no duplicate turn execution. |
+| HTTP/SSE | `python -m pytest tests/fastapi -q` | Runtime-derived routes, exact keyword-only session provisioning, current-session selection, request-aware created-session binding, operations/reviews, strict compatibility conversation SSE serialization, replay/collision, cancellation, events, forms, inspection, and errors. |
+| Detached conversation runs and entry turns | `python -m pytest tests/fastapi/test_conversation_turns.py -q` | Durable claim before acceptance, user and assistant start/attach, monotonic latest-only accumulated progress, subscriber disconnect without task cancellation, terminal eviction/reconstruction, loud persistence failure, post-commit reload, projection request identity, and once-per-session-node entry declaration. |
+| Headless assistant coordination | `pnpm --dir packages/core exec vitest run --config vitest.config.ts src/conversation/assistant.test.ts` | Assistant run start/attach, accumulated progress, monotonic cursor validation, terminal proof, synchronization, interruption, and final history reload. |
 | LangGraph boundary | `python -m pytest tests/test_langgraph_agent_driver.py tests/test_langgraph_model_context.py tests/test_langgraph_policy_prompt.py examples/medusa-agent/backend/tests/contract/test_agent_middleware.py -q` | Product-owned topology, framework-owned driver, typed triggers, strict extraction, default-deny context, and supervised tools. |
 | Boundary rules | `python -m pytest tests/test_boundary_report.py tests/test_boundary_rules.py tests/test_anti_drift_boundaries.py tests/test_medusa_reference_slice0.py examples/medusa-agent/backend/tests/contract/test_framework_imports.py -q` | Product-neutral framework, one runtime/runner path, no Medusa generic constructors, and no direct product Store path in the browser. |
 | Testing support | `python -m pytest tests/test_testing_factories.py -q` | Test doubles remain explicit and isolated from product runtime. |
@@ -46,9 +46,10 @@ The workspace requires Node.js 22.13 or newer and pnpm 11.7.0.
 | --- | --- | --- |
 | Headless core | `pnpm --filter @routedeck/core test` | Strict decoding, clients, SSE, bootstrap/resync, retained requests, routing/history, forms, and observable state. |
 | Headless types/build | `pnpm --filter @routedeck/core typecheck` and `pnpm --filter @routedeck/core build` | Public TypeScript API and emitted package. |
+| Generated transport contracts | `pnpm contracts:check` and `python -m pytest tests/test_contract_generation.py -q` | Checked-in JSON schema, generated TypeScript types, and generated runtime object descriptors match the Pydantic authority; required/optional field legality and strict additional-property posture cannot drift silently. Core decoder tests add minimum/maximum/unknown-field payload parity, 256-code-point legacy request-ID limits, JavaScript-safe public versions, and canonical public-history empty-string behavior. |
 | React | `pnpm --filter @routedeck/react test` and `pnpm --filter @routedeck/react typecheck` | Bootstrap phase/legal-action mapping, initial boundary gating, post-ready background-sync continuity, named conversation presentation, exact surface-registry validation, current-node conversation-input policy, operations, forms, review, navigation, status, and inspector primitives. |
 | Testing package | `pnpm --filter @routedeck/testing test` | Explicit frontend test factories/harnesses. |
-| Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Framework-bound product bootstrap/recovery and conversation restore, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
+| Medusa frontend | `pnpm --filter @routedeck/medusa-agent test` | Framework-bound product bootstrap/recovery, active-run reconnect from the last accepted cursor, conversation restore, markdown chat, catalog/cart/checkout/order surfaces, review, routing, and reliability. |
 | Medusa surface-props parity | `python -m pytest examples/medusa-agent/backend/tests/contract/test_surface_props_parity.py -q` and `pnpm --dir examples/medusa-agent/frontend exec vitest run --config vitest.config.ts src/tests/surface-props-parity.test.ts` | The same 16 valid/invalid vectors agree across compiled backend schemas and eight corresponding product frontend decoders. |
 | Medusa type/build | `pnpm --filter @routedeck/medusa-agent typecheck` and `pnpm --filter @routedeck/medusa-agent build` | Product/public contract integration and production bundle. |
 
@@ -79,10 +80,12 @@ python -m pytest tests/test_active_design_authority.py tests/test_public_api.py 
   consumer source, canonical contracts, and focused proof. Review that crosswalk
   with the feature matrix; no single automated check substitutes for both.
 
-Regenerate contracts only when Python contract meaning changed:
+Regenerate contracts when Python contract meaning or generated runtime metadata
+changed, then verify the checked-in outputs without rewriting them:
 
 ```powershell
 pnpm contracts:generate
+pnpm contracts:check
 ```
 
 Generated output is not a substitute for compiler/decoder tests.

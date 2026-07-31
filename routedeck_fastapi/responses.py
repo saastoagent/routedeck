@@ -4,15 +4,22 @@ import secrets
 from typing import Any
 
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
 from routedeck_core.contracts.operations import (
+    OperationEvidence,
     OperationDisposition,
+    OperationReview,
     OperationResult,
 )
 from routedeck_core.contracts.projection import PublicProjection
 from routedeck_core.navigation.transactions import NavigationTransactionError
 from routedeck_core.ports import SessionStoreError
+from routedeck_core.runtime import (
+    SessionProvisioningError,
+    SessionProvisioningErrorCode,
+)
 from routedeck_core.validation import (
     RouteDeckResumeCapabilityExpired,
     RouteDeckValidationError,
@@ -25,6 +32,28 @@ from .dependencies import RouteDeckDependencyUnavailable
 PRIVATE_CACHE_CONTROL = "private, no-store"
 
 
+class PublicOperationResult(BaseModel):
+    """Operation result safe to emit without the private session identifier."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    disposition: OperationDisposition
+    request_id: str = Field(min_length=1)
+    operation_id: str = Field(min_length=1)
+    session_version: int = Field(ge=0)
+    projection_version: int = Field(ge=0)
+    evidence: OperationEvidence
+    review: OperationReview | None = None
+    outcome: str | None = Field(default=None, min_length=1)
+    failure: RouteDeckFailure | None = None
+
+    @classmethod
+    def from_result(cls, result: OperationResult) -> PublicOperationResult:
+        return cls.model_validate(
+            result.model_dump(mode="python", exclude={"session_id"})
+        )
+
+
 def public_projection(projection: PublicProjection) -> dict[str, Any]:
     value = projection.model_dump(mode="json")
     value["graph_node"] = projection.current.node_id
@@ -32,7 +61,7 @@ def public_projection(projection: PublicProjection) -> dict[str, Any]:
 
 
 def public_operation_result(result: OperationResult) -> dict[str, Any]:
-    return result.model_dump(mode="json", exclude={"session_id"})
+    return PublicOperationResult.from_result(result).model_dump(mode="json")
 
 
 def operation_response(result: OperationResult) -> JSONResponse:
@@ -108,6 +137,18 @@ def failure_for_exception(error: Exception) -> tuple[int, RouteDeckFailure]:
             code="dependency_unavailable",
             phase="dependency_resolution",
             public_message="The RouteDeck runtime is unavailable.",
+        )
+    if isinstance(error, SessionProvisioningError):
+        public_message = (
+            "The session could not be created."
+            if error.code is SessionProvisioningErrorCode.SESSION_IDENTITY_MISMATCH
+            else "The session could not be initialized."
+        )
+        return 500, transport_failure(
+            kind=FailureKind.INTERNAL,
+            code=error.code.value,
+            phase="session_creation",
+            public_message=public_message,
         )
     if isinstance(error, SessionStoreError):
         code = error.code.value
@@ -199,6 +240,7 @@ def transport_failure(
 
 __all__ = [
     "PRIVATE_CACHE_CONTROL",
+    "PublicOperationResult",
     "exception_response",
     "failure_for_exception",
     "operation_response",

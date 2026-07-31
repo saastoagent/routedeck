@@ -9,6 +9,33 @@ export interface AgentAssistantTurnRequest {
   expected_session_version: number;
 }
 
+export type ConversationRunStage =
+  | "starting"
+  | "awaiting_model"
+  | "generating"
+  | "completed"
+  | "interrupted";
+
+export interface ConversationRunFailure {
+  code: string;
+  message: string;
+}
+
+export interface ConversationRunSnapshot {
+  request_id: string;
+  kind: "user_message" | "assistant_initiated";
+  stage: ConversationRunStage;
+  cursor: number;
+  assistant_content: string;
+  user_message: string | null;
+  user_turn_id: string | null;
+  session_version: number | null;
+  projection_version: number | null;
+  turn_id: string | null;
+  failure: ConversationRunFailure | null;
+  review: AgentReviewRequired | null;
+}
+
 export interface AgentHistoryTurn {
   turn_id: string;
   request_id: string | null;
@@ -65,13 +92,31 @@ export interface AgentChatClient {
   ): AsyncIterable<AgentStreamEvent>;
 }
 
+export interface ConversationRunClient {
+  loadConversation(signal?: AbortSignal): Promise<readonly AgentHistoryTurn[]>;
+  startAssistantRun(
+    request: AgentAssistantTurnRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationRunSnapshot>;
+  loadConversationRun(
+    requestId: string,
+    signal?: AbortSignal,
+  ): Promise<ConversationRunSnapshot>;
+  streamConversationRunEvents(
+    requestId: string,
+    after: number,
+    signal?: AbortSignal,
+  ): AsyncIterable<ConversationRunSnapshot>;
+}
+
 export interface RouteDeckConversationClient {
   loadConversation(signal?: AbortSignal): Promise<readonly AgentHistoryTurn[]>;
 }
 
 export interface RouteDeckAgentClient
   extends AgentChatClient,
-    RouteDeckConversationClient {
+    RouteDeckConversationClient,
+    ConversationRunClient {
   streamAssistantTurn(
     request: AgentAssistantTurnRequest,
     signal?: AbortSignal,

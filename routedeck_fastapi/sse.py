@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from typing import Protocol
+from typing import Literal, Protocol
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from routedeck_core.contracts.events import EventPage, PublicRouteDeckEvent, RouteDeckEvent
 
@@ -16,6 +18,14 @@ class EventReplayStore(Protocol):
         cursor: int,
         limit: int,
     ) -> EventPage: ...
+
+
+class StreamResetPayload(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    event_type: Literal["stream_reset_required"] = "stream_reset_required"
+    requested_after: int = Field(ge=0)
+    retained_from_cursor: int | None = Field(default=None, ge=0)
 
 
 def encode_event(event: RouteDeckEvent) -> bytes:
@@ -39,11 +49,10 @@ def encode_stream_reset(
     retained_from_cursor: int | None,
 ) -> bytes:
     data = json.dumps(
-        {
-            "event_type": "stream_reset_required",
-            "requested_after": requested_after,
-            "retained_from_cursor": retained_from_cursor,
-        },
+        StreamResetPayload(
+            requested_after=requested_after,
+            retained_from_cursor=retained_from_cursor,
+        ).model_dump(mode="json"),
         separators=(",", ":"),
         sort_keys=True,
     )
@@ -123,5 +132,6 @@ __all__ = [
     "encode_event",
     "encode_heartbeat",
     "encode_stream_reset",
+    "StreamResetPayload",
     "stream_events",
 ]

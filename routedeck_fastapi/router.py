@@ -39,13 +39,22 @@ def create_routedeck_router_from_runtime_provider(
     request_policy = mutation_policy or SameOriginMutationPolicy()
     router.include_router(create_contract_routes(provide_dependencies))
     router.include_router(
-        create_session_routes(provide_dependencies, request_policy)
+        create_session_routes(
+            provide_dependencies,
+            request_policy,
+        )
     )
     router.include_router(
-        create_operation_routes(provide_dependencies, request_policy)
+        create_operation_routes(
+            provide_dependencies,
+            request_policy,
+        )
     )
     router.include_router(
-        create_conversation_routes(provide_dependencies, request_policy)
+        create_conversation_routes(
+            provide_dependencies,
+            request_policy,
+        )
     )
     router.include_router(create_event_routes(provide_dependencies))
     router.include_router(

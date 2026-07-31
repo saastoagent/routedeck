@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class RouteDeckInteractionPhase(StrEnum):
@@ -23,21 +23,31 @@ class RouteDeckInteractionState(BaseModel):
 
     phase: RouteDeckInteractionPhase = RouteDeckInteractionPhase.IDLE
     owner: RouteDeckInteractionOwnerType | None = None
+    request_id: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def _phase_matches_owner(self) -> RouteDeckInteractionState:
-        if self.phase is RouteDeckInteractionPhase.IDLE and self.owner is not None:
-            raise ValueError("idle interaction state cannot have an owner")
-        if self.phase is RouteDeckInteractionPhase.ACTIVE and self.owner is None:
-            raise ValueError("active interaction state requires an owner")
+        if self.phase is RouteDeckInteractionPhase.IDLE and (
+            self.owner is not None or self.request_id is not None
+        ):
+            raise ValueError("idle interaction state cannot have an owner or request")
+        if self.phase is RouteDeckInteractionPhase.ACTIVE and (
+            self.owner is None or self.request_id is None
+        ):
+            raise ValueError("active interaction state requires an owner and request")
         return self
 
     @classmethod
     def active(
         cls,
         owner: RouteDeckInteractionOwnerType,
+        request_id: str,
     ) -> RouteDeckInteractionState:
-        return cls(phase=RouteDeckInteractionPhase.ACTIVE, owner=owner)
+        return cls(
+            phase=RouteDeckInteractionPhase.ACTIVE,
+            owner=owner,
+            request_id=request_id,
+        )
 
 
 __all__ = [

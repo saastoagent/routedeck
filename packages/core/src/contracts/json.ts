@@ -1,4 +1,5 @@
 import { RouteDeckContractError } from "../client/errors";
+import type { GeneratedObjectDescriptor } from "./generatedRuntime";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
@@ -10,21 +11,57 @@ export type JsonObject = { [key: string]: JsonValue };
 function expectRecord(
   value: unknown,
   path: string,
-  required: readonly string[],
-  optional: readonly string[] = [],
+  descriptor: GeneratedObjectDescriptor,
 ): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     fail(path, "expected an object");
   }
-  const record = value as Record<string, unknown>;
-  for (const key of required) {
+  const defaults: Record<string, unknown> = {};
+  for (const [key, defaultValue] of Object.entries(descriptor.defaults)) {
+    defaults[key] = cloneGeneratedDefault(defaultValue, `${path}.${key}`);
+  }
+  const record = { ...defaults, ...(value as Record<string, unknown>) };
+  for (const key of descriptor.required) {
     if (!(key in record)) fail(`${path}.${key}`, "is required");
   }
-  const allowed = new Set([...required, ...optional]);
-  for (const key of Object.keys(record)) {
-    if (!allowed.has(key)) fail(`${path}.${key}`, "is not declared by the contract");
+  if (!descriptor.additionalProperties) {
+    const allowed = new Set([...descriptor.required, ...descriptor.optional]);
+    for (const key of Object.keys(record)) {
+      if (!allowed.has(key)) {
+        fail(`${path}.${key}`, "is not declared by the contract");
+      }
+    }
   }
   return record;
+}
+
+function cloneGeneratedDefault(value: unknown, path: string): unknown {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      fail(path, "generated default must be JSON-compatible");
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      cloneGeneratedDefault(item, `${path}[${index}]`),
+    );
+  }
+  if (typeof value === "object") {
+    const cloned: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      cloned[key] = cloneGeneratedDefault(item, `${path}.${key}`);
+    }
+    return cloned;
+  }
+  fail(path, "generated default must be JSON-compatible");
 }
 
 function expectRecordMap(value: unknown, path: string): Record<string, unknown> {

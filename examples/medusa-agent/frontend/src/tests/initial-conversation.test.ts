@@ -1,7 +1,7 @@
 import {
   AgentChatError,
   type AgentHistoryTurn,
-  type AgentStreamEvent,
+  type ConversationRunSnapshot,
   type RouteDeckAgentClient,
   type RouteDeckClientState,
   type RouteDeckStore,
@@ -22,14 +22,13 @@ const GREETING: AgentHistoryTurn = {
 };
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 it("uses one stable session-scoped identity for the normal greeting", async () => {
   const harness = conversationHarness({
     conversationLoads: [[], [GREETING]],
-    stream: completedGreetingStream(),
+    initialRun: completedGreetingRun(),
   });
 
   await expect(
@@ -48,36 +47,19 @@ it("uses one stable session-scoped identity for the normal greeting", async () =
   });
 });
 
-it("waits for the winning greeting and reloads its durable conversation", async () => {
+it("attaches to the active greeting and reloads its durable conversation", async () => {
   const harness = conversationHarness({
-    conversationLoads: [[], [], [GREETING]],
-    stream: rejectedGreetingStream("operation_in_progress"),
-    state: routeDeckState({
-      sessionVersion: 4,
-      projectionVersion: 3,
-      interactionPhase: "active",
-      lastEvent: routeDeckEvent("turn_started", 4, 3),
-    }),
+    conversationLoads: [[], [GREETING]],
+    initialRun: activeGreetingRun(),
+    events: [completedGreetingRun(3)],
   });
 
-  const loading = loadInitialConversation(
-    harness.routeDeck,
-    harness.chatClient,
-  );
-  await Promise.resolve();
-  harness.publish(
-    routeDeckState({
-      sessionVersion: 5,
-      projectionVersion: 4,
-      interactionPhase: "idle",
-      lastEvent: routeDeckEvent("turn_finalized", 5, 4),
-    }),
-  );
-
-  await expect(loading).resolves.toEqual([GREETING]);
+  await expect(
+    loadInitialConversation(harness.routeDeck, harness.chatClient),
+  ).resolves.toEqual([GREETING]);
   expect(harness.assistantRequests).toHaveLength(1);
   expect(harness.synchronizeTo).toHaveBeenCalledWith({
-    sessionVersion: 5,
+    sessionVersion: 4,
     projectionVersion: 4,
   });
 });
@@ -85,62 +67,28 @@ it("waits for the winning greeting and reloads its durable conversation", async 
 it("does not silently rerun a genuinely interrupted greeting", async () => {
   const harness = conversationHarness({
     conversationLoads: [[]],
-    stream: rejectedGreetingStream("operation_in_progress"),
-    state: routeDeckState({
-      sessionVersion: 4,
-      projectionVersion: 3,
-      interactionPhase: "active",
-      lastEvent: routeDeckEvent("turn_started", 4, 3),
-    }),
+    initialRun: activeGreetingRun(),
+    events: [interruptedGreetingRun()],
   });
 
-  const loading = loadInitialConversation(
-    harness.routeDeck,
-    harness.chatClient,
-  );
-  await Promise.resolve();
-  harness.publish(
-    routeDeckState({
-      sessionVersion: 5,
-      projectionVersion: 4,
-      interactionPhase: "idle",
-      lastEvent: routeDeckEvent("turn_interrupted", 5, 4),
-    }),
-  );
-
-  await expect(loading).rejects.toMatchObject({
+  await expect(
+    loadInitialConversation(harness.routeDeck, harness.chatClient),
+  ).rejects.toMatchObject({
     code: "initial_greeting_interrupted",
   });
   expect(harness.assistantRequests).toHaveLength(1);
 });
 
-it("does not lose a terminal greeting event at subscription time", async () => {
-  vi.useFakeTimers();
+it("loads the terminal greeting when an event subscription ends", async () => {
   const harness = conversationHarness({
-    conversationLoads: [[], [], [GREETING]],
-    stream: rejectedGreetingStream("operation_in_progress"),
-    state: routeDeckState({
-      sessionVersion: 4,
-      projectionVersion: 3,
-      interactionPhase: "active",
-      lastEvent: routeDeckEvent("turn_started", 4, 3),
-    }),
-    beforeSubscribeState: routeDeckState({
-      sessionVersion: 5,
-      projectionVersion: 4,
-      interactionPhase: "idle",
-      lastEvent: routeDeckEvent("turn_finalized", 5, 4),
-    }),
+    conversationLoads: [[], [GREETING]],
+    initialRun: activeGreetingRun(),
+    loadedRun: completedGreetingRun(3),
   });
 
-  const loading = loadInitialConversation(
-    harness.routeDeck,
-    harness.chatClient,
-  );
-  await harness.subscriptionStarted;
-  await vi.advanceTimersByTimeAsync(120_000);
-
-  await expect(loading).resolves.toEqual([GREETING]);
+  await expect(
+    loadInitialConversation(harness.routeDeck, harness.chatClient),
+  ).resolves.toEqual([GREETING]);
 });
 
 it("creates a new identity only for an explicit greeting retry", () => {
@@ -153,16 +101,12 @@ it("creates a new identity only for an explicit greeting retry", () => {
 
 function conversationHarness(options: {
   conversationLoads: readonly (readonly AgentHistoryTurn[])[];
-  stream: readonly AgentStreamEvent[];
+  initialRun: ConversationRunSnapshot;
+  events?: readonly ConversationRunSnapshot[];
+  loadedRun?: ConversationRunSnapshot;
   state?: RouteDeckClientState;
-  beforeSubscribeState?: RouteDeckClientState;
 }) {
   let state = options.state ?? routeDeckState({});
-  const listeners = new Set<() => void>();
-  let resolveSubscriptionStarted!: () => void;
-  const subscriptionStarted = new Promise<void>((resolve) => {
-    resolveSubscriptionStarted = resolve;
-  });
   const loads = [...options.conversationLoads];
   const assistantRequests: Array<{
     request_id: string;
@@ -172,81 +116,78 @@ function conversationHarness(options: {
   const resync = vi.fn(async () => undefined);
   const store = {
     getState: () => state,
-    subscribe: (listener: () => void) => {
-      if (options.beforeSubscribeState !== undefined) {
-        state = options.beforeSubscribeState;
-      }
-      listeners.add(listener);
-      resolveSubscriptionStarted();
-      return () => listeners.delete(listener);
-    },
+    subscribe: () => () => undefined,
     resync,
     synchronizeTo,
   } as unknown as RouteDeckStore;
   const chatClient = {
     loadConversation: vi.fn(async () => loads.shift() ?? []),
-    streamAssistantTurn: (request: {
+    startAssistantRun: vi.fn(async (request: {
       request_id: string;
       expected_session_version: number;
     }) => {
       assistantRequests.push(request);
-      return scriptedStream(options.stream);
-    },
+      return options.initialRun;
+    }),
+    loadConversationRun: vi.fn(async () => options.loadedRun ?? options.initialRun),
+    streamConversationRunEvents: () => scriptedRunStream(options.events ?? []),
   } as unknown as RouteDeckAgentClient;
   return {
     routeDeck: { store },
     chatClient,
     assistantRequests,
     synchronizeTo,
-    subscriptionStarted,
-    publish(next: RouteDeckClientState) {
-      state = next;
-      for (const listener of listeners) listener();
+  };
+}
+
+async function* scriptedRunStream(
+  events: readonly ConversationRunSnapshot[],
+): AsyncIterable<ConversationRunSnapshot> {
+  for (const event of events) yield event;
+}
+
+function activeGreetingRun(cursor = 1): ConversationRunSnapshot {
+  return greetingRun("awaiting_model", cursor);
+}
+
+function completedGreetingRun(cursor = 2): ConversationRunSnapshot {
+  return {
+    ...greetingRun("completed", cursor),
+    assistant_content: GREETING.content,
+    session_version: 4,
+    projection_version: 4,
+    turn_id: GREETING.turn_id,
+  };
+}
+
+function interruptedGreetingRun(): ConversationRunSnapshot {
+  return {
+    ...greetingRun("interrupted", 2),
+    failure: {
+      code: "assistant_turn_interrupted",
+      message: "The assistant turn was interrupted. Retry it explicitly to continue.",
     },
   };
 }
 
-async function* scriptedStream(
-  events: readonly AgentStreamEvent[],
-): AsyncIterable<AgentStreamEvent> {
-  for (const event of events) yield event;
-}
-
-function completedGreetingStream(): readonly AgentStreamEvent[] {
-  return [
-    {
-      type: "stream_start",
-      request_id: INITIAL_GREETING_REQUEST_ID,
-      session_version: 3,
-    },
-    {
-      type: "assistant_end",
-      request_id: INITIAL_GREETING_REQUEST_ID,
-      session_version: 4,
-      projection_version: 4,
-      turn_id: "turn-greeting",
-    },
-    {
-      type: "stream_end",
-      request_id: INITIAL_GREETING_REQUEST_ID,
-      status: "completed",
-    },
-  ];
-}
-
-function rejectedGreetingStream(code: string): readonly AgentStreamEvent[] {
-  return [
-    {
-      type: "chat_error",
-      code,
-      message: "The RouteDeck session request could not be completed.",
-    },
-    {
-      type: "stream_end",
-      request_id: INITIAL_GREETING_REQUEST_ID,
-      status: "rejected",
-    },
-  ];
+function greetingRun(
+  stage: ConversationRunSnapshot["stage"],
+  cursor: number,
+): ConversationRunSnapshot {
+  return {
+    request_id: INITIAL_GREETING_REQUEST_ID,
+    kind: "assistant_initiated",
+    stage,
+    cursor,
+    assistant_content: "",
+    user_message: null,
+    user_turn_id: null,
+    session_version: null,
+    projection_version: null,
+    turn_id: null,
+    failure: null,
+    review: null,
+  };
 }
 
 function routeDeckState(options: {

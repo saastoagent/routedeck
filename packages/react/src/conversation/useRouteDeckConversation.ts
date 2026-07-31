@@ -6,6 +6,8 @@ import {
   type AgentChatClient,
   type AgentHistoryTurn,
   type AgentReviewRequired,
+  type ConversationRunClient,
+  type ConversationRunSnapshot,
 } from "@routedeck/core";
 import {
   useConversationPresentation,
@@ -15,7 +17,7 @@ import {
 } from "./presentation";
 
 export interface UseRouteDeckConversationOptions {
-  client: AgentChatClient;
+  client: AgentChatClient & Partial<ConversationRunClient>;
   initialConversation?: readonly AgentHistoryTurn[];
   sessionVersion: number | null;
   createRequestId(): string;
@@ -24,6 +26,7 @@ export interface UseRouteDeckConversationOptions {
     projectionVersion: number;
   }): Promise<void>;
   resync(): Promise<void>;
+  activeRunRequestId?: string | null;
 }
 
 export interface AgentStreamState {
@@ -45,6 +48,7 @@ export function useRouteDeckConversation({
   createRequestId,
   synchronizeTo,
   resync,
+  activeRunRequestId = null,
 }: UseRouteDeckConversationOptions): AgentStreamState {
   const presentation = useConversationPresentation(initialConversation);
   const actions = presentation.actions;
@@ -62,6 +66,89 @@ export function useRouteDeckConversation({
   const cancel = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    if (activeRunRequestId === null || abortRef.current !== null) return;
+    const requestId = activeRunRequestId;
+    const abort = new AbortController();
+    abortRef.current = abort;
+    actions.beginTurn();
+    void resumeActiveRun().catch((caught: unknown) => {
+      if (abort.signal.aborted) return;
+      const error = caught instanceof AgentChatError
+        ? caught
+        : new AgentChatError(
+            "conversation_run_resume_failed",
+            "The active conversation run could not be restored.",
+          );
+      actions.failTurn(error, null);
+    }).finally(() => {
+      if (abortRef.current === abort) abortRef.current = null;
+    });
+
+    async function resumeActiveRun(): Promise<void> {
+      const loadConversation = client.loadConversation;
+      const loadConversationRun = client.loadConversationRun;
+      const streamConversationRunEvents = client.streamConversationRunEvents;
+      if (
+        loadConversation === undefined ||
+        loadConversationRun === undefined ||
+        streamConversationRunEvents === undefined
+      ) {
+        throw new AgentChatError(
+          "conversation_run_client_unavailable",
+          "The configured conversation client cannot restore an active run.",
+        );
+      }
+      const history = await loadConversation(abort.signal);
+      actions.restoreSnapshot(history, requestId);
+      let run = await loadConversationRun(requestId, abort.signal);
+      let content = "";
+      content = applyRunProgress(actions, run, content);
+      let reconnects = 0;
+      while (!isTerminalRun(run)) {
+        try {
+          for await (const event of streamConversationRunEvents(
+            requestId,
+            run.cursor,
+            abort.signal,
+          )) {
+            requireRunCursor(event, run);
+            run = event;
+            reconnects = 0;
+            content = applyRunProgress(actions, run, content);
+          }
+          if (!isTerminalRun(run)) {
+            const loaded = await loadConversationRun(requestId, abort.signal);
+            requireRunCursor(loaded, run, true);
+            run = loaded;
+            content = applyRunProgress(actions, run, content);
+          }
+          if (!isTerminalRun(run)) {
+            throw new AgentChatError(
+              "conversation_run_stream_incomplete",
+              "The active conversation run stream ended before a durable result.",
+              null,
+              "unknown",
+            );
+          }
+        } catch (caught) {
+          if (abort.signal.aborted || !retryableRunTransport(caught)) throw caught;
+          const delay = ACTIVE_RUN_RECONNECT_DELAYS_MS[
+            Math.min(reconnects, ACTIVE_RUN_RECONNECT_DELAYS_MS.length - 1)
+          ]!;
+          reconnects += 1;
+          await waitForReconnect(delay, abort.signal);
+        }
+      }
+      await finishRun(actions, run, synchronizeTo);
+    }
+
+    return () => {
+      abort.abort();
+      if (abortRef.current === abort) abortRef.current = null;
+    };
+  }, [activeRunRequestId, actions, client, synchronizeTo]);
 
   const execute = useCallback(
     async (request: Readonly<AgentChatRequest>) => {
@@ -290,6 +377,128 @@ export function useRouteDeckConversation({
     discardPending,
     cancel,
   };
+}
+
+function applyRunProgress(
+  actions: ReturnType<typeof useConversationPresentation>["actions"],
+  run: ConversationRunSnapshot,
+  previous: string,
+): string {
+  if (run.user_message !== null && run.user_turn_id !== null) {
+    actions.showUserMessage({
+      type: "user_message",
+      content: run.user_message,
+      request_id: run.request_id,
+      turn_id: run.user_turn_id,
+    });
+  }
+  if (run.assistant_content === previous) return previous;
+  if (!run.assistant_content.startsWith(previous)) {
+    actions.resetAssistantText(run.request_id);
+    if (run.assistant_content) {
+      actions.appendAssistantText(run.request_id, run.assistant_content);
+    }
+    return run.assistant_content;
+  }
+  const delta = run.assistant_content.slice(previous.length);
+  if (delta) actions.appendAssistantText(run.request_id, delta);
+  return run.assistant_content;
+}
+
+async function finishRun(
+  actions: ReturnType<typeof useConversationPresentation>["actions"],
+  run: ConversationRunSnapshot,
+  synchronizeTo: UseRouteDeckConversationOptions["synchronizeTo"],
+): Promise<void> {
+  if (run.stage === "interrupted") {
+    throw new AgentChatError(
+      run.failure?.code ?? "chat_turn_interrupted",
+      run.failure?.message ?? "The agent turn was interrupted.",
+      null,
+      "interrupted",
+    );
+  }
+  if (
+    run.stage !== "completed" ||
+    run.session_version === null ||
+    run.projection_version === null
+  ) {
+    throw new AgentChatError(
+      "conversation_run_incomplete",
+      "The active conversation run ended without a durable result.",
+    );
+  }
+  await synchronizeTo({
+    sessionVersion: run.session_version,
+    projectionVersion: run.projection_version,
+  });
+  if (run.review !== null) {
+    actions.requireReview(run.review);
+    actions.completeTurn("review_required");
+    return;
+  }
+  if (run.turn_id === null) {
+    throw new AgentChatError(
+      "conversation_run_completion_invalid",
+      "The completed conversation run has no assistant turn.",
+    );
+  }
+  actions.finalizeAssistant(run.request_id, run.turn_id);
+  actions.completeTurn("idle");
+  actions.clearFailure();
+}
+
+function isTerminalRun(run: ConversationRunSnapshot): boolean {
+  return run.stage === "completed" || run.stage === "interrupted";
+}
+
+const ACTIVE_RUN_RECONNECT_DELAYS_MS = [100, 250, 500] as const;
+
+function requireRunCursor(
+  next: ConversationRunSnapshot,
+  previous: ConversationRunSnapshot,
+  allowEqual = false,
+): void {
+  requireRequestId(next.request_id, previous.request_id);
+  if (next.cursor < previous.cursor || (!allowEqual && next.cursor === previous.cursor)) {
+    throw new AgentChatError(
+      "conversation_run_cursor_regressed",
+      "The active conversation run cursor did not advance.",
+    );
+  }
+}
+
+function retryableRunTransport(error: unknown): boolean {
+  if (!(error instanceof AgentChatError)) return true;
+  return (
+    error.code === "conversation_run_stream_incomplete" ||
+    error.code === "conversation_run_stream_body_missing" ||
+    (error.status !== null && error.status >= 500)
+  );
+}
+
+async function waitForReconnect(
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = globalThis.setTimeout(done, milliseconds);
+    signal.addEventListener("abort", aborted, { once: true });
+
+    function done(): void {
+      signal.removeEventListener("abort", aborted);
+      resolve();
+    }
+
+    function aborted(): void {
+      globalThis.clearTimeout(timer);
+      reject(signal.reason);
+    }
+  });
 }
 
 function pendingRequestFor(

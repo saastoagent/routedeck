@@ -57,7 +57,12 @@ from routedeck_core.ports import (
     SessionStoreErrorCode,
 )
 from routedeck_core.projection import ProjectionProjector
-from routedeck_core.runtime import RouteDeckRuntime, RouteDeckRuntimeServices
+from routedeck_core.runtime import (
+    RouteDeckRuntime,
+    RouteDeckRuntimeServices,
+    SessionProvisioningError,
+    SessionProvisioningErrorCode,
+)
 from routedeck_core.state import create_session
 from routedeck_core.state.leases import TurnClaim, TurnLease
 from routedeck_fastapi import (
@@ -68,6 +73,7 @@ from routedeck_fastapi import (
     SseSettings,
     create_routedeck_router_from_runtime_provider,
 )
+from routedeck_fastapi.responses import failure_for_exception
 
 
 BACKEND_ROOT = (
@@ -89,6 +95,10 @@ def _guest_selector() -> GuestCookieSessionSelector:
             path="/",
         )
     )
+
+
+async def _unused_session_provisioner(**_kwargs) -> SessionSnapshot:
+    raise AssertionError("direct dependency fixtures do not provision sessions")
 
 
 class SmokeCodec:
@@ -338,18 +348,6 @@ def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunne
     runner = SmokeRunner(store)
     codec = SmokeCodec()
 
-    def session_factory(session_id: str) -> RouteDeckSession:
-        return create_medusa_session(
-            app=compiled,
-            session_id=session_id,
-            market=BuyerMarket(
-                region_handle="region-public",
-                country_code="us",
-                currency_code="usd",
-                sales_channel_handle="channel-public",
-            ),
-        )
-
     dependencies = RouteDeckDependencies(
         app=compiled,
         runner=runner,  # type: ignore[arg-type]
@@ -357,7 +355,7 @@ def _smoke_dependencies() -> tuple[RouteDeckDependencies, SmokeStore, SmokeRunne
         notifier=SmokeNotifier(),  # type: ignore[arg-type]
         projector=ProjectionProjector(compiled),
         private_form_codec=codec,
-        session_factory=session_factory,
+        session_provisioner=_unused_session_provisioner,
         session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
@@ -374,6 +372,8 @@ def _runtime_from_dependencies(
     dependencies: RouteDeckDependencies,
     *,
     agent_driver: RouteDeckAgentDriver | None = None,
+    session_factory=None,
+    session_initializer=None,
 ) -> RouteDeckRuntime:
     bound_app = BoundApplication(
         app=dependencies.app,
@@ -399,18 +399,26 @@ def _runtime_from_dependencies(
         projector=dependencies.projector,  # type: ignore[arg-type]
     )
 
-    def session_factory(_app, session_id: str):
-        return dependencies.session_factory(session_id)
+    def default_session_factory(app, session_id: str):
+        return create_medusa_session(
+            app=app,
+            session_id=session_id,
+            market=BuyerMarket(
+                region_handle="region-public",
+                country_code="us",
+                currency_code="usd",
+                sales_channel_handle="channel-public",
+            ),
+        )
 
-    def session_initializer(_services, snapshot: SessionSnapshot):
-        initializer = dependencies.session_initializer
-        return snapshot if initializer is None else initializer(snapshot)
+    def default_session_initializer(_services, snapshot: SessionSnapshot):
+        return snapshot
 
     return RouteDeckRuntime(
         services=services,
         private_form_codec=dependencies.private_form_codec,
-        session_factory=session_factory,
-        session_initializer=session_initializer,
+        session_factory=session_factory or default_session_factory,
+        session_initializer=session_initializer or default_session_initializer,
         agent_driver=agent_driver or dependencies.agent_driver,
         lifecycle=_SmokeRuntimeLifecycle(),
     )
@@ -420,10 +428,14 @@ def _test_transport_app(
     dependencies: RouteDeckDependencies,
     *,
     agent_driver: RouteDeckAgentDriver | None = None,
+    session_factory=None,
+    session_initializer=None,
 ) -> FastAPI:
     runtime = _runtime_from_dependencies(
         dependencies,
         agent_driver=agent_driver,
+        session_factory=session_factory,
+        session_initializer=session_initializer,
     )
     application = FastAPI()
     application.include_router(
@@ -678,12 +690,19 @@ def test_session_initializer_failure_never_returns_a_usable_session() -> None:
         notifier=SmokeNotifier(),  # type: ignore[arg-type]
         projector=ProjectionProjector(compiled),
         private_form_codec=SmokeCodec(),
-        session_factory=session_factory,
-        session_initializer=fail_initializer,
+        session_provisioner=_unused_session_provisioner,
         session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
-    client = TestClient(_test_transport_app(dependencies))
+    client = TestClient(
+        _test_transport_app(
+            dependencies,
+            session_factory=lambda _app, session_id: session_factory(session_id),
+            session_initializer=lambda _services, snapshot: fail_initializer(
+                snapshot
+            ),
+        )
+    )
 
     failed = client.post(
         "/api/routedeck/sessions",
@@ -702,6 +721,30 @@ def test_session_initializer_failure_never_returns_a_usable_session() -> None:
     assert "set-cookie" not in replayed.headers
     assert len(store.creation_requests) == 1
     assert client.get("/api/routedeck/session").status_code == 404
+
+
+def test_session_provisioning_contract_failures_keep_public_error_semantics() -> None:
+    identity_status, identity_failure = failure_for_exception(
+        SessionProvisioningError(
+            SessionProvisioningErrorCode.SESSION_IDENTITY_MISMATCH
+        )
+    )
+    initializer_status, initializer_failure = failure_for_exception(
+        SessionProvisioningError(
+            SessionProvisioningErrorCode.SESSION_INITIALIZER_INVALID
+        )
+    )
+
+    assert identity_status == initializer_status == 500
+    assert identity_failure.code == "session_identity_mismatch"
+    assert identity_failure.phase == "session_creation"
+    assert identity_failure.public_message == "The session could not be created."
+    assert initializer_failure.code == "session_initializer_invalid"
+    assert initializer_failure.phase == "session_creation"
+    assert (
+        initializer_failure.public_message
+        == "The session could not be initialized."
+    )
 
 
 def test_declared_empty_private_form_is_virtual_and_not_persisted() -> None:
@@ -901,11 +944,16 @@ def _private_form_transport() -> tuple[TestClient, SmokeStore]:
         notifier=SmokeNotifier(),  # type: ignore[arg-type]
         projector=ProjectionProjector(compiled),
         private_form_codec=SmokeCodec(),
-        session_factory=session_factory,
+        session_provisioner=_unused_session_provisioner,
         session_selector=_guest_selector(),
         sse=SseSettings(follow=False),
     )
-    client = TestClient(_test_transport_app(dependencies))
+    client = TestClient(
+        _test_transport_app(
+            dependencies,
+            session_factory=lambda _app, session_id: session_factory(session_id),
+        )
+    )
     created = client.post(
         "/api/routedeck/sessions",
         json={"request_id": "create-session-private-form"},

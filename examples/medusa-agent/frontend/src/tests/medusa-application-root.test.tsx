@@ -154,6 +154,9 @@ it("does not resync for an unrelated missing conversation endpoint", async () =>
 function createChatClient() {
   return {
     loadConversation: vi.fn<RouteDeckAgentClient["loadConversation"]>(),
+    startAssistantRun: vi.fn<RouteDeckAgentClient["startAssistantRun"]>(),
+    loadConversationRun: vi.fn<RouteDeckAgentClient["loadConversationRun"]>(),
+    async *streamConversationRunEvents() {},
     async *stream() {},
     async *streamAssistantTurn() {},
   } satisfies RouteDeckAgentClient;

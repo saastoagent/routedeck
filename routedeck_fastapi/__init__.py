@@ -6,8 +6,7 @@ from .dependencies import (
     RouteDeckDependencies,
     RouteDeckDependencyUnavailable,
     RouteDeckSessionSelector,
-    SessionInitializer,
-    SessionFactory,
+    SessionProvisioner,
     SessionProjector,
     SseSettings,
 )
@@ -16,9 +15,18 @@ from .runtime import RuntimeProvider, dependencies_from_runtime
 from .conversation_projection import PublicConversationTurn, public_conversation
 from .conversation_replay import conversation_fingerprint
 from .conversation_stream import ConversationTurnRequest, stream_agent_turn
+from .conversation_runs import (
+    ConversationRunCoordinator,
+    ConversationRunFailure,
+    ConversationRunSnapshot,
+    ConversationRunStage,
+    ensure_current_node_entry_turn,
+    entry_turn_request_id,
+)
 from .contracts import (
     AssistantTurnRequest,
     ChatStreamRequest,
+    ConversationRunStartRequest,
     DispatchRequest,
     PrivateFormWriteRequest,
     ReviewRequest,
@@ -40,6 +48,11 @@ __all__ = [
     "AssistantTurnRequest",
     "ChatStreamRequest",
     "ConversationTurnRequest",
+    "ConversationRunStartRequest",
+    "ConversationRunCoordinator",
+    "ConversationRunFailure",
+    "ConversationRunSnapshot",
+    "ConversationRunStage",
     "DispatchRequest",
     "EventWakeupNotifier",
     "GuestCookieSettings",
@@ -54,13 +67,14 @@ __all__ = [
     "RouteDeckSessionSelector",
     "RuntimeProvider",
     "SameOriginMutationPolicy",
-    "SessionInitializer",
-    "SessionFactory",
+    "SessionProvisioner",
     "SessionProjector",
     "SseSettings",
     "conversation_fingerprint",
     "create_routedeck_router_from_runtime_provider",
     "dependencies_from_runtime",
+    "ensure_current_node_entry_turn",
+    "entry_turn_request_id",
     "encode_event",
     "encode_heartbeat",
     "encode_stream_reset",

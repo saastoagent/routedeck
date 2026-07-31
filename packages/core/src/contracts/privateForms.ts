@@ -1,4 +1,5 @@
 import type { PrivateFormWriteRequest } from "./generated";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import type { JsonObject } from "./json";
 import strictJsonDecoders from "./json";
 
@@ -34,7 +35,7 @@ export function decodePrivateFormSnapshot(
   const record = expectRecord(
     value,
     "$privateForm",
-    ["form_id", "revision", "complete", "session_version", "value"],
+    generatedObjectDescriptors.PrivateFormSnapshot,
   );
   return {
     form_id: expectString(record.form_id, "$privateForm.form_id"),
@@ -53,13 +54,7 @@ export function decodePrivateFormSaved(value: unknown): RouteDeckPrivateFormSave
   const record = expectRecord(
     value,
     "$privateFormSaved",
-    [
-      "form_id",
-      "revision",
-      "complete",
-      "session_version",
-      "projection_version",
-    ],
+    generatedObjectDescriptors.PrivateFormSaved,
   );
   return {
     form_id: expectString(record.form_id, "$privateFormSaved.form_id"),

@@ -139,10 +139,16 @@ and `ConfiguredSessionProjector`.
 
 `RouteDeckRuntime` adds the sensitive codec, product-supplied session factory
 and initializer, optional configured `RouteDeckAgentDriver`, and explicit
-lifecycle. `build_routedeck_runtime(...)` constructs the runner exactly once,
-passes it into navigation, builds projection, then invokes an optional driver
-factory exactly once after services exist. `close()` delegates to the declared
-lifecycle; there is no dynamic or alternate cleanup path.
+lifecycle. Its public `provision_session(...)` method is the sole session
+provisioning path: the caller supplies its session and request IDs, while the
+runtime executes async or synchronous product callbacks, durably
+`create_for_request` journals the canonical creation fingerprint, validates
+factory/initializer identity and version, ensures the declared entry run, and
+reloads the current snapshot. `build_routedeck_runtime(...)` constructs the
+runner exactly once, passes it into navigation, builds projection, then invokes
+an optional driver factory exactly once after services exist. `close()`
+delegates to the declared lifecycle; there is no dynamic or alternate cleanup
+path.
 
 `open_sqlalchemy_routedeck_runtime(...)` opens
 `SqlAlchemySessionStore` and `FernetSensitiveCodec`, gives those resources to
@@ -428,11 +434,14 @@ remain separate authorities for separate concerns.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /contract` | Compiled frontend contract. |
-| `POST /sessions` | Create a guest session and run the injected initializer. |
+| `POST /sessions` | Delegate session provisioning to the runtime, then attach it through the host selector. |
 | `GET /session` | Current public projection. |
 | `GET /conversation` | Finalized public user/assistant conversation projection. |
 | `POST /chat` | Durable agent turn over an injected product-neutral driver. |
 | `POST /conversation/assistant-turn` | Durable assistant-only turn with no synthetic user message. |
+| `POST /conversation/runs` | Start or attach a detached user-message or assistant-initiated run. |
+| `GET /conversation/runs/{request_id}` | Load accumulated in-process progress or reconstruct durable terminal truth. |
+| `GET /conversation/runs/{request_id}/events?after={cursor}` | Follow monotonic accumulated run snapshots after a cursor. |
 | `POST /navigation` | Versioned exact navigation transaction. |
 | `POST /dispatch` | Versioned surface operation. |
 | `POST /reviews/{id}/accept` | Accept a current proposal. |
@@ -443,39 +452,66 @@ remain separate authorities for separate concerns.
 
 The host supplies a `RuntimeProvider` and `RouteDeckSessionSelector` to
 `create_routedeck_router_from_runtime_provider(...)`. FastAPI derives the app,
-runner, navigation, store, notifier, projector, codec, session callbacks, and
+runner, navigation, store, notifier, projector, codec, session provisioner, and
 agent driver from that one runtime and mounts contract, sessions, operations,
-conversation, events, private forms, and inspection exactly once. A missing
-runtime, driver, or selector returns a visible unavailable failure; the
-transport never constructs a hidden store, model, product adapter, or session
-choice.
+conversation, events, private forms, and inspection exactly once. Session POST
+handling generates only transport response state and invokes
+`RouteDeckRuntime.provision_session(...)`; it does not repeat factory,
+initializer, durable creation, or entry-run control flow. A missing runtime,
+driver, or selector returns a visible unavailable failure; the transport never
+constructs a hidden store, model, product adapter, or session choice.
 
 The prompt, model, graph set, and business tools remain product-owned.
 RouteDeck owns the generic driver and surrounding transaction: typed trigger,
 request fingerprint, parent lease, public interaction state, event translation,
 persistence/replay, interruption/cancellation cleanup, and assistant SSE.
-Fingerprints are exactly `{"kind":"user_message","message":...}` or
-`{"kind":"assistant_initiated"}` before canonical JSON hashing. Exact replay
-does not invoke a graph; cross-trigger request-ID reuse is
+Public conversation history and the retained `/chat` and
+`/conversation/assistant-turn` SSE payloads are serialized through strict
+Pydantic transport models and decoded with the generated field descriptors
+from that same schema catalog. Legacy event request IDs are limited to 256
+Unicode code points, and public version values are non-negative JavaScript-safe
+integers. History turn IDs are non-empty; nullable history request IDs retain
+the canonical `ConversationTurn` string domain when present.
+Fingerprints hash exactly `{"kind":"user_message","message":...}` or
+`{"kind":"assistant_initiated"}` and are stored as
+`rdconv1:<run-kind>:<hash>`. The prefix preserves a privacy-safe run kind for
+interrupted restart reconstruction without storing user-message plaintext.
+Exact replay does not invoke a graph; cross-trigger request-ID reuse is
 `request_id_reused`, and stale versions fail before graph invocation.
 
 `GET /api/routedeck/events` is the canonical interaction-state handshake. A
 user or assistant turn begins by committing
-`interaction={phase: active, owner: chat}` and a `turn_started` event before
+`interaction={phase: active, owner: chat, request_id: ...}` and a
+`turn_started` event before
 the product graph runs. Surfaces and suggested actions remain inert until a
 finalized, interrupted, or review-staged state is projected. Conversation SSE
 is not a second state authority.
+
+The runtime owns detached execution and transient accumulated run progress.
+Disconnecting an HTTP/SSE subscriber does not cancel the task. A browser
+reattaches by the projected request ID and last observed run cursor. Restart
+recovery continues to use the existing turn lease, mutation, conversation, and
+session contracts; run progress itself is not durable and there is no run
+table, renewable lease, or recovery worker. A node may declare an optional
+`EntryTurnDeclaration(occurrence="once_per_session_node")`; session creation,
+navigation, and direct runtime callers ensure it through the same coordinator.
+The start call returns only after the durable turn claim. The coordinator keeps
+one latest accumulated snapshot, permits monotonic cursor jumps, evicts durable
+terminals, and reconstructs them from mutation truth. Session/navigation
+projections and operation/review response versions are produced after an entry
+turn claim so its request ID is immediately discoverable.
 
 ## Headless And React Packages
 
 `@routedeck/core` provides:
 
-- strict decoders generated from Python contracts;
+- strict decoders whose object-field legality is generated from Python
+  contracts, including conversation history and retained chat SSE;
 - credential-aware HTTP and SSE clients;
 - the RouteDeck conversation client for public history and assistant streaming;
-- `runAssistantInitiatedTurn(...)` for request/event validation, accumulated
-  live assistant presentation progress, terminal proof, conflict convergence,
-  synchronization, and final history reload;
+- `runAssistantInitiatedTurn(...)` for start-or-attach, accumulated live
+  assistant presentation progress, terminal proof, synchronization, and final
+  history reload;
 - authoritative event/session store with replay and resync;
 - `selectRouteDeckBootstrapRecovery(...)` plus
   `runRouteDeckBootstrapRecoveryAction(...)` as the single recovery descriptor
@@ -492,7 +528,8 @@ is not a second state authority.
 - `RouteDeckProvider` and selectors/hooks;
 - `RouteDeckSurfaceHost` plus a product component registry;
 - private-form, review, navigation, status, and error primitives;
-- `useRouteDeckConversation` for the browser turn lifecycle;
+- `useRouteDeckConversation` for the browser turn lifecycle and attachment to
+  a projected `activeRunRequestId`;
 - `ConversationPresentationActions`, whose named methods own rendered
   conversation/status/review/failure presentation without exposing a generic
   reducer or transition callback;
@@ -529,10 +566,12 @@ Failures exposed publicly contain a stable kind/code/phase, correlation ID, and
 safe message. Raw exceptions, HTTP response bodies, private IDs, credentials,
 and private-form values stay server-side.
 
-Graph or stream failure persists an interrupted marker before emitting
-`chat_error` and `stream_end: turn_interrupted`. If interruption persistence
-fails, the only terminal frame is `stream_end: outcome_unknown`. Cancellation
-shields interruption persistence and closes the LangGraph async event stream.
+Graph or stream failure persists an interrupted marker before presenting an
+interrupted run. If interruption persistence fails, RouteDeck exposes a loud
+persistence failure and never caches or presents a non-durable interrupted
+terminal. A later read reconstructs mutation truth when the durable commit did
+succeed before a response-path failure. Cancellation shields interruption
+persistence and closes the LangGraph async event stream.
 
 ## Medusa Reference Proof
 

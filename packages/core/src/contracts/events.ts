@@ -3,6 +3,7 @@ import type {
   PublicRouteDeckEvent as GeneratedRouteDeckEvent,
   RouteDeckEventType,
 } from "./generated";
+import { generatedObjectDescriptors } from "./generatedRuntime";
 import strictJsonDecoders from "./json";
 import operationDecoders from "./operations";
 import type {
@@ -53,15 +54,7 @@ export function decodeEvent(value: unknown): RouteDeckEvent {
   const record = expectRecord(
     value,
     "$event",
-    [
-      "created_at",
-      "cursor",
-      "event_id",
-      "event_type",
-      "payload",
-      "projection_version",
-      "session_version",
-    ],
+    generatedObjectDescriptors.PublicRouteDeckEvent,
   );
   const eventType = expectEnum(
     record.event_type,
@@ -71,15 +64,7 @@ export function decodeEvent(value: unknown): RouteDeckEvent {
   const payloadRecord = expectRecord(
     record.payload,
     "$event.payload",
-    [
-      "node_id",
-      "operation_id",
-      "request_id",
-      "status_code",
-      "entity_handles",
-      "details",
-      "failure",
-    ],
+    generatedObjectDescriptors.PublicEventPayload,
   );
   return {
     created_at: expectIsoDate(record.created_at, "$event.created_at"),
@@ -87,36 +72,39 @@ export function decodeEvent(value: unknown): RouteDeckEvent {
     event_id: expectString(record.event_id, "$event.event_id"),
     event_type: eventType,
     payload: {
-      node_id: decodeNullableString(payloadRecord.node_id, "$event.payload.node_id"),
+      node_id: decodeNullableString(
+        payloadRecord.node_id === undefined ? null : payloadRecord.node_id,
+        "$event.payload.node_id",
+      ),
       operation_id: decodeNullableString(
-        payloadRecord.operation_id,
+        payloadRecord.operation_id === undefined ? null : payloadRecord.operation_id,
         "$event.payload.operation_id",
       ),
       request_id: decodeNullableString(
-        payloadRecord.request_id,
+        payloadRecord.request_id === undefined ? null : payloadRecord.request_id,
         "$event.payload.request_id",
       ),
       status_code: decodeNullableString(
-        payloadRecord.status_code,
+        payloadRecord.status_code === undefined ? null : payloadRecord.status_code,
         "$event.payload.status_code",
       ),
       entity_handles: decodeArray(
-        payloadRecord.entity_handles,
+        payloadRecord.entity_handles === undefined ? [] : payloadRecord.entity_handles,
         "$event.payload.entity_handles",
         decodeEntity,
       ),
       details: decodeArray(
-        payloadRecord.details,
+        payloadRecord.details === undefined ? [] : payloadRecord.details,
         "$event.payload.details",
         decodePublicValue,
       ),
       failure:
-        payloadRecord.failure === null
+        payloadRecord.failure === undefined || payloadRecord.failure === null
           ? null
           : decodeFailure(payloadRecord.failure, "$event.payload.failure"),
     },
     projection_version:
-      record.projection_version === null
+      record.projection_version === undefined || record.projection_version === null
         ? null
         : expectInteger(record.projection_version, "$event.projection_version", 0),
     session_version: expectInteger(

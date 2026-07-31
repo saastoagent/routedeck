@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -39,8 +40,11 @@ from routedeck_core.ports.executor import ExecutionContext
 from routedeck_core.runtime import (
     RouteDeckRuntime,
     RouteDeckRuntimeLifecycle,
+    SessionProvisioningError,
+    SessionProvisioningErrorCode,
     build_routedeck_runtime,
 )
+from routedeck_core.ports import SessionStoreError, SessionStoreErrorCode
 from routedeck_core.state.session import create_session, require_current_session
 from routedeck_core.validation import RouteDeckValidationError
 
@@ -79,12 +83,34 @@ class SequentialIds:
 class InMemoryTestStore:
     def __init__(self) -> None:
         self.sessions: dict[str, RouteDeckSession] = {}
+        self.creation_requests: dict[str, tuple[str, str]] = {}
+        self.load_calls: list[str] = []
 
     async def create(self, initial: RouteDeckSession) -> SessionSnapshot:
         self.sessions[initial.session_id] = initial
         return SessionSnapshot(state=initial)
 
+    async def create_for_request(
+        self,
+        initial: RouteDeckSession,
+        request_id: str,
+        request_fingerprint: str,
+    ) -> SessionSnapshot:
+        existing = self.creation_requests.get(request_id)
+        if existing is not None:
+            fingerprint, session_id = existing
+            if fingerprint != request_fingerprint:
+                raise SessionStoreError(SessionStoreErrorCode.REQUEST_ID_REUSED)
+            return await self.load(session_id)
+        snapshot = await self.create(initial)
+        self.creation_requests[request_id] = (
+            request_fingerprint,
+            initial.session_id,
+        )
+        return snapshot
+
     async def load(self, session_id: str) -> SessionSnapshot:
+        self.load_calls.append(session_id)
         return SessionSnapshot(state=self.sessions[session_id])
 
 
@@ -168,7 +194,11 @@ def build_test_routedeck_runtime_with_lifecycle() -> tuple[
     store = InMemoryTestStore()
 
     def make_session(compiled_app, session_id: str) -> RouteDeckSession:
-        return create_session(app=compiled_app, session_id=session_id)
+        return create_session(
+            app=compiled_app,
+            session_id=session_id,
+            private_state=PrivateSessionState(),
+        )
 
     async def initialize_session(_services, snapshot: SessionSnapshot) -> SessionSnapshot:
         return snapshot
@@ -210,6 +240,140 @@ async def test_runtime_close_uses_the_explicit_lifecycle_once() -> None:
     await runtime.close()
 
     assert lifecycle.close_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_runtime_provisions_and_replays_the_current_session_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = build_test_routedeck_runtime()
+    store = runtime.services.store
+    assert isinstance(store, InMemoryTestStore)
+    calls: list[tuple[str, str]] = []
+
+    async def make_session(compiled_app, session_id: str) -> RouteDeckSession:
+        assert compiled_app is runtime.services.app.app
+        calls.append(("factory", session_id))
+        return create_session(
+            app=compiled_app,
+            session_id=session_id,
+            private_state=PrivateSessionState(),
+        )
+
+    async def initialize_session(
+        services,
+        snapshot: SessionSnapshot,
+    ) -> SessionSnapshot:
+        assert services is runtime.services
+        calls.append(("initializer", snapshot.session_id))
+        return snapshot
+
+    async def ensure_entry(snapshot: SessionSnapshot):
+        calls.append(("entry", snapshot.session_id))
+        if snapshot.session_version == 1:
+            store.sessions[snapshot.session_id] = snapshot.state.model_copy(
+                update={
+                    "session_version": 2,
+                    "projection_version": 2,
+                }
+            )
+        return None
+
+    object.__setattr__(runtime, "session_factory", make_session)
+    object.__setattr__(runtime, "session_initializer", initialize_session)
+    monkeypatch.setattr(
+        runtime.conversation_runs,
+        "ensure_declared_entry_run",
+        ensure_entry,
+    )
+
+    created = await runtime.provision_session(
+        session_id="provisioned-session",
+        request_id="create-request",
+    )
+    replayed = await runtime.provision_session(
+        session_id="discarded-replay-session",
+        request_id="create-request",
+    )
+
+    assert created.session_id == "provisioned-session"
+    assert created.session_version == 2
+    assert replayed == created
+    assert store.creation_requests == {
+        "create-request": (
+            hashlib.sha256(b"routedeck.session-creation.v1").hexdigest(),
+            "provisioned-session",
+        )
+    }
+    assert calls == [
+        ("factory", "provisioned-session"),
+        ("initializer", "provisioned-session"),
+        ("entry", "provisioned-session"),
+        ("factory", "discarded-replay-session"),
+        ("initializer", "provisioned-session"),
+        ("entry", "provisioned-session"),
+    ]
+    assert store.load_calls == [
+        "provisioned-session",
+        "provisioned-session",
+        "provisioned-session",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_runtime_provisioning_preserves_request_collision_semantics() -> None:
+    runtime = build_test_routedeck_runtime()
+    store = runtime.services.store
+    assert isinstance(store, InMemoryTestStore)
+    store.creation_requests["create-request"] = (
+        "different-fingerprint",
+        "existing-session",
+    )
+
+    with pytest.raises(SessionStoreError) as raised:
+        await runtime.provision_session(
+            session_id="new-session",
+            request_id="create-request",
+        )
+
+    assert raised.value.code is SessionStoreErrorCode.REQUEST_ID_REUSED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_result", ["identity", "version"])
+async def test_runtime_rejects_invalid_session_initializer_result(
+    invalid_result: str,
+) -> None:
+    runtime = build_test_routedeck_runtime()
+
+    async def invalid_initializer(
+        _services,
+        snapshot: SessionSnapshot,
+    ) -> SessionSnapshot:
+        update = (
+            {"session_id": "different-session"}
+            if invalid_result == "identity"
+            else {
+                "session_version": snapshot.session_version - 1,
+                "projection_version": snapshot.projection_version - 1,
+            }
+        )
+        return SessionSnapshot.model_construct(
+            state=snapshot.state.model_copy(update=update)
+        )
+
+    object.__setattr__(runtime, "session_initializer", invalid_initializer)
+
+    with pytest.raises(SessionProvisioningError) as raised:
+        await runtime.provision_session(
+            session_id="invalid-initializer-session",
+            request_id=f"invalid-{invalid_result}",
+        )
+
+    assert (
+        raised.value.code
+        is SessionProvisioningErrorCode.SESSION_INITIALIZER_INVALID
+    )
 
 
 def test_session_creation_uses_defaults_or_the_exact_supplied_public_state() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -77,6 +78,11 @@ def _user_events(call: Mapping[str, Any]) -> AsyncIterator[Mapping[str, Any]]:
 def _assistant_events(call: Mapping[str, Any]) -> AsyncIterator[Mapping[str, Any]]:
     async def events() -> AsyncIterator[Mapping[str, Any]]:
         assert call["input"] == {"messages": []}
+        context = call["kwargs"]["context"]
+        assert context["session_id"] == "session-1"
+        assert context["request_id_prefix"] == "request-1"
+        assert context["review_turns"] == ()
+        assert context["turn"] == _turn(AssistantInitiatedTrigger()).lease
         assistant = AIMessage(content="Hi — how can I help?", id="assistant-entry-1")
         yield {
             "event": "on_chat_model_stream",
@@ -101,6 +107,12 @@ def _tagged_user_events(call: Mapping[str, Any]) -> AsyncIterator[Mapping[str, A
         user = call["input"]["messages"][0]
         policy = AIMessage(content="policy sentinel")
         yield {
+            "event": "on_chat_model_start",
+            "run_id": "policy-model",
+            "tags": ["product.policy"],
+            "data": {"input": {"messages": ["private policy input"]}},
+        }
+        yield {
             "event": "on_chat_model_stream",
             "run_id": "policy-model",
             "tags": ["product.policy"],
@@ -113,6 +125,11 @@ def _tagged_user_events(call: Mapping[str, Any]) -> AsyncIterator[Mapping[str, A
             "data": {"output": policy},
         }
         assistant = AIMessage(content="Visible answer.", id="assistant-visible")
+        yield {
+            "event": "on_chat_model_start",
+            "run_id": "visible-model",
+            "data": {"input": {"messages": ["private user input"]}},
+        }
         yield {
             "event": "on_chat_model_stream",
             "run_id": "visible-model",
@@ -231,3 +248,54 @@ async def test_ignored_product_event_tags_never_leak_model_text() -> None:
         or "policy sentinel" not in event.content
         for event in events
     )
+
+
+@pytest.mark.asyncio
+async def test_model_start_logs_each_actual_run_without_event_payload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    driver = RouteDeckLangGraphAgentDriver(
+        graphs=RouteDeckLangGraphGraphs(
+            user_message=RecordingGraph(_tagged_user_events),
+            assistant_initiated=RecordingGraph(_assistant_events),
+            ignored_event_tags=frozenset({"product.policy"}),
+        ),
+        id_factory=lambda kind: f"{kind}-generated",
+    )
+
+    with caplog.at_level(
+        logging.INFO,
+        logger="uvicorn.error.routedeck.langgraph",
+    ):
+        events = [event async for event in driver.stream(_turn(_user_trigger()))]
+
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "routedeck_event", None)
+        == "routedeck_langgraph_model_started"
+    ]
+    assert [getattr(record, "request_id", None) for record in records] == [
+        "request-1",
+        "request-1",
+    ]
+    assert [getattr(record, "langchain_run_id", None) for record in records] == [
+        "policy-model",
+        "visible-model",
+    ]
+    assert [record.getMessage() for record in records] == [
+        (
+            "routedeck_langgraph_model_started request_id=request-1 "
+            "langchain_run_id=policy-model"
+        ),
+        (
+            "routedeck_langgraph_model_started request_id=request-1 "
+            "langchain_run_id=visible-model"
+        ),
+    ]
+    assert all("private" not in record.getMessage() for record in records)
+    assert all(not hasattr(record, "session_id") for record in records)
+    assert [type(event) for event in events] == [
+        AssistantTextDelta,
+        AgentTurnCompleted,
+    ]
