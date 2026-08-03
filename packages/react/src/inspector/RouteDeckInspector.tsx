@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
 import type { JsonObject, RouteDeckInspection } from "@routedeck/core";
 
@@ -149,6 +149,9 @@ export function RouteDeckAgentContext({
   loading: boolean;
   onRefresh: () => void;
 }) {
+  const contextRef = useRef<HTMLElement>(null);
+  const [allExpanded, setAllExpanded] = useState(false);
+
   if (loading && inspection === null) {
     return <p data-agent-context-state="">Loading current agent context…</p>;
   }
@@ -183,14 +186,27 @@ export function RouteDeckAgentContext({
     );
   }
 
+  const toggleAllSections = () => {
+    const nextExpanded = !allExpanded;
+    contextRef.current?.querySelectorAll("details").forEach((section) => {
+      section.open = nextExpanded;
+    });
+    setAllExpanded(nextExpanded);
+  };
+
   return (
-    <section aria-label="Current agent context" data-agent-context="">
+    <section ref={contextRef} aria-label="Current agent context" data-agent-context="">
       <header>
         <div>
           <strong>Current agent context</strong>
           <small>{requireString(parsed.modelContext.current_node, "current_node")}</small>
         </div>
-        <button type="button" disabled={loading} onClick={onRefresh}>Refresh</button>
+        <div data-agent-context-actions="">
+          <button type="button" onClick={toggleAllSections}>
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </button>
+          <button type="button" disabled={loading} onClick={onRefresh}>Refresh</button>
+        </div>
       </header>
 
       <JsonSection title="Snapshot identity" value={parsed.snapshot} />

@@ -116,6 +116,24 @@ it("owns and renders the complete current-snapshot context inspection", async ()
   expect(document.body.textContent).toContain("node · test.home");
   expect(document.body.textContent).toContain("Exact assembled prompt");
   expect(document.body.textContent).toContain("Navgraph diagnostics");
+
+  const sections = Array.from(document.querySelectorAll("[data-agent-context-section]"));
+  expect(sections.length).toBeGreaterThan(0);
+  expect(sections.every((section) => !(section as HTMLDetailsElement).open)).toBe(true);
+
+  const expandAll = Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === "Expand all",
+  );
+  expect(expandAll).toBeDefined();
+  await act(async () => expandAll?.click());
+  expect(sections.every((section) => (section as HTMLDetailsElement).open)).toBe(true);
+  expect(document.body.textContent).toContain("Collapse all");
+
+  const collapseAll = Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === "Collapse all",
+  );
+  await act(async () => collapseAll?.click());
+  expect(sections.every((section) => !(section as HTMLDetailsElement).open)).toBe(true);
 });
 
 it("renders invocation traces separately from agent context", async () => {
