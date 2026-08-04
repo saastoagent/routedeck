@@ -10,26 +10,26 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "5.2.8",
-    "@fontsource/roboto-mono": "5.2.9",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource/roboto-mono": "5.3.0",
     "@routedeck/core": "workspace:*",
     "@routedeck/react": "workspace:*",
     "@xyflow/react": "12.11.2",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
     "@routedeck/testing": "workspace:*",
-    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/jest-dom": "7.0.0",
     "@testing-library/react": "16.3.2",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
-    "jsdom": "29.1.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "jsdom": "30.0.1",
     "typescript": "7.0.2",
-    "vite": "8.1.4",
+    "vite": "8.2.0",
     "vitest": "4.1.10"
   }
 }
