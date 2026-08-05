@@ -1,4 +1,5 @@
 import type {
+  OperationSource,
   ProjectedSuggestedAction,
   PublicEntityHandle,
   PublicProjection,
@@ -7,7 +8,7 @@ import type {
 import { generatedObjectDescriptors } from "./generatedRuntime";
 import type { JsonObject, JsonValue } from "./json";
 import strictJsonDecoders from "./json";
-import operationDecoders from "./operations";
+import operationDecoders, { decodeOperationSource } from "./operations";
 
 const {
   decodeArray,
@@ -199,6 +200,14 @@ export function decodeProjection(
           itemPath,
           generatedObjectDescriptors.ProjectedOperation,
         );
+        const allowedSources = decodeArray(
+          operation.allowed_sources,
+          `${itemPath}.allowed_sources`,
+          decodeOperationSource,
+        );
+        if (allowedSources.length === 0) {
+          fail(`${itemPath}.allowed_sources`, "must contain at least one source");
+        }
         return {
           operation_id: expectString(operation.operation_id, `${itemPath}.operation_id`),
           title: expectString(operation.title, `${itemPath}.title`, true),
@@ -206,6 +215,7 @@ export function decodeProjection(
             operation.safety_class,
             `${itemPath}.safety_class`,
           ),
+          allowed_sources: allowedSources as [OperationSource, ...OperationSource[]],
           review_required: expectBoolean(
             operation.review_required === undefined
               ? false

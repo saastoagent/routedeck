@@ -12,7 +12,7 @@ from routedeck_core.contracts.navigation import (
     Route,
     Transition,
 )
-from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.suggestions import SuggestedAction
 from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.validation import RouteDeckValidationError
@@ -36,6 +36,7 @@ def _app(
         title="Open test workflow",
         description="Open the test-only workflow.",
         safety_class=SafetyClass.NAVIGATION,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("opened",),
         policy_refs=operation_policy_refs,
     )

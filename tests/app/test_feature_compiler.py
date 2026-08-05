@@ -14,6 +14,7 @@ from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.navigation import (
     DeepLinkPolicy,
     NodeKind,
+    NodeRef,
     RecoveryPolicy,
     Route,
     Transition,
@@ -21,9 +22,10 @@ from routedeck_core.contracts.navigation import (
 from routedeck_core.contracts.operations import (
     OperationRef,
     Operation,
+    OperationSource,
     SafetyClass,
 )
-from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
+from routedeck_core.contracts.surfaces import SurfaceAffordance, SurfaceSlots, Surface
 from routedeck_core.validation import RouteDeckValidationError
 from routedeck_testing.factories import invalid_app, invalid_bindings
 
@@ -67,6 +69,7 @@ def test_node_owns_outgoing_and_compiler_derives_incoming() -> None:
         title="Advance",
         description="Advance once.",
         safety_class=SafetyClass.NAVIGATION,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("advanced",),
     )
     end = Node(
@@ -111,6 +114,52 @@ def test_node_owns_outgoing_and_compiler_derives_incoming() -> None:
     assert edge.target == end.ref
     assert compiled.graph.incoming[end.id] == (edge,)
     assert compiled.graph.incoming[start.id] == ()
+
+
+def test_compiler_rejects_surface_affordance_without_surface_source() -> None:
+    operation = Operation(
+        id="test.agent_only",
+        title="Agent only",
+        description="Operation that cannot be dispatched by a surface.",
+        safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset({OperationSource.AGENT}),
+        outcomes=("done",),
+    )
+    surface = Surface(
+        id="test.surface",
+        component="test.surface",
+        affordances=(
+            SurfaceAffordance(
+                id="submit",
+                event="submit",
+                operation=operation.ref,
+            ),
+        ),
+    )
+    node = Node(
+        id="test.home",
+        title="Test home",
+        kind=NodeKind.SECTION,
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        operations=(operation,),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="done",
+                target=NodeRef(id="test.home"),
+            ),
+        ),
+        surfaces=SurfaceSlots(active=surface),
+    )
+
+    with pytest.raises(RouteDeckValidationError, match="allow surface invocation"):
+        compile_app(
+            Application(
+                name="surface-source-test",
+                entry_node=node.ref,
+                features=(Feature(namespace="test", nodes=(node,)),),
+            )
+        )
 
 
 @pytest.mark.parametrize(
@@ -169,6 +218,7 @@ def test_operation_specs_reject_malformed_json_schemas(
             title="Invalid schema",
             description="Deliberately malformed contract.",
             safety_class=SafetyClass.READ_EXTERNAL,
+            allowed_sources=frozenset(OperationSource),
             outcomes=("done",),
             **schemas,
         )
@@ -207,6 +257,7 @@ def test_compiler_rejects_repeat_write_graph_missing_one_node_transition() -> No
         title="Repeat write",
         description="The same canonical write is executable at two nodes.",
         safety_class=SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("written",),
         unknown_recovery_directive="reconcile_repeat_write",
     )
@@ -360,6 +411,7 @@ def _write_recovery_app(mutation: str) -> Application:
         title="Reconcile",
         description="Read authoritative state after an uncertain write.",
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("reconciled",),
     )
     recovery_refs = (recovery_operation.ref,)
@@ -374,6 +426,7 @@ def _write_recovery_app(mutation: str) -> Application:
         title="Write",
         description="Perform one externally mutating request.",
         safety_class=SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("written",),
         unknown_recovery_directive="reconcile_external_write",
         unknown_recovery_operation_refs=(

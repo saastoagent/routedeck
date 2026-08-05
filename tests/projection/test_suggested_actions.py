@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from routedeck_core.app import Application, Feature, compile_app
 from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.navigation import (
@@ -12,6 +14,7 @@ from routedeck_core.contracts.navigation import (
 from routedeck_core.contracts.operations import (
     EntityProvider,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
@@ -23,14 +26,20 @@ from routedeck_core.contracts.suggestions import (
 from routedeck_core.contracts.surfaces import SurfaceSlots
 from routedeck_core.projection.projector import ProjectionProjector
 from routedeck_testing.factories import session_factory
+from routedeck_core.validation import RouteDeckValidationError
 
 
-def _compiled_app(*, require_collection: bool = False):
+def _compiled_app(
+    *,
+    require_collection: bool = False,
+    allowed_sources: frozenset[OperationSource] = frozenset(OperationSource),
+):
     operation = Operation(
         id="test.browse",
         title="Browse tests",
         description="Load the current test collection.",
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=allowed_sources,
         outcomes=("listed",),
     )
     node = Node(
@@ -98,6 +107,11 @@ def test_projection_emits_declared_actions_with_operation_titles() -> None:
             "arguments": {},
         }
     ]
+
+
+def test_compiler_rejects_suggested_action_without_surface_source() -> None:
+    with pytest.raises(RouteDeckValidationError, match="allow surface invocation"):
+        _compiled_app(allowed_sources=frozenset({OperationSource.AGENT}))
 
 
 def test_projection_hides_an_action_when_its_operation_is_not_legal() -> None:

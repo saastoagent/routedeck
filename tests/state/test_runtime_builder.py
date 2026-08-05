@@ -27,6 +27,7 @@ from routedeck_core.contracts.navigation import (
 from routedeck_core.contracts.operations import (
     OperationOutcome,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.session import (
@@ -146,6 +147,7 @@ def _bound_test_app():
         title="Refresh test state",
         description="Refresh the runtime-builder test state.",
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("refreshed",),
     )
     node = Node(

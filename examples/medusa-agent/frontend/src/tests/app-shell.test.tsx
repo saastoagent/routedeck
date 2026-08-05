@@ -224,6 +224,7 @@ it("runs suggested action, dispatch, review, navigation, and read-only inspector
       safety_class: "read_external",
       title: "Browse products",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   projection.suggested_actions = [
@@ -522,6 +523,7 @@ function pendingReviewProjection(): RouteDeckProjection {
       safety_class: "write_external",
       title: "Place order",
       review_required: true,
+      allowed_sources: ["surface"],
     },
   ];
   return projection;

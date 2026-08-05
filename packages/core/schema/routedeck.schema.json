@@ -1316,6 +1316,14 @@
     "ProjectedOperation": {
       "additionalProperties": false,
       "properties": {
+        "allowed_sources": {
+          "items": {
+            "$ref": "#/$defs/OperationSource"
+          },
+          "minItems": 1,
+          "title": "Allowed Sources",
+          "type": "array"
+        },
         "operation_id": {
           "minLength": 1,
           "title": "Operation Id",
@@ -1338,7 +1346,8 @@
       "required": [
         "operation_id",
         "title",
-        "safety_class"
+        "safety_class",
+        "allowed_sources"
       ],
       "title": "ProjectedOperation",
       "type": "object"

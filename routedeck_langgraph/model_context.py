@@ -13,7 +13,11 @@ from routedeck_core.contracts.conversation import (
     ConversationToolCall,
     ConversationTurnStatus,
 )
-from routedeck_core.contracts.operations import OperationDisposition, Operation
+from routedeck_core.contracts.operations import (
+    Operation,
+    OperationDisposition,
+    OperationSource,
+)
 from routedeck_core.contracts.projection import DataClassification, FrozenJson
 from routedeck_core.contracts.session import (
     ReviewResolution,
@@ -110,6 +114,11 @@ def build_model_context(
     resolved = AgentContextLens(compiled).resolve(session)
     node = resolved.node
     legal_operations = resolved.legal_operations
+    agent_operations = tuple(
+        operation
+        for operation in legal_operations
+        if OperationSource.AGENT in operation.allowed_sources
+    )
 
     surface_spec = resolved.active_surface
     public_surface = (
@@ -177,7 +186,7 @@ def build_model_context(
             else None
         ),
         visible_entities=tuple(visible_entities),
-        legal_tools=tuple(_model_tool(operation) for operation in legal_operations),
+        legal_tools=tuple(_model_tool(operation) for operation in agent_operations),
         suggested_actions=tuple(
             ModelContextSuggestedAction(
                 action_id=action.id,

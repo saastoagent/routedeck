@@ -202,6 +202,10 @@ export type EventCursor = number;
 export type RouteDeckInteractionOwnerType = "chat" | "surface" | "review" | "system" | "navigation";
 export type RouteDeckInteractionPhase = "idle" | "active";
 export type RequestId13 = string | null;
+/**
+ * @minItems 1
+ */
+export type AllowedSources = [OperationSource, ...OperationSource[]];
 export type OperationId7 = string;
 export type ReviewRequired = boolean;
 export type SafetyClass = string;
@@ -590,6 +594,7 @@ export interface RouteDeckInteractionState {
   request_id?: RequestId13;
 }
 export interface ProjectedOperation {
+  allowed_sources: AllowedSources;
   operation_id: OperationId7;
   review_required?: ReviewRequired;
   safety_class: SafetyClass;

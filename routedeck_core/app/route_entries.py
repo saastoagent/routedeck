@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..contracts.application import Node
 from ..contracts.navigation import CompiledTransition
+from ..contracts.operations import OperationSource
 from ..navigation.routes import CompiledRoutes
 from ..validation import RouteDeckValidationError
 
@@ -31,6 +32,11 @@ def _compile_route_entry_transitions(
             raise RouteDeckValidationError(
                 f"Node {node.id!r} route entry operation {entry.operation.id!r} "
                 "is not executable at that node"
+            )
+        if OperationSource.ROUTE not in operation.allowed_sources:
+            raise RouteDeckValidationError(
+                f"Node {node.id!r} route entry operation {operation.id!r} "
+                "does not allow route invocation"
             )
         if entry.outcome not in operation.outcomes:
             raise RouteDeckValidationError(

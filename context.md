@@ -1,6 +1,6 @@
 # RouteDeck Context
 
-Last updated: 2026-07-28
+Last updated: 2026-08-03
 Status: M0 public source launch complete; repository-local wiki source and local
 reader complete; registry package and GitHub Wiki publication pending.
 RouteDeck is public at
@@ -17,7 +17,7 @@ is stopped. No PyPI or npm package publication is claimed.
 5. [Subsystem code map](./architecture/code-map.md)
 6. [System flow index](./SYSTEM_FLOW_INDEX.md)
 7. [Test index](./test_index/README.md)
-8. [Latest checkpoint](./context_checkpoints/context_checkpoint_22-07-2026-wiki-mermaid.md)
+8. [Latest checkpoint](./context_checkpoints/2026-08-03-operation-invocation-eligibility.md)
 9. [Public roadmap](./ROADMAP.md)
 10. [Active coverage-hardening plan](./plans/2026-07-21-coverage-hardening.md)
 11. [RouteDeck learning wiki](./wiki/Home.md)
@@ -38,6 +38,10 @@ historical material under `docs/archive/`.
 - One `RouteDeckRuntime` owns canonical session, conversation, operation,
   review, navigation, surface, event, and projection state. One supervised
   runner governs application-semantic operations from agents and UI.
+- Every Operation now declares a required non-empty invocation-source set.
+  RouteDeck validates surface/suggestion/route bindings, projects the allowed
+  sources, excludes non-agent Operations from model tools, and blocks a
+  disallowed request before product execution.
 - FastAPI requires a host-owned session selector for both current-session
   authorization and request-aware created-session binding; principal, opaque
   handle, and guest policy remain host-owned. The optional LangGraph
@@ -98,6 +102,15 @@ The completed implementation plan is archived at
 
 ## Current Evidence
 
+- Invocation-source eligibility passed 6 focused behavioral tests, 320 focused
+  compiler/context/projection/supervision/navigation/LangGraph tests (excluding
+  one pre-existing stale turn assertion), 49 state tests, 68 FastAPI tests, 4
+  persistence tests, Ruff, generated-contract drift, 88 headless-core
+  tests plus typecheck/build, 22 React tests plus typecheck, 15 testing-package
+  tests, and 72 Medusa frontend tests. Two updated Medusa route/tool assertions
+  passed. Full details and exact exclusions are in
+  `logs/20260803_operation_invocation_eligibility.md`.
+
 - The post-ready synchronization regression failed against the former boundary
   for `resync_required`, `resyncing`, and `connecting`, then passed after the
   fix. The full React package passed 18 tests, strict typecheck, and build. A
@@ -152,6 +165,17 @@ Only these named runs support pass claims. The protected stack must not be
 assumed running in a later session.
 
 ## Known Gaps And Next Step
+
+- The invocation-source framework contract is implemented but intentionally
+  staged and uncommitted. Corpus and its Design Studio have not yet adopted
+  the new required Operation field.
+- Two unrelated current assertions remain stale: the turn-lifecycle test omits
+  the now-projected interaction request ID, and the root public-export test
+  omits current exports. The Medusa scripted chat replay test also expects an
+  older replay frame sequence. None was changed in this slice.
+- Mypy currently reports four unrelated existing errors in LangGraph
+  invocation tracing and the Medusa runtime graph-factory typing; no mypy-pass
+  claim is made for this slice.
 
 - The active coverage-hardening plan still needs high-value Python and
   TypeScript gap closure plus baseline-and-ratchet CI thresholds.

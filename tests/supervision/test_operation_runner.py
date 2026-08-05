@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -31,6 +32,18 @@ def test_operation_request_is_an_immutable_canonical_contract() -> None:
     assert request.model_config["frozen"] is True
 
 
+def test_operation_requires_at_least_one_allowed_invocation_source() -> None:
+    with pytest.raises(ValidationError, match="allowed_sources"):
+        operations.Operation(
+            id="test.no_source",
+            title="No source",
+            description="Invalid operation without an invocation source.",
+            safety_class=operations.SafetyClass.READ_EXTERNAL,
+            allowed_sources=frozenset(),
+            outcomes=("done",),
+        )
+
+
 def test_operation_runner_has_an_intentional_public_supervision_export() -> None:
     from routedeck_core.supervision import RouteDeckOperationRunner
 
@@ -54,6 +67,7 @@ def test_entity_inputs_are_explicit_and_unique() -> None:
             entity_input_type(argument_name="variant_ref", entity_kind="variant"),
         ),
         safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(operations.OperationSource),
         unknown_recovery_directive="reconcile_cart",
         outcomes=("added",),
     )
@@ -123,6 +137,7 @@ def test_write_operations_require_explicit_unknown_outcome_recovery() -> None:
             title="Add item",
             description="Test operation.",
             safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+            allowed_sources=frozenset(operations.OperationSource),
             outcomes=("added",),
         )
 
@@ -131,6 +146,7 @@ def test_write_operations_require_explicit_unknown_outcome_recovery() -> None:
         title="Add item",
         description="Test operation.",
         safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(operations.OperationSource),
         outcomes=("added",),
         unknown_recovery_directive="reconcile_cart",
         unknown_recovery_operation_refs=(operations.OperationRef(id="cart.open"),),
@@ -162,6 +178,7 @@ def test_non_write_operations_reject_unknown_outcome_recovery_fields(
             title="List catalog",
             description="Test operation.",
             safety_class=operations.SafetyClass.READ_EXTERNAL,
+            allowed_sources=frozenset(operations.OperationSource),
             outcomes=("listed",),
             **recovery_fields,
         )
@@ -267,6 +284,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
             title="Advance",
             description="Test operation.",
             safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+            allowed_sources=frozenset(operations.OperationSource),
             unknown_recovery_directive="Verify the write before retrying.",
             outcomes=("advanced",),
             provider_refs=(provider, provider),
@@ -287,6 +305,7 @@ def test_operation_spec_rejects_duplicate_refs_and_non_string_entity_input() -> 
                 ),
             ),
             safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+            allowed_sources=frozenset(operations.OperationSource),
             unknown_recovery_directive="Verify the write before retrying.",
             outcomes=("added",),
             guard_refs=(guard,),
@@ -299,6 +318,7 @@ def test_operation_outcome_schemas_are_declared_by_outcome() -> None:
         title="Create cart",
         description="Test operation.",
         safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(operations.OperationSource),
         unknown_recovery_directive="Verify cart creation before retrying.",
         outcomes=("created",),
         outcome_schemas={
@@ -318,6 +338,7 @@ def test_operation_outcome_schemas_are_declared_by_outcome() -> None:
             title="Create cart",
             description="Test operation.",
             safety_class=operations.SafetyClass.WRITE_EXTERNAL,
+            allowed_sources=frozenset(operations.OperationSource),
             unknown_recovery_directive="Verify cart creation before retrying.",
             outcomes=("created",),
             outcome_schemas={"undeclared": {"type": "object"}},
@@ -373,6 +394,35 @@ async def test_runner_executes_declared_provider_guard_handler_and_commits(
         operations.OperationPhase.COMPLETED,
     )
     assert len(notifier.notifications) == 1
+
+
+@pytest.mark.asyncio
+async def test_runner_blocks_disallowed_source_before_product_execution(
+    runner_factory,
+    bound_app,
+    provider,
+    guard,
+    executor,
+) -> None:
+    restricted = bound_app.app.operations["test.write"].model_copy(
+        update={"allowed_sources": frozenset({operations.OperationSource.SURFACE})}
+    )
+    operation_catalog = dict(bound_app.app.operations)
+    operation_catalog[restricted.id] = restricted
+    restricted_app = replace(bound_app.app, operations=operation_catalog)
+    runner = runner_factory(app=replace(bound_app, app=restricted_app))
+
+    result = await runner.run(
+        operation_request(source=operations.OperationSource.AGENT)
+    )
+
+    assert result.disposition is operations.OperationDisposition.BLOCKED
+    assert result.failure is not None
+    assert result.failure.code == "operation_source_not_allowed"
+    assert result.failure.phase == "source_validation"
+    assert provider.calls == []
+    assert guard.calls == []
+    assert executor.call_count("test.write") == 0
 
 
 @pytest.mark.asyncio

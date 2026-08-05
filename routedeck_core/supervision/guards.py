@@ -114,6 +114,14 @@ class SupervisionPolicyMixin:
                 phase="version_validation",
                 message="The session changed before this operation was applied.",
             )
+        if request.source not in operation.allowed_sources:
+            return self._failure(
+                request,
+                kind=FailureKind.CONTRACT,
+                code="operation_source_not_allowed",
+                phase="source_validation",
+                message="That operation cannot be initiated from this source.",
+            )
         node = self._current_node(session)
         if (
             operation.id not in {candidate.id for candidate in node.operations}

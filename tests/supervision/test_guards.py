@@ -129,6 +129,7 @@ def test_registered_executor_invokes_only_the_explicit_binding() -> None:
         title="Advance",
         description="Test operation.",
         safety_class=SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         unknown_recovery_directive="Verify the write before retrying.",
         outcomes=("advanced",),
     )

@@ -9,6 +9,8 @@ tool, route entry, system behavior, or recovery action.
 An operation declares:
 
 - stable ID, title, description, and default-deny input schema;
+- a required non-empty set of allowed invocation sources: `agent`, `surface`,
+  `route`, and/or `system`;
 - safety class and typed outcomes;
 - provider and guard references;
 - entity inputs and public metadata;
@@ -16,6 +18,9 @@ An operation declares:
 - external-write delivery and recovery metadata.
 
 The declaration is framework-visible. The async handler is product code.
+Node legality does not imply that every caller may invoke an operation.
+RouteDeck keeps a surface-only operation in public projection, omits it from
+agent tools, and blocks any disallowed source before product execution.
 
 ## Providers and guards
 
@@ -41,14 +46,15 @@ The runner:
 
 1. loads and validates the current session contract;
 2. claims the request ID and fingerprint at the expected version;
-3. runs declared providers and builds current entity allowlists;
-4. evaluates declared guards;
-5. blocks, requests input, stages review, or claims execution;
-6. invokes the exact product handler once when allowed;
-7. records delivery evidence and a typed result;
-8. validates effects and the declared operation/outcome transition;
-9. commits state, result, journal, and events atomically;
-10. notifies subscribers only after persistence.
+3. validates that the request source is declared by the Operation;
+4. runs declared providers and builds current entity allowlists;
+5. evaluates declared guards;
+6. blocks, requests input, stages review, or claims execution;
+7. invokes the exact product handler once when allowed;
+8. records delivery evidence and a typed result;
+9. validates effects and the declared operation/outcome transition;
+10. commits state, result, journal, and events atomically;
+11. notifies subscribers only after persistence.
 
 ## Review
 

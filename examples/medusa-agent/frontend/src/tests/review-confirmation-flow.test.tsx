@@ -236,6 +236,7 @@ function unknownOutcomeProjection(): RouteDeckProjection {
       safety_class: "read_external",
       title: "Check order status",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   projection.surfaces.diagnostic = [
@@ -327,6 +328,7 @@ function projectionAt(
       safety_class: "write_external",
       title: operationId,
       review_required: operationId === "checkout.place_order",
+      allowed_sources: ["surface"],
     },
   ];
   return projection;

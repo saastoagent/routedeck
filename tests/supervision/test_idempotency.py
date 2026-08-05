@@ -174,6 +174,7 @@ def test_operation_spec_version_is_derived_from_the_canonical_declaration() -> N
             "properties": {"quantity": {"type": "integer"}},
         },
         safety_class=SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         unknown_recovery_directive="Verify the write before retrying.",
         outcomes=("advanced",),
     )

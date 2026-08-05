@@ -9,7 +9,12 @@ from routedeck_core.contracts.navigation import (
     Route,
     Transition,
 )
-from routedeck_core.contracts.operations import OperationRef, Operation, SafetyClass
+from routedeck_core.contracts.operations import (
+    Operation,
+    OperationRef,
+    OperationSource,
+    SafetyClass,
+)
 from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_core.validation import RouteDeckValidationError
 
@@ -31,6 +36,7 @@ def test_route_entry_contract_is_typed_and_attached_to_node() -> None:
             "additionalProperties": False,
         },
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset({OperationSource.ROUTE}),
         outcomes=("loaded",),
     )
     binding = application_contracts.RouteParameterBinding(
@@ -137,6 +143,7 @@ def _open_operation() -> Operation:
             "additionalProperties": False,
         },
         safety_class=SafetyClass.READ_EXTERNAL,
+        allowed_sources=frozenset({OperationSource.ROUTE}),
         outcomes=("loaded",),
     )
 
@@ -157,6 +164,15 @@ def test_compiler_materializes_one_explicit_route_entry_self_transition() -> Non
         "loaded",
         "inventory.item",
     )
+
+
+def test_compiler_rejects_route_entry_operation_without_route_source() -> None:
+    operation = _open_operation().model_copy(
+        update={"allowed_sources": frozenset({OperationSource.SURFACE})}
+    )
+
+    with pytest.raises(RouteDeckValidationError, match="allow route invocation"):
+        compile_app(_route_entry_source(operations=(operation,)))
 
 
 def test_compiler_preserves_an_identical_declared_route_entry_transition() -> None:

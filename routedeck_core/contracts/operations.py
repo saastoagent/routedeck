@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .effects import SessionEffects
 from .failures import RouteDeckFailure
+from .interactions import OperationSource
 from .projection import FrozenJsonObject
 
 
@@ -30,13 +31,6 @@ class SafetyClass(StrEnum):
 class ReviewPolicy(StrEnum):
     NONE = "none"
     REQUIRED = "required"
-
-
-class OperationSource(StrEnum):
-    SURFACE = "surface"
-    AGENT = "agent"
-    SYSTEM = "system"
-    ROUTE = "route"
 
 
 class DeliveryPhase(StrEnum):
@@ -255,6 +249,7 @@ class Operation(_FrozenContract):
     description: str
     input_schema: FrozenJsonObject = Field(default_factory=lambda: FrozenJsonObject({}))
     safety_class: SafetyClass
+    allowed_sources: frozenset[OperationSource] = Field(min_length=1)
     review_policy: ReviewPolicy = ReviewPolicy.NONE
     outcomes: tuple[str, ...]
     outcome_schemas: FrozenJsonObject = Field(

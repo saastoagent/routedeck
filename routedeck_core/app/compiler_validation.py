@@ -13,6 +13,7 @@ from ..contracts.navigation import CompiledTransition, DeepLinkPolicy
 from ..contracts.operations import (
     Guard,
     Operation,
+    OperationSource,
     Provider,
     SafetyClass,
 )
@@ -86,6 +87,11 @@ def _validate_suggested_actions(nodes: tuple[Node, ...]) -> None:
                 raise RouteDeckValidationError(
                     f"Node {node.id!r} suggested action {action.id!r} references "
                     "an operation outside the node scope"
+                )
+            if OperationSource.SURFACE not in operation.allowed_sources:
+                raise RouteDeckValidationError(
+                    f"Node {node.id!r} suggested action {action.id!r} references "
+                    f"operation {operation.id!r} that does not allow surface invocation"
                 )
             try:
                 validator_for(operation.input_schema_value())(
@@ -306,6 +312,14 @@ def _validate_surface_affordances(
                 raise RouteDeckValidationError(
                     f"Surface {surface.id!r} references missing operation"
                 )
+            if affordance.operation is not None:
+                operation = operations[affordance.operation.id]
+                if OperationSource.SURFACE not in operation.allowed_sources:
+                    raise RouteDeckValidationError(
+                        f"Surface {surface.id!r} affordance {affordance.id!r} "
+                        f"references operation {operation.id!r} that does not allow "
+                        "surface invocation"
+                    )
 
 
 def _validate_transitions(

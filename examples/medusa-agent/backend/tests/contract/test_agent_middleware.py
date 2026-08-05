@@ -213,12 +213,15 @@ async def test_model_context_allowed_tool_runner_result_and_raw_topology() -> No
     assert agent.middleware_types == (RouteDeckMiddleware,)
     assert len(model.calls) == 2
     assert set(model.calls[0].tool_names) == {
-        operation_tool_name("catalog.open_product_by_route"),
         operation_tool_name("catalog.select_variant"),
         operation_tool_name("cart.create"),
         operation_tool_name("cart.add_item"),
         operation_tool_name("cart.open"),
     }
+    assert (
+        operation_tool_name("catalog.open_product_by_route")
+        not in model.calls[0].tool_names
+    )
     assert operation_tool_name("catalog.list") not in model.calls[0].tool_names
     first_request = "\n".join(
         str(message.content) for message in model.calls[0].messages

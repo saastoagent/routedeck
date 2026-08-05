@@ -9,14 +9,22 @@ from pydantic import ValidationError
 
 from medusa_agent.composition import compile_medusa_app
 from medusa_agent.session import BuyerMarket, create_medusa_session
-from routedeck_core.app import CompiledApplication
+from routedeck_core.app import Application, CompiledApplication, Feature, compile_app
+from routedeck_core.contracts.application import Node
 from routedeck_core.contracts.conversation import (
     ConversationRole,
     ConversationToolCall,
     FinalizedConversationTurn,
 )
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
-from routedeck_core.contracts.operations import OperationSource
+from routedeck_core.contracts.navigation import (
+    DeepLinkPolicy,
+    NodeKind,
+    NodeRef,
+    Route,
+    Transition,
+)
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.projection import FrozenJsonObject, PublicEntityHandle
 from routedeck_core.contracts.session import (
     OperationAttempt,
@@ -31,6 +39,52 @@ from routedeck_langgraph.model_context import (
     merge_reconstructed_messages,
     reconstruct_messages,
 )
+from routedeck_core.contracts.surfaces import SurfaceSlots
+from routedeck_core.projection.projector import ProjectionProjector
+
+
+def test_model_context_excludes_surface_only_operation_from_agent_tools() -> None:
+    operation = Operation(
+        id="account.submit_private_form",
+        title="Submit private form",
+        description="Submit values held by the active private surface.",
+        safety_class=SafetyClass.CREDENTIAL,
+        allowed_sources=frozenset({OperationSource.SURFACE}),
+        outcomes=("submitted",),
+    )
+    node = Node(
+        id="account.form",
+        title="Account form",
+        kind=NodeKind.WORKFLOW,
+        route=Route(
+            template="/account",
+            deep_link_policy=DeepLinkPolicy.SHAREABLE,
+        ),
+        operations=(operation,),
+        outgoing=(
+            Transition(
+                operation=operation.ref,
+                outcome="submitted",
+                target=NodeRef(id="account.form"),
+            ),
+        ),
+        surfaces=SurfaceSlots(active=None),
+    )
+    app = compile_app(
+        Application(
+            name="source-filter-test",
+            entry_node=node.ref,
+            features=(Feature(namespace="account", nodes=(node,)),),
+        )
+    )
+    session = session_factory(app=app, node_id=node.id)
+
+    context = build_model_context(session, app)
+    projection = ProjectionProjector(app).project(session)
+
+    assert context.legal_tools == ()
+    assert projection.legal_operations[0].operation_id == operation.id
+    assert projection.legal_operations[0].allowed_sources == ("surface",)
 
 
 def test_tool_turn_requires_typed_call_metadata() -> None:

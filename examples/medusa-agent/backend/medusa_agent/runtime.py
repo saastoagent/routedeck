@@ -126,9 +126,10 @@ async def open_live_medusa_application(
         session_initializer=initialize_medusa_session,
         public_key_validator_factory=CatalogRouteKeyValidator.from_session,
         agent_driver_factory=RouteDeckLangGraphDriverFactory(
-            graph_factory=lambda services: _create_configured_graphs(
+            graph_factory=lambda services, invocation_traces: _create_configured_graphs(
                 configured,
                 services,
+                invocation_traces,
             )
         ),
         database_url=configured.routedeck_database_url,

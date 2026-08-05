@@ -10,6 +10,7 @@ from routedeck_core.contracts.operations import (
     EntityProvider,
     Guard,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
@@ -138,6 +139,9 @@ CART_CREATE = Operation(
         }
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset(
+        {OperationSource.AGENT, OperationSource.SURFACE, OperationSource.SYSTEM}
+    ),
     unknown_recovery_directive=CART_CREATE_UNKNOWN_RECOVERY,
     outcomes=(MedusaOutcomeType.CREATED,),
     outcome_schemas=FrozenJsonObject(
@@ -179,6 +183,7 @@ CART_ADD_ITEM = Operation(
         EntityInput(argument_name="variant_ref", entity_kind="variant"),
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
     outcomes=(MedusaOutcomeType.ADDED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
@@ -189,6 +194,7 @@ CART_OPEN = Operation(
     title="Open cart",
     description="Navigate to the current cart summary.",
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.OPENED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
     guard_refs=(CART_EXISTS_GUARD.ref,),
@@ -212,6 +218,7 @@ CART_UPDATE_ITEM = Operation(
         EntityInput(argument_name="line_item_ref", entity_kind="line_item"),
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
     outcomes=(MedusaOutcomeType.UPDATED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),
@@ -233,6 +240,7 @@ CART_REMOVE_ITEM = Operation(
         EntityInput(argument_name="line_item_ref", entity_kind="line_item"),
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive=CART_MUTATION_UNKNOWN_RECOVERY,
     outcomes=(MedusaOutcomeType.REMOVED,),
     provider_refs=(CART_STATE_PROVIDER.ref,),

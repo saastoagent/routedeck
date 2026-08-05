@@ -52,9 +52,10 @@ key from real data.
 
 ### Operation
 
-A declared application-semantic read or write. It defines input, outcomes,
-safety, providers, guards, review, recovery, and public metadata. The handler
-is product code; the supervision around it is RouteDeck.
+A declared application-semantic read or write. It defines input, allowed
+invocation sources, outcomes, safety, providers, guards, review, recovery, and
+public metadata. The product chooses its supported sources; RouteDeck compiles,
+projects, and enforces them before the product handler runs.
 
 ### Provider
 

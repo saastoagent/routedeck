@@ -75,6 +75,10 @@ const OPERATION_PHASES = new Set<OperationPhase>([
   "completed",
 ]);
 
+export function decodeOperationSource(value: unknown, path: string): OperationSource {
+  return expectEnum(value, path, OPERATION_SOURCES);
+}
+
 export function decodeDispatchResult(value: unknown): RouteDeckDispatchResult {
   const record = expectRecord(
     value,

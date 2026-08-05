@@ -8,6 +8,7 @@ from routedeck_core.contracts.operations import (
     EntityProvider,
     Guard,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
@@ -68,6 +69,9 @@ CATALOG_LIST = Operation(
         {"type": "object", "properties": {}, "additionalProperties": False}
     ),
     safety_class=SafetyClass.READ_EXTERNAL,
+    allowed_sources=frozenset(
+        {OperationSource.AGENT, OperationSource.ROUTE, OperationSource.SURFACE}
+    ),
     outcomes=(MedusaOutcomeType.LISTED,),
     outcome_schemas=FrozenJsonObject({"listed": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
@@ -85,6 +89,7 @@ CATALOG_SEARCH = Operation(
         }
     ),
     safety_class=SafetyClass.READ_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.SEARCHED,),
     outcome_schemas=FrozenJsonObject({"searched": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),
@@ -116,6 +121,7 @@ OPEN_PRODUCT = Operation(
         EntityInput(argument_name="product_ref", entity_kind="product"),
     ),
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.OPENED,),
     outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
     provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
@@ -134,6 +140,7 @@ OPEN_PRODUCT_BY_ROUTE = Operation(
         }
     ),
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.ROUTE}),
     outcomes=(MedusaOutcomeType.OPENED,),
     outcome_schemas=FrozenJsonObject({"opened": CATALOG_PRODUCT_SCHEMA}),
     provider_refs=(CATALOG_PRODUCT_PROVIDER.ref,),
@@ -154,6 +161,7 @@ SELECT_VARIANT = Operation(
         EntityInput(argument_name="variant_ref", entity_kind="variant"),
     ),
     safety_class=SafetyClass.STATE_SELECTION,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": CATALOG_SELECTION_SCHEMA}),
     provider_refs=(CATALOG_VARIANTS_PROVIDER.ref,),
@@ -164,6 +172,7 @@ CONTINUE_SHOPPING = Operation(
     title="Continue shopping",
     description="Return to catalog browsing after confirmation.",
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.CONTINUED,),
     outcome_schemas=FrozenJsonObject({"continued": CATALOG_COLLECTION_SCHEMA}),
     provider_refs=(CATALOG_PRODUCTS_PROVIDER.ref,),

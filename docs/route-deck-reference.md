@@ -117,8 +117,18 @@ entity scan that substitutes for a declared binding.
 ### Operations, providers, guards, and capabilities
 
 `Operation` declares an ID, title, description, default-deny input schema,
-safety class, outcomes, output schemas, provider and guard references, entity
-inputs, review policy, recovery metadata, and public metadata.
+safety class, a required non-empty set of allowed invocation sources, outcomes,
+output schemas, provider and guard references, entity inputs, review policy,
+recovery metadata, and public metadata. Invocation sources are `agent`,
+`surface`, `route`, and `system`; products select the exact supported set while
+RouteDeck validates structural bindings and enforces the set centrally.
+
+Node legality and invocation eligibility are distinct. A surface-only
+operation remains legal and publicly projected at its node so the surface can
+dispatch it, but it is absent from model tools. Surface affordances and
+SuggestedActions require `surface`; RouteEntry operations require `route`.
+A disallowed request is blocked as `operation_source_not_allowed` before
+providers, guards, review, or product-handler execution.
 
 Providers load operation-scoped facts or entity allowlists. Guards decide from
 those typed facts whether an operation can execute. Capabilities group

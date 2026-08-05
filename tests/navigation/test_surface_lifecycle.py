@@ -10,7 +10,7 @@ from routedeck_core.contracts.navigation import (
     Route,
     Transition,
 )
-from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.session import PublicSurfaceState
 from routedeck_core.contracts.surfaces import (
     SurfaceLifecycle,
@@ -40,6 +40,7 @@ def _lifecycle_app(*, share_ephemeral_with_target: bool = False):
         title="Advance",
         description="Advance the test flow.",
         safety_class=SafetyClass.NAVIGATION,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("advanced",),
     )
     start = Node(

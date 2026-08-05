@@ -111,6 +111,7 @@ function cartProjection(
           safety_class: "navigation",
           title: "Start checkout",
           review_required: false,
+          allowed_sources: ["surface"],
         },
       ]
     : [];

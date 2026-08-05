@@ -18,6 +18,13 @@ class RouteDeckInteractionOwnerType(StrEnum):
     NAVIGATION = "navigation"
 
 
+class OperationSource(StrEnum):
+    SURFACE = "surface"
+    AGENT = "agent"
+    SYSTEM = "system"
+    ROUTE = "route"
+
+
 class RouteDeckInteractionState(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -51,6 +58,7 @@ class RouteDeckInteractionState(BaseModel):
 
 
 __all__ = [
+    "OperationSource",
     "RouteDeckInteractionOwnerType",
     "RouteDeckInteractionPhase",
     "RouteDeckInteractionState",

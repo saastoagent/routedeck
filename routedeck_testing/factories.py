@@ -24,6 +24,7 @@ from routedeck_core.contracts.operations import (
     OperationRef,
     OperationOutcome,
     Operation,
+    OperationSource,
     ProviderRef,
     ReviewPolicy,
     SafetyClass,
@@ -61,6 +62,7 @@ _ADVANCE = Operation(
     title="Advance",
     description="Advance the test-only graph.",
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset(OperationSource),
     outcomes=("advanced",),
     provider_refs=(_PROVIDER.ref,),
     guard_refs=(_GUARD.ref,),
@@ -70,6 +72,7 @@ _FINISH = Operation(
     title="Finish",
     description="Finish the test-only graph.",
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset(OperationSource),
     review_policy=ReviewPolicy.REQUIRED,
     unknown_recovery_directive="reconcile_finish",
     outcomes=("completed",),
@@ -375,6 +378,7 @@ def invalid_app(mutation: str) -> Application:
             title="Unexecutable",
             description="Test-only operation without an executable outcome.",
             safety_class=SafetyClass.READ_EXTERNAL,
+            allowed_sources=frozenset(OperationSource),
             outcomes=(),
         )
         nodes = (

@@ -7,6 +7,7 @@ from routedeck_core.contracts.operations import (
     EntityInput,
     EntityProvider,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import FrozenJsonObject
@@ -39,6 +40,7 @@ RECONCILE_ORDER = Operation(
     ),
     entity_inputs=(EntityInput(argument_name="order_ref", entity_kind="order"),),
     safety_class=SafetyClass.READ_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.VERIFIED,),
     provider_refs=(ORDER_PROVIDER.ref,),
 )

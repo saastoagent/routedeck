@@ -273,6 +273,7 @@ function contactProjection(
       safety_class: "write_external",
       title: "Save guest contact",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   return projection;
@@ -306,6 +307,7 @@ function deliveryProjection(): RouteDeckProjection {
       safety_class: "write_external",
       title: "Select delivery",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   return projection;

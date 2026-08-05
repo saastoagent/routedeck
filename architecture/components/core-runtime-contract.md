@@ -26,6 +26,9 @@ runtime-ownership decision.
   node index used by every runtime subsystem.
 - Immutable application, session, operation, conversation, event, projection,
   navigation, surface, review, failure, and retention contracts.
+- Required per-Operation invocation-source eligibility, compiler validation for
+  surface/suggestion/route bindings, public source projection, and central
+  fail-closed enforcement before product execution.
 - `RouteDeckSessionAggregate` named actions for canonical state transitions.
 - `RouteDeckOperationRunner` and `RouteDeckNavigationRunner`.
 - `RouteDeckRuntimeServices`, containing the bound app, store, clock, notifier,
@@ -76,6 +79,12 @@ even when the host supplies a newly generated candidate session ID; a different
 stored fingerprint remains `request_id_reused`. Factory identity mismatch and
 initializer identity/version regression fail before any usable snapshot is
 returned.
+
+An Operation is node-legal independently of its allowed invocation sources.
+The runner blocks a request whose source is not declared before providers,
+guards, review, or the product handler. Public projection retains the legal
+Operation and its sorted allowed-source values so clients do not reconstruct
+eligibility.
 
 ## Dependent Flows
 

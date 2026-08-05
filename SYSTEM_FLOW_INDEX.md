@@ -65,9 +65,11 @@ owned once by `@routedeck/core`.
 ```text
 typed user message + request id + expected session version
   -> claim durable turn and publish interaction-active state
-  -> reconstruct finalized conversation + scoped model context/legal tools
+  -> reconstruct finalized conversation + scoped model context
+  -> expose only node-legal operations that allow agent invocation as tools
   -> product LangGraph streams through generic RouteDeck driver
   -> tool calls cross the one operation runner
+  -> runner rejects any undeclared invocation source before product execution
   -> persist user/assistant/tool turns and terminal event
   -> publish projection/session versions and finish SSE
 ```

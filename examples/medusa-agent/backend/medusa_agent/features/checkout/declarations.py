@@ -11,6 +11,7 @@ from routedeck_core.contracts.operations import (
     Guard,
     OperationRef,
     Operation,
+    OperationSource,
     ReviewPolicy,
     SafetyClass,
 )
@@ -94,6 +95,7 @@ CHECKOUT_START = Operation(
         {"type": "object", "properties": {}, "additionalProperties": False}
     ),
     safety_class=SafetyClass.NAVIGATION,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     outcomes=(MedusaOutcomeType.STARTED,),
     outcome_schemas=FrozenJsonObject({"started": CHECKOUT_STARTED_SCHEMA}),
     provider_refs=(CHECKOUT_FACTS_PROVIDER.ref,),
@@ -117,6 +119,7 @@ SAVE_CONTACT = Operation(
         }
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive="reconcile_unknown_contact",
     outcomes=(MedusaOutcomeType.SAVED,),
     outcome_schemas=FrozenJsonObject({"saved": CONTACT_SAVED_SCHEMA}),
@@ -142,6 +145,7 @@ SELECT_SHIPPING = Operation(
         ),
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive="reconcile_unknown_shipping_selection",
     outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": SHIPPING_SELECTED_SCHEMA}),
@@ -167,6 +171,7 @@ SELECT_PAYMENT = Operation(
         ),
     ),
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     unknown_recovery_directive="reconcile_unknown_payment_selection",
     outcomes=(MedusaOutcomeType.SELECTED,),
     outcome_schemas=FrozenJsonObject({"selected": PAYMENT_SELECTED_SCHEMA}),
@@ -178,6 +183,7 @@ PLACE_ORDER = Operation(
     title="Place order",
     description="Complete the reviewed cart exactly once.",
     safety_class=SafetyClass.WRITE_EXTERNAL,
+    allowed_sources=frozenset({OperationSource.AGENT, OperationSource.SURFACE}),
     review_policy=ReviewPolicy.REQUIRED,
     unknown_recovery_directive="reconcile_unknown_order",
     unknown_recovery_operation_refs=(

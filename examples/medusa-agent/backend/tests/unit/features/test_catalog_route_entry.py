@@ -43,6 +43,7 @@ from routedeck_core.contracts.operations import (
 from routedeck_core.contracts.projection import FrozenJsonObject
 from routedeck_core.contracts.session import Location, LocationParameter
 from routedeck_core.supervision.guards import ProviderInvocationContext
+from routedeck_core.supervision.runner import RouteEntryInvocation
 from routedeck_core.navigation import NavigationIntent, NavigationRequest
 from support.medusa import RecordingMedusaStoreClient
 from support.runtime import build_test_runtime
@@ -121,9 +122,20 @@ async def test_open_product_by_route_hydrates_exact_product_detail() -> None:
             request_id="route-product-1",
             expected_session_version=1,
             operation_id=OPEN_PRODUCT_BY_ROUTE.id,
-            source=OperationSource.SYSTEM,
+            source=OperationSource.ROUTE,
             arguments=FrozenJsonObject({"product_handle": "linen-shirt"}),
-        )
+        ),
+        route_entry=RouteEntryInvocation(
+            location=Location(
+                node_id="catalog.product",
+                route_params=(
+                    LocationParameter(
+                        name="product_handle",
+                        value="linen-shirt",
+                    ),
+                ),
+            )
+        ),
     )
 
     assert result.disposition is OperationDisposition.COMPLETED

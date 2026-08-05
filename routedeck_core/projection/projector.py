@@ -141,6 +141,11 @@ class ProjectionProjector:
                     operation_id=operation.id,
                     title=operation.title,
                     safety_class=operation.safety_class.value,
+                    allowed_sources=tuple(
+                        sorted(
+                            operation.allowed_sources, key=lambda source: source.value
+                        )
+                    ),
                     review_required=operation.review_policy.value == "required",
                 )
                 for operation in legal_operations

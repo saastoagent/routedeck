@@ -20,6 +20,7 @@ from routedeck_core.contracts.navigation import (
 from routedeck_core.contracts.operations import (
     OperationRef,
     Operation,
+    OperationSource,
     SafetyClass,
 )
 from routedeck_core.contracts.projection import PublicEntityHandle
@@ -47,6 +48,7 @@ _RECONCILE = Operation(
     title="Reconcile",
     description="Resolve an explicitly unknown external outcome.",
     safety_class=SafetyClass.READ_EXTERNAL,
+    allowed_sources=frozenset(OperationSource),
     outcomes=("reconciled",),
 )
 _UNRELATED_UNSAFE = Operation(
@@ -54,6 +56,7 @@ _UNRELATED_UNSAFE = Operation(
     title="Delete unrelated resource",
     description="An unsafe operation that must not leak into recovery projection.",
     safety_class=SafetyClass.DESTRUCTIVE,
+    allowed_sources=frozenset(OperationSource),
     outcomes=("deleted",),
 )
 
@@ -67,6 +70,7 @@ def _submit_operation(
         title="Submit",
         description="Perform one externally mutating request.",
         safety_class=SafetyClass.WRITE_EXTERNAL,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("submitted",),
         unknown_recovery_directive="reconcile_external_outcome",
         unknown_recovery_operation_refs=recovery_refs,

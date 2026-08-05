@@ -75,6 +75,7 @@ async def test_chat_turn_projects_authoritative_interaction_ownership_until_comp
     assert active.get("interaction") == {
         "phase": "active",
         "owner": "chat",
+        "request_id": "turn-visible",
     }
 
     completed = await runner.complete_turn(
@@ -85,6 +86,7 @@ async def test_chat_turn_projects_authoritative_interaction_ownership_until_comp
     assert completed.state.model_dump(mode="json").get("interaction") == {
         "phase": "idle",
         "owner": None,
+        "request_id": None,
     }
 
 

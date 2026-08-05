@@ -205,7 +205,7 @@ export const generatedObjectDescriptors = Object.freeze({
     defaults: Object.freeze({"back_node_id": null, "cancel_target_node_id": null, "forward_node_id": null}),
   }),
   ProjectedOperation: Object.freeze({
-    required: Object.freeze(["operation_id", "safety_class", "title"]),
+    required: Object.freeze(["allowed_sources", "operation_id", "safety_class", "title"]),
     optional: Object.freeze(["review_required"]),
     additionalProperties: false,
     defaults: Object.freeze({"review_required": false}),

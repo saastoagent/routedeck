@@ -63,7 +63,9 @@ list; context availability never creates a synthetic user turn.
 ## Ownership Rules
 
 - RouteDeck's navgraph and the product model graph remain separate.
-- Middleware exposes only default-deny current context and legal operations.
+- Middleware exposes only default-deny current context and node-legal
+  operations that explicitly allow `agent` invocation; surface-, route-, and
+  system-only Operations never become model tools.
 - Every structured product tool call reaches the runtime's one operation
   runner; the adapter never calls a product handler directly.
 - A product graph factory returns an explicit graph set or `None`; a missing or

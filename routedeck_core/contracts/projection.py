@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import core_schema
 
 from .failures import RouteDeckFailure
-from .interactions import RouteDeckInteractionState
+from .interactions import OperationSource, RouteDeckInteractionState
 
 
 JsonScalar = str | int | float | bool | None
@@ -159,6 +159,7 @@ class ProjectedOperation(_FrozenContract):
     operation_id: str = Field(min_length=1)
     title: str
     safety_class: str
+    allowed_sources: tuple[OperationSource, ...] = Field(min_length=1)
     review_required: bool = False
 
 

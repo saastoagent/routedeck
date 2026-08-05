@@ -262,24 +262,28 @@ function catalogGridProjection(
       safety_class: "read_external",
       title: "Browse products",
       review_required: false,
+      allowed_sources: ["surface"],
     },
     {
       operation_id: "catalog.search",
       safety_class: "read_external",
       title: "Search products",
       review_required: false,
+      allowed_sources: ["surface"],
     },
     {
       operation_id: "catalog.open_product",
       safety_class: "navigation",
       title: "Open product",
       review_required: false,
+      allowed_sources: ["surface"],
     },
     {
       operation_id: "cart.add_item",
       safety_class: "write_external",
       title: "Add selected item to cart",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   return projection;
@@ -336,6 +340,7 @@ function catalogDetailProjection(
       safety_class: "state_selection",
       title: "Select variant",
       review_required: false,
+      allowed_sources: ["surface"],
     },
   ];
   return projection;

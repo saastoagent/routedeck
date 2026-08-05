@@ -12,7 +12,7 @@ from routedeck_core.contracts.navigation import (
     Route,
     Transition,
 )
-from routedeck_core.contracts.operations import Operation, SafetyClass
+from routedeck_core.contracts.operations import Operation, OperationSource, SafetyClass
 from routedeck_core.contracts.suggestions import SuggestedAction
 from routedeck_core.contracts.surfaces import SurfaceSlots, Surface
 from routedeck_testing.factories import session_factory
@@ -29,6 +29,7 @@ def _compiled_app(*, active_surface: bool):
         title="Open tests",
         description="Open the current test collection.",
         safety_class=SafetyClass.NAVIGATION,
+        allowed_sources=frozenset(OperationSource),
         outcomes=("opened",),
         policy_refs=(by_id["test.operation"].ref, by_id["test.shared"].ref),
     )

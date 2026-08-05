@@ -112,6 +112,7 @@ it("decodes a conversation-only projection with supervised suggested actions", (
         operation_id: "catalog.list",
         title: "Browse products",
         safety_class: "read_external",
+        allowed_sources: ["agent", "surface"],
         review_required: false,
       },
     ],
@@ -189,6 +190,7 @@ it("accepts the minimum Python-declared PublicProjection payload", () => {
         operation_id: "catalog.list",
         title: "Browse products",
         safety_class: "read_external",
+        allowed_sources: ["agent"],
       },
     ],
     navigation: {
@@ -263,6 +265,7 @@ it("accepts and retains the maximum Python-declared PublicProjection payload", (
         operation_id: "catalog.list",
         title: "Browse products",
         safety_class: "read_external",
+        allowed_sources: ["agent", "route", "surface", "system"],
         review_required: false,
       },
     ],
