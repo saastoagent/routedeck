@@ -66,6 +66,10 @@ list; context availability never creates a synthetic user turn.
 - Middleware exposes only default-deny current context and node-legal
   operations that explicitly allow `agent` invocation; surface-, route-, and
   system-only Operations never become model tools.
+- The prompt's `legal_tools` list is the intersection of node-legal agent
+  Operations and the tools actually bound to that model invocation. A
+  tool-free assistant-initiated graph therefore receives `legal_tools: []` and
+  cannot be prompted to emit an unavailable provider tool call.
 - Every structured product tool call reaches the runtime's one operation
   runner; the adapter never calls a product handler directly.
 - A product graph factory returns an explicit graph set or `None`; a missing or

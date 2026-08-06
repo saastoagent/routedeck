@@ -67,11 +67,17 @@ class RouteDeckMiddleware(
                 in legal_operation_ids
             )
         ]
+        available_operation_ids = frozenset(
+            self.tool_wrapper.operation_id_for_tool_name(tool_name)
+            for tool in tools
+            if (tool_name := _tool_name(tool)) is not None
+        )
         model_context = context.model_copy(
             update={
                 "legal_tools": tuple(
                     tool.model_copy(update={"name": operation_tool_name(tool.name)})
                     for tool in context.legal_tools
+                    if tool.name in available_operation_ids
                 )
             }
         )

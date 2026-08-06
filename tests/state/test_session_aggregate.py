@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from routedeck_core.contracts.conversation import (
@@ -16,6 +18,7 @@ from routedeck_core.contracts.session import (
     OperationState,
     PrivateDraft,
     PublicSurfaceState,
+    ResumeCapabilityBinding,
 )
 from routedeck_core.state.aggregate import RouteDeckSessionAggregate
 from routedeck_testing.factories import session_factory
@@ -204,6 +207,33 @@ def test_public_surface_values_advance_projection_version() -> None:
         RouteDeckSessionAggregate(initial)
         .set_public_state(
             initial.public_state.model_copy(update={"surface_state": (public_surface,)})
+        )
+        .commit()
+    )
+
+    assert changed.session_version == initial.session_version + 1
+    assert changed.projection_version == initial.projection_version + 1
+
+
+def test_current_resume_handle_change_advances_projection_version() -> None:
+    initial_capability = ResumeCapabilityBinding(
+        handle="resume-initial",
+        session_id="session-1",
+        node_id="checkout.review",
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+    )
+    initial = session_factory(
+        node_id="checkout.review",
+        resume_capabilities=(initial_capability,),
+    )
+    replacement = initial_capability.model_copy(update={"handle": "resume-replacement"})
+
+    changed = (
+        RouteDeckSessionAggregate(initial)
+        .set_private_state(
+            initial.private_state.model_copy(
+                update={"resume_capabilities": (replacement,)}
+            )
         )
         .commit()
     )

@@ -118,6 +118,7 @@ def _create_live_tool_model(*, settings: Settings) -> BaseChatModel:
     return ChatOpenAI(
         model=settings.openai_buyer_model,
         api_key=settings.openai_api_key,
+        base_url=str(settings.openai_base_url) if settings.openai_base_url else None,
         streaming=True,
     )
 
@@ -129,6 +130,7 @@ def _create_live_entry_model(*, settings: Settings) -> BaseChatModel:
     return ChatOpenAI(
         model=settings.openai_entry_model,
         api_key=settings.openai_api_key,
+        base_url=str(settings.openai_base_url) if settings.openai_base_url else None,
         streaming=True,
     )
 

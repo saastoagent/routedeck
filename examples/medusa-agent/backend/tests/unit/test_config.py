@@ -16,6 +16,7 @@ def test_runtime_and_http_policy_are_explicit_configuration() -> None:
         routedeck_database_url="sqlite+pysqlite:///runtime.sqlite",
         routedeck_state_encryption_key=SecretStr("state-key"),
         openai_api_key=None,
+        openai_base_url="http://127.0.0.1:11434/v1/",
         openai_buyer_model="model-buyer",
         openai_entry_model="model-entry",
         medusa_timeout_seconds=15,
@@ -33,6 +34,7 @@ def test_runtime_and_http_policy_are_explicit_configuration() -> None:
     )
 
     assert settings.routedeck_instance_id == "medusa-agent-local"
+    assert str(settings.openai_base_url) == "http://127.0.0.1:11434/v1/"
     assert settings.routedeck_review_ttl_seconds == 900
     assert settings.routedeck_resume_capability_ttl_seconds == 86400
     assert settings.routedeck_worker_count == 1

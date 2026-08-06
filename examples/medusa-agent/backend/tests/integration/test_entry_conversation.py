@@ -17,6 +17,7 @@ from medusa_agent.medusa.client.models import CreateCartResult
 from routedeck_core.contracts.operations import DeliveryPhase
 from routedeck_core.contracts.session import Location
 from routedeck_langgraph import (
+    ROUTEDECK_CONTEXT_SECTION,
     RouteDeckLangGraphAgentDriver,
     RouteDeckLangGraphGraphs,
     RouteDeckInvocationTraceRecorder,
@@ -117,6 +118,10 @@ async def test_home_entry_persists_a_model_greeting_without_a_synthetic_user_mes
             isinstance(message, HumanMessage) for message in model.calls[0].messages
         )
         assert BUYER_AGENT_PROMPT in str(model.calls[0].messages[0].content)
+        assert model.calls[0].tool_names == ()
+        prompt = str(model.calls[0].messages[0].content)
+        context_payload = prompt.split(ROUTEDECK_CONTEXT_SECTION, maxsplit=1)[1]
+        assert json.loads(context_payload)["legal_tools"] == []
     finally:
         await runtime.close()
 

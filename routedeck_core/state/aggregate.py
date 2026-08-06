@@ -176,10 +176,21 @@ class RouteDeckSessionAggregate:
 def _public_signature(session: RouteDeckSession) -> tuple[object, ...]:
     return (
         session.current,
+        _current_resume_handle_signature(session),
         session.back_stack,
         session.forward_stack,
         session.interaction,
         _projectable_public_state_signature(session.public_state),
+    )
+
+
+def _current_resume_handle_signature(session: RouteDeckSession) -> tuple[str, ...]:
+    return tuple(
+        capability.handle
+        for capability in session.private_state.resume_capabilities
+        if capability.session_id == session.session_id
+        and capability.node_id == session.current.node_id
+        and capability.route_params == session.current.route_params
     )
 
 

@@ -27,6 +27,7 @@ class Settings(BaseModel):
     routedeck_database_url: str = Field(min_length=1)
     routedeck_state_encryption_key: SecretStr
     openai_api_key: SecretStr | None
+    openai_base_url: AnyHttpUrl | None = None
     openai_buyer_model: str = Field(min_length=1)
     openai_entry_model: str = Field(min_length=1)
     medusa_timeout_seconds: float = Field(default=15.0, gt=0)
@@ -51,6 +52,7 @@ class Settings(BaseModel):
             if environment_name in values
         }
         payload["openai_api_key"] = values.get("OPENAI_API_KEY") or None
+        payload["openai_base_url"] = values.get("OPENAI_BASE_URL") or None
         origins = payload.get("routedeck_browser_origins")
         if isinstance(origins, str):
             payload["routedeck_browser_origins"] = tuple(
@@ -70,6 +72,7 @@ _ENV_FIELDS = frozenset(
         "ROUTEDECK_DATABASE_URL",
         "ROUTEDECK_STATE_ENCRYPTION_KEY",
         "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
         "OPENAI_BUYER_MODEL",
         "OPENAI_ENTRY_MODEL",
         "MEDUSA_TIMEOUT_SECONDS",

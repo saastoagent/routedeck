@@ -11,13 +11,15 @@ const DISPATCH = {
 };
 
 function typedOperationResult(
-  disposition: "needs_input" | "blocked" | "external_outcome_unknown",
+  disposition: "needs_input" | "blocked" | "failed" | "external_outcome_unknown",
+  requestId = DISPATCH.request_id,
 ) {
   const external = disposition === "external_outcome_unknown";
+  const transport = disposition === "failed";
   return {
     disposition,
     operation_id: DISPATCH.operation_id,
-    request_id: DISPATCH.request_id,
+    request_id: requestId,
     session_version: 8,
     projection_version: 8,
     evidence: {
@@ -32,15 +34,21 @@ function typedOperationResult(
     review: null,
     outcome: null,
     failure: {
-      kind: external ? "external_outcome_unknown" : "guard",
-      code: external ? "order_outcome_unknown" : "buyer_input_required",
-      phase: external ? "external_call" : "guard",
+      kind: external ? "external_outcome_unknown" : transport ? "transport" : "guard",
+      code: external
+        ? "order_outcome_unknown"
+        : transport
+          ? "catalog_unavailable"
+          : "buyer_input_required",
+      phase: external ? "external_call" : transport ? "catalog_delivery" : "guard",
       correlation_id: "correlation-terminal",
       operation_id: DISPATCH.operation_id,
       request_id: DISPATCH.request_id,
       public_message: external
         ? "Order status must be reconciled."
-        : "Buyer input is required.",
+        : transport
+          ? "The catalog is temporarily unavailable."
+          : "Buyer input is required.",
       recovery_directive: external ? "reconcile_unknown_order" : null,
       safe_details: {
         affected_capability: null,
@@ -107,14 +115,34 @@ describe("RouteDeck mutation failure classification", () => {
     },
   );
 
-  it("retains the exact request after a received server failure", async () => {
+  it("decodes a matching typed terminal transport failure from a 503 response", async () => {
+    const client = createRouteDeckClient({
+      baseUrl: "https://routedeck.test",
+      fetch: async () =>
+        new Response(JSON.stringify(typedOperationResult("failed")), {
+          status: 503,
+          headers: { "content-type": "application/json" },
+        }),
+    });
+
+    await expect(client.dispatch(DISPATCH)).resolves.toMatchObject({
+      disposition: "failed",
+      request_id: DISPATCH.request_id,
+      failure: {
+        kind: "transport",
+        public_message: "The catalog is temporarily unavailable.",
+      },
+    });
+  });
+
+  it("retains the exact request after a mismatched typed server failure", async () => {
     const client = createRouteDeckClient({
       baseUrl: "https://routedeck.test",
       fetch: async () =>
         new Response(
-          JSON.stringify(typedOperationResult("external_outcome_unknown")),
+          JSON.stringify(typedOperationResult("failed", "request-other")),
           {
-            status: 500,
+            status: 503,
             headers: { "content-type": "application/json" },
           },
         ),

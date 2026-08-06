@@ -422,8 +422,15 @@ def _validate_reachability(
     destinations: dict[str, list[str]] = {}
     for transition in transitions:
         destinations.setdefault(transition.source.id, []).append(transition.target.id)
-    reachable = {entry_node_id}
-    pending = deque([entry_node_id])
+    reachable = {
+        entry_node_id,
+        *(
+            node.id
+            for node in nodes
+            if node.route.deep_link_policy is DeepLinkPolicy.SHAREABLE
+        ),
+    }
+    pending = deque(reachable)
     while pending:
         source = pending.popleft()
         for target in destinations.get(source, []):

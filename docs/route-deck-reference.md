@@ -70,7 +70,9 @@ incoming transitions, validates the complete graph, and compiles it.
 Compilation fails on duplicate or conflicting identifiers, overlapping routes,
 unknown references, out-of-scope providers/guards, undeclared outcomes,
 ambiguous branches, unreachable nodes, invalid route entries, invalid public
-schemas, or incomplete write-recovery declarations.
+schemas, or incomplete write-recovery declarations. The application entry and
+shareable deep-link routes are external reachability roots; session-bound nodes
+must be reachable through declared transitions.
 
 ### `Node`
 

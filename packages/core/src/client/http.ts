@@ -75,6 +75,16 @@ export async function executeRouteDeckMutation<T>(options: {
       response.status >= 500 &&
       response.status <= 599
     ) {
+      if (options.decodeClientError !== undefined) {
+        try {
+          return requireMatchingMutationResponse(
+            options.decodeClientError(response),
+            options.requestId,
+          );
+        } catch (decodeError) {
+          if (!(decodeError instanceof RouteDeckContractError)) throw decodeError;
+        }
+      }
       throw new RouteDeckOutcomeUnknownError(
         options.requestId,
         "The RouteDeck mutation returned a server failure after delivery; its outcome is unknown.",
@@ -107,6 +117,21 @@ export async function executeRouteDeckMutation<T>(options: {
     }
     throw error;
   }
+}
+
+function requireMatchingMutationResponse<T>(value: T, requestId: string): T {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("request_id" in value) ||
+    value.request_id !== requestId
+  ) {
+    throw new RouteDeckContractError(
+      "$mutation.response.request_id",
+      "must match the mutation request id",
+    );
+  }
+  return value;
 }
 
 export function createRouteDeckHttpTransport(options: {

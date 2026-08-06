@@ -6,8 +6,12 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from routedeck_core.app import bind_app, compile_app
 from routedeck_core.contracts import operations
 from routedeck_core.contracts.failures import FailureKind, RouteDeckFailure
+from routedeck_core.contracts.navigation import DeepLinkPolicy
+from routedeck_core.contracts.session import ResumeCapabilityBinding
+from routedeck_core.state.session import create_session
 
 
 class FailingNotifier:
@@ -394,6 +398,65 @@ async def test_runner_executes_declared_provider_guard_handler_and_commits(
         operations.OperationPhase.COMPLETED,
     )
     assert len(notifier.notifications) == 1
+
+
+@pytest.mark.asyncio
+async def test_session_bound_self_transition_rotates_handle_and_projection_together(
+    runner_factory,
+    bound_app,
+    store,
+) -> None:
+    application = bound_app.app.application
+    feature = application.features[0]
+    node = feature.nodes[0]
+    session_bound_node = node.model_copy(
+        update={
+            "route": node.route.model_copy(
+                update={"deep_link_policy": DeepLinkPolicy.SESSION_BOUND}
+            )
+        }
+    )
+    session_bound_application = application.model_copy(
+        update={
+            "features": (
+                feature.model_copy(update={"nodes": (session_bound_node,)}),
+            )
+        }
+    )
+    compiled = compile_app(session_bound_application)
+    session_bound_app = bind_app(compiled, bound_app.bindings)
+    previous = store.sessions["session-1"]
+    initial_capability = ResumeCapabilityBinding(
+        handle="resume-initial",
+        session_id=previous.session_id,
+        node_id=session_bound_node.id,
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+    )
+    initial = create_session(
+        app=compiled,
+        session_id=previous.session_id,
+        private_state=previous.private_state.model_copy(
+            update={"resume_capabilities": (initial_capability,)}
+        ),
+        public_state=previous.public_state,
+    )
+    store.sessions[initial.session_id] = initial
+    runner = runner_factory(app=session_bound_app)
+
+    result = await runner.run(operation_request())
+    committed = store.sessions[initial.session_id]
+    current_capabilities = tuple(
+        capability
+        for capability in committed.private_state.resume_capabilities
+        if capability.node_id == committed.current.node_id
+        and capability.route_params == committed.current.route_params
+    )
+
+    assert result.disposition is operations.OperationDisposition.COMPLETED
+    assert len(current_capabilities) == 1
+    assert current_capabilities[0].handle != initial_capability.handle
+    assert committed.projection_version == initial.projection_version + 1
+    assert result.projection_version == committed.projection_version
 
 
 @pytest.mark.asyncio

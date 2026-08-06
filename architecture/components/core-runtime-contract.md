@@ -29,6 +29,9 @@ runtime-ownership decision.
 - Required per-Operation invocation-source eligibility, compiler validation for
   surface/suggestion/route bindings, public source projection, and central
   fail-closed enforcement before product execution.
+- Compiler reachability treats the application entry and every shareable
+  deep-link route as external entry roots. Session-bound nodes must remain
+  reachable through declared transitions.
 - `RouteDeckSessionAggregate` named actions for canonical state transitions.
 - `RouteDeckOperationRunner` and `RouteDeckNavigationRunner`.
 - `RouteDeckRuntimeServices`, containing the bound app, store, clock, notifier,

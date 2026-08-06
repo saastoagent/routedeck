@@ -116,6 +116,37 @@ def test_node_owns_outgoing_and_compiler_derives_incoming() -> None:
     assert compiled.graph.incoming[start.id] == ()
 
 
+def test_shareable_route_is_an_external_reachability_root() -> None:
+    start = Node(
+        id="test.start",
+        title="Start",
+        kind=NodeKind.SECTION,
+        route=Route(template="/", deep_link_policy=DeepLinkPolicy.SHAREABLE),
+        surfaces=SurfaceSlots(),
+    )
+    reset = Node(
+        id="test.reset",
+        title="Reset password",
+        kind=NodeKind.SECTION,
+        route=Route(
+            template="/reset-password",
+            deep_link_policy=DeepLinkPolicy.SHAREABLE,
+        ),
+        surfaces=SurfaceSlots(),
+    )
+
+    compiled = compile_app(
+        Application(
+            name="shareable-route-root",
+            entry_node=start.ref,
+            features=(Feature(namespace="test", nodes=(start, reset)),),
+        )
+    )
+
+    assert compiled.routes.match("/reset-password").node_id == reset.id
+    assert compiled.graph.incoming[reset.id] == ()
+
+
 def test_compiler_rejects_surface_affordance_without_surface_source() -> None:
     operation = Operation(
         id="test.agent_only",

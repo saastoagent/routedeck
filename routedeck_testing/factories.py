@@ -310,7 +310,15 @@ def invalid_app(mutation: str) -> Application:
             _END,
         )
     elif mutation == "unreachable_node":
-        nodes = (_START, _MIDDLE.model_copy(update={"outgoing": ()}), _END)
+        unreachable = _END.model_copy(
+            update={
+                "route": Route(
+                    template="/end",
+                    deep_link_policy=DeepLinkPolicy.SESSION_BOUND,
+                )
+            }
+        )
+        nodes = (_START, _MIDDLE.model_copy(update={"outgoing": ()}), unreachable)
     elif mutation == "hierarchy_cycle":
         nodes = (
             _START.model_copy(update={"parent": _END.ref}),

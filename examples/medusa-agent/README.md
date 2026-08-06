@@ -201,7 +201,8 @@ Requirements:
 
 - local Docker Desktop/Engine with Compose;
 - PowerShell;
-- an `OPENAI_API_KEY` for the complete ready buyer-agent stack.
+- local Ollama with `qwen3.5:4b` for the provisioned default, or an explicit
+  OpenAI-compatible endpoint, key, and model pair.
 
 No separate Medusa repository or starter checkout is required. The first
 provision builds `examples/medusa-agent/medusa` locally and installs exactly the
@@ -266,6 +267,7 @@ ROUTEDECK_GUEST_COOKIE_PATH
 ROUTEDECK_BROWSER_ORIGINS
 OPENAI_BUYER_MODEL
 OPENAI_ENTRY_MODEL
+OPENAI_BASE_URL (optional OpenAI-compatible endpoint)
 ```
 
 The RouteDeck instance, TTLs, worker count, cookie settings, and allowed browser
@@ -275,14 +277,22 @@ HTTP provisioner writes explicit guest values, including
 values and may replace the guest adapter with an authenticated
 `RouteDeckSessionSelector`.
 
-`OPENAI_API_KEY` is optional for API-process liveness but required for live
-chat and full application readiness. When it is absent,
+`OPENAI_API_KEY` is optional for API-process liveness but an explicit key is
+required for live chat and full application readiness. OpenAI requires a real
+credential; the local Ollama compatibility endpoint uses the nominal value
+`ollama`. When the key is absent,
 `POST /api/routedeck/chat` fails visibly with `503 dependency_unavailable`,
 `GET /api/medusa-agent/ready` returns `503`, and the Compose-gated frontend
 waits. Add the key to `.env.local` and recreate the application services to
 enable the complete buyer agent. The buyer and entry model roles are explicit
 and required; neither inherits the other role's configuration. Do not add a
 fallback credential or model.
+
+`OPENAI_BASE_URL` is optional. When supplied, both explicit model roles use
+that OpenAI-compatible endpoint; the key and models remain required and no
+provider fallback is attempted. For local Ollama in the Compose stack, use
+`http://host.docker.internal:11434/v1/` with a locally present model and the
+nominal compatibility key `ollama`.
 
 The live-model release smoke also requires this key. This README does not claim
 that smoke has passed.

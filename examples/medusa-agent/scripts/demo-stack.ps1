@@ -95,10 +95,11 @@ function Ensure-EnvironmentFile {
             "ROUTEDECK_GUEST_COOKIE_NAME=routedeck_guest",
             "ROUTEDECK_GUEST_COOKIE_SECURE=false",
             "ROUTEDECK_GUEST_COOKIE_PATH=/",
-            "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5198,http://localhost:5198",
-            "OPENAI_BUYER_MODEL=gpt-5.4-nano",
-            "OPENAI_ENTRY_MODEL=gpt-5.4-nano",
-            "OPENAI_API_KEY="
+            "ROUTEDECK_BROWSER_ORIGINS=http://127.0.0.1:5198,http://localhost:5198,http://127.0.0.1:5280,http://localhost:5280",
+            "OPENAI_BUYER_MODEL=qwen3.5:4b",
+            "OPENAI_ENTRY_MODEL=qwen3.5:4b",
+            "OPENAI_API_KEY=ollama",
+            "OPENAI_BASE_URL=http://host.docker.internal:11434/v1/"
         )
         [IO.File]::WriteAllLines($EnvironmentFile, $lines, [Text.UTF8Encoding]::new($false))
     }
