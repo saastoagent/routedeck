@@ -65,6 +65,11 @@ canonical Python turn contract.
   against the compiled frontend contract before rendering. Missing components
   and stale extra registrations produce the visible
   `surface_registry_mismatch` failure.
+- `RouteDeckSurfaceHost` derives synchronization readiness from the canonical
+  store. Every projected Surface is `aria-busy` and inert whenever the store is
+  not `live`, and affordance dispatch fails with `store_not_ready` if invoked
+  during that window. Consumers keep their Surface mounted and do not recreate
+  this lifecycle gate.
 - `useRouteDeckConversationInputPolicy()` resolves the current node's typed,
   static conversation-input contract. The framework owns contract validation
   and current-node lookup; the consumer owns node declarations and disabled
@@ -131,6 +136,7 @@ pnpm --dir packages/core exec vitest run --config vitest.config.ts src/conversat
 pnpm --filter @routedeck/core typecheck
 pnpm --filter @routedeck/react typecheck
 pnpm --filter @routedeck/react test
+pnpm --filter @routedeck/react build
 ```
 
 Update this document when strict decoding, assistant/chat clients, observable

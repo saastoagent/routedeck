@@ -201,6 +201,10 @@ A surface affordance names a semantic UI event and, when state-changing, an
 exact operation. `RouteDeckSurfaceHost` resolves the affordance from the
 compiled contract and sends it through the same dispatch path as an agent tool.
 Raw UI events do not become application truth or model instructions.
+The host keeps every projected surface busy and inert whenever the client store
+is not `live`, including bootstrap, navigation, reconnect, and resynchronization
+windows. A stale rendered control therefore cannot dispatch into a store that
+is still reconciling its authoritative projection.
 
 ### Stable and ephemeral state
 
@@ -538,7 +542,8 @@ turn claim so its request ID is immediately discoverable.
   application during post-ready projection resync/reconnect, and expose only
   recovery actions legal for the current canonical store state;
 - `RouteDeckProvider` and selectors/hooks;
-- `RouteDeckSurfaceHost` plus a product component registry;
+- `RouteDeckSurfaceHost` plus a product component registry, with surface
+  interaction gated on the canonical store being `live`;
 - private-form, review, navigation, status, and error primitives;
 - `useRouteDeckConversation` for the browser turn lifecycle and attachment to
   a projected `activeRunRequestId`;

@@ -2,6 +2,7 @@ import { useCallback, type ReactNode } from "react";
 import { RouteDeckStateError, type RouteDeckProjectedSurface } from "@routedeck/core";
 
 import { useRouteDeckContract, useRouteDeckProjection } from "../hooks/projection";
+import { useRouteDeckSyncStatus } from "../hooks/status";
 import {
   useRouteDeckDispatch,
   useRouteDeckMutationRecovery,
@@ -42,6 +43,7 @@ export function RouteDeckSurfaceHost({
 }: RouteDeckSurfaceHostProps) {
   const contract = useRouteDeckContract();
   const projection = useRouteDeckProjection();
+  const syncStatus = useRouteDeckSyncStatus();
   try {
     validateRouteDeckSurfaceRegistry(contract, registry);
   } catch (error) {
@@ -62,6 +64,7 @@ export function RouteDeckSurfaceHost({
   });
   if (entries.length === 0) return <>{empty}</>;
   const interactionBusy = projection.interaction.phase === "active";
+  const synchronizationBusy = syncStatus !== "live";
 
   return (
     <div className={className} data-routedeck-surface-host="">
@@ -73,6 +76,7 @@ export function RouteDeckSurfaceHost({
           registry={registry}
           projectionVersion={projection.projection_version}
           interactionBusy={interactionBusy}
+          synchronizationBusy={synchronizationBusy}
         />
       ))}
     </div>
@@ -85,12 +89,14 @@ function SurfaceRenderer({
   registry,
   projectionVersion,
   interactionBusy,
+  synchronizationBusy,
 }: {
   surface: RouteDeckProjectedSurface;
   slot: RouteDeckSurfaceSlot;
   registry: RouteDeckSurfaceRegistry;
   projectionVersion: number;
   interactionBusy: boolean;
+  synchronizationBusy: boolean;
 }) {
   const contract = useRouteDeckContract();
   const dispatch = useRouteDeckDispatch();
@@ -100,6 +106,12 @@ function SurfaceRenderer({
 
   const dispatchAffordance = useCallback(
     async (affordanceId: string, argumentsValue = {}) => {
+      if (synchronizationBusy) {
+        throw new RouteDeckStateError(
+          "store_not_ready",
+          "RouteDeck is synchronizing the active surface.",
+        );
+      }
       if (interactionBusy) {
         throw new RouteDeckStateError(
           "interaction_in_progress",
@@ -122,7 +134,7 @@ function SurfaceRenderer({
       }
       return dispatch(operationId, argumentsValue);
     },
-    [dispatch, interactionBusy, spec, surface.surface_id],
+    [dispatch, interactionBusy, spec, surface.surface_id, synchronizationBusy],
   );
 
   if (!spec || spec.component !== surface.component) {
@@ -150,8 +162,8 @@ function SurfaceRenderer({
   return (
     <section
       key={lifecycleKey}
-      aria-busy={mutation.inFlight || interactionBusy}
-      inert={mutation.inFlight || interactionBusy}
+      aria-busy={mutation.inFlight || interactionBusy || synchronizationBusy}
+      inert={mutation.inFlight || interactionBusy || synchronizationBusy}
       data-routedeck-slot={slot}
       data-routedeck-surface={surface.surface_id}
     >

@@ -134,6 +134,17 @@ committed runtime mutation
   -> product React surfaces + conversation + read-only Navgraph
 ```
 
+Projected Surface interaction follows the same authority:
+
+```text
+projected Surface remains mounted
+  -> store is bootstrapping/navigating/reconnecting/resynchronizing: busy + inert
+  -> store becomes live: affordance may dispatch
+  -> exact declared operation crosses the one supervised runner
+```
+
+The product does not infer readiness or dispatch around the Surface host.
+
 Private IDs/form values and diagnostic-only data do not enter public event or
 model channels.
 

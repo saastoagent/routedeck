@@ -154,6 +154,12 @@ compiled frontend contract exactly. `RouteDeckSurfaceHost` fails visibly for
 missing registrations and stale extras instead of discovering drift only when
 a particular surface becomes active.
 
+Projected surfaces remain mounted but busy and inert while the canonical
+client store is bootstrapping, navigating, reconnecting, or resynchronizing.
+Do not add product-owned readiness checks or call operation dispatch around the
+Surface host; controls become interactive only after the store returns to
+`live`.
+
 ## 6. Open One Runtime
 
 For durable applications, pass product inputs to the SQLAlchemy opener:
