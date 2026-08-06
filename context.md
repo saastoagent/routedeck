@@ -1,9 +1,9 @@
 # RouteDeck Current Context
 
 Updated: 2026-08-06
-Status: public source repository; surface synchronization gating complete and
-ready for publication on `main`. No PyPI or npm registry publication is
-claimed.
+Status: public source repository; surface synchronization gating is published
+on `main` in implementation commit `54b687e`. No PyPI or npm registry
+publication is claimed.
 
 ## Current Authority
 

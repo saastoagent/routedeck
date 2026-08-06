@@ -19,6 +19,9 @@ their component rendering and copy; they do not recreate store readiness.
 | Canonical contract | `docs/route-deck-reference.md` | Surface Contract and Headless/React package sections |
 | Consumer acceptance | Corpus `scripts/run_public_lounge_recording.py` | run `20260806T173245Z-898d846f57`: public chat -> Sign in -> Back to Lounge passed 2/2 with zero HTTP, console, or page errors |
 
+Published implementation commits: RouteDeck `54b687e`; Corpus acceptance and
+audit `755b4b9`.
+
 The pre-fix failure remains useful negative evidence: a stale Sign-in Surface
 could invoke Back to Lounge while `syncStatus="resyncing"`, and the operation
 coordinator correctly rejected the non-live store. The fix does not weaken

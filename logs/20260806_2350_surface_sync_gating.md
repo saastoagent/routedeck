@@ -62,3 +62,13 @@ change and are not staged or published.
 Registry publication and clean registry-install verification remain pending.
 This closeout makes no Medusa live-commerce, protected-stack, PyPI, or npm
 release claim.
+
+## Git Publication
+
+- RouteDeck implementation and closeout commit `54b687e`
+  (`fix(react): gate surfaces during synchronization`) was pushed to
+  `origin/main`.
+- Corpus consumer acceptance and closeout commit `755b4b9`
+  (`fix(corpus): cover post-chat surface lifecycle`) was pushed to its
+  `origin/main`.
+- Historical untracked artifacts and `design-qa.md` remain local.

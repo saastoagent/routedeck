@@ -17,6 +17,9 @@ Corpus provided the real consumer acceptance path: public chat -> Sign in ->
 Back to Lounge passed 2/2 in run `20260806T173245Z-898d846f57` with no HTTP,
 console, or page errors.
 
+RouteDeck commit `54b687e` and Corpus commit `755b4b9` are published on their
+respective `origin/main` branches.
+
 ## Validation
 
 - RouteDeck React: 23/23 tests.
